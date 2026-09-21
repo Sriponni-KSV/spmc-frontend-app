@@ -36,19 +36,19 @@ class NurseNavConfig {
   /// Home Visit Care & Services (Visible)
   static const bool showHomeVisitCare = true;
 
-  /// Appointments (Hidden - Change to true to display)
-  static const bool showAppointments = false;
+  /// Appointments (Visible)
+  static const bool showAppointments = true;
 
   /// Doctors Directory (Hidden - Change to true to display)
   static const bool showDoctors = false;
 
-  /// OPD Assistance (Hidden - Change to true to display)
-  static const bool showOpdAssistance = false;
+  /// OPD Assistance (Visible)
+  static const bool showOpdAssistance = true;
 
-  /// IPD Management (Hidden - Change to true to display)
+  /// IPD Management (Hidden)
   static const bool showIpdManagement = false;
 
-  /// OT Management (Hidden - Change to true to display)
+  /// OT Management (Hidden)
   static const bool showOtManagement = false;
 
   /// Profile Screen (Hidden - Change to true to display)

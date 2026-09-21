@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -24,6 +25,7 @@ import 'ot_dictation_dashboard.dart';
 import '../controllers/ot_controller.dart';
 import '../controllers/lab_controller.dart';
 import '../controllers/notification_controller.dart';
+import '../config/doctor_nav_config.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
@@ -633,7 +635,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error starting consultation: $e'),
+            content: Text(e.toString().replaceAll('Exception: ', '')),
             backgroundColor: Colors.red,
           ),
         );
@@ -717,18 +719,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: AppTheme.backgroundColor,
         drawer: isMobile ? Drawer(child: _buildSidebar(isMobile)) : null,
         floatingActionButton: null,
-        body: Row(
-          children: [
-            if (!isMobile) _buildSidebar(isMobile),
-            Expanded(
-              child: Column(
+        body: SafeArea(
+          bottom: false,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxHeight < 50 || constraints.maxWidth < 50) {
+                return const SizedBox.shrink();
+              }
+              return Row(
                 children: [
-                  if (_selectedIndex != 0) _buildHeader(isMobile, user?.rawFullname ?? 'Doctor'),
-                  Expanded(child: _buildMainContent(isMobile)),
+                  if (!isMobile) _buildSidebar(isMobile),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        if (_selectedIndex != 0) _buildHeader(isMobile, user?.rawFullname ?? 'Doctor'),
+                        Expanded(child: _buildMainContent(isMobile)),
+                      ],
+                    ),
+                  ),
                 ],
-              ),
-            ),
-          ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -1044,9 +1056,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _buildFilterSidebar(patientConsuls, sortedYears),
-                            const SizedBox(height: 20),
-                            _buildSearchAndDetailsPanel(filtered, patientConsuls),
+                            _buildMobileFilterChips(patientConsuls, sortedYears),
+                            const SizedBox(height: 16),
+                            _buildSearchAndDetailsPanel(filtered, patientConsuls, isMobile: true),
                           ],
                         )
                       else
@@ -1059,7 +1071,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                             const SizedBox(width: 24),
                             Expanded(
-                              child: _buildSearchAndDetailsPanel(filtered, patientConsuls),
+                              child: _buildSearchAndDetailsPanel(filtered, patientConsuls, isMobile: false),
                             ),
                           ],
                         ),
@@ -1070,6 +1082,107 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMobileFilterChips(
+    List<Map<String, dynamic>> patientConsuls,
+    List<int> sortedYears,
+  ) {
+    final allCount = patientConsuls.length;
+    final Map<int, int> yearCounts = {};
+    for (var yr in sortedYears) {
+      yearCounts[yr] = patientConsuls.where((c) {
+        final dt = _getConsultationDateTime(c);
+        return dt.year == yr;
+      }).length;
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _buildPillFilterChip(
+            label: 'All',
+            count: allCount,
+            isActive: _selectedConsultationYearFilter == 'All',
+            onTap: () => setState(() => _selectedConsultationYearFilter = 'All'),
+          ),
+          const SizedBox(width: 8),
+          ...sortedYears.map((yr) {
+            final count = yearCounts[yr] ?? 0;
+            final label = yr.toString();
+            return Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: _buildPillFilterChip(
+                label: label,
+                count: count,
+                isActive: _selectedConsultationYearFilter == label,
+                onTap: () => setState(() => _selectedConsultationYearFilter = label),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPillFilterChip({
+    required String label,
+    required int count,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: isActive ? AppTheme.primaryColor : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? AppTheme.primaryColor : const Color(0xFFCBD5E1),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                color: isActive ? Colors.white : const Color(0xFF2D3748),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+              decoration: BoxDecoration(
+                color: isActive ? Colors.white.withOpacity(0.25) : const Color(0xFFE2E8F0),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: isActive ? Colors.white : const Color(0xFF4A5568),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1140,7 +1253,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFFFFF5F5) : Colors.transparent,
+        color: isActive ? const Color(0xFFF1F7FB) : Colors.transparent,
         borderRadius: const BorderRadius.only(
           topRight: Radius.circular(8),
           bottomRight: Radius.circular(8),
@@ -1200,33 +1313,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildSearchAndDetailsPanel(
     List<Map<String, dynamic>> filtered,
-    List<Map<String, dynamic>> patientConsuls,
-  ) {
+    List<Map<String, dynamic>> patientConsuls, {
+    bool isMobile = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
-        Row(
-          children: [
-            const SizedBox(width: 16),
-            const Text(
-              'Date',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
-                fontSize: 13,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          child: Row(
+            children: const [
+              Text(
+                'Date & Time / Consultation Details',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryColor,
+                  fontSize: 13,
+                ),
               ),
-            ),
-            const SizedBox(width: 200),
-            const Text(
-              'Consultation Details',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryColor,
-                fontSize: 13,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
         const SizedBox(height: 12),
 
@@ -1249,12 +1355,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             itemCount: filtered.length,
             itemBuilder: (context, index) {
               final c = filtered[index];
-              return Card(
-                elevation: 0,
+              return Container(
                 margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  side: BorderSide(color: Colors.grey.shade200),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFCBD5E1), width: 1.0),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Theme(
@@ -1262,19 +1368,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     dividerColor: Colors.transparent,
                   ),
                   child: ExpansionTile(
-                    backgroundColor: const Color(0xFFF7FAFC),
-                    collapsedBackgroundColor: const Color(0xFFF7FAFC),
+                    backgroundColor: Colors.white,
+                    collapsedBackgroundColor: Colors.white,
                     iconColor: AppTheme.primaryColor,
                     collapsedIconColor: AppTheme.primaryColor,
                     title: Text(
                       '${_formatConsultationDateText(c)} / ${_formatConsultationTimeText(c)}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF2D3748),
+                        color: Color(0xFF1E293B),
                         fontSize: 13,
                       ),
                     ),
-                    childrenPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                    childrenPadding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 14 : 20,
+                      vertical: isMobile ? 12 : 16,
+                    ),
                     expandedCrossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildConsultationDetailsGrid(c, index, patientConsuls),
@@ -1346,7 +1455,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _buildGridRow(
           'Doctor',
           doctor,
-          customValueWidget: Row(
+          customValueWidget: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
             children: [
               Text(
                 doctor,
@@ -1356,7 +1468,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: Color(0xFF2D3748),
                 ),
               ),
-              const SizedBox(width: 8),
               Text(
                 '($dept)',
                 style: TextStyle(
@@ -1365,7 +1476,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: AppTheme.primaryColor,
                 ),
               ),
-              const SizedBox(width: 12),
               _buildEditPencilButton(c),
             ],
           ),
@@ -1497,14 +1607,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                testName,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryColor,
+                              Expanded(
+                                child: Text(
+                                  testName,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
@@ -1527,41 +1641,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             const Divider(height: 8),
                             const SizedBox(height: 4),
                             ...params.map<Widget>((p) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 2.0),
-                                child: Row(
+                              final paramName = p['parameter'] ?? '';
+                              final valStr = '${p['value'] ?? ''} ${p['unit'] ?? ''}'.trim();
+                              final refRange = p['reference_range']?.toString().trim() ?? '';
+                              return Container(
+                                margin: const EdgeInsets.symmetric(vertical: 3.0),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.grey.shade200),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        p['parameter'] ?? '',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppTheme.textSecondaryColor,
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            paramName,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF2D3748),
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 1,
-                                      child: Text(
-                                        '${p['value'] ?? ''} ${p['unit'] ?? ''}',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          valStr,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryColor,
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                     ),
-                                    Expanded(
-                                      flex: 1,
-                                      child: Text(
-                                        'Ref: ${p['reference_range'] ?? 'Normal'}',
-                                        style: const TextStyle(
+                                    if (refRange.isNotEmpty && refRange != 'Normal') ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Ref: $refRange',
+                                        style: TextStyle(
                                           fontSize: 10,
-                                          color: Colors.grey,
+                                          color: Colors.grey.shade600,
+                                          fontStyle: FontStyle.italic,
                                         ),
-                                        textAlign: TextAlign.end,
                                       ),
-                                    ),
+                                    ],
                                   ],
                                 ),
                               );
@@ -1584,12 +1713,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               children: [
                                 const Icon(Icons.attach_file, size: 12, color: Colors.red),
                                 const SizedBox(width: 4),
-                                Text(
-                                  'Report: ${labReq['attachment_url']}',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black87,
+                                Expanded(
+                                  child: Text(
+                                    'Report: ${labReq['attachment_url']}',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                               ],
@@ -1651,85 +1783,136 @@ class _DashboardScreenState extends State<DashboardScreen> {
     Widget? customValueWidget,
     bool isHeader = false,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 150,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isHeader ? const Color(0xFF2D3748) : AppTheme.primaryColor,
-              fontSize: 13,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool isCompact = constraints.maxWidth < 650;
+        if (isCompact) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: isHeader ? const Color(0xFF2D3748) : AppTheme.primaryColor,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                customValueWidget ??
+                    Text(
+                      value ?? '',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isHeader ? FontWeight.w600 : FontWeight.normal,
+                        color: const Color(0xFF2D3748),
+                      ),
+                    ),
+              ],
             ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: customValueWidget ??
-              Text(
-                value ?? '',
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 140,
+              child: Text(
+                label,
                 style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: isHeader ? const Color(0xFF2D3748) : AppTheme.primaryColor,
                   fontSize: 13,
-                  fontWeight: isHeader ? FontWeight.w600 : FontWeight.normal,
-                  color: const Color(0xFF2D3748),
                 ),
               ),
-        ),
-      ],
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: customValueWidget ??
+                  Text(
+                    value ?? '',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isHeader ? FontWeight.w600 : FontWeight.normal,
+                      color: const Color(0xFF2D3748),
+                    ),
+                  ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildEditPencilButton(Map<String, dynamic> c) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Material(
-        color: const Color(0xFF718096),
-        borderRadius: BorderRadius.circular(4),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(4),
-          onTap: () {
-            final appt = AppointmentModel(
-              id: c['appointment_id'] is int
-                  ? c['appointment_id']
-                  : int.tryParse(c['appointment_id']?.toString() ?? ''),
-              patientId: c['patient_id'] is int
-                  ? c['patient_id']
-                  : int.tryParse(c['patient_id']?.toString() ?? '') ?? 0,
-              patientName: c['patient_name'] ?? _selectedPatientName ?? '',
-              department: c['department'] ?? 'General',
-              doctorName: c['doctor_name'] ?? '',
-              appointmentDate: DateFormatter.toUi(c['appointment_date']),
-              appointmentTime: c['appointment_time'] ?? '',
-              patientPhone: c['patient_phone']?.toString(),
-              patientGender: c['patient_gender']?.toString(),
-              bloodPressureSystolic: c['blood_pressure_systolic'] is int
-                  ? c['blood_pressure_systolic']
-                  : int.tryParse(c['blood_pressure_systolic']?.toString() ?? ''),
-              bloodPressureDiastolic: c['blood_pressure_diastolic'] is int
-                  ? c['blood_pressure_diastolic']
-                  : int.tryParse(c['blood_pressure_diastolic']?.toString() ?? ''),
-              sugarLevel: c['sugar_level'] != null
-                  ? double.tryParse(c['sugar_level'].toString())
-                  : null,
-              temperature: c['temperature'] != null
-                  ? double.tryParse(c['temperature'].toString())
-                  : null,
-              reasonForVisit: c['reason_for_visit'] ?? c['symptoms'] ?? '',
-              status: c['status'] ?? 'Completed',
-              appointmentType: c['appointment_type'] ?? 'Routine',
-            );
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () {
+          final appt = AppointmentModel(
+            id: c['appointment_id'] is int
+                ? c['appointment_id']
+                : int.tryParse(c['appointment_id']?.toString() ?? ''),
+            patientId: c['patient_id'] is int
+                ? c['patient_id']
+                : int.tryParse(c['patient_id']?.toString() ?? '') ?? 0,
+            patientName: c['patient_name'] ?? _selectedPatientName ?? '',
+            department: c['department'] ?? 'General',
+            doctorName: c['doctor_name'] ?? '',
+            appointmentDate: DateFormatter.toUi(c['appointment_date']),
+            appointmentTime: c['appointment_time'] ?? '',
+            patientPhone: c['patient_phone']?.toString(),
+            patientGender: c['patient_gender']?.toString(),
+            bloodPressureSystolic: c['blood_pressure_systolic'] is int
+                ? c['blood_pressure_systolic']
+                : int.tryParse(c['blood_pressure_systolic']?.toString() ?? ''),
+            bloodPressureDiastolic: c['blood_pressure_diastolic'] is int
+                ? c['blood_pressure_diastolic']
+                : int.tryParse(c['blood_pressure_diastolic']?.toString() ?? ''),
+            sugarLevel: c['sugar_level'] != null
+                ? double.tryParse(c['sugar_level'].toString())
+                : null,
+            temperature: c['temperature'] != null
+                ? double.tryParse(c['temperature'].toString())
+                : null,
+            reasonForVisit: c['reason_for_visit'] ?? c['symptoms'] ?? '',
+            status: c['status'] ?? 'Completed',
+            appointmentType: c['appointment_type'] ?? 'Routine',
+          );
 
-            context.go(AppRoutes.doctorConsultationsEdit, extra: appt);
-          },
-          child: const Padding(
-            padding: EdgeInsets.all(6.0),
-            child: Icon(
-              Icons.edit,
-              size: 16,
-              color: Colors.white,
+          context.go(AppRoutes.doctorConsultationsEdit, extra: appt);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: AppTheme.primaryColor.withOpacity(0.2),
+              width: 1.0,
             ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(
+                Icons.edit_outlined,
+                size: 13,
+                color: AppTheme.primaryColor,
+              ),
+              SizedBox(width: 4),
+              Text(
+                'Edit',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -2139,54 +2322,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           // ── Primary Information Card (Name, Email, Bio) ────────────────
           Container(
-            padding: const EdgeInsets.all(AppTheme.paddingLarge),
+            padding: EdgeInsets.all(isMobile ? 16 : AppTheme.paddingLarge),
             decoration: AppTheme.cardDecoration,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppTheme.primaryColor, Color(0xFF1E3A8A)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryColor.withOpacity(0.3),
-                            blurRadius: 15,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          user?.rawFullname?.isNotEmpty == true
-                              ? user!.rawFullname![0].toUpperCase()
-                              : 'D',
-                          style: const TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 32),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final bool isVeryNarrow = constraints.maxWidth < 450;
+                    if (isVeryNarrow) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
+                          Center(
+                            child: Container(
+                              width: 90,
+                              height: 90,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [AppTheme.primaryColor, Color(0xFF1E3A8A)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.primaryColor.withOpacity(0.3),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  user?.rawFullname?.isNotEmpty == true
+                                      ? user!.rawFullname![0].toUpperCase()
+                                      : 'D',
+                                  style: const TextStyle(
+                                    fontSize: 38,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           Text(
                             user?.rawFullname ?? 'Doctor',
+                            textAlign: TextAlign.center,
                             style: const TextStyle(
-                              fontSize: 28,
+                              fontSize: 22,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF2D3748),
                             ),
@@ -2195,15 +2381,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           if (user?.specialization != null)
                             Text(
                               user!.specialization!,
+                              textAlign: TextAlign.center,
                               style: const TextStyle(
                                 color: Color(0xFF718096),
-                                fontSize: 16,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
                           const SizedBox(height: 2),
                           Text(
                             user?.role ?? 'Doctor',
+                            textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: Color(0xFFC53030),
                               fontSize: 13,
@@ -2211,9 +2399,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                         ],
-                      ),
-                    ),
-                  ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [AppTheme.primaryColor, Color(0xFF1E3A8A)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryColor.withOpacity(0.3),
+                                blurRadius: 15,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(
+                              user?.rawFullname?.isNotEmpty == true
+                                  ? user!.rawFullname![0].toUpperCase()
+                                  : 'D',
+                              style: const TextStyle(
+                                fontSize: 44,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                user?.rawFullname ?? 'Doctor',
+                                style: const TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2D3748),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              if (user?.specialization != null)
+                                Text(
+                                  user!.specialization!,
+                                  style: const TextStyle(
+                                    color: Color(0xFF718096),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              const SizedBox(height: 2),
+                              Text(
+                                user?.role ?? 'Doctor',
+                                style: const TextStyle(
+                                  color: Color(0xFFC53030),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 if (user?.bio != null && user!.bio!.isNotEmpty) ...[
                   const SizedBox(height: 24),
@@ -2535,7 +2794,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       List<Widget> fields,
     ) {
       return Container(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
@@ -2572,12 +2831,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
                   ),
                 ),
               ],
@@ -2784,92 +3045,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         maxLength: 10,
                         isReadOnly: true,
                         isRequired: false,
-                      ),
-                      const SizedBox(height: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          RichText(
-                            text: const TextSpan(
-                              children: [
-                                TextSpan(
-                                  text: 'Bio / Professional Summary',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: ' *',
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _bioController,
-                            focusNode: _bioFocusNode,
-                            maxLines: 3,
-                            maxLength: 255,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,\-]')),
-                            ],
-                            style: const TextStyle(
-                              color: AppTheme.textPrimaryColor,
-                              fontWeight: FontWeight.normal,
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Please enter your bio / professional summary';
-                              }
-                              if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
-                                return 'Bio must contain letters and cannot consist only of special characters or numbers';
-                              }
-                              if (!RegExp(r'^[a-zA-Z0-9\s.,\-]+$').hasMatch(value)) {
-                                return 'Special characters are not allowed';
-                              }
-                              if (value.trim().length > 255) {
-                                return 'Bio cannot exceed 255 characters';
-                              }
-                              return null;
-                            },
-                            decoration: InputDecoration(
-                              counterText: '',
-                              hintText:
-                                  'Share a brief summary of your expertise...',
-                              hintStyle: const TextStyle(
-                                color: Colors.grey,
-                                fontSize: 14,
-                              ),
-                              fillColor: AppTheme.backgroundColor,
-                              filled: true,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.2),
-                                ),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: BorderSide(
-                                  color: Colors.grey.withOpacity(0.2),
-                                ),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(8),
-                                borderSide: const BorderSide(
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ] else
                       Row(
@@ -3680,10 +3855,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
               // ── Save Button ───────────────────────────────────
               const SizedBox(height: 48),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 16,
+                runSpacing: 12,
                 children: [
-                  if (hasTimings || user?.role != 'Doctor') ...[
+                  if (hasTimings || user?.role != 'Doctor')
                     OutlinedButton(
                       onPressed: () => GoRouter.of(context).go(AppRoutes.doctorProfile),
                       style: AppTheme.cancelButton.copyWith(
@@ -3693,13 +3871,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       child: const Text('Cancel'),
                     ),
-                    const SizedBox(width: 16),
-                  ],
                   ElevatedButton(
                     onPressed: _isLoading ? null : _saveProfile,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.logoRed,
-                      minimumSize: const Size(200, 48),
+                      minimumSize: Size(isMobile ? 140 : 200, 48),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -3722,7 +3898,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                   ),
-                  const SizedBox(width: 24),
                 ],
               ),
               const SizedBox(height: 32),
@@ -3946,21 +4121,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         // Fixed Top Bar
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+          padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, isMobile ? 8 : 20, isMobile ? 16 : 24, isMobile ? 6 : 10),
           color: Colors.transparent,
           child: _buildBannerTopBar(isMobile),
         ),
         // Scrollable Content
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16.0 : 24.0, vertical: isMobile ? 12.0 : 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildGreeting(),
-                const SizedBox(height: 24),
+                _buildGreeting(isMobile),
+                SizedBox(height: isMobile ? 16 : 24),
                 _buildStatsRow(isMobile),
-                const SizedBox(height: 24),
+                SizedBox(height: isMobile ? 16 : 24),
                 _buildPatientsTable(),
               ],
             ),
@@ -4000,50 +4175,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-          // Navigation Items (Scrollable)
+          // Navigation Items (Scrollable Area driven by DoctorNavConfig)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Column(
-                children: [
-                  if (isAnaesthetist) ...[
-                    _buildSidebarItem(0, Icons.grid_view_outlined, 'Dashboard'),
-                    _buildSidebarItem(
-                      4,
-                      Icons.healing_outlined,
-                      'OT Management',
-                    ),
-                    _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
-                  ] else ...[
-                    _buildSidebarItem(0, Icons.grid_view_outlined, 'Dashboard'),
-                    _buildSidebarItem(
-                      1,
-                      Icons.history_edu_outlined,
-                      'My Consultations',
-                    ),
-                    _buildSidebarItem(
-                      6,
-                      Icons.science_outlined,
-                      'Lab Reports',
-                    ),
-                    _buildSidebarItem(
-                      3,
-                      Icons.local_hospital_outlined,
-                      'IPD Management',
-                    ),
-                    _buildSidebarItem(
-                      4,
-                      Icons.healing_outlined,
-                      'OT Management',
-                    ),
-                    _buildSidebarItem(
-                      5,
-                      Icons.mic_none_outlined,
-                      'AI Dictation',
-                    ),
-                    _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
-                  ],
-                ],
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: DoctorNavConfig.getVisibleNavItems(user)
+                    .map(
+                      (item) => _buildSidebarItem(
+                        item.index,
+                        item.icon,
+                        item.label,
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ),
@@ -4208,105 +4354,140 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildBannerTopBar(bool isMobile) {
-    return Row(
-      children: [
-        if (isMobile)
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(
-                Icons.menu,
-                color: AppTheme.textSecondaryColor,
-              ),
-              onPressed: () => Scaffold.of(context).openDrawer(),
-            ),
-          ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double width = constraints.maxWidth;
+        final bool isCompact = width < 520;
+        final bool isMedium = width < 850;
 
-        Expanded(
-          child: InkWell(
-            onTap: _showSearchOverlay,
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              height: 40,
-              constraints: const BoxConstraints(maxWidth: 400),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.search,
-                    size: 18,
+        return Row(
+          children: [
+            if (isMobile)
+              Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(
+                    Icons.menu,
                     color: AppTheme.textSecondaryColor,
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    isMobile ? 'Search...' : 'Quick search...',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textSecondaryColor,
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
+
+            // Responsive Quick Search
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: InkWell(
+                  onTap: _showSearchOverlay,
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    height: 40,
+                    constraints: const BoxConstraints(maxWidth: 380),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.search,
+                          size: 18,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            isCompact ? 'Search...' : 'Quick search (e.g. Patient ID, Name)...',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ),
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // Notification Bell (rendered when space allows)
+            if (width >= 320)
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _notifications.any((n) => n['is_read'] == false)
+                          ? Icons.notifications_active_outlined
+                          : Icons.notifications_none_outlined,
+                      color: _notifications.any((n) => n['is_read'] == false)
+                          ? AppTheme.logoRed
+                          : AppTheme.textSecondaryColor,
+                    ),
+                    onPressed: _showNotificationsOverlay,
+                    tooltip: 'Notifications',
+                  ),
+                  if (_notifications.any((n) => n['is_read'] == false))
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 10,
+                          minHeight: 10,
+                        ),
+                      ),
+                    ),
                 ],
               ),
-            ),
-          ),
-        ),
 
-        if (!isMobile) ...[
-          const SizedBox(width: 24),
-          const Spacer(),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
+            // Help & Share on larger screens
+            if (!isMedium && !isMobile) ...[
+              const SizedBox(width: 8),
               IconButton(
-                icon: Icon(
-                  (_notifications ?? []).any((n) => n['is_read'] == false)
-                      ? Icons.notifications_active_outlined
-                      : Icons.notifications_none_outlined,
-                  color: (_notifications ?? []).any((n) => n['is_read'] == false)
-                      ? AppTheme.logoRed
-                      : AppTheme.textSecondaryColor,
-                ),
-                onPressed: _showNotificationsOverlay,
+                icon: const Icon(Icons.help_outline, color: AppTheme.textSecondaryColor),
+                onPressed: () {},
+                tooltip: 'Help',
               ),
-              if ((_notifications ?? []).any((n) => n['is_read'] == false))
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 10,
-                      minHeight: 10,
-                    ),
-                  ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  minimumSize: const Size(70, 36),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
+                child: const Text('Share', style: TextStyle(fontSize: 13)),
+              ),
             ],
-          ),
-          const SizedBox(width: 16),
-          const Icon(Icons.help_outline, color: AppTheme.textSecondaryColor),
-          const SizedBox(width: 16),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              minimumSize: const Size(80, 40),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-            ),
-            child: const Text('Share', style: TextStyle(fontSize: 14)),
-          ),
-        ],
-        SizedBox(width: isMobile ? 12 : 24),
 
-        // Date & Time
-        const LiveClock(),
-      ],
+            // Date & Time Clock on screens with sufficient space
+            if (!isCompact) ...[
+              const SizedBox(width: 12),
+              const LiveClock(),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -4318,14 +4499,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: EdgeInsets.only(
         left: isMobile ? 16 : 24,
         right: isMobile ? 16 : 24,
-        top: 20,
-        bottom: 0,
+        top: isMobile ? 8 : 20,
+        bottom: isMobile ? 4 : 0,
       ),
       child: _buildBannerTopBar(isMobile),
     );
   }
 
-  Widget _buildGreeting() {
+  Widget _buildGreeting([bool isMobile = false]) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     // Determine greeting based on time of day
     final hour = DateTime.now().hour;
@@ -4335,7 +4516,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Text(
       '$greeting, ${user?.rawFullname ?? 'Doctor'}',
-      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+      style: TextStyle(
+        fontSize: isMobile ? 20 : 26,
+        fontWeight: FontWeight.bold,
+        color: const Color(0xFF1A202C),
+      ),
     );
   }
 
@@ -4350,118 +4535,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .where((a) => a.status == 'Confirmed' || a.status == 'Scheduled')
         .length;
     final int totalPatients = _doctorAppointments.length;
+    final int completedCount = _doctorAppointments
+        .where((a) => a.status == 'Completed' || a.status == 'Consulted')
+        .length;
 
-    if (isMobile) {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final cardWidth = constraints.maxWidth < 450
-              ? constraints.maxWidth
-              : (constraints.maxWidth - 12) / 2;
+    final statItems = [
+      _buildStatCard(
+        'Total Appointments',
+        totalPatients.toString(),
+        'All time',
+        Icons.calendar_today_outlined,
+        Colors.blue,
+        isMobile,
+      ),
+      _buildStatCard(
+        'Today\'s Appointments',
+        todayCount.toString(),
+        'Scheduled',
+        Icons.calendar_month_outlined,
+        Colors.indigo,
+        isMobile,
+      ),
+      _buildStatCard(
+        'Confirmed Cases',
+        confirmedCount.toString(),
+        'Ready',
+        Icons.check_circle_outline,
+        Colors.green,
+        isMobile,
+      ),
+      _buildStatCard(
+        'Completed Cases',
+        completedCount.toString(),
+        'Consultations done',
+        Icons.task_alt_outlined,
+        Colors.teal,
+        isMobile,
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 750) {
+          // 2x2 grid on mobile & small screens
+          final cardWidth = math.max(0.0, (constraints.maxWidth - 12) / 2);
           return Wrap(
             spacing: 12,
             runSpacing: 12,
-            children: [
-              SizedBox(
-                width: cardWidth,
-                child: _buildStatCard(
-                  'Total Appointments',
-                  totalPatients.toString(),
-                  'All time',
-                  Icons.calendar_today_outlined,
-                  Colors.blue,
-                  isMobile,
-                ),
-              ),
-              SizedBox(
-                width: cardWidth,
-                child: _buildStatCard(
-                  'Today\'s Appointments',
-                  todayCount.toString(),
-                  'Scheduled',
-                  Icons.calendar_month_outlined,
-                  Colors.indigo,
-                  isMobile,
-                ),
-              ),
-              SizedBox(
-                width: cardWidth,
-                child: _buildStatCard(
-                  'Confirmed Cases',
-                  confirmedCount.toString(),
-                  'Ready',
-                  Icons.check_circle_outline,
-                  Colors.green,
-                  isMobile,
-                ),
-              ),
-              SizedBox(
-                width: cardWidth,
-                child: _buildStatCard(
-                  'IPD Admission Cases',
-                  _doctorAppointments
-                      .where((a) => a.status == 'Admitted')
-                      .length
-                      .toString(),
-                  'Pending ward assignment',
-                  Icons.local_hospital_outlined,
-                  Colors.red,
-                  isMobile,
-                ),
-              ),
-            ],
+            children: statItems
+                .map((card) => SizedBox(width: cardWidth, child: card))
+                .toList(),
           );
-        },
-      );
-    }
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            'Total Appointments',
-            totalPatients.toString(),
-            'All time',
-            Icons.calendar_today_outlined,
-            Colors.blue,
-            isMobile,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'Today\'s Appointments',
-            todayCount.toString(),
-            'Scheduled',
-            Icons.calendar_month_outlined,
-            Colors.indigo,
-            isMobile,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'Confirmed Cases',
-            confirmedCount.toString(),
-            'Ready',
-            Icons.check_circle_outline,
-            Colors.green,
-            isMobile,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            'IPD Admission Cases',
-            _doctorAppointments
-                .where((a) => a.status == 'Admitted')
-                .length
-                .toString(),
-            'Pending ward assignment',
-            Icons.local_hospital_outlined,
-            Colors.red,
-            isMobile,
-          ),
-        ),
-      ],
+        } else if (constraints.maxWidth < 1100) {
+          // 2x2 grid on tablets and small screens
+          final cardWidth = math.max(0.0, (constraints.maxWidth - 16) / 2);
+          return Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: statItems
+                .map((card) => SizedBox(width: cardWidth, child: card))
+                .toList(),
+          );
+        } else {
+          // 4 in a row on wide desktop
+          final cardWidth = math.max(0.0, (constraints.maxWidth - (16 * 3)) / 4);
+          return Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: statItems
+                .map((card) => SizedBox(width: cardWidth, child: card))
+                .toList(),
+          );
+        }
+      },
     );
   }
 
@@ -4549,7 +4695,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           // Table Card Header
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(isMobile ? 16 : 24),
             child: Wrap(
               alignment: WrapAlignment.spaceBetween,
               crossAxisAlignment: WrapCrossAlignment.center,
@@ -4583,16 +4729,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                   ],
                 ),
-                Row(
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     // Search Bar
                     Container(
-                      width: 250,
+                      width: isMobile ? double.infinity : 250,
+                      constraints: BoxConstraints(
+                        maxWidth: isMobile ? double.infinity : 250,
+                        minWidth: 160,
+                      ),
                       height: 38,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.borderColor),
+                        border: Border.all(color: const Color(0xFFCBD5E1), width: 1.0),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Row(
@@ -4611,7 +4764,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 hintText: 'Search patients...',
                                 hintStyle: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
                                 border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                errorBorder: InputBorder.none,
+                                focusedErrorBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                filled: false,
+                                fillColor: Colors.transparent,
                                 isDense: true,
+                                contentPadding: EdgeInsets.zero,
                               ),
                               style: const TextStyle(fontSize: 13),
                             ),
@@ -4630,7 +4791,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
                     // Date Filter Button
                     InkWell(
                       onTap: () async {
@@ -4647,8 +4807,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               (a) => a.appointmentDate == dateStr,
                             );
 
-                            // Essential: initialDate MUST satisfy the predicate or the picker won't open.
-                            // We allow today's date and the currently selected date regardless of appointments.
                             final isToday =
                                 date.day == DateTime.now().day &&
                                 date.month == DateTime.now().month &&
@@ -4687,6 +4845,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           border: Border.all(color: AppTheme.borderColor),
                         ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(
                               Icons.calendar_today,
@@ -4721,7 +4880,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
                       onPressed: _fetchDoctorData,
@@ -4734,7 +4892,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           LayoutBuilder(
             builder: (context, constraints) {
-              final tableWidth = isMobile ? 850.0 : constraints.maxWidth;
+              final tableWidth = math.max(960.0, constraints.maxWidth);
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
@@ -4754,7 +4912,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Expanded(flex: 3, child: _buildTableHeaderText('REASON')),
                             Expanded(flex: 2, child: _buildTableHeaderText('STATUS')),
                             Expanded(
-                              flex: 2,
+                              flex: 3,
                               child: Align(
                                 alignment: Alignment.center,
                                 child: _buildTableHeaderText('ACTION'),
@@ -5040,7 +5198,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // Action Column (always same width)
             Expanded(
-              flex: 2,
+              flex: 3,
               child: Align(
                 alignment: Alignment.center,
                 child: (appt.status == 'Waiting' || appt.status == 'Confirmed' || appt.status == 'Admitted' || appt.status == 'Scheduled')
@@ -5122,14 +5280,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         // Fixed Top Bar
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+          padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, 20, isMobile ? 16 : 24, 10),
           color: Colors.transparent,
           child: _buildBannerTopBar(isMobile),
         ),
         // Scrollable Content
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16.0 : 24.0, vertical: 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -5146,7 +5304,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildAnaesthetistGreeting() {
+  Widget _buildAnaesthetistGreeting([bool isMobile = false]) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final hour = DateTime.now().hour;
     String greeting = 'Good Morning';
@@ -5155,7 +5313,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Text(
       '$greeting, Dr. ${user?.rawFullname ?? 'Anaesthetist'}',
-      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+      style: TextStyle(
+        fontSize: isMobile ? 20 : 26,
+        fontWeight: FontWeight.bold,
+        color: const Color(0xFF1A202C),
+      ),
     );
   }
 
@@ -5166,28 +5328,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
     int activeRecovery,
     int emergencyCases,
   ) {
-    if (isMobile) {
-      return Wrap(
-        spacing: 16,
-        runSpacing: 16,
-        children: [
-          _buildStatCard('Active OT Cases', totalCases.toString(), 'Current schedule', Icons.calendar_today_outlined, Colors.blue, isMobile),
-          _buildStatCard('PAC Clearance Pending', pacPending.toString(), 'Needs clearance', Icons.assignment_turned_in_outlined, Colors.orange, isMobile),
-          _buildStatCard('Active Recovery (PACU)', activeRecovery.toString(), 'Monitoring', Icons.monitor_heart_outlined, Colors.green, isMobile),
-          _buildStatCard('Emergency Surgeries', emergencyCases.toString(), 'High priority', Icons.emergency_outlined, Colors.red, isMobile),
-        ],
-      );
-    }
-    return Row(
-      children: [
-        Expanded(child: _buildStatCard('Active OT Cases', totalCases.toString(), 'Current schedule', Icons.calendar_today_outlined, Colors.blue, isMobile)),
-        const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('PAC Clearance Pending', pacPending.toString(), 'Needs clearance', Icons.assignment_turned_in_outlined, Colors.orange, isMobile)),
-        const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('Active Recovery (PACU)', activeRecovery.toString(), 'Monitoring', Icons.monitor_heart_outlined, Colors.green, isMobile)),
-        const SizedBox(width: 16),
-        Expanded(child: _buildStatCard('Emergency Surgeries', emergencyCases.toString(), 'High priority', Icons.emergency_outlined, Colors.red, isMobile)),
-      ],
+    final statCards = [
+      _buildStatCard('Active OT Cases', totalCases.toString(), 'Current schedule', Icons.calendar_today_outlined, Colors.blue, isMobile),
+      _buildStatCard('PAC Clearance Pending', pacPending.toString(), 'Needs clearance', Icons.assignment_turned_in_outlined, Colors.orange, isMobile),
+      _buildStatCard('Active Recovery (PACU)', activeRecovery.toString(), 'Monitoring', Icons.monitor_heart_outlined, Colors.green, isMobile),
+      _buildStatCard('Emergency Surgeries', emergencyCases.toString(), 'High priority', Icons.emergency_outlined, Colors.red, isMobile),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 750) {
+          final cardWidth = math.max(0.0, (constraints.maxWidth - 12) / 2);
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: statCards
+                .map((card) => SizedBox(width: cardWidth, child: card))
+                .toList(),
+          );
+        } else if (constraints.maxWidth < 1100) {
+          final cardWidth = math.max(0.0, (constraints.maxWidth - 16) / 2);
+          return Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: statCards
+                .map((card) => SizedBox(width: cardWidth, child: card))
+                .toList(),
+          );
+        } else {
+          final cardWidth = math.max(0.0, (constraints.maxWidth - (16 * 3)) / 4);
+          return Wrap(
+            spacing: 16,
+            runSpacing: 16,
+            children: statCards
+                .map((card) => SizedBox(width: cardWidth, child: card))
+                .toList(),
+          );
+        }
+      },
     );
   }
 
@@ -5209,19 +5387,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Anaesthesia Case Schedule',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Today\'s scheduled cases and pre-anesthesia clearance list',
-                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Anaesthesia Case Schedule',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Today\'s scheduled cases and pre-anesthesia clearance list',
+                        style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -5527,21 +5707,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text(
-                    'Lab Reports',
-                    style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Track sent lab test requests and observed results received from laboratory.',
-                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Lab Reports',
+                      style: TextStyle(
+                        fontSize: isMobile ? 22 : 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Track sent lab test requests and observed results received from laboratory.',
+                      style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
                 onPressed: _fetchLabReports,
@@ -5592,45 +5779,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Stats Row
-                Row(
-                  children: [
-                    _buildLabSummaryCard(
-                      label: 'Overdue',
-                      count: overdueList.length,
-                      icon: Icons.warning_amber_outlined,
-                      color: Colors.red.shade700,
-                      bgColor: Colors.red.shade50,
-                      highlight: overdueList.isNotEmpty,
-                      onTap: overdueList.isNotEmpty
-                          ? () => setState(() => _showOverduePanel = !_showOverduePanel)
-                          : null,
-                      isActive: _showOverduePanel,
-                    ),
-                    const SizedBox(width: 16),
-                    _buildLabSummaryCard(
-                      label: 'Pending',
-                      count: pending,
-                      icon: Icons.hourglass_empty_outlined,
-                      color: const Color(0xFFE65100),
-                      bgColor: Colors.orange.shade50,
-                    ),
-                    const SizedBox(width: 16),
-                    _buildLabSummaryCard(
-                      label: 'Partially Completed',
-                      count: partiallyCompleted,
-                      icon: Icons.incomplete_circle_outlined,
-                      color: Colors.amber.shade800,
-                      bgColor: Colors.amber.shade50,
-                    ),
-                    const SizedBox(width: 16),
-                    _buildLabSummaryCard(
-                      label: 'Completed',
-                      count: completed,
-                      icon: Icons.check_circle_outline,
-                      color: Colors.green.shade700,
-                      bgColor: Colors.green.shade50,
-                    ),
-                  ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final summaryCards = [
+                      _buildLabSummaryCard(
+                        label: 'Overdue',
+                        count: overdueList.length,
+                        icon: Icons.warning_amber_outlined,
+                        color: Colors.red.shade700,
+                        bgColor: Colors.red.shade50,
+                        highlight: overdueList.isNotEmpty,
+                        onTap: overdueList.isNotEmpty
+                            ? () => setState(() => _showOverduePanel = !_showOverduePanel)
+                            : null,
+                        isActive: _showOverduePanel,
+                      ),
+                      _buildLabSummaryCard(
+                        label: 'Pending',
+                        count: pending,
+                        icon: Icons.hourglass_empty_outlined,
+                        color: const Color(0xFFE65100),
+                        bgColor: Colors.orange.shade50,
+                      ),
+                      _buildLabSummaryCard(
+                        label: 'Partially Completed',
+                        count: partiallyCompleted,
+                        icon: Icons.incomplete_circle_outlined,
+                        color: Colors.amber.shade800,
+                        bgColor: Colors.amber.shade50,
+                      ),
+                      _buildLabSummaryCard(
+                        label: 'Completed',
+                        count: completed,
+                        icon: Icons.check_circle_outline,
+                        color: Colors.green.shade700,
+                        bgColor: Colors.green.shade50,
+                      ),
+                    ];
+
+                    if (constraints.maxWidth < 500) {
+                      return Column(
+                        children: summaryCards
+                            .map((card) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12.0),
+                                  child: SizedBox(width: double.infinity, child: card),
+                                ))
+                            .toList(),
+                      );
+                    } else if (constraints.maxWidth < 1050) {
+                      final cardWidth = math.max(0.0, (constraints.maxWidth - 16) / 2);
+                      return Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: summaryCards
+                            .map((card) => SizedBox(width: cardWidth, child: card))
+                            .toList(),
+                      );
+                    } else {
+                      final cardWidth = math.max(0.0, (constraints.maxWidth - (16 * 3)) / 4);
+                      return Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        children: summaryCards
+                            .map((card) => SizedBox(width: cardWidth, child: card))
+                            .toList(),
+                      );
+                    }
+                  },
                 ),
                 const SizedBox(height: 20),
 
@@ -5650,12 +5865,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Icon(Icons.access_time_filled, color: Colors.red.shade700, size: 20),
                             const SizedBox(width: 8),
-                            Text(
-                              'Overdue Lab Results — ${overdueList.length} test${overdueList.length > 1 ? 's' : ''} past estimated completion',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red.shade800,
+                            Expanded(
+                              child: Text(
+                                'Overdue Lab Results — ${overdueList.length} test${overdueList.length > 1 ? 's' : ''} past estimated completion',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red.shade800,
+                                ),
                               ),
                             ),
                           ],
@@ -5756,7 +5973,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               ],
                             ),
                           );
-                        }).toList(),
+                        }),
                       ],
                     ),
                   ),
@@ -5774,56 +5991,125 @@ class _DashboardScreenState extends State<DashboardScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: AppTheme.backgroundColor,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.borderColor),
-                    ),
-                    child: TextField(
-                      controller: _labSearchController,
-                      onChanged: (v) => setState(() => _labSearchQuery = v),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                        hintText: 'Search by Patient Name, ID, or Test...',
-                        hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                        prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
-                        suffixIcon: _labSearchQuery.isNotEmpty
-                            ? MouseRegion(
-                                cursor: SystemMouseCursors.click,
-                                child: GestureDetector(
-                                  onTap: () {
-                                    _labSearchController.clear();
-                                    setState(() => _labSearchQuery = '');
-                                  },
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: AppTheme.textSecondaryColor,
-                                  ),
-                                ),
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        filled: false,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isNarrow = constraints.maxWidth < 750;
+                final filterTabs = Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildLabFilterTab('All'),
+                    _buildLabFilterTab('Pending'),
+                    _buildLabFilterTab('Sample Collected'),
+                    _buildLabFilterTab('Completed'),
+                  ],
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFCBD5E1), width: 1.0),
+                        ),
+                        child: TextField(
+                          controller: _labSearchController,
+                          onChanged: (v) => setState(() => _labSearchQuery = v),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            hintText: 'Search by Patient Name, ID, or Test...',
+                            hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                            prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                            suffixIcon: _labSearchQuery.isNotEmpty
+                                ? MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        _labSearchController.clear();
+                                        setState(() => _labSearchQuery = '');
+                                      },
+                                      child: const Icon(
+                                        Icons.close,
+                                        size: 16,
+                                        color: AppTheme.textSecondaryColor,
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            filled: false,
+                            fillColor: Colors.transparent,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      filterTabs,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFCBD5E1), width: 1.0),
+                        ),
+                        child: TextField(
+                          controller: _labSearchController,
+                          onChanged: (v) => setState(() => _labSearchQuery = v),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            hintText: 'Search by Patient Name, ID, or Test...',
+                            hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                            prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                            suffixIcon: _labSearchQuery.isNotEmpty
+                                ? MouseRegion(
+                                    cursor: SystemMouseCursors.click,
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        _labSearchController.clear();
+                                        setState(() => _labSearchQuery = '');
+                                      },
+                                      child: const Icon(
+                                        Icons.close,
+                                        size: 16,
+                                        color: AppTheme.textSecondaryColor,
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            filled: false,
+                            fillColor: Colors.transparent,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                _buildLabFilterTab('All'),
-                const SizedBox(width: 8),
-                _buildLabFilterTab('Pending'),
-                const SizedBox(width: 8),
-                _buildLabFilterTab('Sample Collected'),
-                const SizedBox(width: 8),
-                _buildLabFilterTab('Completed'),
-              ],
+                    const SizedBox(width: 16),
+                    filterTabs,
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 24),
@@ -5870,75 +6156,73 @@ class _DashboardScreenState extends State<DashboardScreen> {
     VoidCallback? onTap,
     bool isActive = false,
   }) {
-    return Expanded(
-      child: MouseRegion(
-        cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        child: GestureDetector(
-          onTap: onTap,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-            decoration: BoxDecoration(
-              color: isActive ? color.withOpacity(0.15) : bgColor,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isActive ? color : (highlight ? color.withOpacity(0.6) : color.withOpacity(0.2)),
-                width: isActive || highlight ? 1.5 : 1,
-              ),
-              boxShadow: isActive || highlight
-                  ? [BoxShadow(color: color.withOpacity(0.18), blurRadius: 8, offset: const Offset(0, 3))]
-                  : [],
+    return MouseRegion(
+      cursor: onTap != null ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          decoration: BoxDecoration(
+            color: isActive ? color.withOpacity(0.15) : bgColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isActive ? color : (highlight ? color.withOpacity(0.6) : color.withOpacity(0.2)),
+              width: isActive || highlight ? 1.5 : 1,
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(icon, color: color, size: 20),
+            boxShadow: isActive || highlight
+                ? [BoxShadow(color: color.withOpacity(0.18), blurRadius: 8, offset: const Offset(0, 3))]
+                : [],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        count.toString(),
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: color,
-                        ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      count.toString(),
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: color,
                       ),
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              label,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: color.withOpacity(0.8),
-                                fontWeight: FontWeight.w600,
-                              ),
+                    ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: color.withOpacity(0.8),
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          if (onTap != null) ...[
-                            const SizedBox(width: 4),
-                            Icon(
-                              isActive ? Icons.expand_less : Icons.expand_more,
-                              size: 14,
-                              color: color.withOpacity(0.7),
-                            ),
-                          ],
+                        ),
+                        if (onTap != null) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            isActive ? Icons.expand_less : Icons.expand_more,
+                            size: 14,
+                            color: color.withOpacity(0.7),
+                          ),
                         ],
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -6026,71 +6310,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 });
               },
               borderRadius: BorderRadius.circular(8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              patientName,
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '$patientId • $patientGender • $patientAge yrs',
-                          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Ordered by Dr. $doctor • $createdStr',
-                          style: const TextStyle(fontSize: 12, color: AppTheme.logoRed, fontStyle: FontStyle.italic),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (!isExpanded) ...[
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'REQUESTED TESTS',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textSecondaryColor,
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              groupReqs.map((r) => r['test_name'] ?? '').join(', '),
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF4338CA),
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.start,
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 2,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                  Row(
+              child: LayoutBuilder(
+                builder: (context, cardConstraints) {
+                  final bool isSmallScreen = cardConstraints.maxWidth < 650;
+                  final statusBadge = Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
@@ -6118,8 +6341,125 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         color: Colors.grey.shade600,
                       ),
                     ],
-                  ),
-                ],
+                  );
+
+                  if (isSmallScreen) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    patientName,
+                                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    '$patientId • $patientGender • $patientAge yrs',
+                                    style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            statusBadge,
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Ordered by Dr. $doctor • $createdStr',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.logoRed, fontStyle: FontStyle.italic),
+                        ),
+                        if (!isExpanded) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            groupReqs.map((r) => r['test_name'] ?? '').join(', '),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF4338CA),
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  patientName,
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '$patientId • $patientGender • $patientAge yrs',
+                              style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Ordered by Dr. $doctor • $createdStr',
+                              style: const TextStyle(fontSize: 12, color: AppTheme.logoRed, fontStyle: FontStyle.italic),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (!isExpanded) ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'REQUESTED TESTS',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textSecondaryColor,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  groupReqs.map((r) => r['test_name'] ?? '').join(', '),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF4338CA),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.start,
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 2,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                      statusBadge,
+                    ],
+                  );
+                },
               ),
             ),
             if (isExpanded) ...[

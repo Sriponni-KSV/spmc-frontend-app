@@ -34,7 +34,7 @@ class _AdminAppointmentManagementState
   DateTime? _filterDate;
   String? _filterDoctor;
   String? _filterDepartment;
-  String _filterStatus = 'All';
+  String _filterStatus = 'All Status';
   String _searchQuery = '';
   bool _isFilterVisible = false;
   int _currentPage = 0;
@@ -42,11 +42,12 @@ class _AdminAppointmentManagementState
   final TextEditingController _searchController = TextEditingController();
 
   final List<String> _statusOptions = [
-    'All',
+    'All Status',
     'Confirmed',
     'Waiting',
     'In Consultation',
     'Completed',
+    'No Show',
     'Cancelled',
   ];
 
@@ -76,7 +77,7 @@ class _AdminAppointmentManagementState
     return slots;
   }
 
-  List<String> _getFilteredTimeSlots(DateTime? date) {
+  List<String> _getFilteredTimeSlots(DateTime? date, [String? currentSelectedTime]) {
     if (date == null) return [];
     List<String> slots = _getAllSlots();
     DateTime now = DateTime.now();
@@ -84,6 +85,7 @@ class _AdminAppointmentManagementState
         date.year == now.year && date.month == now.month && date.day == now.day;
     if (!isToday) return slots;
     return slots.where((slot) {
+      if (currentSelectedTime != null && slot == currentSelectedTime) return true;
       try {
         DateTime slotTime = DateFormat('hh:mm a').parse(slot);
         DateTime fullSlotTime = DateTime(
@@ -129,7 +131,9 @@ class _AdminAppointmentManagementState
         _apptCtrl.fetchAdminAppointments(
           date: dateStr,
           doctor: _filterDoctor,
-          status: _filterStatus == 'All' ? null : _filterStatus,
+          status: (_filterStatus == 'All' || _filterStatus == 'All Status')
+              ? null
+              : _filterStatus,
           department: _filterDepartment,
         ),
         _adminCtrl.fetchStaff(role: 'Doctor'),
@@ -518,7 +522,7 @@ class _AdminAppointmentManagementState
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
-                            children: _getFilteredTimeSlots(newDate).map((
+                            children: _getFilteredTimeSlots(newDate, newTime).map((
                               slot,
                             ) {
                               final isSelected = newTime == slot;
@@ -810,13 +814,24 @@ class _AdminAppointmentManagementState
                   ),
                 ],
               ),
-              IconButton(
-                onPressed: _loadData,
-                icon: const Icon(
-                  Icons.refresh_outlined,
-                  color: AppTheme.primaryColor,
+              OutlinedButton.icon(
+                onPressed: _isLoading ? null : _loadData,
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh, size: 18),
+                label: const Text('Refresh'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryColor,
+                  side: const BorderSide(color: AppTheme.primaryColor),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 ),
-                tooltip: 'Refresh',
               ),
             ],
           ),
@@ -912,7 +927,9 @@ class _AdminAppointmentManagementState
                             _filterStatus,
                             _statusOptions,
                             (v) {
-                              setState(() => _filterStatus = v ?? 'All');
+                              setState(
+                                () => _filterStatus = v ?? 'All Status',
+                              );
                               _loadData();
                             },
                             isMobile: true,
@@ -978,7 +995,9 @@ class _AdminAppointmentManagementState
                               _filterStatus,
                               _statusOptions,
                               (v) {
-                                setState(() => _filterStatus = v ?? 'All');
+                                setState(
+                                  () => _filterStatus = v ?? 'All Status',
+                                );
                                 _loadData();
                               },
                               isMobile: false,
@@ -988,7 +1007,7 @@ class _AdminAppointmentManagementState
                       ),
                 if (_filterDate != null ||
                     _filterDoctor != null ||
-                    _filterStatus != 'All' ||
+                    (_filterStatus != 'All' && _filterStatus != 'All Status') ||
                     _filterDepartment != null) ...[
                   const SizedBox(height: 16),
                   Align(
@@ -999,7 +1018,7 @@ class _AdminAppointmentManagementState
                           _filterDate = null;
                           _filterDepartment = null;
                           _filterDoctor = null;
-                          _filterStatus = 'All';
+                          _filterStatus = 'All Status';
                         });
                         _loadData();
                       },

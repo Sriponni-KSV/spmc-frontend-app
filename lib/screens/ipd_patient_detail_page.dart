@@ -1142,10 +1142,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               child: const Text('Share', style: TextStyle(fontSize: 14)),
             ),
           ],
-          SizedBox(width: isMobile ? 12 : 24),
-
-          // Date & Time
-          const LiveClock(),
+          if (!isMobile) ...[
+            const SizedBox(width: 24),
+            const LiveClock(),
+          ],
         ],
       ),
     );
@@ -1157,9 +1157,13 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     final wardType = adm['ward_type'] ?? '--';
     final bedNumber = adm['bed_number'] ?? '--';
     final status = adm['status'] ?? 'Admitted';
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 8 : 12,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -1186,55 +1190,118 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           // Patient Info
           Expanded(
-            child: Row(
-              children: [
-                Text(
-                  patientName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
+            child: isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              patientName,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimaryColor,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: status == 'Admitted'
+                                  ? AppTheme.successBg
+                                  : status == 'Discharged'
+                                      ? Colors.grey.shade100
+                                      : AppTheme.warningBg,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: status == 'Admitted'
+                                    ? AppTheme.successColor
+                                    : status == 'Discharged'
+                                        ? Colors.grey
+                                        : AppTheme.warningColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.bed_outlined, size: 13, color: Colors.grey.shade500),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Bed $bedNumber • $wardType',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Text(
+                        patientName,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Icon(Icons.bed_outlined, size: 14, color: Colors.grey.shade500),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Bed $bedNumber • $wardType',
+                        style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: status == 'Admitted'
+                              ? AppTheme.successBg
+                              : status == 'Discharged'
+                                  ? Colors.grey.shade100
+                                  : AppTheme.warningBg,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          status,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: status == 'Admitted'
+                                ? AppTheme.successColor
+                                : status == 'Discharged'
+                                    ? Colors.grey
+                                    : AppTheme.warningColor,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(width: 16),
-                Icon(Icons.bed_outlined, size: 14, color: Colors.grey.shade500),
-                const SizedBox(width: 4),
-                Text(
-                  'Bed $bedNumber • $wardType',
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: status == 'Admitted'
-                        ? AppTheme.successBg
-                        : status == 'Discharged'
-                        ? Colors.grey.shade100
-                        : AppTheme.warningBg,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    status,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: status == 'Admitted'
-                          ? AppTheme.successColor
-                          : status == 'Discharged'
-                          ? Colors.grey
-                          : AppTheme.warningColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
           ),
           // Refresh button
           IconButton(
@@ -1339,22 +1406,15 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       drawer: isMobile ? Drawer(child: _buildRoleSidebar()) : null,
-      appBar: isMobile
-          ? AppBar(
-              title: Text(
-                widget.admission['patient_name'] ?? 'IPD Patient',
-                style: const TextStyle(fontSize: 16),
-              ),
-              backgroundColor: Colors.white,
-              foregroundColor: AppTheme.textPrimaryColor,
-              elevation: 0,
-            )
-          : null,
-      body: Row(
-        children: [
-          if (!isMobile) _buildRoleSidebar(),
-          Expanded(child: contentArea),
-        ],
+      appBar: null,
+      body: SafeArea(
+        bottom: false,
+        child: Row(
+          children: [
+            if (!isMobile) _buildRoleSidebar(),
+            Expanded(child: contentArea),
+          ],
+        ),
       ),
     );
   }
@@ -1530,122 +1590,271 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               const SizedBox(height: 30),
 
               // PATIENT CARD
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppTheme.primaryColor,
-                      AppTheme.primaryColor.withOpacity(0.8),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 34,
-                      backgroundColor: Colors.white,
-                      child: Text(
-                        adm['patient_name']
-                            .toString()
-                            .substring(0, 1)
-                            .toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
+              isMobile
+                  ? Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppTheme.primaryColor,
+                            Color(0xFF0A75BC),
+                          ],
                         ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryColor.withOpacity(0.25),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                    ),
-
-                    const SizedBox(width: 18),
-
-                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            adm['patient_name'] ?? '--',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 10,
+                          Row(
                             children: [
-                              _buildInfoBadge(
-                                Icons.badge_outlined,
-                                adm['patient_display_id'] ?? '--',
+                              Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.35),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: CircleAvatar(
+                                  radius: 24,
+                                  backgroundColor: Colors.white,
+                                  child: Text(
+                                    (adm['patient_name'] ?? 'P')
+                                        .toString()
+                                        .substring(0, 1)
+                                        .toUpperCase(),
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                ),
                               ),
-
-                              _buildInfoBadge(
-                                Icons.person_outline,
-                                '${adm['patient_age']} Years',
-                              ),
-
-                              _buildInfoBadge(
-                                Icons.wc,
-                                adm['patient_gender'] ?? '--',
-                              ),
-
-                              _buildInfoBadge(
-                                Icons.bed_outlined,
-                                adm['bed_number'] ?? '--',
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      adm['patient_name'] ?? '--',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 3),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.18),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'ID: ${adm['patient_display_id'] ?? '--'}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                _buildCompactMetaItem(
+                                  Icons.person_outline,
+                                  '${adm['patient_age']} Yrs',
+                                ),
+                                Container(
+                                  width: 1,
+                                  height: 16,
+                                  color: Colors.white24,
+                                ),
+                                _buildCompactMetaItem(
+                                  Icons.wc,
+                                  adm['patient_gender'] ?? '--',
+                                ),
+                                Container(
+                                  width: 1,
+                                  height: 16,
+                                  color: Colors.white24,
+                                ),
+                                _buildCompactMetaItem(
+                                  Icons.bed_outlined,
+                                  'Bed ${adm['bed_number'] ?? '--'}',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(22),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            AppTheme.primaryColor,
+                            AppTheme.primaryColor.withOpacity(0.8),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 34,
+                            backgroundColor: Colors.white,
+                            child: Text(
+                              adm['patient_name']
+                                  .toString()
+                                  .substring(0, 1)
+                                  .toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 18),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  adm['patient_name'] ?? '--',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 10,
+                                  children: [
+                                    _buildInfoBadge(
+                                      Icons.badge_outlined,
+                                      adm['patient_display_id'] ?? '--',
+                                    ),
+                                    _buildInfoBadge(
+                                      Icons.person_outline,
+                                      '${adm['patient_age']} Years',
+                                    ),
+                                    _buildInfoBadge(
+                                      Icons.wc,
+                                      adm['patient_gender'] ?? '--',
+                                    ),
+                                    _buildInfoBadge(
+                                      Icons.bed_outlined,
+                                      adm['bed_number'] ?? '--',
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
-              ),
 
               const SizedBox(height: 30),
 
               // DETAILS GRID
-              GridView.count(
-                crossAxisCount: isMobile ? 1 : 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 18,
-                crossAxisSpacing: 18,
-                childAspectRatio: isMobile ? 4.5 : 3.8,
-                children: [
-                  _buildOverviewTile(
-                    'Admission Type',
-                    adm['ward_type'] == 'ICU' ? 'ICU' : 'IPD',
-                    Icons.local_hospital_outlined,
-                  ),
-
-                  _buildOverviewTile(
-                    'Date of Admission',
-                    dateStr,
-                    Icons.calendar_today_outlined,
-                  ),
-
-                  _buildOverviewTile(
-                    'Treating Doctor',
-                    adm['doctor_name'] ?? '--',
-                    Icons.person_outline,
-                    subtitle: adm['doctor_display_id'],
-                  ),
-
-                  _buildOverviewTile(
-                    'Room / Bed',
-                    '${adm['bed_number']} (${adm['ward_type']})',
-                    Icons.hotel_outlined,
-                  ),
-                ],
-              ),
+              isMobile
+                  ? Column(
+                      children: [
+                        _buildOverviewTile(
+                          'Admission Type',
+                          adm['ward_type'] == 'ICU' ? 'ICU' : 'IPD',
+                          Icons.local_hospital_outlined,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildOverviewTile(
+                          'Date of Admission',
+                          dateStr,
+                          Icons.calendar_today_outlined,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildOverviewTile(
+                          'Treating Doctor',
+                          adm['doctor_name'] ?? '--',
+                          Icons.person_outline,
+                          subtitle: adm['doctor_display_id'],
+                        ),
+                        const SizedBox(height: 12),
+                        _buildOverviewTile(
+                          'Room / Bed',
+                          '${adm['bed_number']} (${adm['ward_type']})',
+                          Icons.hotel_outlined,
+                        ),
+                      ],
+                    )
+                  : GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 18,
+                      crossAxisSpacing: 18,
+                      childAspectRatio: 3.5,
+                      children: [
+                        _buildOverviewTile(
+                          'Admission Type',
+                          adm['ward_type'] == 'ICU' ? 'ICU' : 'IPD',
+                          Icons.local_hospital_outlined,
+                        ),
+                        _buildOverviewTile(
+                          'Date of Admission',
+                          dateStr,
+                          Icons.calendar_today_outlined,
+                        ),
+                        _buildOverviewTile(
+                          'Treating Doctor',
+                          adm['doctor_name'] ?? '--',
+                          Icons.person_outline,
+                          subtitle: adm['doctor_display_id'],
+                        ),
+                        _buildOverviewTile(
+                          'Room / Bed',
+                          '${adm['bed_number']} (${adm['ward_type']})',
+                          Icons.hotel_outlined,
+                        ),
+                      ],
+                    ),
 
               const SizedBox(height: 24),
 
@@ -1701,7 +1910,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
   Widget _buildOverviewTile(String title, String value, IconData icon, {String? subtitle}) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
         borderRadius: BorderRadius.circular(16),
@@ -1724,6 +1933,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   title,
@@ -1786,6 +1996,24 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCompactMetaItem(IconData icon, String value) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: Colors.white.withOpacity(0.9)),
+        const SizedBox(width: 5),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1997,25 +2225,27 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'New Prescription',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'New Prescription',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Create medication prescription for patient',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 13,
+                        SizedBox(height: 4),
+                        Text(
+                          'Create medication prescription for patient',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -2662,25 +2892,27 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Order Lab Test',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Order Lab Test',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Request laboratory investigations for patient',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 13,
+                        SizedBox(height: 4),
+                        Text(
+                          'Create laboratory investigation orders',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -3092,25 +3324,27 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
                   const SizedBox(width: 12),
 
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'New Progress Note',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'New Progress Note',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Record doctor observations and treatment updates',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 13,
+                        SizedBox(height: 4),
+                        Text(
+                          'Record doctor observations and treatment updates',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -3745,16 +3979,17 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   border: Border.all(color: Colors.amber.shade800.withOpacity(0.5)),
                 ),
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.warning_amber_rounded, color: Colors.amberAccent.shade200, size: 18),
                     const SizedBox(width: 8),
-                    const Text(
-                      'No vitals telemetry streamed. Use the simulator below to log baseline vitals.',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontFamily: AppTheme.fontFamily,
+                    const Expanded(
+                      child: Text(
+                        'No vitals telemetry streamed. Use the simulator below to log baseline vitals.',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontFamily: AppTheme.fontFamily,
+                        ),
                       ),
                     ),
                   ],
@@ -4511,22 +4746,24 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Log Daily Vitals',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Log Daily Vitals',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Record patient vital measurements',
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
-                      ),
-                    ],
+                        SizedBox(height: 4),
+                        Text(
+                          'Record patient vital measurements',
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -4754,22 +4991,24 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Vitals Log History',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Vitals Log History',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'History of logged vitals',
-                      style: TextStyle(color: Colors.grey, fontSize: 13),
-                    ),
-                  ],
+                      SizedBox(height: 4),
+                      Text(
+                        'History of logged vitals',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -4959,25 +5198,27 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Active Prescriptions',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Active Prescriptions',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Record medication administrations',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 13,
+                      SizedBox(height: 4),
+                      Text(
+                        'Record medication administrations',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -5409,25 +5650,27 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Record Nursing Log',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Record Nursing Log',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Add nursing observations and patient notes',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 13,
+                        SizedBox(height: 4),
+                        Text(
+                          'Add nursing observations and patient notes',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -5693,25 +5936,27 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   child: const Icon(Icons.history, color: Colors.green),
                 ),
                 const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Nursing Log History',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nursing Log History',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Previously recorded nursing observations',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 13,
+                      SizedBox(height: 4),
+                      Text(
+                        'Previously recorded nursing observations',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

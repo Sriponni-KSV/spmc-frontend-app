@@ -64,11 +64,11 @@ class AdminNavConfig {
   /// Access Control / RBAC (Hidden - Change to true to display)
   static const bool showAccessControl = false;
 
-  /// Appointments (Hidden - Change to true to display)
-  static const bool showAppointments = false;
+  /// Appointments (Visible)
+  static const bool showAppointments = true;
 
-  /// OPD Management (Hidden - Change to true to display)
-  static const bool showOpdManagement = false;
+  /// OPD Management (Visible)
+  static const bool showOpdManagement = true;
 
   /// IPD Management (Hidden - Change to true to display)
   static const bool showIpdManagement = false;
@@ -76,8 +76,8 @@ class AdminNavConfig {
   /// OT Management (Hidden - Change to true to display)
   static const bool showOtManagement = false;
 
-  /// Shift Allocation (Hidden - Change to true to display)
-  static const bool showShiftAllocation = false;
+  /// Shift Allocation (Visible)
+  static const bool showShiftAllocation = true;
 
   /// ICU & Emergency (Hidden - Change to true to display)
   static const bool showIcuEmergency = false;

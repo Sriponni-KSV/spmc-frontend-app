@@ -1,5 +1,6 @@
 import 'doctor_model.dart';
 import 'nurse_model.dart';
+import '../utils/date_formatter.dart';
 
 class UserModel {
   final int id;
@@ -11,6 +12,7 @@ class UserModel {
   final String? staffUniqueId;
   final String? mobile;
   final String? token;
+  final String? createdAt;
   
   // Isolated Profiles
   final DoctorModel? doctorProfile;
@@ -63,14 +65,12 @@ class UserModel {
     this.staffUniqueId,
     this.mobile,
     this.token,
+    this.createdAt,
     this.doctorProfile,
     this.nurseProfile,
     this.permissions = const [],
     this.permissionDisplayMap = const {},
   });
-
-
-
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     List<String> perms = [];
@@ -99,10 +99,13 @@ class UserModel {
       email: json['email'] ?? '',
       role: json['role'] ?? '',
       status: json['status'] ?? 'active',
-      isDeleted: json['is_deleted'] == 1 || json['is_deleted'] == true || json['isDeleted'] == true || json['status'] == 'deleted',
+      isDeleted: false,
       staffUniqueId: json['staff_unique_id'] ?? json['staffUniqueId'],
       mobile: json['mobile'],
       token: json['token'],
+      createdAt: (json['created_at'] ?? json['createdAt']) != null
+          ? DateFormatter.toUi(json['created_at'] ?? json['createdAt'])
+          : null,
       doctorProfile: (json['role'] == 'Doctor' || json['medical_license'] != null || json['specialization_id'] != null) 
           ? DoctorModel.fromJson(json) 
           : null,
@@ -124,6 +127,7 @@ class UserModel {
     String? staffUniqueId,
     String? mobile,
     String? token,
+    String? createdAt,
     DoctorModel? doctorProfile,
     NurseModel? nurseProfile,
     List<String>? permissions,
@@ -139,6 +143,7 @@ class UserModel {
       staffUniqueId: staffUniqueId ?? this.staffUniqueId,
       mobile: mobile ?? this.mobile,
       token: token ?? this.token,
+      createdAt: createdAt ?? this.createdAt,
       doctorProfile: doctorProfile ?? this.doctorProfile,
       nurseProfile: nurseProfile ?? this.nurseProfile,
       permissions: permissions ?? this.permissions,
@@ -183,7 +188,6 @@ class UserModel {
       'email': email,
       'role': role,
       'status': status,
-      'is_deleted': isDeleted ? 1 : 0,
       'staff_unique_id': staffUniqueId,
       'mobile': mobile,
       'token': token,

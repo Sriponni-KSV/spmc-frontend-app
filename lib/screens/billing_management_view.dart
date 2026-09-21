@@ -873,11 +873,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                               side: const BorderSide(color: AppTheme.borderColor),
                             ),
                             child: ListTile(
-                              title: Row(
+                              title: Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 4,
                                 children: [
-                                  Text(inv['invoice_number'], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                                  const SizedBox(width: 12),
-                                  _buildPaymentStatusBadge(inv['payment_status']),
+                                  Text(inv['invoice_number'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                                  _buildPaymentStatusBadge(inv['payment_status'] ?? 'Unpaid'),
                                 ],
                               ),
                               subtitle: Padding(
@@ -958,34 +960,97 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                               borderRadius: BorderRadius.circular(12),
                               side: const BorderSide(color: AppTheme.borderColor),
                             ),
-                            child: ListTile(
-                              title: Row(
-                                children: [
-                                  Text(adm['patient_name'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  const SizedBox(width: 8),
-                                  Text('(${adm['patient_display_id']})', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
-                                  const Spacer(),
-                                  _buildIpdStatusBadge(adm['status']),
-                                ],
-                              ),
-                              subtitle: Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Text(
-                                  'Ward: ${adm['ward_type']} | Bed: ${adm['bed_number'] ?? 'Unallocated'}\n'
-                                  'Admission Date: ${DateFormat('dd-MMM-yyyy hh:mm a').format(DateTime.parse(adm['admission_date']).toLocal())}',
-                                  style: const TextStyle(height: 1.3),
-                                ),
-                              ),
-                              trailing: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: active ? AppTheme.primaryColor : Colors.grey.shade100,
-                                  foregroundColor: active ? Colors.white : Colors.black87,
-                                  elevation: 0,
-                                ),
-                                icon: Icon(active ? Icons.receipt_long : Icons.visibility_outlined, size: 16),
-                                label: Text(active ? 'Worksheet' : 'Receipt'),
-                                onPressed: () => _openIpBillingWorksheet(adm),
-                              ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: isMobile
+                                  ? Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Wrap(
+                                                crossAxisAlignment: WrapCrossAlignment.center,
+                                                spacing: 6,
+                                                runSpacing: 4,
+                                                children: [
+                                                  Text(
+                                                    adm['patient_name'] ?? 'Unknown',
+                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                                  ),
+                                                  Text(
+                                                    '(${adm['patient_display_id'] ?? ''})',
+                                                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            _buildIpdStatusBadge(adm['status']),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          'Ward: ${adm['ward_type'] ?? '--'} | Bed: ${adm['bed_number'] ?? 'Unallocated'}\n'
+                                          'Admission Date: ${adm['admission_date'] != null ? DateFormat('dd-MMM-yyyy hh:mm a').format(DateTime.parse(adm['admission_date']).toLocal()) : '--'}',
+                                          style: const TextStyle(height: 1.3, fontSize: 13, color: Colors.black87),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: active ? AppTheme.primaryColor : Colors.grey.shade100,
+                                              foregroundColor: active ? Colors.white : Colors.black87,
+                                              elevation: 0,
+                                              padding: const EdgeInsets.symmetric(vertical: 10),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            icon: Icon(active ? Icons.receipt_long : Icons.visibility_outlined, size: 16),
+                                            label: Text(active ? 'Worksheet' : 'Receipt'),
+                                            onPressed: () => _openIpBillingWorksheet(adm),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Text(adm['patient_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                                  const SizedBox(width: 8),
+                                                  Text('(${adm['patient_display_id'] ?? ''})', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                                                  const SizedBox(width: 12),
+                                                  _buildIpdStatusBadge(adm['status']),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                'Ward: ${adm['ward_type'] ?? '--'} | Bed: ${adm['bed_number'] ?? 'Unallocated'}\n'
+                                                'Admission Date: ${adm['admission_date'] != null ? DateFormat('dd-MMM-yyyy hh:mm a').format(DateTime.parse(adm['admission_date']).toLocal()) : '--'}',
+                                                style: const TextStyle(height: 1.3),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: active ? AppTheme.primaryColor : Colors.grey.shade100,
+                                            foregroundColor: active ? Colors.white : Colors.black87,
+                                            elevation: 0,
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          icon: Icon(active ? Icons.receipt_long : Icons.visibility_outlined, size: 16),
+                                          label: Text(active ? 'Worksheet' : 'Receipt'),
+                                          onPressed: () => _openIpBillingWorksheet(adm),
+                                        ),
+                                      ],
+                                    ),
                             ),
                           );
                         },
@@ -2306,70 +2371,152 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                             ),
                             child: Padding(
                               padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Icon(Icons.home_work_rounded, color: AppTheme.primaryColor, size: 24),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
+                              child: isMobile
+                                  ? Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(inv['invoice_number'] ?? 'INV-HV', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: const Icon(Icons.home_work_rounded, color: AppTheme.primaryColor, size: 20),
+                                            ),
                                             const SizedBox(width: 10),
-                                            _buildPaymentStatusBadge(pStatus),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      Text(inv['invoice_number'] ?? 'INV-HV', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+                                                      const SizedBox(width: 8),
+                                                      _buildPaymentStatusBadge(pStatus),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  Text(
+                                                    'Patient: ${inv['patient_name'] ?? "N/A"} (${inv['patient_display_id'] ?? ""})',
+                                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    'Service Date: ${inv['created_at'] != null ? DateFormat('dd-MMM-yyyy hh:mm a').format(DateTime.parse(inv['created_at']).toLocal()) : "Today"}',
+                                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
                                           ],
                                         ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          'Patient: ${inv['patient_name'] ?? "N/A"} (${inv['patient_display_id'] ?? ""})',
-                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text('Total: ₹${net.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+                                            Text('Paid: ₹${paid.toStringAsFixed(2)}', style: TextStyle(color: isPaid ? Colors.green : Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
+                                          ],
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'Service Date: ${inv['created_at'] != null ? DateFormat('dd-MMM-yyyy hh:mm a').format(DateTime.parse(inv['created_at']).toLocal()) : "Today"}',
-                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                        const SizedBox(height: 12),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 8,
+                                          children: [
+                                            OutlinedButton.icon(
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: AppTheme.primaryColor,
+                                                side: const BorderSide(color: AppTheme.primaryColor),
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                              icon: const Icon(Icons.receipt_long, size: 14),
+                                              label: const Text('View Bill & Items', style: TextStyle(fontSize: 12)),
+                                              onPressed: () => _showInvoiceReceiptDialog(inv['id']),
+                                            ),
+                                            if (!isPaid)
+                                              ElevatedButton.icon(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: AppTheme.primaryColor,
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                                ),
+                                                icon: const Icon(Icons.payments, size: 14),
+                                                label: const Text('Collect Payment', style: TextStyle(fontSize: 12)),
+                                                onPressed: () => _showInvoiceReceiptDialog(inv['id']),
+                                              ),
+                                          ],
+                                        ),
+                                      ],
+                                    )
+                                  : Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(10),
+                                          ),
+                                          child: const Icon(Icons.home_work_rounded, color: AppTheme.primaryColor, size: 24),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Text(inv['invoice_number'] ?? 'INV-HV', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
+                                                  const SizedBox(width: 10),
+                                                  _buildPaymentStatusBadge(pStatus),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Text(
+                                                'Patient: ${inv['patient_name'] ?? "N/A"} (${inv['patient_display_id'] ?? ""})',
+                                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                'Service Date: ${inv['created_at'] != null ? DateFormat('dd-MMM-yyyy hh:mm a').format(DateTime.parse(inv['created_at']).toLocal()) : "Today"}',
+                                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          children: [
+                                            Text('₹${net.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor)),
+                                            Text('Paid: ₹${paid.toStringAsFixed(2)}', style: TextStyle(color: isPaid ? Colors.green : Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                OutlinedButton.icon(
+                                                  style: AppTheme.outlinedButton,
+                                                  icon: const Icon(Icons.receipt_long, size: 14),
+                                                  label: const Text('View Bill & Items', style: TextStyle(fontSize: 12)),
+                                                  onPressed: () => _showInvoiceReceiptDialog(inv['id']),
+                                                ),
+                                                if (!isPaid) ...[
+                                                  const SizedBox(width: 8),
+                                                  ElevatedButton.icon(
+                                                    style: AppTheme.primaryButton,
+                                                    icon: const Icon(Icons.payments, size: 14),
+                                                    label: const Text('Collect Payment', style: TextStyle(fontSize: 12)),
+                                                    onPressed: () => _showInvoiceReceiptDialog(inv['id']),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text('₹${net.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor)),
-                                      Text('Paid: ₹${paid.toStringAsFixed(2)}', style: TextStyle(color: isPaid ? Colors.green : Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          OutlinedButton.icon(
-                                            style: AppTheme.outlinedButton,
-                                            icon: const Icon(Icons.receipt_long, size: 14),
-                                            label: const Text('View Bill & Items', style: TextStyle(fontSize: 12)),
-                                            onPressed: () => _showInvoiceReceiptDialog(inv['id']),
-                                          ),
-                                          if (!isPaid) ...[
-                                            const SizedBox(width: 8),
-                                            ElevatedButton.icon(
-                                              style: AppTheme.primaryButton,
-                                              icon: const Icon(Icons.payments, size: 14),
-                                              label: const Text('Collect Payment', style: TextStyle(fontSize: 12)),
-                                              onPressed: () => _showInvoiceReceiptDialog(inv['id']),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
                             ),
                           );
                         },

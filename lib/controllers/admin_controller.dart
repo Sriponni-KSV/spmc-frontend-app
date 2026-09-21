@@ -73,11 +73,11 @@ class AdminController {
   }
 }
 
- Future<List<UserModel>> fetchStaff({String? role, bool showDeleted = false})  async {
+  Future<List<UserModel>> fetchStaff({String? role}) async {
     try {
-      String url = '$baseUrl/admin/staff?showDeleted=$showDeleted';
+      String url = '$baseUrl/admin/staff';
       if (role != null && role != 'All') {
-        url += '&role=$role';
+        url += '?role=$role';
       }
 
       final response = await ApiService.get(url);
@@ -91,6 +91,35 @@ class AdminController {
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<Map<String, dynamic>> checkDuplicateStaff({
+    String? email,
+    String? mobile,
+    int? excludeId,
+  }) async {
+    try {
+      final queryParams = <String>[];
+      if (email != null && email.trim().isNotEmpty) {
+        queryParams.add('email=${Uri.encodeComponent(email.trim())}');
+      }
+      if (mobile != null && mobile.trim().isNotEmpty) {
+        queryParams.add('mobile=${Uri.encodeComponent(mobile.trim())}');
+      }
+      if (excludeId != null) {
+        queryParams.add('excludeId=$excludeId');
+      }
+      final url = '$baseUrl/admin/check-duplicate?${queryParams.join('&')}';
+      final response = await ApiService.get(url);
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        return body['data'] as Map<String, dynamic>? ?? {};
+      }
+      return {};
+    } catch (e) {
+      print('Error checking duplicate staff: $e');
+      return {};
     }
   }
 

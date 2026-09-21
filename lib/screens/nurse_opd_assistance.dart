@@ -242,7 +242,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               Container(
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTheme.borderColor),
                 ),
@@ -261,6 +261,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         onChanged: (v) => setState(() => _search = v),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: EdgeInsets.zero,
                           hintText: 'Search patient name or ID...',
                           hintStyle: TextStyle(
                             fontSize: 13,
@@ -798,29 +803,143 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
 
   Future<void> _showCancelAppointmentDialog(AppointmentModel app) async {
     final cancelReasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
 
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Appointment'),
-        content: TextField(
-          controller: cancelReasonController,
-          decoration: const InputDecoration(
-            hintText: 'Enter cancellation reason (required)',
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.dangerColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.cancel_outlined,
+                color: AppTheme.dangerColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Cancel Appointment',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Form(
+            key: formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Are you sure you want to cancel the appointment for ${app.patientName}?',
+                  style: const TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Reason for Cancellation *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: cancelReasonController,
+                  maxLines: 3,
+                  maxLength: 200,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                    ),
+                    LengthLimitingTextInputFormatter(200),
+                  ],
+                  validator: (val) {
+                    final v = val?.trim() ?? '';
+                    if (v.isEmpty) {
+                      return 'Please enter a cancellation reason';
+                    }
+                    if (v.length < 3) {
+                      return 'Reason must be at least 3 characters';
+                    }
+                    if (v.length > 200) {
+                      return 'Reason cannot exceed 200 characters';
+                    }
+                    if (!RegExp(r'[a-zA-Z]').hasMatch(v)) {
+                      return 'Reason must contain alphabetic characters';
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Patient requested cancellation due to personal emergency',
+                    hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                    fillColor: const Color(0xFFF1F5F9),
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          maxLines: 2,
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Back'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.textSecondaryColor,
+              side: const BorderSide(color: AppTheme.borderColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Keep Appointment'),
           ),
           ElevatedButton(
             onPressed: () async {
-              if (cancelReasonController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Reason is required')),
-                );
+              if (!formKey.currentState!.validate()) {
                 return;
               }
 
@@ -836,7 +955,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('${app.patientName} cancelled ✓'),
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppTheme.dangerColor,
                     ),
                   );
                 }
@@ -845,15 +964,18 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(e.toString()),
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppTheme.dangerColor,
                     ),
                   );
                 }
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.dangerColor,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Cancel Appointment'),
           ),

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
@@ -408,6 +409,21 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return sessionSlots;
   }
 
+  String _normalizeTime(String timeStr) {
+    try {
+      String clean = timeStr.trim();
+      if (clean.toUpperCase().contains('AM') || clean.toUpperCase().contains('PM')) {
+        DateTime dt = DateFormat('h:mm a').parse(clean);
+        return DateFormat('hh:mm a').format(dt);
+      } else {
+        DateTime dt = DateFormat('HH:mm').parse(clean);
+        return DateFormat('hh:mm a').format(dt);
+      }
+    } catch (_) {
+      return timeStr.trim();
+    }
+  }
+
   void _updateAvailableSlots() {
     if (_selectedDoctor == null || _bookingDate == null) {
       setState(() {
@@ -419,8 +435,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final dayName = weekDays[_bookingDate!.weekday - 1];
 
-    // 1. Check if day is available
-    if (_selectedDoctor!.availableDays == null ||
+    // 1. Check if day is available (if doctor specifies availableDays)
+    if (_selectedDoctor!.availableDays != null &&
+        _selectedDoctor!.availableDays!.isNotEmpty &&
         !_selectedDoctor!.availableDays!.contains(dayName)) {
       setState(() => _availableSlots = []);
       return;
@@ -428,6 +445,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
     // 2. Check for weekly off
     if (_selectedDoctor!.weeklyOffDays != null &&
+        _selectedDoctor!.weeklyOffDays!.isNotEmpty &&
         _selectedDoctor!.weeklyOffDays!.contains(dayName)) {
       setState(() => _availableSlots = []);
       return;
@@ -447,19 +465,21 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   bool _isDateSelectable(DateTime date) {
-    if (_selectedDoctor == null) return true; // Allow all days if no doctor is selected yet, or we could return false to force doctor selection. Returning true for better UX before validation.
+    if (_selectedDoctor == null) return true;
 
     final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final dayName = weekDays[date.weekday - 1];
     final dateStr = DateFormat('dd/MM/yyyy').format(date);
 
     bool isAvailable = false;
-    if (_selectedDoctor!.availableDays != null &&
+    if (_selectedDoctor!.availableDays == null ||
+        _selectedDoctor!.availableDays!.isEmpty ||
         _selectedDoctor!.availableDays!.contains(dayName)) {
       isAvailable = true;
     }
 
     if (_selectedDoctor!.weeklyOffDays != null &&
+        _selectedDoctor!.weeklyOffDays!.isNotEmpty &&
         _selectedDoctor!.weeklyOffDays!.contains(dayName)) {
       isAvailable = false;
     }
@@ -481,22 +501,34 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         _bookingDate!.month == now.month &&
         _bookingDate!.day == now.day;
 
-    final dateStr = DateFormat('dd/MM/yyyy').format(_bookingDate!);
+    final dateStr1 = DateFormat('dd/MM/yyyy').format(_bookingDate!);
+    final dateStr2 = DateFormat('yyyy-MM-dd').format(_bookingDate!);
 
-    return _availableSlots.where((slot) {
+    List<String> baseSlots = _availableSlots;
+    if (baseSlots.isEmpty) {
+      baseSlots = _generateSlotsForDoctor(_selectedDoctor!);
+    }
+
+    return baseSlots.where((slot) {
       // 1. Check if already booked
-      bool isBooked = _appointments.any(
-        (a) =>
-            a.doctorName == _selectedDoctor!.fullname &&
-            a.appointmentDate == dateStr &&
-            a.appointmentTime == slot &&
-            a.status != 'Cancelled',
-      );
+      bool isBooked = _appointments.any((a) {
+        if (a.status.toLowerCase() == 'cancelled') return false;
+        if (a.doctorName.toLowerCase().trim() !=
+            _selectedDoctor!.fullname.toLowerCase().trim()) {
+          return false;
+        }
+
+        String aDate = a.appointmentDate;
+        if (aDate.contains('T')) aDate = aDate.split('T')[0];
+        if (aDate != dateStr1 && aDate != dateStr2) return false;
+
+        return _normalizeTime(a.appointmentTime) == _normalizeTime(slot);
+      });
 
       if (isBooked) return false;
 
-      // 2. If today, filter out past slots
-      if (isToday) {
+      // 2. If today, filter out past slots (unless it's the currently selected slot)
+      if (isToday && slot != _selectedTime) {
         try {
           DateTime slotTime = DateFormat('hh:mm a').parse(slot);
           DateTime fullSlotTime = DateTime(
@@ -820,7 +852,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         items: _apptTypes,
                         itemLabel: (s) => s,
                         onChanged: (val) =>
-                            setState(() => _selectedApptType = val!),
+                            setState(() => _selectedApptType = val ?? ''),
                       ),
                       const SizedBox(height: 16),
                       _buildFieldLabel('Reason *'),
@@ -828,6 +860,26 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         controller: _reasonController,
                         hint: 'e.g. Regular check-up, fever, etc.',
                         isNumeric: false,
+                        maxLength: 500,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                          ),
+                          LengthLimitingTextInputFormatter(500),
+                        ],
+                        validator: (val) {
+                          final text = val?.trim() ?? '';
+                          if (text.isEmpty) {
+                            return 'Reason for visit is required';
+                          }
+                          if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
+                            return 'Reason must contain at least one alphabet character';
+                          }
+                          if (text.length > 500) {
+                            return 'Reason must not exceed 500 characters';
+                          }
+                          return null;
+                        },
                       ),
                     ],
                   ),
@@ -844,10 +896,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         value: _selectedDept,
                         items: _departments,
                         itemLabel: (s) => s,
-                        onChanged: (val) => setState(() {
-                          _selectedDept = val;
-                          _selectedDoctor = null;
-                        }),
+                        onChanged: (val) {
+                          if (val != _selectedDept) {
+                            setState(() {
+                              _selectedDept = val;
+                              _selectedDoctor = null;
+                              _selectedTime = null;
+                            });
+                            _updateAvailableSlots();
+                          }
+                        },
                       ),
                       if (_selectedDept != null) ...[
                         const SizedBox(height: 24),
@@ -887,9 +945,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                               d.specialization == _selectedDept,
                                         )
                                         .toList()[index];
-                                    final isSelected =
-                                        _selectedDoctor?.fullname ==
-                                        doc.fullname;
+                                    final isSelected = (_selectedDoctor?.id != null && _selectedDoctor?.id == doc.id) ||
+                                        (_selectedDoctor?.fullname.trim().toLowerCase() ==
+                                            doc.fullname.trim().toLowerCase());
                                     return InkWell(
                                       onTap: () {
                                         setState(() {
@@ -1191,6 +1249,13 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           Icons.access_time,
                           'Time',
                           _selectedTime!,
+                        ),
+
+                      if (_selectedApptType.isNotEmpty)
+                        _buildSummaryItem(
+                          Icons.info_outline,
+                          'Type',
+                          _selectedApptType,
                         ),
 
                       const SizedBox(height: 8),
@@ -1508,7 +1573,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   items: _apptTypes,
                                   itemLabel: (s) => s,
                                   onChanged: (val) =>
-                                      setState(() => _selectedApptType = val!),
+                                      setState(() => _selectedApptType = val ?? ''),
                                 ),
                                 const SizedBox(height: 16),
                                 _buildFieldLabel('Reason *'),
@@ -1516,6 +1581,26 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   controller: _reasonController,
                                   hint: 'e.g. Regular check-up, fever, etc.',
                                   isNumeric: false,
+                                  maxLength: 500,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                                    ),
+                                    LengthLimitingTextInputFormatter(500),
+                                  ],
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) {
+                                      return 'Reason for visit is required';
+                                    }
+                                    if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
+                                      return 'Reason must contain at least one alphabet character';
+                                    }
+                                    if (text.length > 500) {
+                                      return 'Reason must not exceed 500 characters';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),
@@ -1532,10 +1617,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   value: _selectedDept,
                                   items: _departments,
                                   itemLabel: (s) => s,
-                                  onChanged: (val) => setState(() {
-                                    _selectedDept = val;
-                                    _selectedDoctor = null;
-                                  }),
+                                  onChanged: (val) {
+                                    if (val != _selectedDept) {
+                                      setState(() {
+                                        _selectedDept = val;
+                                        _selectedDoctor = null;
+                                        _selectedTime = null;
+                                      });
+                                      _updateAvailableSlots();
+                                    }
+                                  },
                                 ),
                                 if (_selectedDept != null) ...[
                                   const SizedBox(height: 24),
@@ -1579,9 +1670,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                         _selectedDept,
                                                   )
                                                   .toList()[index];
-                                              final isSelected =
-                                                  _selectedDoctor?.fullname ==
-                                                  doc.fullname;
+                                              final isSelected = (_selectedDoctor?.id != null && _selectedDoctor?.id == doc.id) ||
+                                                  (_selectedDoctor?.fullname.trim().toLowerCase() ==
+                                                      doc.fullname.trim().toLowerCase());
                                               return InkWell(
                                                 onTap: () {
                                                   setState(() {
@@ -1955,11 +2046,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 _selectedTime!,
                               ),
 
-                            _buildSummaryItem(
-                              Icons.info_outline,
-                              'Type',
-                              _selectedApptType,
-                            ),
+                            if (_selectedApptType.isNotEmpty)
+                              _buildSummaryItem(
+                                Icons.info_outline,
+                                'Type',
+                                _selectedApptType,
+                              ),
 
                             const SizedBox(height: 8),
                             ElevatedButton(
@@ -2192,8 +2284,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           (isNumeric
               ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
               : [
-                  FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
-                  LengthLimitingTextInputFormatter(100),
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                  ),
+                  LengthLimitingTextInputFormatter(maxLength ?? 500),
                 ]),
     );
   }
@@ -2257,6 +2351,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   void _validateVitals() {
+    final reasonText = _reasonController.text.trim();
+    if (reasonText.isEmpty) {
+      throw 'Reason for visit is required';
+    }
+    if (!RegExp(r'[a-zA-Z]').hasMatch(reasonText)) {
+      throw 'Reason for visit must contain at least one alphabet character';
+    }
+    if (reasonText.length > 500) {
+      throw 'Reason for visit must not exceed 500 characters';
+    }
+
     final sysText = _bpSystolicController.text.trim();
     final diaText = _bpDiastolicController.text.trim();
     final sugarText = _sugarController.text.trim();
@@ -2468,28 +2573,57 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             child: _buildViewSwitcher(),
           ),
           const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: () {
-              final path = GoRouterState.of(context).matchedLocation;
-              if (path.startsWith('/nurse')) {
-                context.go(AppRoutes.nurseBookAppointment);
-              } else if (path.startsWith('/reception')) {
-                context.go(AppRoutes.frontDeskBookAppointment);
-              } else {
-                setState(() => _isBookingAppointment = true);
-              }
-            },
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text('Book Appointment'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isLoadingData ? null : _fetchData,
+                  icon: _isLoadingData
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh, size: 18),
+                  label: const Text('Refresh'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    side: const BorderSide(color: AppTheme.primaryColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    minimumSize: const Size(0, 44),
+                  ),
+                ),
               ),
-              elevation: 0,
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    final path = GoRouterState.of(context).matchedLocation;
+                    if (path.startsWith('/nurse')) {
+                      context.go(AppRoutes.nurseBookAppointment);
+                    } else if (path.startsWith('/reception')) {
+                      context.go(AppRoutes.frontDeskBookAppointment);
+                    } else {
+                      setState(() => _isBookingAppointment = true);
+                    }
+                  },
+                  icon: const Icon(Icons.add, size: 20),
+                  label: const Text('Book Appointment'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       );
@@ -2522,28 +2656,52 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
               ],
             ),
-            ElevatedButton.icon(
-              onPressed: () {
-                final path = GoRouterState.of(context).matchedLocation;
-                if (path.startsWith('/nurse')) {
-                  context.go(AppRoutes.nurseBookAppointment);
-                } else if (path.startsWith('/reception')) {
-                  context.go(AppRoutes.frontDeskBookAppointment);
-                } else {
-                  setState(() => _isBookingAppointment = true);
-                }
-              },
-              icon: const Icon(Icons.add, size: 20),
-              label: const Text('Book Appointment'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(180, 44),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _isLoadingData ? null : _fetchData,
+                  icon: _isLoadingData
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh, size: 18),
+                  label: const Text('Refresh'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    side: const BorderSide(color: AppTheme.primaryColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    minimumSize: const Size(120, 44),
+                  ),
                 ),
-                elevation: 0,
-              ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    final path = GoRouterState.of(context).matchedLocation;
+                    if (path.startsWith('/nurse')) {
+                      context.go(AppRoutes.nurseBookAppointment);
+                    } else if (path.startsWith('/reception')) {
+                      context.go(AppRoutes.frontDeskBookAppointment);
+                    } else {
+                      setState(() => _isBookingAppointment = true);
+                    }
+                  },
+                  icon: const Icon(Icons.add, size: 20),
+                  label: const Text('Book Appointment'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(180, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -2574,7 +2732,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        double cardWidth = (constraints.maxWidth - (16 * 2)) / 3;
+        if (constraints.maxWidth <= 0) return const SizedBox.shrink();
+        double cardWidth =
+            math.max(0.0, (constraints.maxWidth - (16 * 2)) / 3);
         if (isMobile) {
           return Wrap(
             spacing: 16,
@@ -2733,9 +2893,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   fontSize: 14,
                   color: AppTheme.textSecondaryColor,
                 ),
+                filled: false,
+                fillColor: Colors.transparent,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
                 isDense: true,
               ),
             ),
@@ -2762,7 +2927,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           CustomDropdownSearch(
             label: '',
             value: _selectedStatus,
-            dropdownItems: const ['All Status', 'Confirmed', 'Cancelled'],
+            dropdownItems: const [
+              'All Status',
+              'Confirmed',
+              'Waiting',
+              'In Consultation',
+              'Completed',
+              'No Show',
+              'Cancelled',
+            ],
             height: 48,
             onChanged: (val) {
               if (val != null) {
@@ -2844,7 +3017,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               child: CustomDropdownSearch(
                 label: '',
                 value: _selectedStatus,
-                dropdownItems: const ['All Status', 'Confirmed', 'Cancelled'],
+                dropdownItems: const [
+                  'All Status',
+                  'Confirmed',
+                  'Waiting',
+                  'In Consultation',
+                  'Completed',
+                  'No Show',
+                  'Cancelled',
+                ],
                 height: 48,
                 onChanged: (val) {
                   if (val != null) {
@@ -2919,8 +3100,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       if (a.status.toLowerCase() == 'admitted') {
         return false;
       }
-      if (_selectedStatus != 'All Status' && a.status != _selectedStatus) {
-        return false;
+      if (_selectedStatus != 'All Status') {
+        final currentNormalized = a.status.toLowerCase().replaceAll('-', ' ').trim();
+        final filterNormalized = _selectedStatus.toLowerCase().replaceAll('-', ' ').trim();
+        if (currentNormalized != filterNormalized) {
+          return false;
+        }
       }
       if (_filterDate != null) {
         String apptDate = a.appointmentDate;
@@ -3274,30 +3459,153 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           String? cancelReason;
                           await showDialog(
                             context: context,
-                            builder: (context) {
+                            builder: (dialogCtx) {
                               final ctrl = TextEditingController();
+                              final formKey = GlobalKey<FormState>();
                               return AlertDialog(
-                                title: const Text('Cancel Appointment'),
-                                content: TextField(
-                                  controller: ctrl,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Enter cancellation reason (required)',
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                title: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.dangerColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.cancel_outlined,
+                                        color: AppTheme.dangerColor,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Text(
+                                      'Cancel Appointment',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                content: SizedBox(
+                                  width: 400,
+                                  child: Form(
+                                    key: formKey,
+                                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Are you sure you want to cancel the appointment for ${appt.patientName}?',
+                                          style: const TextStyle(
+                                            color: AppTheme.textSecondaryColor,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        const Text(
+                                          'Reason for Cancellation *',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        TextFormField(
+                                          controller: ctrl,
+                                          maxLines: 3,
+                                          maxLength: 200,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                                            ),
+                                            LengthLimitingTextInputFormatter(200),
+                                          ],
+                                          validator: (val) {
+                                            final v = val?.trim() ?? '';
+                                            if (v.isEmpty) {
+                                              return 'Please enter a cancellation reason';
+                                            }
+                                            if (v.length < 3) {
+                                              return 'Reason must be at least 3 characters';
+                                            }
+                                            if (v.length > 200) {
+                                              return 'Reason cannot exceed 200 characters';
+                                            }
+                                            if (!RegExp(r'[a-zA-Z]').hasMatch(v)) {
+                                              return 'Reason must contain alphabetic characters';
+                                            }
+                                            return null;
+                                          },
+                                          decoration: InputDecoration(
+                                            hintText: 'e.g. Patient requested cancellation due to personal emergency',
+                                            hintStyle: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.textSecondaryColor,
+                                            ),
+                                            fillColor: const Color(0xFFF1F5F9),
+                                            filled: true,
+                                            contentPadding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 14,
+                                            ),
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: AppTheme.borderColor),
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: AppTheme.borderColor),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                                            ),
+                                            errorBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                                            ),
+                                            focusedErrorBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                                 actions: [
-                                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
+                                  OutlinedButton(
+                                    onPressed: () => Navigator.pop(dialogCtx),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.textSecondaryColor,
+                                      side: const BorderSide(color: AppTheme.borderColor),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Text('Keep Appointment'),
+                                  ),
                                   ElevatedButton(
                                     onPressed: () {
-                                      if (ctrl.text.trim().isNotEmpty) {
+                                      if (formKey.currentState!.validate()) {
                                         cancelReason = ctrl.text.trim();
-                                        Navigator.pop(context);
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Reason is required')),
-                                        );
+                                        Navigator.pop(dialogCtx);
                                       }
                                     },
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.dangerColor,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
                                     child: const Text('Cancel Appointment'),
                                   ),
                                 ],
@@ -3693,31 +4001,154 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         String? cancelReason;
                         await showDialog(
                           context: context,
-                          builder: (context) {
+                          builder: (dialogCtx) {
                             final ctrl = TextEditingController();
+                            final formKey = GlobalKey<FormState>();
                             return AlertDialog(
-                              title: const Text('Cancel Appointment'),
-                              content: TextField(
-                                controller: ctrl,
-                                decoration: const InputDecoration(
-                                  hintText: 'Enter cancellation reason (required)',
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              title: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.dangerColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.cancel_outlined,
+                                      color: AppTheme.dangerColor,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    'Cancel Appointment',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              content: SizedBox(
+                                width: 400,
+                                child: Form(
+                                  key: formKey,
+                                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Are you sure you want to cancel the appointment for ${appt.patientName}?',
+                                        style: const TextStyle(
+                                          color: AppTheme.textSecondaryColor,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'Reason for Cancellation *',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      TextFormField(
+                                        controller: ctrl,
+                                        maxLines: 3,
+                                        maxLength: 200,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                                          ),
+                                          LengthLimitingTextInputFormatter(200),
+                                        ],
+                                        validator: (val) {
+                                          final v = val?.trim() ?? '';
+                                          if (v.isEmpty) {
+                                            return 'Please enter a cancellation reason';
+                                          }
+                                          if (v.length < 3) {
+                                            return 'Reason must be at least 3 characters';
+                                          }
+                                          if (v.length > 200) {
+                                            return 'Reason cannot exceed 200 characters';
+                                          }
+                                          if (!RegExp(r'[a-zA-Z]').hasMatch(v)) {
+                                            return 'Reason must contain alphabetic characters';
+                                          }
+                                          return null;
+                                        },
+                                        decoration: InputDecoration(
+                                          hintText: 'e.g. Patient requested cancellation due to personal emergency',
+                                          hintStyle: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textSecondaryColor,
+                                          ),
+                                          fillColor: const Color(0xFFF1F5F9),
+                                          filled: true,
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 14,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: AppTheme.borderColor),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: AppTheme.borderColor),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                                          ),
+                                          errorBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                                          ),
+                                          focusedErrorBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                               actions: [
-                                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
+                                OutlinedButton(
+                                  onPressed: () => Navigator.pop(dialogCtx),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppTheme.textSecondaryColor,
+                                    side: const BorderSide(color: AppTheme.borderColor),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: const Text('Keep Appointment'),
+                                ),
                                 ElevatedButton(
                                   onPressed: () {
-                                    if (ctrl.text.trim().isNotEmpty) {
+                                    if (formKey.currentState!.validate()) {
                                       cancelReason = ctrl.text.trim();
-                                      Navigator.pop(context);
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Reason is required')),
-                                      );
+                                      Navigator.pop(dialogCtx);
                                     }
                                   },
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                                  child: const Text('Cancel'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.dangerColor,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: const Text('Cancel Appointment'),
                                 ),
                               ],
                             );

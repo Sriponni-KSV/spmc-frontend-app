@@ -10,6 +10,7 @@ class PatientModel {
   final String name;
   final String age;
   final String phone;
+  final String patientId;
   final String initials;
   final Map<String, dynamic>? originalData;
 
@@ -17,6 +18,7 @@ class PatientModel {
     required this.name,
     required this.age,
     required this.phone,
+    this.patientId = '',
     required this.initials,
     this.originalData,
   });
@@ -56,7 +58,7 @@ class _StatCardState extends State<StatCard> {
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -79,20 +81,20 @@ class _StatCardState extends State<StatCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(9),
+              padding: EdgeInsets.all(widget.isMobile ? 7 : 9),
               decoration: BoxDecoration(
                 color: widget.color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(widget.icon, color: widget.color, size: 20),
+              child: Icon(widget.icon, color: widget.color, size: widget.isMobile ? 18 : 20),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: widget.isMobile ? 10 : 14),
             Text(
               widget.value,
-              style: const TextStyle(
-                fontSize: 26,
+              style: TextStyle(
+                fontSize: widget.isMobile ? 22 : 26,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF1A202C),
+                color: const Color(0xFF1A202C),
                 letterSpacing: -0.5,
               ),
               maxLines: 1,
@@ -101,9 +103,9 @@ class _StatCardState extends State<StatCard> {
             const SizedBox(height: 3),
             Text(
               widget.title,
-              style: const TextStyle(
-                color: Color(0xFF718096),
-                fontSize: 12,
+              style: TextStyle(
+                color: const Color(0xFF718096),
+                fontSize: widget.isMobile ? 11 : 12,
                 fontWeight: FontWeight.w500,
               ),
               maxLines: 1,
@@ -114,12 +116,6 @@ class _StatCardState extends State<StatCard> {
       ),
     );
 
-    if (widget.isMobile) {
-      return SizedBox(
-        width: (MediaQuery.of(context).size.width - 48) / 2,
-        child: card,
-      );
-    }
     return card;
   }
 }
@@ -307,6 +303,9 @@ class CustomSpeedDial extends StatefulWidget {
 class _CustomSpeedDialState extends State<CustomSpeedDial>
     with SingleTickerProviderStateMixin {
   bool _isOpen = false;
+  bool _isDragging = false;
+  static const double _right = 24.0;
+  double _bottom = 24.0;
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
 
@@ -353,109 +352,142 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
       return const SizedBox.shrink();
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (_isOpen)
-          ...widget.children.asMap().entries.map((entry) {
-            SpeedDialChild child = entry.value;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    // Limit vertical dragging to strictly half (50%) of the screen height
+    final double maxBottom = (screenHeight * 0.50).clamp(24.0, double.infinity);
+    final double clampedBottom = _bottom.clamp(24.0, maxBottom);
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: FadeTransition(
-                opacity: _expandAnimation,
-                child: ScaleTransition(
-                  alignment: Alignment.bottomRight,
-                  scale: _expandAnimation,
-                  child: InkWell(
-                    onTap: () {
-                      _toggle();
-                      child.onTap();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: child.color,
-                        borderRadius: BorderRadius.circular(32),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(child.icon, color: Colors.white, size: 24),
-                          const SizedBox(width: 12),
-                          Text(
-                            child.label,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.white,
-                              fontFamily: AppTheme.fontFamily,
+    return Positioned(
+      right: _right,
+      bottom: clampedBottom,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (_isOpen)
+            ...widget.children.asMap().entries.map((entry) {
+              SpeedDialChild child = entry.value;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: FadeTransition(
+                  opacity: _expandAnimation,
+                  child: ScaleTransition(
+                    alignment: Alignment.bottomRight,
+                    scale: _expandAnimation,
+                    child: InkWell(
+                      onTap: () {
+                        _toggle();
+                        child.onTap();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: child.color,
+                          borderRadius: BorderRadius.circular(32),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(child.icon, color: Colors.white, size: 24),
+                            const SizedBox(width: 12),
+                            Text(
+                              child.label,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.white,
+                                fontFamily: AppTheme.fontFamily,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
-        const SizedBox(height: 8),
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: _toggle,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: _isOpen
-                    ? const Color(0xFFE53E3E)
-                    : AppTheme.primaryColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  transitionBuilder: (Widget child, Animation<double> anim) {
-                    return RotationTransition(
-                      turns: _isOpen
-                          ? anim
-                          : Tween<double>(begin: 0.125, end: 0).animate(anim),
-                      child: FadeTransition(opacity: anim, child: child),
-                    );
-                  },
-                  child: Icon(
-                    _isOpen ? Icons.close : Icons.add,
-                    key: ValueKey<bool>(_isOpen),
-                    color: Colors.white,
-                    size: 32,
+              );
+            }),
+          const SizedBox(height: 8),
+          MouseRegion(
+            cursor: SystemMouseCursors.allScroll,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggle,
+              onPanStart: (_) {
+                setState(() {
+                  _isDragging = true;
+                });
+              },
+              onPanUpdate: (details) {
+                setState(() {
+                  // Only up and down: dragging up decreases dy -> increases bottom
+                  _bottom = (_bottom - details.delta.dy).clamp(24.0, maxBottom);
+                });
+              },
+              onPanEnd: (_) {
+                setState(() {
+                  _isDragging = false;
+                });
+              },
+              onPanCancel: () {
+                setState(() {
+                  _isDragging = false;
+                });
+              },
+              child: AnimatedContainer(
+                duration: _isDragging
+                    ? Duration.zero
+                    : const Duration(milliseconds: 250),
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: _isOpen
+                      ? const Color(0xFFE53E3E)
+                      : AppTheme.primaryColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    transitionBuilder: (Widget child, Animation<double> anim) {
+                      return RotationTransition(
+                        turns: _isOpen
+                            ? anim
+                            : Tween<double>(begin: 0.125, end: 0).animate(anim),
+                        child: FadeTransition(opacity: anim, child: child),
+                      );
+                    },
+                    child: Icon(
+                      _isOpen ? Icons.close : Icons.add,
+                      key: ValueKey<bool>(_isOpen),
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -497,22 +529,54 @@ class _SearchOverlayState extends State<SearchOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final String query = _searchController.text.toLowerCase();
+    final String query = _searchController.text.toLowerCase().trim();
     final List<PatientModel> displayPatients = (widget.patients ?? [])
         .map((p) {
-          String name = p['name']?.toString() ?? 'Unknown';
+          String name = p['name']?.toString() ??
+              p['full_name']?.toString() ??
+              p['patient_name']?.toString() ??
+              'Unknown';
           String age = p['age']?.toString() ?? '-';
-          String phone = p['phone']?.toString() ?? '-';
+          String phone = p['phone']?.toString() ??
+              p['mobile_number']?.toString() ??
+              p['phone_number']?.toString() ??
+              '-';
+          String patientId = p['patient_id']?.toString() ??
+              p['display_id']?.toString() ??
+              p['patient_display_id']?.toString() ??
+              p['uhid']?.toString() ??
+              (p['id'] != null ? 'P-${p['id']}' : '');
           String initials = '?';
           if (name.trim().isNotEmpty) {
-            final parts = name.trim().split(' ').where((part) => part.isNotEmpty).take(2).toList();
+            final parts = name
+                .trim()
+                .split(' ')
+                .where((part) => part.isNotEmpty)
+                .take(2)
+                .toList();
             if (parts.isNotEmpty) {
               initials = parts.map((part) => part[0].toUpperCase()).join('');
             }
           }
-          return PatientModel(name: name, age: '${age}y', phone: phone, initials: initials, originalData: p);
+          return PatientModel(
+            name: name,
+            age: '${age}y',
+            phone: phone,
+            patientId: patientId,
+            initials: initials,
+            originalData: p,
+          );
         })
-        .where((p) => p.name.toLowerCase().contains(query) || p.phone.contains(query))
+        .where((p) {
+          if (query.isEmpty) return true;
+          return p.name.toLowerCase().contains(query) ||
+              p.phone.toLowerCase().contains(query) ||
+              p.patientId.toLowerCase().contains(query) ||
+              (p.originalData?['id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['patient_id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['display_id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['uhid']?.toString().toLowerCase().contains(query) ?? false);
+        })
         .toList();
 
     return CallbackShortcuts(
@@ -564,12 +628,17 @@ class _SearchOverlayState extends State<SearchOverlay> {
                           ),
                           decoration: const InputDecoration(
                             hintText:
-                                'Search patients, appointments, or actions...',
+                                'Search patients by name, ID, phone, or actions...',
                             hintStyle: TextStyle(color: AppTheme.iconColor),
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            filled: false,
                             fillColor: Colors.transparent,
+                            contentPadding: EdgeInsets.zero,
                           ),
                         ),
                       ),
@@ -764,12 +833,37 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
-                Text(
-                  '${patient.age} • ${patient.phone}',
-                  style: const TextStyle(
-                    color: AppTheme.textSecondaryColor,
-                    fontSize: 13,
-                  ),
+                Row(
+                  children: [
+                    if (patient.patientId.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          patient.patientId,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      '${patient.age} • ${patient.phone}',
+                      style: const TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

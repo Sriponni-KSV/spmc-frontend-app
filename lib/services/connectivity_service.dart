@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 
 /// Why the app is currently offline.
 enum OfflineReason {
@@ -15,18 +16,8 @@ enum OfflineReason {
   serverDown,
 }
 
-/// Monitors connectivity by both listening to network-adapter changes
-/// (via connectivity_plus) and periodically pinging the actual backend.
-///
-/// The heartbeat ping is the authoritative signal: any HTTP response (even
-/// 4xx/5xx) means the backend is reachable; an exception means it is not.
-/// This correctly handles:
-///  - Backend stopped while running locally (localhost still "online" on Wi-Fi)
-///  - Wi-Fi turned off when backend is on a remote host
-///  - Production backend going down with internet still connected
+/// Monitors connectivity by dynamically pinging the configured backend API endpoint.
 class ConnectivityService extends ChangeNotifier {
-  final String _backendUrl;
-
   final Connectivity _connectivity = Connectivity();
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   Timer? _heartbeatTimer;
@@ -39,54 +30,54 @@ class ConnectivityService extends ChangeNotifier {
   /// The specific reason we are offline (noInternet or serverDown).
   OfflineReason get offlineReason => _reason;
 
-  ConnectivityService(this._backendUrl) {
+  ConnectivityService([String? backendUrl]) {
     _init();
   }
 
   Future<void> _init() async {
-    // 1. Immediate ping on startup to know current state right away
+    // 1. Immediate ping on startup
     await _pingBackend();
 
-    // 2. Listen for network-adapter changes (fast signal, works well on mobile)
-    _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
-      (results) {
-        if (results.every((r) => r == ConnectivityResult.none)) {
-          // No network interface at all — go offline immediately without waiting
-          _setReason(OfflineReason.noInternet);
-        } else {
-          // Adapter came back — confirm with a real ping before clearing banner
-          _pingBackend();
-        }
-      },
-    );
+    // 2. Listen for network adapter changes on native platforms
+    if (!kIsWeb) {
+      _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
+        (results) {
+          if (results.every((r) => r == ConnectivityResult.none)) {
+            _setReason(OfflineReason.noInternet);
+          } else {
+            _pingBackend();
+          }
+        },
+      );
+    }
 
     // 3. Heartbeat: verify backend reachability every 5 seconds.
-    //    This is the key piece that makes it work on Flutter Web / localhost.
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       _pingBackend();
     });
   }
 
   Future<void> _pingBackend() async {
-    if (_backendUrl.isEmpty) return;
+    final baseUrl = ApiEndpoints.baseUrl;
+    if (baseUrl.isEmpty) return;
 
-    // First check: does the device have any network at all?
-    final connectivityResults = await _connectivity.checkConnectivity();
-    if (connectivityResults.every((r) => r == ConnectivityResult.none)) {
-      _setReason(OfflineReason.noInternet);
-      return;
-    }
-
-    // Second check: can we actually reach the backend?
     try {
       // Any HTTP response (200, 404, 401 …) means the backend is reachable.
-      // Only a socket/network exception means we're truly offline.
       await http
-          .get(Uri.parse(_backendUrl))
+          .get(Uri.parse(baseUrl))
           .timeout(const Duration(seconds: 4));
       _setReason(OfflineReason.none);
     } catch (_) {
-      // Internet is up (we checked above) but the backend is not responding.
+      // If HTTP call threw, check if network interface is completely disconnected
+      if (!kIsWeb) {
+        try {
+          final connectivityResults = await _connectivity.checkConnectivity();
+          if (connectivityResults.every((r) => r == ConnectivityResult.none)) {
+            _setReason(OfflineReason.noInternet);
+            return;
+          }
+        } catch (_) {}
+      }
       _setReason(OfflineReason.serverDown);
     }
   }

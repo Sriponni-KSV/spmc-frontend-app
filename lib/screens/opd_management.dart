@@ -627,6 +627,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   fontSize: 13,
                   color: AppTheme.textSecondaryColor,
                 ),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: EdgeInsets.zero,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -964,6 +967,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         statusColor = Colors.grey;
     }
 
+    final bool isMobile = widget.isMobile || MediaQuery.of(context).size.width < 900;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -995,8 +1000,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                          horizontal: 8,
+                          vertical: 5,
                         ),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.1),
@@ -1015,7 +1020,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             const SizedBox(width: 4),
                             Text(
                               app.status == 'Completed'
-                                  ? '${app.appointmentDate}  ${app.appointmentTime}'
+                                  ? (isMobile ? app.appointmentTime : '${app.appointmentDate}  ${app.appointmentTime}')
                                   : app.appointmentTime,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
@@ -1050,18 +1055,20 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 4,
                           children: [
                             Text(
                               app.patientName,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                                fontSize: 15,
                                 color: AppTheme.textPrimaryColor,
                               ),
                             ),
-                            if (app.patientDisplayId != null) ...[
-                              const SizedBox(width: 8),
+                            if (app.patientDisplayId != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 6,
@@ -1084,9 +1091,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                   ),
                                 ),
                               ),
-                            ],
                             // Appointment type badge
-                            const SizedBox(width: 6),
                             Builder(
                               builder: (_) {
                                 final normalized = app.appointmentType
@@ -1126,14 +1131,16 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ],
                         ),
                         const SizedBox(height: 6),
-                        Row(
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 4,
+                          runSpacing: 2,
                           children: [
                             const Icon(
                               Icons.medical_services_outlined,
                               size: 14,
                               color: AppTheme.textSecondaryColor,
                             ),
-                            const SizedBox(width: 6),
                             Text(
                               'Dr. ${app.doctorName}',
                               style: const TextStyle(
@@ -1142,7 +1149,6 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 color: AppTheme.textSecondaryColor,
                               ),
                             ),
-                            const SizedBox(width: 4),
                             Text(
                               '• ${app.department}',
                               style: const TextStyle(
@@ -1154,14 +1160,15 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         ),
                         const SizedBox(height: 4),
                         if (app.patientPhone != null)
-                          Row(
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 4,
                             children: [
                               const Icon(
                                 Icons.phone_outlined,
                                 size: 14,
                                 color: AppTheme.textMutedColor,
                               ),
-                              const SizedBox(width: 6),
                               Text(
                                 app.patientPhone!,
                                 style: const TextStyle(
@@ -1176,94 +1183,86 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   ),
 
                   // Status Pill Summary
+                  const SizedBox(width: 8),
                   _buildStatusBadge(app.status),
                 ],
               ),
               const Divider(height: 16),
 
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              if (isMobile) ...[
+                if (app.bloodPressureSystolic != null ||
+                    app.temperature != null ||
+                    app.sugarLevel != null) ...[
+                  const Text(
+                    'Patient Vitals:',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (app.bloodPressureSystolic != null)
+                        _buildVitalPill(
+                          Icons.speed,
+                          'BP: ${app.bloodPressureSystolic}/${app.bloodPressureDiastolic ?? "--"} mmHg',
+                          Colors.blue.shade700,
+                        ),
+                      if (app.temperature != null)
+                        _buildVitalPill(
+                          Icons.thermostat_outlined,
+                          'Temp: ${app.temperature} °F',
+                          Colors.orange.shade700,
+                        ),
+                      if (app.sugarLevel != null)
+                        _buildVitalPill(
+                          Icons.bloodtype_outlined,
+                          'Sugar: ${app.sugarLevel} mg/dL',
+                          Colors.red.shade700,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (app.reasonForVisit != null &&
+                    app.reasonForVisit!.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade100),
+                    ),
+                    child: Row(
                       children: [
-                        // Show Vitals values if they exist (BP, Temp, Sugar)
-                        if (app.bloodPressureSystolic != null ||
-                            app.temperature != null ||
-                            app.sugarLevel != null) ...[
-                          const Text(
-                            'Patient Vitals:',
+                        Icon(
+                          Icons.notes,
+                          size: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Complaint: ${app.reasonForVisit}',
                             style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textSecondaryColor,
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.grey.shade700,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 8,
-                            children: [
-                              if (app.bloodPressureSystolic != null)
-                                _buildVitalPill(
-                                  Icons.speed,
-                                  'BP: ${app.bloodPressureSystolic}/${app.bloodPressureDiastolic ?? "--"} mmHg',
-                                  Colors.blue.shade700,
-                                ),
-                              if (app.temperature != null)
-                                _buildVitalPill(
-                                  Icons.thermostat_outlined,
-                                  'Temp: ${app.temperature} °F',
-                                  Colors.orange.shade700,
-                                ),
-                              if (app.sugarLevel != null)
-                                _buildVitalPill(
-                                  Icons.bloodtype_outlined,
-                                  'Sugar: ${app.sugarLevel} mg/dL',
-                                  Colors.red.shade700,
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        if (app.reasonForVisit != null &&
-                            app.reasonForVisit!.isNotEmpty) ...[
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade100),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.notes,
-                                  size: 14,
-                                  color: Colors.grey.shade600,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Complaint: ${app.reasonForVisit}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontStyle: FontStyle.italic,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Actions Bar
-                  Wrap(
+                  const SizedBox(height: 8),
+                ],
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     alignment: WrapAlignment.end,
@@ -1294,7 +1293,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         ),
                       ),
                       if (app.status == 'Confirmed') ...[
-                        if (!_hasVitals(app)) ...[
+                        if (!_hasVitals(app))
                           ElevatedButton.icon(
                             onPressed: () => _openVitalsDialog(app),
                             icon: const Icon(
@@ -1321,8 +1320,6 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                               ),
                             ),
                           ),
-                        ],
-
                         ElevatedButton.icon(
                           onPressed: () => _showCancelAppointmentDialog(app),
                           icon: const Icon(Icons.cancel_outlined, size: 14),
@@ -1348,8 +1345,176 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       ],
                     ],
                   ),
-                ],
-              ),
+                ),
+              ] else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Show Vitals values if they exist (BP, Temp, Sugar)
+                          if (app.bloodPressureSystolic != null ||
+                              app.temperature != null ||
+                              app.sugarLevel != null) ...[
+                            const Text(
+                              'Patient Vitals:',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                if (app.bloodPressureSystolic != null)
+                                  _buildVitalPill(
+                                    Icons.speed,
+                                    'BP: ${app.bloodPressureSystolic}/${app.bloodPressureDiastolic ?? "--"} mmHg',
+                                    Colors.blue.shade700,
+                                  ),
+                                if (app.temperature != null)
+                                  _buildVitalPill(
+                                    Icons.thermostat_outlined,
+                                    'Temp: ${app.temperature} °F',
+                                    Colors.orange.shade700,
+                                  ),
+                                if (app.sugarLevel != null)
+                                  _buildVitalPill(
+                                    Icons.bloodtype_outlined,
+                                    'Sugar: ${app.sugarLevel} mg/dL',
+                                    Colors.red.shade700,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          if (app.reasonForVisit != null &&
+                              app.reasonForVisit!.isNotEmpty) ...[
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade100),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.notes,
+                                    size: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Complaint: ${app.reasonForVisit}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontStyle: FontStyle.italic,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Actions Bar
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => _showVisitDetails(app),
+                          icon: const Icon(Icons.visibility_outlined, size: 16),
+                          label: const Text(
+                            'View Details',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            side: const BorderSide(
+                              color: AppTheme.primaryColor,
+                              width: 1.5,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        if (app.status == 'Confirmed') ...[
+                          if (!_hasVitals(app))
+                            ElevatedButton.icon(
+                              onPressed: () => _openVitalsDialog(app),
+                              icon: const Icon(
+                                Icons.monitor_heart,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                              label: const Text(
+                                'Add Vitals',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F766E),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ElevatedButton.icon(
+                            onPressed: () => _showCancelAppointmentDialog(app),
+                            icon: const Icon(Icons.cancel_outlined, size: 14),
+                            label: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade600,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -1548,29 +1713,143 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
 
   Future<void> _showCancelAppointmentDialog(AppointmentModel app) async {
     final cancelReasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
 
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Appointment'),
-        content: TextField(
-          controller: cancelReasonController,
-          decoration: const InputDecoration(
-            hintText: 'Enter cancellation reason (required)',
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.dangerColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.cancel_outlined,
+                color: AppTheme.dangerColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Cancel Appointment',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Form(
+            key: formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Are you sure you want to cancel the appointment for ${app.patientName}?',
+                  style: const TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Reason for Cancellation *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: cancelReasonController,
+                  maxLines: 3,
+                  maxLength: 200,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                    ),
+                    LengthLimitingTextInputFormatter(200),
+                  ],
+                  validator: (val) {
+                    final v = val?.trim() ?? '';
+                    if (v.isEmpty) {
+                      return 'Please enter a cancellation reason';
+                    }
+                    if (v.length < 3) {
+                      return 'Reason must be at least 3 characters';
+                    }
+                    if (v.length > 200) {
+                      return 'Reason cannot exceed 200 characters';
+                    }
+                    if (!RegExp(r'[a-zA-Z]').hasMatch(v)) {
+                      return 'Reason must contain alphabetic characters';
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Patient requested cancellation due to personal emergency',
+                    hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                    fillColor: const Color(0xFFF1F5F9),
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          maxLines: 2,
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Back'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.textSecondaryColor,
+              side: const BorderSide(color: AppTheme.borderColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Keep Appointment'),
           ),
           ElevatedButton(
             onPressed: () async {
-              if (cancelReasonController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Reason is required')),
-                );
+              if (!formKey.currentState!.validate()) {
                 return;
               }
 
@@ -1586,7 +1865,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('${app.patientName} cancelled ✓'),
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppTheme.dangerColor,
                     ),
                   );
                 }
@@ -1595,15 +1874,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(e.toString()),
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppTheme.dangerColor,
                     ),
                   );
                 }
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.dangerColor,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Cancel Appointment'),
           ),
@@ -1648,22 +1930,30 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 });
           }
 
+          final screenWidth = MediaQuery.of(context).size.width;
+          final screenHeight = MediaQuery.of(context).size.height;
+          final bool isMobileDialog = screenWidth < 768;
+
           return Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
             backgroundColor: Colors.white,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobileDialog ? 12 : 40,
+              vertical: isMobileDialog ? 20 : 40,
+            ),
             child: SizedBox(
-              width: 800,
-              height: 600,
+              width: isMobileDialog ? screenWidth : 800,
+              height: isMobileDialog ? screenHeight * 0.88 : 600,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Premium Card Header
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 20,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobileDialog ? 16 : 24,
+                      vertical: 16,
                     ),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
@@ -1677,45 +1967,44 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       ),
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.assignment_outlined,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  app.patientName,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.assignment_outlined,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                app.patientName,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'ID: ${app.patientDisplayId ?? 'N/A'} • Contact: ${app.patientPhone ?? 'N/A'}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white.withOpacity(0.8),
-                                  ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'ID: ${app.patientDisplayId ?? 'N/A'} • Contact: ${app.patientPhone ?? 'N/A'}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white.withOpacity(0.8),
                                 ),
-                              ],
-                            ),
-                          ],
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
                         IconButton(
                           onPressed: () => Navigator.pop(context),
@@ -1728,14 +2017,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   // Content Body
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Left Column: Patient & Appointment details + vitals
-                          Expanded(
-                            flex: 5,
-                            child: Column(
+                      padding: EdgeInsets.all(isMobileDialog ? 16 : 24),
+                      child: isMobileDialog
+                          ? Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
@@ -1789,44 +2073,33 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     ),
                                   ),
                                   const SizedBox(height: 12),
-                                  Row(
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
                                     children: [
                                       if (app.bloodPressureSystolic != null)
-                                        Expanded(
-                                          child: _buildVitalPillCard(
-                                            'Blood Pressure',
-                                            '${app.bloodPressureSystolic}/${app.bloodPressureDiastolic}',
-                                            'mmHg',
-                                            Icons.favorite,
-                                            Colors.red,
-                                          ),
+                                        _buildVitalPillCard(
+                                          'Blood Pressure',
+                                          '${app.bloodPressureSystolic}/${app.bloodPressureDiastolic}',
+                                          'mmHg',
+                                          Icons.favorite,
+                                          Colors.red,
                                         ),
-                                      if (app.bloodPressureSystolic != null &&
-                                          (app.temperature != null ||
-                                              app.sugarLevel != null))
-                                        const SizedBox(width: 8),
                                       if (app.temperature != null)
-                                        Expanded(
-                                          child: _buildVitalPillCard(
-                                            'Temperature',
-                                            '${app.temperature}',
-                                            '°F',
-                                            Icons.thermostat,
-                                            Colors.orange,
-                                          ),
+                                        _buildVitalPillCard(
+                                          'Temperature',
+                                          '${app.temperature}',
+                                          '°F',
+                                          Icons.thermostat,
+                                          Colors.orange,
                                         ),
-                                      if (app.temperature != null &&
-                                          app.sugarLevel != null)
-                                        const SizedBox(width: 8),
                                       if (app.sugarLevel != null)
-                                        Expanded(
-                                          child: _buildVitalPillCard(
-                                            'Blood Sugar',
-                                            '${app.sugarLevel}',
-                                            'mg/dL',
-                                            Icons.water_drop,
-                                            Colors.blue,
-                                          ),
+                                        _buildVitalPillCard(
+                                          'Blood Sugar',
+                                          '${app.sugarLevel}',
+                                          'mg/dL',
+                                          Icons.water_drop,
+                                          Colors.blue,
                                         ),
                                     ],
                                   ),
@@ -1864,25 +2137,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(height: 20),
                                 ],
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 24),
-                          // Vertical Divider
-                          Container(
-                            width: 1,
-                            height: 480,
-                            color: Colors.grey.shade200,
-                          ),
-                          const SizedBox(width: 24),
 
-                          // Right Column: Clinical Consult findings / Status Timeline Log
-                          Expanded(
-                            flex: 6,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                                const Divider(),
+                                const SizedBox(height: 20),
+
+                                // Clinical Consult findings
                                 if (app.status == 'Completed') ...[
                                   const Text(
                                     'Clinical Consultation Findings',
@@ -1934,8 +2195,6 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                   ),
                                   child: Builder(
                                     builder: (_) {
-                                      // Prefer the freshly-fetched consultation's
-                                      // changes_log; fall back to app.changesLog
                                       final timelineData =
                                           (consultation != null &&
                                               consultation!['changes_log'] !=
@@ -1956,10 +2215,235 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                   ),
                                 ),
                               ],
+                            )
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Left Column: Patient & Appointment details + vitals
+                                Expanded(
+                                  flex: 5,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Appointment Details',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade50,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: Colors.grey.shade200,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            _detailItem(
+                                              'Assigned Doctor',
+                                              app.doctorName,
+                                            ),
+                                            _detailItem('Department', app.department),
+                                            _detailItem(
+                                              'Date / Time',
+                                              '${app.appointmentDate} • ${app.appointmentTime}',
+                                            ),
+                                            _detailItem(
+                                              'Session Status',
+                                              app.status,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 20),
+
+                                      // Vitals Card
+                                      if (app.bloodPressureSystolic != null ||
+                                          app.temperature != null ||
+                                          app.sugarLevel != null) ...[
+                                        const Text(
+                                          'Patient Vitals',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          children: [
+                                            if (app.bloodPressureSystolic != null)
+                                              Expanded(
+                                                child: _buildVitalPillCard(
+                                                  'Blood Pressure',
+                                                  '${app.bloodPressureSystolic}/${app.bloodPressureDiastolic}',
+                                                  'mmHg',
+                                                  Icons.favorite,
+                                                  Colors.red,
+                                                ),
+                                              ),
+                                            if (app.bloodPressureSystolic != null &&
+                                                (app.temperature != null ||
+                                                    app.sugarLevel != null))
+                                              const SizedBox(width: 8),
+                                            if (app.temperature != null)
+                                              Expanded(
+                                                child: _buildVitalPillCard(
+                                                  'Temperature',
+                                                  '${app.temperature}',
+                                                  '°F',
+                                                  Icons.thermostat,
+                                                  Colors.orange,
+                                                ),
+                                              ),
+                                            if (app.temperature != null &&
+                                                app.sugarLevel != null)
+                                              const SizedBox(width: 8),
+                                            if (app.sugarLevel != null)
+                                              Expanded(
+                                                child: _buildVitalPillCard(
+                                                  'Blood Sugar',
+                                                  '${app.sugarLevel}',
+                                                  'mg/dL',
+                                                  Icons.water_drop,
+                                                  Colors.blue,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 20),
+                                      ],
+
+                                      if (app.reasonForVisit != null &&
+                                          app.reasonForVisit!.isNotEmpty) ...[
+                                        const Text(
+                                          'Reason for Visit',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade50,
+                                            border: Border.all(
+                                              color: Colors.amber.shade100,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            app.reasonForVisit!,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.amber.shade900,
+                                              height: 1.4,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 24),
+                                // Vertical Divider
+                                Container(
+                                  width: 1,
+                                  height: 480,
+                                  color: Colors.grey.shade200,
+                                ),
+                                const SizedBox(width: 24),
+
+                                // Right Column: Clinical Consult findings / Status Timeline Log
+                                Expanded(
+                                  flex: 6,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (app.status == 'Completed') ...[
+                                        const Text(
+                                          'Clinical Consultation Findings',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        if (isLoadingConsul)
+                                          const Center(
+                                            child: Padding(
+                                              padding: EdgeInsets.all(16),
+                                              child: CircularProgressIndicator(),
+                                            ),
+                                          )
+                                        else if (consultation == null)
+                                          const Text(
+                                            'No consultation details recorded yet.',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.grey,
+                                            ),
+                                          )
+                                        else ...[
+                                          _buildConsultationSummary(consultation!),
+                                        ],
+                                        const SizedBox(height: 24),
+                                      ],
+
+                                      const Text(
+                                        'Status Timeline Log',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade50,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: Colors.grey.shade200,
+                                          ),
+                                        ),
+                                        child: Builder(
+                                          builder: (_) {
+                                            final timelineData =
+                                                (consultation != null &&
+                                                    consultation!['changes_log'] !=
+                                                        null)
+                                                ? consultation!['changes_log']
+                                                : app.changesLog;
+                                            return timelineData != null
+                                                ? _buildTimeline(timelineData)
+                                                : const Text(
+                                                    'No status changes recorded yet.',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color:
+                                                          AppTheme.textSecondaryColor,
+                                                    ),
+                                                  );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
 
@@ -2470,21 +2954,23 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 80,
+            width: 120,
             child: Text(
               '$label:',
               style: const TextStyle(
                 color: AppTheme.textSecondaryColor,
                 fontWeight: FontWeight.w600,
+                fontSize: 13,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
             ),
           ),
         ],

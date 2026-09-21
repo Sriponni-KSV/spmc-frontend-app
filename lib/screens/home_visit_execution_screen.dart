@@ -22,6 +22,7 @@ import 'home_visit_invoice_dialog.dart';
 import '../utils/unsaved_changes_helper.dart';
 import '../utils/modal_history_helper.dart';
 import '../utils/app_notification.dart';
+import '../utils/capitalize_formatter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/live_speech_service.dart';
@@ -12133,9 +12134,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   _buildLabel('Attender Full Name *'),
                   TextFormField(
                     controller: nameCtrl,
+                    textCapitalization: TextCapitalization.words,
                     inputFormatters: [
                       LengthLimitingTextInputFormatter(30),
-                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s.]')),
+                      const CapitalizeWordsInputFormatter(),
                     ],
                     decoration: AppTheme.standardInputDecoration(
                       hintText: 'Full Name (Min 3, Max 30 chars)',
@@ -12145,9 +12148,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   _buildLabel('Attender Relationship *'),
                   TextFormField(
                     controller: relCtrl,
+                    textCapitalization: TextCapitalization.words,
                     inputFormatters: [
                       LengthLimitingTextInputFormatter(20),
                       FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                      const CapitalizeWordsInputFormatter(),
                     ],
                     decoration: AppTheme.standardInputDecoration(
                       hintText: 'e.g. Son, Spouse, Daughter',
