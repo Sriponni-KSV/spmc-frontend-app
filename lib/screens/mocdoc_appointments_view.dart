@@ -10,6 +10,7 @@ import '../controllers/admin_controller.dart';
 import '../controllers/appointment_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../widgets/appointment_details_dialog.dart';
+import '../utils/date_formatter.dart';
 
 class MocDocAppointmentsView extends StatefulWidget {
   final String? initialViewMode;
@@ -839,6 +840,22 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   }
 
   void _openVitalsEntryDialog(AppointmentModel appt) {
+    final apptDt = DateFormatter.toDateTime(appt.appointmentDate);
+    if (apptDt != null) {
+      final now = DateTime.now();
+      final todayMidnight = DateTime(now.year, now.month, now.day);
+      final apptMidnight = DateTime(apptDt.year, apptDt.month, apptDt.day);
+      if (apptMidnight.isAfter(todayMidnight)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vitals collection is disabled for future-dated appointments.'),
+            backgroundColor: Color(0xFFB45309),
+          ),
+        );
+        _openViewDetailsDialog(appt);
+        return;
+      }
+    }
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -2735,6 +2752,10 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
     final isRescheduled = appt.isRescheduled;
     final bool hasVitals =
         appt.bloodPressureSystolic != null && appt.temperature != null;
+    final apptDt = DateFormatter.toDateTime(appt.appointmentDate);
+    final bool isFuture = apptDt != null &&
+        DateTime(apptDt.year, apptDt.month, apptDt.day)
+            .isAfter(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day));
 
     return Container(
       decoration: BoxDecoration(
@@ -2905,7 +2926,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                   ),
                   const SizedBox(width: 4),
                   if (appt.status == 'Confirmed') ...[
-                    if (!hasVitals) ...[
+                    if (!hasVitals && !isFuture) ...[
                       _buildCardAction(
                         Icons.monitor_heart_outlined,
                         'Vitals',

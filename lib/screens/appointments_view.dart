@@ -14,6 +14,7 @@ import '../controllers/admin_controller.dart';
 import '../controllers/appointment_controller.dart';
 import '../widgets/appointment_details_dialog.dart';
 import 'mocdoc_appointments_view.dart';
+import '../utils/date_formatter.dart';
 
 class AppointmentsView extends StatefulWidget {
   final bool startWithBookingForm;
@@ -313,6 +314,22 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   void _openVitalsEntryDialog(BuildContext context, AppointmentModel appt) {
+    final apptDt = DateFormatter.toDateTime(appt.appointmentDate);
+    if (apptDt != null) {
+      final now = DateTime.now();
+      final todayMidnight = DateTime(now.year, now.month, now.day);
+      final apptMidnight = DateTime(apptDt.year, apptDt.month, apptDt.day);
+      if (apptMidnight.isAfter(todayMidnight)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vitals collection is disabled for future-dated appointments.'),
+            backgroundColor: Color(0xFFB45309),
+          ),
+        );
+        _openViewDetailsDialog(context, appt);
+        return;
+      }
+    }
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -3262,6 +3279,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     final statusBg = AppTheme.getStatusBgColor(appt.status);
     
     final bool hasVitals = appt.bloodPressureSystolic != null && appt.temperature != null;
+    final apptDt = DateFormatter.toDateTime(appt.appointmentDate);
+    final bool isFuture = apptDt != null &&
+        DateTime(apptDt.year, apptDt.month, apptDt.day)
+            .isAfter(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day));
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -3441,7 +3462,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       ),
                     ),
                     if (appt.status == 'Confirmed') ...[
-                      if (!hasVitals)
+                      if (!hasVitals && !isFuture)
                         ElevatedButton.icon(
                           onPressed: () => _openVitalsEntryDialog(context, appt),
                           icon: const Icon(Icons.monitor_heart, size: 12, color: Colors.white),
@@ -3714,6 +3735,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     final statusBg = AppTheme.getStatusBgColor(appt.status);
     final isRescheduled = appt.isRescheduled;
     final bool hasVitals = appt.bloodPressureSystolic != null && appt.temperature != null;
+    final apptDt = DateFormatter.toDateTime(appt.appointmentDate);
+    final bool isFuture = apptDt != null &&
+        DateTime(apptDt.year, apptDt.month, apptDt.day)
+            .isAfter(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day));
 
     final now = DateTime.now();
     bool isToday = false;
@@ -3985,7 +4010,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     onTap: () => _openViewDetailsDialog(context, appt),
                   ),
                   if (status == 'Confirmed') ...[
-                    if (!hasVitals) ...[
+                    if (!hasVitals && !isFuture) ...[
                       _buildActionLabel(
                         Icons.monitor_heart_outlined,
                         'Add Vitals',

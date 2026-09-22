@@ -30,6 +30,8 @@ import '../widgets/user_profile_dialog.dart';
 import '../utils/modal_history_helper.dart';
 import '../utils/unsaved_changes_helper.dart';
 import '../config/nurse_nav_config.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/app_top_bar_actions.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -930,11 +932,24 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: NurseNavConfig.getVisibleNavItems(user)
                         .map(
-                          (item) => _buildSidebarItem(
-                            item.index,
-                            item.icon,
-                            item.label,
-                          ),
+                          (item) {
+                            String translatedLabel = item.label;
+                            final lower = item.label.toLowerCase();
+                            if (lower == 'dashboard') translatedLabel = context.tr('dashboard', fallback: item.label);
+                            else if (lower == 'patients') translatedLabel = context.tr('patients', fallback: item.label);
+                            else if (lower == 'appointments') translatedLabel = context.tr('appointments', fallback: item.label);
+                            else if (lower == 'doctors') translatedLabel = context.tr('doctors', fallback: item.label);
+                            else if (lower.contains('opd')) translatedLabel = context.tr('opd_management', fallback: item.label);
+                            else if (lower.contains('ipd')) translatedLabel = context.tr('ipd_management', fallback: item.label);
+                            else if (lower.contains('ot')) translatedLabel = context.tr('ot_management', fallback: item.label);
+                            else if (lower == 'profile') translatedLabel = context.tr('profile', fallback: item.label);
+
+                            return _buildSidebarItem(
+                              item.index,
+                              item.icon,
+                              translatedLabel,
+                            );
+                          },
                         )
                         .toList(),
                   ),
@@ -1150,12 +1165,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           ],
         ),
 
-        if (!isMobile) ...[
-          const SizedBox(width: 16),
-          const Icon(Icons.settings_outlined, color: Color(0xFF4A5568), size: 22),
-          const SizedBox(width: 16),
-          const LiveClock(isDark: false),
-        ],
+        const SizedBox(width: 16),
+        AppTopBarActions(
+          showClock: !isMobile,
+          liveClockWidget: const LiveClock(isDark: false),
+        ),
       ],
     );
   }

@@ -598,7 +598,21 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   // ─── Full Admit to IPD card — shown in consultation left panel ──────────
   Widget _buildAdmitToIPDCard() {
-    return const SizedBox.shrink();
+    // Don't show for completed/cancelled/discharged appointments
+    final status = _currentAppointment.status;
+    if (status == 'Completed' ||
+        status == 'Cancelled' ||
+        status == 'Discharged') {
+      return const SizedBox.shrink();
+    }
+
+    // If already admitted and no bed assigned yet → show orange allocation banner
+    if (status == 'Admitted') {
+      return _buildPendingAllocationBanner();
+    }
+
+    // Otherwise → show the Admit to IPD action card
+    return _buildRecommendAdmitCard();
   }
 
   Widget _buildPendingAllocationBanner() {

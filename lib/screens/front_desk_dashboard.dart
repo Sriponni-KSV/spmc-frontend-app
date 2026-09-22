@@ -25,6 +25,8 @@ import '../widgets/user_profile_dialog.dart';
 import 'billing_management_view.dart';
 import '../utils/capitalize_formatter.dart';
 import '../utils/modal_history_helper.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/app_top_bar_actions.dart';
 
 class FrontDeskDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -613,35 +615,39 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                       _buildSidebarItem(
                         0,
                         Icons.dashboard_outlined,
-                        'Dashboard',
+                        context.tr('dashboard', fallback: 'Dashboard'),
                       ),
                       if (user?.hasPermission('view_patients') ?? false)
-                        _buildSidebarItem(1, Icons.people_outline, 'Patients'),
+                        _buildSidebarItem(
+                          1,
+                          Icons.people_outline,
+                          context.tr('patients', fallback: 'Patients'),
+                        ),
                       if (user?.hasPermission('book_appointment') ?? false)
                         _buildSidebarItem(
                           2,
                           Icons.calendar_today_outlined,
-                          'Appointments',
+                          context.tr('appointments', fallback: 'Appointments'),
                         ),
                       _buildSidebarItem(
                         3,
                         Icons.medical_services_outlined,
-                        'Doctors',
+                        context.tr('doctors', fallback: 'Doctors'),
                       ),
                       _buildSidebarItem(
                         4,
                         Icons.assignment_turned_in_outlined,
-                        'Admission Counter',
+                        context.tr('admission_counter', fallback: 'Admission Counter'),
                       ),
                       _buildSidebarItem(
                         6,
                         Icons.receipt_long_outlined,
-                        'Billing & Invoices',
+                        context.tr('billing', fallback: 'Billing & Invoices'),
                       ),
                       _buildSidebarItem(
                         5,
                         Icons.person_outline,
-                        'Profile',
+                        context.tr('profile', fallback: 'Profile'),
                       ),
                     ],
                   ),
@@ -871,12 +877,11 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           ],
         ),
 
-        if (!isMobile) ...[
-          const SizedBox(width: 16),
-          const Icon(Icons.settings_outlined, color: Color(0xFF4A5568), size: 22),
-          const SizedBox(width: 16),
-          const LiveClock(isDark: false),
-        ],
+        const SizedBox(width: 16),
+        AppTopBarActions(
+          showClock: !isMobile,
+          liveClockWidget: const LiveClock(isDark: false),
+        ),
       ],
     );
   }

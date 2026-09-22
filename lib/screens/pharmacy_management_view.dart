@@ -352,10 +352,10 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
 
         // ── Tabs ────────────────────────────────────────────────────────────
         Container(
-          margin: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+          margin: EdgeInsets.fromLTRB(widget.isMobile ? 16 : 24, 16, widget.isMobile ? 16 : 24, 0),
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: AppTheme.backgroundColor,
+            color: const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppTheme.borderColor),
           ),
@@ -363,34 +363,67 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
             controller: _tabController!,
             labelColor: AppTheme.primaryColor,
             unselectedLabelColor: AppTheme.textSecondaryColor,
+            isScrollable: widget.isMobile,
+            tabAlignment: widget.isMobile ? TabAlignment.start : TabAlignment.fill,
+            dividerColor: Colors.transparent,
             indicatorSize: TabBarIndicatorSize.tab,
             indicator: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Colors.black.withValues(alpha: 0.06),
                   blurRadius: 4,
-                  offset: const Offset(0, 2),
+                  offset: const Offset(0, 1),
                 )
               ],
             ),
+            labelStyle: const TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontFamily: AppTheme.fontFamily,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
             tabs: [
-              const Tab(text: 'Dashboard'),
               Tab(
-                text: widget.isMobile
-                    ? 'Rx (${_prescriptions.where((p) => p["pharmacy_status"] == "Pending").length})'
-                    : 'Prescriptions (${_prescriptions.where((p) => p["pharmacy_status"] == "Pending").length})',
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 12 : 4),
+                  child: const Text('Dashboard'),
+                ),
               ),
               Tab(
-                text: widget.isMobile
-                    ? 'Ctrl (${_controlledDrugs.length})'
-                    : 'Controlled Drugs (${_controlledDrugs.length})',
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 12 : 4),
+                  child: Text(
+                    widget.isMobile
+                        ? 'Rx (${_prescriptions.where((p) => p["pharmacy_status"] == "Pending").length})'
+                        : 'Prescriptions (${_prescriptions.where((p) => p["pharmacy_status"] == "Pending").length})',
+                  ),
+                ),
               ),
               Tab(
-                text: widget.isMobile
-                    ? 'Alerts (${_lowStockItems.length + _expiringItems.length})'
-                    : 'Expiry & Alerts (${_lowStockItems.length + _expiringItems.length})',
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 12 : 4),
+                  child: Text(
+                    widget.isMobile
+                        ? 'Ctrl (${_controlledDrugs.length})'
+                        : 'Controlled Drugs (${_controlledDrugs.length})',
+                  ),
+                ),
+              ),
+              Tab(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 12 : 4),
+                  child: Text(
+                    widget.isMobile
+                        ? 'Alerts (${_lowStockItems.length + _expiringItems.length})'
+                        : 'Expiry & Alerts (${_lowStockItems.length + _expiringItems.length})',
+                  ),
+                ),
               ),
             ],
           ),
@@ -1571,56 +1604,50 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
         Row(
           children: [
             Expanded(
-              child: Container(
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.borderColor),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextField(
-                        controller: _ctrlSearchController,
-                        onChanged: (v) => setState(() {
-                          _ctrlSearchQuery = v;
-                          _ctrlPage = 0;
-                        }),
-                        decoration: const InputDecoration(
-                          hintText: 'Search controlled drugs...',
-                          hintStyle: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                    if (_ctrlSearchQuery.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: GestureDetector(
-                          onTap: () {
-                            _ctrlSearchController.clear();
-                            setState(() {
-                              _ctrlSearchQuery = '';
-                              _ctrlPage = 0;
-                            });
-                          },
-                          child: const Icon(
-                            Icons.close,
-                            size: 16,
-                            color: AppTheme.textSecondaryColor,
+              child: TextField(
+                controller: _ctrlSearchController,
+                onChanged: (v) => setState(() {
+                  _ctrlSearchQuery = v;
+                  _ctrlPage = 0;
+                }),
+                decoration: InputDecoration(
+                  hintText: 'Search controlled drugs...',
+                  hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                  prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                  suffixIcon: _ctrlSearchQuery.isNotEmpty
+                      ? MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () {
+                              _ctrlSearchController.clear();
+                              setState(() {
+                                _ctrlSearchQuery = '';
+                                _ctrlPage = 0;
+                              });
+                            },
+                            child: const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: AppTheme.textSecondaryColor,
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
-                  ],
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.borderColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                  ),
                 ),
               ),
             ),

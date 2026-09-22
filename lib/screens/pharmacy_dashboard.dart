@@ -10,6 +10,8 @@ import '../widgets/user_profile_dialog.dart';
 import 'pharmacy_management_view.dart';
 import 'inventory_management_view.dart';
 import 'billing_management_view.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/app_top_bar_actions.dart';
 
 class PharmacyDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -118,10 +120,10 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildSidebarItem(0, Icons.local_pharmacy_outlined, 'Pharmacy Management'),
-                      _buildSidebarItem(1, Icons.inventory_2_outlined, 'Inventory Management'),
-                      _buildSidebarItem(3, Icons.receipt_long_outlined, 'Pharmacy Billing'),
-                      _buildSidebarItem(2, Icons.person_outline, 'My Profile'),
+                      _buildSidebarItem(0, Icons.local_pharmacy_outlined, context.tr('pharmacy', fallback: 'Pharmacy Management')),
+                      _buildSidebarItem(1, Icons.inventory_2_outlined, context.tr('inventory', fallback: 'Inventory Management')),
+                      _buildSidebarItem(3, Icons.receipt_long_outlined, context.tr('billing', fallback: 'Pharmacy Billing')),
+                      _buildSidebarItem(2, Icons.person_outline, context.tr('profile', fallback: 'My Profile')),
                     ],
                   ),
                 ),
@@ -333,12 +335,11 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
           ],
         ),
 
-        if (!isMobile) ...[
-          const SizedBox(width: 16),
-          const Icon(Icons.settings_outlined, color: Color(0xFF4A5568), size: 22),
-          const SizedBox(width: 16),
-          const LiveClock(isDark: false),
-        ],
+        const SizedBox(width: 16),
+        AppTopBarActions(
+          showClock: !isMobile,
+          liveClockWidget: const LiveClock(isDark: false),
+        ),
       ],
     );
   }

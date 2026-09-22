@@ -26,6 +26,8 @@ import '../controllers/ot_controller.dart';
 import '../controllers/lab_controller.dart';
 import '../controllers/notification_controller.dart';
 import '../config/doctor_nav_config.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/app_top_bar_actions.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
@@ -4278,6 +4280,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  String _translateDoctorLabel(String label) {
+    final lower = label.toLowerCase();
+    if (lower == 'dashboard') return context.tr('dashboard', fallback: label);
+    if (lower == 'patients' || lower.contains('patient')) return context.tr('patients', fallback: label);
+    if (lower == 'profile' || lower.contains('profile')) return context.tr('profile', fallback: label);
+    if (lower.contains('ipd')) return context.tr('ipd_management', fallback: label);
+    if (lower.contains('ot')) return context.tr('ot_management', fallback: label);
+    if (lower.contains('dictation')) return context.tr('ot_management', fallback: label);
+    if (lower.contains('lab')) return context.tr('laboratory', fallback: label);
+    return label;
+  }
+
   Widget _buildSidebarItem(int index, IconData icon, String label) {
     bool isSelected = _selectedIndex == index;
     final user = Provider.of<AuthProvider>(context, listen: false).user;
@@ -4340,7 +4354,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(width: 16),
             Text(
-              label,
+              _translateDoctorLabel(label),
               style: TextStyle(
                 color: isSelected ? Colors.white : const Color(0xFF4D5568),
                 fontSize: 15,
@@ -4465,7 +4479,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               IconButton(
                 icon: const Icon(Icons.help_outline, color: AppTheme.textSecondaryColor),
                 onPressed: () {},
-                tooltip: 'Help',
+                tooltip: context.tr('help', fallback: 'Help'),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
@@ -4476,15 +4490,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Share', style: TextStyle(fontSize: 13)),
+                child: Text(context.tr('share', fallback: 'Share'), style: const TextStyle(fontSize: 13)),
               ),
             ],
 
-            // Date & Time Clock on screens with sufficient space
-            if (!isCompact) ...[
-              const SizedBox(width: 12),
-              const LiveClock(),
-            ],
+            const SizedBox(width: 12),
+            AppTopBarActions(
+              showClock: !isCompact,
+              liveClockWidget: const LiveClock(),
+            ),
           ],
         );
       },

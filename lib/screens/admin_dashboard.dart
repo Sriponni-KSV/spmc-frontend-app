@@ -43,6 +43,8 @@ import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
 import '../config/admin_nav_config.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/app_top_bar_actions.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -2225,6 +2227,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  String _translateAdminLabel(BuildContext context, String label) {
+    final lower = label.toLowerCase();
+    if (lower == 'dashboard') return context.tr('dashboard', fallback: label);
+    if (lower == 'patients' || lower.contains('patient')) return context.tr('patients', fallback: label);
+    if (lower == 'appointments' || lower.contains('appointment')) return context.tr('appointments', fallback: label);
+    if (lower.contains('doctor')) return context.tr('doctors', fallback: label);
+    if (lower.contains('opd')) return context.tr('opd_management', fallback: label);
+    if (lower.contains('ipd')) return context.tr('ipd_management', fallback: label);
+    if (lower.contains('ot')) return context.tr('ot_management', fallback: label);
+    if (lower.contains('icu')) return context.tr('icu_management', fallback: label);
+    if (lower.contains('inventory')) return context.tr('inventory', fallback: label);
+    if (lower.contains('pharmacy')) return context.tr('pharmacy', fallback: label);
+    if (lower.contains('lab')) return context.tr('laboratory', fallback: label);
+    if (lower.contains('billing')) return context.tr('billing', fallback: label);
+    if (lower.contains('setting')) return context.tr('settings', fallback: label);
+    if (lower.contains('staff') || lower.contains('user')) return context.tr('staff', fallback: label);
+    if (lower.contains('report')) return context.tr('reports', fallback: label);
+    if (lower.contains('profile')) return context.tr('profile', fallback: label);
+    return label;
+  }
+
   Widget _buildSidebarItem(
     int index,
     IconData icon,
@@ -2288,16 +2311,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           default:
             context.go(AppRoutes.adminDashboard);
+            break;
         }
       },
       borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        margin: EdgeInsets.only(
-          left: isSubItem ? 28 : 12,
-          right: 12,
-          top: 2,
-          bottom: 2,
+        margin: EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: isSubItem ? 1 : 2,
         ),
         padding: EdgeInsets.symmetric(
           horizontal: isSubItem ? 12 : 14,
@@ -2309,6 +2331,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         child: Row(
           children: [
+            if (isSubItem) const SizedBox(width: 12),
             Icon(
               icon,
               color: isSelected ? Colors.white : const Color(0xFF4A5568),
@@ -2317,7 +2340,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                label,
+                _translateAdminLabel(context, label),
                 style: TextStyle(
                   color: isSelected ? Colors.white : const Color(0xFF4A5568),
                   fontWeight: isSelected
@@ -2410,16 +2433,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   elevation: 0,
                 ),
-                child: const Text(
-                  'Share',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                child: Text(
+                  context.tr('share', fallback: 'Share'),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
           ),
-          const SizedBox(width: 24),
-          // Date & Time
-          const AdminLiveClock(),
+          const SizedBox(width: 16),
+          const AppTopBarActions(
+            showClock: true,
+            liveClockWidget: AdminLiveClock(),
+          ),
+        ],
+        if (isMobile) ...[
+          const SizedBox(width: 8),
+          const AppTopBarActions(showClock: false),
         ],
       ],
     );

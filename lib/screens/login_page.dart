@@ -8,6 +8,8 @@ import '../utils/password_policy.dart';
 import 'package:flutter/services.dart';
 import '../controllers/auth_controller.dart';
 import '../utils/auth_nav_state.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/app_top_bar_actions.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -76,108 +78,118 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     bool isLoading = Provider.of<AuthProvider>(context).isLoading;
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          bool isDesktop = constraints.maxWidth > 900;
+      backgroundColor: AppTheme.getBackgroundColor(context),
+      body: Stack(
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              bool isDesktop = constraints.maxWidth > 900;
 
-          if (isDesktop) {
-            return Row(
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: Container(
-                    color: AppTheme.primaryColor,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 48.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Image.asset(
-                              'assets/image/sriPonniLogo.png',
-                              width: 80,
-                              height: 80,
-                            ),
-                          ),
-                          const SizedBox(height: 48),
-                          const Text(
-                            'Sri Ponni\nMedical Dashboard',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 56,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              height: 1.1,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          const Text(
-                            'Welcome back! Log in to access your personalized medical dashboard designed for maximum efficiency.',
-                            style: TextStyle(
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 20,
-                              color: Colors.white70,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  flex: 7,
-                  child: Center(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 48.0),
+              if (isDesktop) {
+                return Row(
+                  children: [
+                    Expanded(
+                      flex: 5,
                       child: Container(
-                        width: 550,
-                        padding: const EdgeInsets.all(48.0),
-                        decoration: AppTheme.cardDecoration,
-                        child: _buildForm(context, showMobileHeader: false, isLoading: isLoading),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }
-
-          return Column(
-            children: [
-              Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(32.0),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cardColor,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
+                        color: AppTheme.primaryColor,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 48.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: const BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Image.asset(
+                                  'assets/image/sriPonniLogo.png',
+                                  width: 80,
+                                  height: 80,
+                                ),
+                              ),
+                              const SizedBox(height: 48),
+                              const Text(
+                                'Sri Ponni\nMedical Dashboard',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 56,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  height: 1.15,
+                                  letterSpacing: -1.0,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'Secure access for authorized clinical and administrative personnel.',
+                                style: TextStyle(
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 20,
+                                  color: Colors.white70,
+                                  height: 1.5,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                      child: _buildForm(context, showMobileHeader: true, isLoading: isLoading),
+                    ),
+                    Expanded(
+                      flex: 7,
+                      child: Center(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 48.0),
+                          child: Container(
+                            width: 550,
+                            padding: const EdgeInsets.all(48.0),
+                            decoration: AppTheme.cardDecoration,
+                            child: _buildForm(context, showMobileHeader: false, isLoading: isLoading),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(32.0),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardColor,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 24,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: _buildForm(context, showMobileHeader: true, isLoading: isLoading),
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ],
-          );
-        },
+                ],
+              );
+            },
+          ),
+          const Positioned(
+            top: 20,
+            right: 24,
+            child: AppTopBarActions(showClock: false),
+          ),
+        ],
       ),
     );
   }
@@ -208,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
 
         Text(
-          'Welcome Back',
+          context.tr('welcome', fallback: 'Welcome Back'),
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.displayLarge?.copyWith(
             fontSize: showMobileHeader ? 28 : 36,
@@ -343,7 +355,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 width: 24, height: 24, 
                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
               )
-            : const Text('Sign In'),
+            : Text(context.tr('submit', fallback: 'Sign In')),
         ),
         const SizedBox(height: 32),
 

@@ -39,6 +39,39 @@ class AppTheme {
   // Nurse specific color (purple)
   static const Color nurseColor = Color(0xFF6B46C1);
 
+  // Dark theme colors
+  static const Color darkBackgroundColor = Color(0xFF0F172A); // Slate 900
+  static const Color darkCardColor = Color(0xFF1E293B); // Slate 800
+  static const Color darkSurfaceColor = Color(0xFF1E293B);
+  static const Color darkBorderColor = Color(0xFF334155); // Slate 700
+  static const Color darkTextPrimaryColor = Color(0xFFF8FAFC); // Slate 50
+  static const Color darkTextSecondaryColor = Color(0xFF94A3B8); // Slate 400
+  static const Color darkInputFillColor = Color(0xFF1E293B);
+
+  static bool isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  static Color getBackgroundColor(BuildContext context) {
+    return isDark(context) ? darkBackgroundColor : backgroundColor;
+  }
+
+  static Color getCardColor(BuildContext context) {
+    return isDark(context) ? darkCardColor : cardColor;
+  }
+
+  static Color getBorderColor(BuildContext context) {
+    return isDark(context) ? darkBorderColor : borderColor;
+  }
+
+  static Color getTextPrimaryColor(BuildContext context) {
+    return isDark(context) ? darkTextPrimaryColor : textPrimaryColor;
+  }
+
+  static Color getTextSecondaryColor(BuildContext context) {
+    return isDark(context) ? darkTextSecondaryColor : textSecondaryColor;
+  }
+
   // Aliases for backward compatibility
   static const Color alertBgColor = dangerBg;
   static const Color alertTextColor = dangerColor;
@@ -366,6 +399,142 @@ class AppTheme {
         headingRowColor: MaterialStateProperty.all(backgroundColor),
         headingTextStyle: textTheme.labelLarge?.copyWith(color: secondaryColor),
         dataTextStyle: textTheme.bodyMedium,
+        dividerThickness: 1,
+        horizontalMargin: paddingMedium,
+      ),
+    );
+  }
+
+  static ThemeData get darkTheme {
+    const darkText = TextTheme(
+      displayLarge: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 28,
+        fontWeight: FontWeight.bold,
+        color: darkTextPrimaryColor,
+        letterSpacing: -0.5,
+      ),
+      headlineMedium: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 22,
+        fontWeight: FontWeight.w600,
+        color: darkTextPrimaryColor,
+      ),
+      titleMedium: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 18,
+        fontWeight: FontWeight.w500,
+        color: darkTextPrimaryColor,
+      ),
+      bodyLarge: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 16,
+        fontWeight: FontWeight.normal,
+        color: darkTextPrimaryColor,
+      ),
+      bodyMedium: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 14,
+        fontWeight: FontWeight.normal,
+        color: darkTextPrimaryColor,
+      ),
+      bodySmall: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 12,
+        fontWeight: FontWeight.normal,
+        color: darkTextSecondaryColor,
+      ),
+      labelLarge: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: darkTextPrimaryColor,
+      ),
+    );
+
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.dark,
+      primaryColor: primaryColor,
+      scaffoldBackgroundColor: darkBackgroundColor,
+      fontFamily: fontFamily,
+      textTheme: GoogleFonts.interTextTheme(darkText),
+      colorScheme: const ColorScheme.dark(
+        primary: primaryColor,
+        secondary: secondaryColor,
+        surface: darkCardColor,
+        error: dangerColor,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: darkTextPrimaryColor,
+        onError: Colors.white,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: darkCardColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: darkBorderColor),
+        ),
+      ),
+      appBarTheme: AppBarTheme(
+        backgroundColor: darkCardColor,
+        foregroundColor: darkTextPrimaryColor,
+        elevation: 0,
+        centerTitle: false,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: darkText.headlineMedium?.copyWith(fontSize: 18),
+        iconTheme: const IconThemeData(color: Colors.white),
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+      ),
+      cardTheme: CardThemeData(
+        color: darkCardColor,
+        elevation: cardElevation,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(borderRadius),
+          side: const BorderSide(color: darkBorderColor),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(style: primaryButton),
+      outlinedButtonTheme: OutlinedButtonThemeData(style: outlinedButton),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: darkInputFillColor,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: darkBorderColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: darkBorderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: primaryColor, width: 1.4),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: dangerColor, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: dangerColor, width: 1.5),
+        ),
+        labelStyle: const TextStyle(color: darkTextSecondaryColor, fontSize: 14),
+        hintStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: darkBorderColor,
+        thickness: 1,
+        space: 1,
+      ),
+      dataTableTheme: DataTableThemeData(
+        headingRowColor: WidgetStateProperty.all(darkCardColor),
+        headingTextStyle: darkText.labelLarge?.copyWith(color: secondaryColor),
+        dataTextStyle: darkText.bodyMedium,
         dividerThickness: 1,
         horizontalMargin: paddingMedium,
       ),
