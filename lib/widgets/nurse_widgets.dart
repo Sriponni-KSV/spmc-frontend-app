@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
 
 // --- Models ---
 
@@ -633,10 +634,10 @@ class _SearchOverlayState extends State<SearchOverlay> {
                             fontSize: 18,
                             fontFamily: AppTheme.fontFamily,
                           ),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             hintText:
-                                'Search patients by name, ID, phone, or actions...',
-                            hintStyle: TextStyle(color: AppTheme.iconColor),
+                                context.tr('search_patients_placeholder', fallback: 'Search patients by name, ID, phone, or actions...'),
+                            hintStyle: const TextStyle(color: AppTheme.iconColor),
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
@@ -674,11 +675,11 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildSectionTitle('Quick Actions'),
+                        _buildSectionTitle(context.tr('quick_actions', fallback: 'Quick Actions')),
                         const SizedBox(height: 16),
                         _buildQuickAction(
                           icon: Icons.person_add_alt_1_outlined,
-                          label: 'New Patient',
+                          label: context.tr('new_patient', fallback: 'New Patient'),
                           color: AppTheme.dangerColor,
                           onTap: () {
                             Navigator.of(context).pop();
@@ -691,7 +692,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                           const SizedBox(height: 12),
                           _buildQuickAction(
                             icon: Icons.calendar_month_outlined,
-                            label: 'Book Appointment',
+                            label: context.tr('book_appointment', fallback: 'Book Appointment'),
                             color: AppTheme.primaryColor,
                             onTap: () {
                               Navigator.of(context).pop();
@@ -701,14 +702,14 @@ class _SearchOverlayState extends State<SearchOverlay> {
                         ],
 
                         const SizedBox(height: 32),
-                        _buildSectionTitle('Patients (${displayPatients.length})'),
+                        _buildSectionTitle('${context.tr('patients', fallback: 'Patients')} (${displayPatients.length})'),
                         const SizedBox(height: 16),
                         if (displayPatients.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16.0),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16.0),
                             child: Text(
-                              'No patients found.',
-                              style: TextStyle(color: AppTheme.textSecondaryColor),
+                              context.tr('no_patients_found', fallback: 'No patients found.'),
+                              style: const TextStyle(color: AppTheme.textSecondaryColor),
                             ),
                           )
                         else
@@ -890,9 +891,9 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
-              child: const Text(
-                'Book',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              child: Text(
+                context.tr('book', fallback: 'Book'),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ),
         ],
@@ -1043,9 +1044,9 @@ class PatientInfoCard extends StatelessWidget {
                     size: 16,
                     color: AppTheme.primaryColor,
                   ),
-                  label: const Text(
-                    'View',
-                    style: TextStyle(
+                  label: Text(
+                    context.tr('view', fallback: 'View'),
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: AppTheme.primaryColor,
@@ -1071,9 +1072,9 @@ class PatientInfoCard extends StatelessWidget {
                     size: 16,
                     color: Colors.white,
                   ),
-                  label: const Text(
-                    'Book',
-                    style: TextStyle(
+                  label: Text(
+                    context.tr('book', fallback: 'Book'),
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: Colors.white,

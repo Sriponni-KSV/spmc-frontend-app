@@ -877,13 +877,13 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              const Expanded(
+                              Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Home Visit Care & Services',
-                                      style: TextStyle(
+                                      context.tr('home_visit_care_title', fallback: 'Home Visit Care & Services'),
+                                      style: const TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
                                         color: AppTheme.textPrimaryColor,
@@ -891,8 +891,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                       ),
                                     ),
                                     Text(
-                                      'Manage patient home care & billing',
-                                      style: TextStyle(
+                                      context.tr('home_visit_care_sub', fallback: 'Manage patient home care & billing'),
+                                      style: const TextStyle(
                                         fontSize: 12,
                                         color: Colors.grey,
                                         fontFamily: 'Inter',
@@ -932,9 +932,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                       color: Colors.white,
                                       size: 15,
                                     ),
-                                    label: const Text(
-                                      'Schedule Home Visit',
-                                      style: TextStyle(
+                                    label: Text(
+                                      context.tr('schedule_home_visit', fallback: 'Schedule Home Visit'),
+                                      style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 13,
                                         color: Colors.white,
@@ -971,13 +971,13 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                 ),
                               ),
                               const SizedBox(width: 14),
-                              const Flexible(
+                              Flexible(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Home Visit Care & Services',
-                                      style: TextStyle(
+                                      context.tr('home_visit_care_title', fallback: 'Home Visit Care & Services'),
+                                      style: const TextStyle(
                                         fontSize: 22,
                                         fontWeight: FontWeight.bold,
                                         color: AppTheme.textPrimaryColor,
@@ -986,8 +986,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                     Text(
-                                      'Manage patient home care, vitals, dressing & attender billing',
-                                      style: TextStyle(
+                                      context.tr('home_visit_care_sub', fallback: 'Manage patient home care, vitals, dressing & attender billing'),
+                                      style: const TextStyle(
                                         fontSize: 13,
                                         color: Colors.grey,
                                         fontFamily: 'Inter',
@@ -1029,9 +1029,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                     color: Colors.white,
                                     size: 15,
                                   ),
-                                  label: const Text(
-                                    'Schedule Home Visit',
-                                    style: TextStyle(
+                                  label: Text(
+                                    context.tr('schedule_home_visit', fallback: 'Schedule Home Visit'),
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
                                       color: Colors.white,
@@ -1856,16 +1856,29 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                       label: '',
                       hint: 'Search & Select Reason',
                       allowFreeText: false,
-                      dropdownMap: const {
-                        'Patient Cured / Fully Recovered':
-                            'Patient Cured / Fully Recovered',
-                        'Patient / Attender Requested Discontinuation':
-                            'Patient / Attender Requested Discontinuation',
-                        'Admitted to Hospital / IPD Care':
-                            'Admitted to Hospital / IPD Care',
-                        'Doctor Advice / Care Plan Ended':
-                            'Doctor Advice / Care Plan Ended',
-                        'Other Reason': 'Other Reason',
+                      dropdownMap: {
+                        'Patient Cured / Fully Recovered': context.tr(
+                          'discontinue_reason_cured',
+                          fallback: 'Patient Cured / Fully Recovered',
+                        ),
+                        'Patient / Attender Requested Discontinuation': context
+                            .tr(
+                              'discontinue_reason_requested',
+                              fallback:
+                                  'Patient / Attender Requested Discontinuation',
+                            ),
+                        'Admitted to Hospital / IPD Care': context.tr(
+                          'discontinue_reason_admitted',
+                          fallback: 'Admitted to Hospital / IPD Care',
+                        ),
+                        'Doctor Advice / Care Plan Ended': context.tr(
+                          'discontinue_reason_plan_ended',
+                          fallback: 'Doctor Advice / Care Plan Ended',
+                        ),
+                        'Other Reason': context.tr(
+                          'discontinue_reason_other',
+                          fallback: 'Other Reason',
+                        ),
                       },
                       value: selectedReason,
                       onChanged: (val) {
@@ -1988,14 +2001,28 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     final formattedNow =
         "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}";
     final dateCtrl = TextEditingController(text: formattedNow);
-    String selectedShift = 'Morning Shift (09:00 AM - 06:00 PM)';
     final timeCtrl = TextEditingController(text: '09:00 AM');
-
     final List<Map<String, String>> shiftOptions = [
-      {'label': 'Morning Shift (09:00 AM - 06:00 PM)', 'time': '09:00 AM'},
-      {'label': 'Night Shift (06:00 PM - 09:00 AM)', 'time': '06:00 PM'},
-      {'label': 'Custom Time', 'time': 'Custom'},
+      {
+        'label': context.tr(
+          'shift_morning',
+          fallback: 'Morning Shift (09:00 AM - 06:00 PM)',
+        ),
+        'time': '09:00 AM',
+      },
+      {
+        'label': context.tr(
+          'shift_night',
+          fallback: 'Night Shift (06:00 PM - 09:00 AM)',
+        ),
+        'time': '06:00 PM',
+      },
+      {
+        'label': context.tr('shift_custom', fallback: 'Custom Time'),
+        'time': 'Custom',
+      },
     ];
+    String selectedShift = shiftOptions.first['label']!;
 
     showDialog(
       context: context,

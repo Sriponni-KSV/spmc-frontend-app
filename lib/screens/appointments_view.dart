@@ -138,6 +138,75 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return 'Table';
   }
 
+  String _getTranslatedApptType(String type) {
+    switch (type.toLowerCase().trim()) {
+      case 'routine':
+        return context.tr('appt_type_routine', fallback: 'Routine');
+      case 'follow up':
+        return context.tr('appt_type_follow_up', fallback: 'Follow Up');
+      case 'new visit':
+        return context.tr('appt_type_new_visit', fallback: 'New Visit');
+      case 'scheduled':
+        return context.tr('appt_type_scheduled', fallback: 'Scheduled');
+      case 'emergency':
+        return context.tr('appt_type_emergency', fallback: 'Emergency');
+      default:
+        return type;
+    }
+  }
+
+  String _getTranslatedDepartment(String dept) {
+    switch (dept.toLowerCase().trim()) {
+      case 'general medicine':
+        return context.tr('dept_gen_medicine', fallback: 'General Medicine');
+      case 'cardiology':
+        return context.tr('dept_cardiology', fallback: 'Cardiology');
+      case 'pediatrics':
+        return context.tr('dept_pediatrics', fallback: 'Pediatrics');
+      case 'orthopedics':
+        return context.tr('dept_orthopedics', fallback: 'Orthopedics');
+      case 'dermatology':
+        return context.tr('dept_dermatology', fallback: 'Dermatology');
+      case 'gynecology':
+        return context.tr('dept_gynecology', fallback: 'Gynecology');
+      case 'neurology':
+        return context.tr('dept_neurology', fallback: 'Neurology');
+      case 'ent':
+        return context.tr('dept_ent', fallback: 'ENT');
+      case 'ophthalmology':
+        return context.tr('dept_ophthalmology', fallback: 'Ophthalmology');
+      case 'dental':
+        return context.tr('dept_dental', fallback: 'Dental');
+      case 'psychiatry':
+        return context.tr('dept_psychiatry', fallback: 'Psychiatry');
+      case 'general surgery':
+      case 'surgery':
+        return context.tr('dept_surgery', fallback: 'General Surgery');
+      default:
+        return dept;
+    }
+  }
+
+  String _getTranslatedStatus(String status) {
+    final s = status.toLowerCase().replaceAll('-', ' ').replaceAll('_', ' ').trim();
+    switch (s) {
+      case 'confirmed':
+        return context.tr('status_confirmed', fallback: 'Confirmed');
+      case 'waiting':
+        return context.tr('status_waiting', fallback: 'Waiting');
+      case 'in consultation':
+        return context.tr('status_in_consultation', fallback: 'In Consultation');
+      case 'completed':
+        return context.tr('status_completed', fallback: 'Completed');
+      case 'no show':
+        return context.tr('status_no_show', fallback: 'No Show');
+      case 'cancelled':
+        return context.tr('status_cancelled', fallback: 'Cancelled');
+      default:
+        return status;
+    }
+  }
+
   @override
   void dispose() {
     _reasonController.dispose();
@@ -645,14 +714,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               context.go(AppRoutes.frontDeskAppointments);
             }
           },
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.arrow_back, size: 16, color: AppTheme.primaryColor),
-              SizedBox(width: 8),
+              const Icon(Icons.arrow_back, size: 16, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
               Text(
-                'Back to Appointments',
-                style: TextStyle(
+                context.tr('back_to_appointments', fallback: 'Back to Appointments'),
+                style: const TextStyle(
                   color: AppTheme.primaryColor,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
@@ -663,18 +732,18 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         ),
         const SizedBox(height: 20),
         // Title
-        const Text(
-          'Book Appointment',
-          style: TextStyle(
+        Text(
+          context.tr('book_appointment', fallback: 'Book Appointment'),
+          style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
             color: AppTheme.textPrimaryColor,
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Schedule a new appointment for a patient',
-          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+        Text(
+          context.tr('book_appointment_sub', fallback: 'Schedule a new appointment for a patient'),
+          style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
         ),
       ],
     );
@@ -728,7 +797,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Select Patient *'),
+                      _buildFieldLabel(context.tr('select_patient_req', fallback: 'Select Patient *')),
                       _buildDropdown<PatientModel>(
                         hint: '',
                         value: _selectedPatient,
@@ -742,12 +811,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
                 const SizedBox(height: 24),
                 _buildFormCard(
-                  title: 'Patient Vitals',
+                  title: context.tr('patient_vitals_label', fallback: 'Patient Vitals'),
                   headerExtra: TextButton(
                     onPressed: () {},
-                    child: const Text(
-                      'Collect vitals',
-                      style: TextStyle(
+                    child: Text(
+                      context.tr('collect_vitals', fallback: 'Collect vitals'),
+                      style: const TextStyle(
                         fontSize: 11,
                         color: AppTheme.primaryColor,
                       ),
@@ -756,7 +825,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Blood Pressure'),
+                      _buildFieldLabel(context.tr('blood_pressure', fallback: 'Blood Pressure')),
                       Row(
                         children: [
                           Expanded(
@@ -812,7 +881,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Sugar Level'),
+                                _buildFieldLabel(context.tr('sugar_level_plain', fallback: 'Sugar Level')),
                                 _buildTextField(
                                   controller: _sugarController,
                                   hint: '100 mg/dL',
@@ -836,7 +905,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Temperature'),
+                                _buildFieldLabel(context.tr('temperature', fallback: 'Temperature')),
                                 _buildTextField(
                                   controller: _tempController,
                                   hint: '98.6°F',
@@ -862,24 +931,24 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
                 const SizedBox(height: 24),
                 _buildFormCard(
-                  title: 'Visit Details',
+                  title: context.tr('visit_details', fallback: 'Visit Details'),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Appointment Type *'),
+                      _buildFieldLabel(context.tr('appointment_type_req', fallback: 'Appointment Type *')),
                       _buildDropdown<String>(
                         hint: '',
                         value: _selectedApptType,
                         items: _apptTypes,
-                        itemLabel: (s) => s,
+                        itemLabel: (s) => _getTranslatedApptType(s),
                         onChanged: (val) =>
                             setState(() => _selectedApptType = val ?? ''),
                       ),
                       const SizedBox(height: 16),
-                      _buildFieldLabel('Reason *'),
+                      _buildFieldLabel(context.tr('reason_req', fallback: 'Reason *')),
                       _buildTextField(
                         controller: _reasonController,
-                        hint: 'e.g. Regular check-up, fever, etc.',
+                        hint: context.tr('reason_hint', fallback: 'e.g. Regular check-up, fever, etc.'),
                         isNumeric: false,
                         maxLength: 500,
                         inputFormatters: [
@@ -907,16 +976,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
                 const SizedBox(height: 24),
                 _buildFormCard(
-                  title: 'Department & Doctor',
+                  title: context.tr('department_doctor', fallback: 'Department & Doctor'),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Department *'),
+                      _buildFieldLabel(context.tr('department_req', fallback: 'Department *')),
                       _buildDropdown<String>(
                         hint: '',
                         value: _selectedDept,
                         items: _departments,
-                        itemLabel: (s) => s,
+                        itemLabel: (s) => _getTranslatedDepartment(s),
                         onChanged: (val) {
                           if (val != _selectedDept) {
                             setState(() {
@@ -930,7 +999,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       ),
                       if (_selectedDept != null) ...[
                         const SizedBox(height: 24),
-                        _buildFieldLabel('Select Doctor *'),
+                        _buildFieldLabel(context.tr('select_doctor_req', fallback: 'Select Doctor *')),
                         const SizedBox(height: 4),
                         SizedBox(
                           height: 76,
@@ -940,10 +1009,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     (d) => d.specialization == _selectedDept,
                                   )
                                   .isEmpty
-                              ? const Center(
+                              ? Center(
                                   child: Text(
-                                    'No doctors available',
-                                    style: TextStyle(
+                                    context.tr('no_doctors_available', fallback: 'No doctors available'),
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey,
                                     ),
@@ -1052,11 +1121,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
                 const SizedBox(height: 24),
                 _buildFormCard(
-                  title: 'Date & Time',
+                  title: context.tr('date_and_time', fallback: 'Date & Time'),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Appointment Date *'),
+                      _buildFieldLabel(context.tr('appointment_date_req', fallback: 'Appointment Date *')),
                       TextField(
                         controller: _dateController,
                         readOnly: true,
@@ -1130,17 +1199,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       ),
                       if (_bookingDate != null) ...[
                         const SizedBox(height: 24),
-                        _buildFieldLabel('Available Time Slots *'),
+                        _buildFieldLabel(context.tr('available_time_slots_req', fallback: 'Available Time Slots *')),
                         const SizedBox(height: 8),
                         () {
                           final filteredSlots = _getFilteredTimeSlots();
                           if (filteredSlots.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 20),
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 20),
                               child: Center(
                                 child: Text(
-                                  'No more slots available for today',
-                                  style: TextStyle(
+                                  context.tr('no_slots_today', fallback: 'No more slots available for today'),
+                                  style: const TextStyle(
                                     color: Colors.red,
                                     fontSize: 12,
                                   ),
@@ -1233,9 +1302,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Appointment Summary',
-                        style: TextStyle(
+                      Text(
+                        context.tr('appointment_summary', fallback: 'Appointment Summary'),
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                           color: AppTheme.textPrimaryColor,
@@ -1246,37 +1315,37 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       if (_selectedPatient != null)
                         _buildSummaryItem(
                           Icons.person_outline,
-                          'Patient',
+                          context.tr('patient_name_label', fallback: 'Patient'),
                           _selectedPatient!.name,
                         ),
 
                       if (_selectedDoctor != null)
                         _buildSummaryItem(
                           Icons.medical_services_outlined,
-                          'Doctor',
+                          context.tr('doctor_label', fallback: 'Doctor'),
                           _selectedDoctor!.fullname,
-                          subtitle: _selectedDept,
+                          subtitle: _selectedDept != null ? _getTranslatedDepartment(_selectedDept!) : null,
                         ),
 
                       if (_bookingDate != null)
                         _buildSummaryItem(
                           Icons.calendar_month_outlined,
-                          'Date',
+                          context.tr('date_heading', fallback: 'Date'),
                           DateFormat('dd/MM/yyyy').format(_bookingDate!),
                         ),
 
                       if (_selectedTime != null)
                         _buildSummaryItem(
                           Icons.access_time,
-                          'Time',
+                          context.tr('time_heading', fallback: 'Time'),
                           _selectedTime!,
                         ),
 
                       if (_selectedApptType.isNotEmpty)
                         _buildSummaryItem(
                           Icons.info_outline,
-                          'Type',
-                          _selectedApptType,
+                          context.tr('type_heading', fallback: 'Type'),
+                          _getTranslatedApptType(_selectedApptType),
                         ),
 
                       const SizedBox(height: 8),
@@ -1332,9 +1401,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   }
 
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
+                                    SnackBar(
                                       content: Text(
-                                        'Appointment Booked Successfully!',
+                                        context.tr('appointment_booked_success', fallback: 'Appointment Booked Successfully!'),
                                       ),
                                       backgroundColor: Colors.green,
                                     ),
@@ -1364,12 +1433,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           minimumSize: const Size(0, 52),
                           elevation: 0,
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              'Book Appointment',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                            Text(
+                              context.tr('book_appointment', fallback: 'Book Appointment'),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -1439,7 +1508,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Select Patient *'),
+                                _buildFieldLabel(context.tr('select_patient_req', fallback: 'Select Patient *')),
                                 _buildDropdown<PatientModel>(
                                   hint: '',
                                   value: _selectedPatient,
@@ -1453,12 +1522,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           ),
                           const SizedBox(height: 24),
                           _buildFormCard(
-                            title: 'Patient Vitals',
+                            title: context.tr('patient_vitals_label', fallback: 'Patient Vitals'),
                             headerExtra: TextButton(
                               onPressed: () {},
-                              child: const Text(
-                                'Collect vitals during booking',
-                                style: TextStyle(
+                              child: Text(
+                                context.tr('collect_vitals', fallback: 'Collect vitals during booking'),
+                                style: const TextStyle(
                                   fontSize: 11,
                                   color: AppTheme.primaryColor,
                                 ),
@@ -1473,7 +1542,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      _buildFieldLabel('Blood Pressure'),
+                                      _buildFieldLabel(context.tr('blood_pressure', fallback: 'Blood Pressure')),
                                       Row(
                                         children: [
                                           Expanded(
@@ -1534,7 +1603,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      _buildFieldLabel('Sugar Level'),
+                                      _buildFieldLabel(context.tr('sugar_level_plain', fallback: 'Sugar Level')),
                                       _buildTextField(
                                         controller: _sugarController,
                                         hint: '100 mg/dL',
@@ -1560,7 +1629,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      _buildFieldLabel('Temperature'),
+                                      _buildFieldLabel(context.tr('temperature', fallback: 'Temperature')),
                                       _buildTextField(
                                         controller: _tempController,
                                         hint: '98.6°F',
@@ -1583,24 +1652,24 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             ),
                           ),
                           _buildFormCard(
-                            title: 'Visit Details',
+                            title: context.tr('visit_details', fallback: 'Visit Details'),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Appointment Type *'),
+                                _buildFieldLabel(context.tr('appointment_type_req', fallback: 'Appointment Type *')),
                                 _buildDropdown<String>(
                                   hint: '',
                                   value: _selectedApptType,
                                   items: _apptTypes,
-                                  itemLabel: (s) => s,
+                                  itemLabel: (s) => _getTranslatedApptType(s),
                                   onChanged: (val) =>
                                       setState(() => _selectedApptType = val ?? ''),
                                 ),
                                 const SizedBox(height: 16),
-                                _buildFieldLabel('Reason *'),
+                                _buildFieldLabel(context.tr('reason_req', fallback: 'Reason *')),
                                 _buildTextField(
                                   controller: _reasonController,
-                                  hint: 'e.g. Regular check-up, fever, etc.',
+                                  hint: context.tr('reason_hint', fallback: 'e.g. Regular check-up, fever, etc.'),
                                   isNumeric: false,
                                   maxLength: 500,
                                   inputFormatters: [
@@ -1628,16 +1697,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           ),
                           const SizedBox(height: 24),
                           _buildFormCard(
-                            title: 'Department & Doctor',
+                            title: context.tr('department_doctor', fallback: 'Department & Doctor'),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Department *'),
+                                _buildFieldLabel(context.tr('department_req', fallback: 'Department *')),
                                 _buildDropdown<String>(
                                   hint: '',
                                   value: _selectedDept,
                                   items: _departments,
-                                  itemLabel: (s) => s,
+                                  itemLabel: (s) => _getTranslatedDepartment(s),
                                   onChanged: (val) {
                                     if (val != _selectedDept) {
                                       setState(() {
@@ -1651,7 +1720,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 ),
                                 if (_selectedDept != null) ...[
                                   const SizedBox(height: 24),
-                                  _buildFieldLabel('Select Doctor *'),
+                                  _buildFieldLabel(context.tr('select_doctor_req', fallback: 'Select Doctor *')),
                                   const SizedBox(height: 4),
                                   SizedBox(
                                     height: 76,
@@ -1663,10 +1732,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                   _selectedDept,
                                             )
                                             .isEmpty
-                                        ? const Center(
+                                        ? Center(
                                             child: Text(
-                                              'No doctors available in this department',
-                                              style: TextStyle(
+                                              context.tr('no_doctors_available', fallback: 'No doctors available in this department'),
+                                              style: const TextStyle(
                                                 fontSize: 12,
                                                 color: Colors.grey,
                                               ),
@@ -1813,11 +1882,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           ),
                           const SizedBox(height: 24),
                           _buildFormCard(
-                            title: 'Date & Time',
+                            title: context.tr('date_and_time', fallback: 'Date & Time'),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Appointment Date *'),
+                                _buildFieldLabel(context.tr('appointment_date_req', fallback: 'Appointment Date *')),
                                 TextField(
                                   controller: _dateController,
                                   readOnly: true,
@@ -1891,20 +1960,20 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 ),
                                 if (_bookingDate != null) ...[
                                   const SizedBox(height: 24),
-                                  _buildFieldLabel('Available Time Slots *'),
+                                  _buildFieldLabel(context.tr('available_time_slots_req', fallback: 'Available Time Slots *')),
                                   const SizedBox(height: 8),
                                   () {
                                     final filteredSlots =
                                         _getFilteredTimeSlots();
                                     if (_selectedDoctor == null) {
-                                      return const Padding(
-                                        padding: EdgeInsets.symmetric(
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
                                           vertical: 20,
                                         ),
                                         child: Center(
                                           child: Text(
-                                            'Please select a doctor to see available time slots',
-                                            style: TextStyle(
+                                            context.tr('select_doctor_req', fallback: 'Please select a doctor to see available time slots'),
+                                            style: const TextStyle(
                                               color: Colors.red,
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
@@ -1914,14 +1983,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       );
                                     }
                                     if (filteredSlots.isEmpty) {
-                                      return const Padding(
-                                        padding: EdgeInsets.symmetric(
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
                                           vertical: 20,
                                         ),
                                         child: Center(
                                           child: Text(
-                                            'No more slots available for today',
-                                            style: TextStyle(
+                                            context.tr('no_slots_today', fallback: 'No more slots available for today'),
+                                            style: const TextStyle(
                                               color: Colors.red,
                                               fontSize: 12,
                                             ),
@@ -2026,9 +2095,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Appointment Summary',
-                              style: TextStyle(
+                            Text(
+                              context.tr('appointment_summary', fallback: 'Appointment Summary'),
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                                 color: AppTheme.textPrimaryColor,
@@ -2039,22 +2108,22 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             if (_selectedPatient != null)
                               _buildSummaryItem(
                                 Icons.person_outline,
-                                'Patient',
+                                context.tr('patient_name_label', fallback: 'Patient'),
                                 _selectedPatient!.name,
                               ),
 
                             if (_selectedDoctor != null)
                               _buildSummaryItem(
                                 Icons.medical_services_outlined,
-                                'Doctor',
+                                context.tr('doctor_label', fallback: 'Doctor'),
                                 _selectedDoctor!.fullname,
-                                subtitle: _selectedDept,
+                                subtitle: _selectedDept != null ? _getTranslatedDepartment(_selectedDept!) : null,
                               ),
 
                             if (_bookingDate != null)
                               _buildSummaryItem(
                                 Icons.calendar_month_outlined,
-                                'Date',
+                                context.tr('date_heading', fallback: 'Date'),
                                 DateFormat(
                                   'dd/MM/yyyy',
                                 ).format(_bookingDate!),
@@ -2063,15 +2132,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             if (_selectedTime != null)
                               _buildSummaryItem(
                                 Icons.access_time,
-                                'Time',
+                                context.tr('time_heading', fallback: 'Time'),
                                 _selectedTime!,
                               ),
 
                             if (_selectedApptType.isNotEmpty)
                               _buildSummaryItem(
                                 Icons.info_outline,
-                                'Type',
-                                _selectedApptType,
+                                context.tr('type_heading', fallback: 'Type'),
+                                _getTranslatedApptType(_selectedApptType),
                               ),
 
                             const SizedBox(height: 8),
@@ -2130,9 +2199,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
-                                          const SnackBar(
+                                          SnackBar(
                                             content: Text(
-                                              'Appointment Booked Successfully!',
+                                              context.tr('appointment_booked_success', fallback: 'Appointment Booked Successfully!'),
                                             ),
                                             backgroundColor: Colors.green,
                                           ),
@@ -2164,12 +2233,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 minimumSize: const Size(0, 44),
                                 elevation: 0,
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Text(
-                                    'Book Appointment',
-                                    style: TextStyle(
+                                  Text(
+                                    context.tr('book_appointment', fallback: 'Book Appointment'),
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -2516,10 +2585,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
   Widget _buildViewSwitcher() {
     final modes = [
-      {'key': 'Table', 'label': 'Table View'},
-      {'key': 'Hospital', 'label': 'Hospital View'},
-      {'key': 'Doctor', 'label': 'Doctor View'},
-      {'key': 'Both', 'label': 'Both View'},
+      {'key': 'Table', 'label': context.tr('table_view', fallback: 'Table View')},
+      {'key': 'Hospital', 'label': context.tr('hospital_view', fallback: 'Hospital View')},
+      {'key': 'Doctor', 'label': context.tr('doctor_view', fallback: 'Doctor View')},
+      {'key': 'Both', 'label': context.tr('both_view', fallback: 'Both View')},
     ];
     return Container(
       padding: const EdgeInsets.all(4),
@@ -2575,9 +2644,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Appointments',
-            style: TextStyle(
+          Text(
+            context.tr('appointments', fallback: 'Appointments'),
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: AppTheme.textPrimaryColor,
@@ -2585,7 +2654,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Manage and schedule patient appointments',
+            context.tr('manage_appointments_sub', fallback: 'Manage and schedule patient appointments'),
             style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
           ),
           const SizedBox(height: 12),
@@ -2606,7 +2675,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.refresh, size: 18),
-                  label: const Text('Refresh'),
+                  label: Text(context.tr('refresh', fallback: 'Refresh')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.primaryColor,
                     side: const BorderSide(color: AppTheme.primaryColor),
@@ -2632,7 +2701,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     }
                   },
                   icon: const Icon(Icons.add, size: 20),
-                  label: const Text('Book Appointment'),
+                  label: Text(context.tr('book_appointment', fallback: 'Book Appointment')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
@@ -2659,9 +2728,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Appointments',
-                  style: TextStyle(
+                Text(
+                  context.tr('appointments', fallback: 'Appointments'),
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textPrimaryColor,
@@ -2669,7 +2738,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Manage and schedule patient appointments',
+                  context.tr('manage_appointments_sub', fallback: 'Manage and schedule patient appointments'),
                   style: TextStyle(
                     color: AppTheme.textSecondaryColor,
                     fontSize: 14,
@@ -2688,7 +2757,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.refresh, size: 18),
-                  label: const Text('Refresh'),
+                  label: Text(context.tr('refresh', fallback: 'Refresh')),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.primaryColor,
                     side: const BorderSide(color: AppTheme.primaryColor),
@@ -2711,7 +2780,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     }
                   },
                   icon: const Icon(Icons.add, size: 20),
-                  label: const Text('Book Appointment'),
+                  label: Text(context.tr('book_appointment', fallback: 'Book Appointment')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
@@ -2762,19 +2831,19 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             runSpacing: 16,
             children: [
               _buildStatCard(
-                'Total Today',
+                context.tr('total_today', fallback: 'Total Today'),
                 total.toString(),
                 icon: Icons.calendar_today_rounded,
                 accentColor: const Color(0xFF005691),
               ),
               _buildStatCard(
-                'Confirmed',
+                context.tr('confirmed', fallback: 'Confirmed'),
                 confirmed.toString(),
                 icon: Icons.check_circle_rounded,
                 accentColor: const Color(0xFF16A34A),
               ),
               _buildStatCard(
-                'Cancelled',
+                context.tr('cancelled', fallback: 'Cancelled'),
                 cancelled.toString(),
                 icon: Icons.cancel_rounded,
                 accentColor: const Color(0xFFDC2626),
@@ -2786,7 +2855,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             _buildStatCard(
-              'Total Today',
+              context.tr('total_today', fallback: 'Total Today'),
               total.toString(),
               icon: Icons.calendar_today_rounded,
               accentColor: const Color(0xFF005691),
@@ -2794,7 +2863,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
             const SizedBox(width: 16),
             _buildStatCard(
-              'Confirmed',
+              context.tr('confirmed', fallback: 'Confirmed'),
               confirmed.toString(),
               icon: Icons.check_circle_rounded,
               accentColor: const Color(0xFF16A34A),
@@ -2802,7 +2871,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
             const SizedBox(width: 16),
             _buildStatCard(
-              'Cancelled',
+              context.tr('cancelled', fallback: 'Cancelled'),
               cancelled.toString(),
               icon: Icons.cancel_rounded,
               accentColor: const Color(0xFFDC2626),
@@ -2952,15 +3021,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           CustomDropdownSearch(
             label: '',
             value: _selectedStatus,
-            dropdownItems: const [
-              'All Status',
-              'Confirmed',
-              'Waiting',
-              'In Consultation',
-              'Completed',
-              'No Show',
-              'Cancelled',
-            ],
+            dropdownMap: {
+              'All Status': context.tr('all_status', fallback: 'All Status'),
+              'Confirmed': context.tr('status_confirmed', fallback: 'Confirmed'),
+              'Waiting': context.tr('status_waiting', fallback: 'Waiting'),
+              'In Consultation': context.tr('status_in_consultation', fallback: 'In Consultation'),
+              'Completed': context.tr('status_completed', fallback: 'Completed'),
+              'No Show': context.tr('status_no_show', fallback: 'No Show'),
+              'Cancelled': context.tr('status_cancelled', fallback: 'Cancelled'),
+            },
             height: 48,
             onChanged: (val) {
               if (val != null) {
@@ -3045,15 +3114,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               child: CustomDropdownSearch(
                 label: '',
                 value: _selectedStatus,
-                dropdownItems: const [
-                  'All Status',
-                  'Confirmed',
-                  'Waiting',
-                  'In Consultation',
-                  'Completed',
-                  'No Show',
-                  'Cancelled',
-                ],
+                dropdownMap: {
+                  'All Status': context.tr('all_status', fallback: 'All Status'),
+                  'Confirmed': context.tr('status_confirmed', fallback: 'Confirmed'),
+                  'Waiting': context.tr('status_waiting', fallback: 'Waiting'),
+                  'In Consultation': context.tr('status_in_consultation', fallback: 'In Consultation'),
+                  'Completed': context.tr('status_completed', fallback: 'Completed'),
+                  'No Show': context.tr('status_no_show', fallback: 'No Show'),
+                  'Cancelled': context.tr('status_cancelled', fallback: 'Cancelled'),
+                },
                 height: 48,
                 onChanged: (val) {
                   if (val != null) {
@@ -3360,7 +3429,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  appt.status,
+                  _getTranslatedStatus(appt.status),
                   style: TextStyle(
                     color: statusColor,
                     fontSize: 10,
@@ -3419,12 +3488,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               ),
               const SizedBox(width: 8),
               Text(
-                appt.department,
+                _getTranslatedDepartment(appt.department),
                 style: const TextStyle(fontSize: 13, color: Color(0xFF3B82F6)),
               ),
               const Spacer(),
               Text(
-                appt.appointmentType,
+                _getTranslatedApptType(appt.appointmentType),
                 style: TextStyle(
                   fontSize: 10,
                   color: appt.appointmentType == 'Emergency'
@@ -3444,9 +3513,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 color: const Color(0xFFF3E8FF),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
-                'Rescheduled',
-                style: TextStyle(
+              child: Text(
+                context.tr('rescheduled', fallback: 'Rescheduled'),
+                style: const TextStyle(
                   color: Color(0xFF9333EA),
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
@@ -3466,7 +3535,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     OutlinedButton.icon(
                       onPressed: () => _openViewDetailsDialog(context, appt),
                       icon: const Icon(Icons.visibility, size: 12),
-                      label: const Text('View Details', style: TextStyle(fontSize: 11)),
+                      label: Text(context.tr('view_details', fallback: 'View Details'), style: const TextStyle(fontSize: 11)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.primaryColor,
                         side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
@@ -3480,7 +3549,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         ElevatedButton.icon(
                           onPressed: () => _openVitalsEntryDialog(context, appt),
                           icon: const Icon(Icons.monitor_heart, size: 12, color: Colors.white),
-                          label: const Text('Add Vitals', style: TextStyle(fontSize: 11)),
+                          label: Text(context.tr('add_vitals', fallback: 'Add Vitals'), style: const TextStyle(fontSize: 11)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0F766E),
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -3838,7 +3907,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    isToday ? 'Today' : _formatDate(date),
+                    isToday ? context.tr('today', fallback: 'Today') : _formatDate(date),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -3856,9 +3925,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       color: const Color(0xFFF3E8FF),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text(
-                      'Resched',
-                      style: TextStyle(
+                    child: Text(
+                      context.tr('rescheduled', fallback: 'Resched'),
+                      style: const TextStyle(
                         color: Color(0xFF9333EA),
                         fontSize: 8,
                         fontWeight: FontWeight.bold,
@@ -3927,7 +3996,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             child: Padding(
               padding: const EdgeInsets.only(right: 12.0),
               child: Text(
-                department,
+                _getTranslatedDepartment(department),
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF3B82F6),
@@ -3987,7 +4056,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             child: Padding(
               padding: const EdgeInsets.only(right: 12.0),
               child: Text(
-                type,
+                _getTranslatedApptType(type),
                 style: TextStyle(
                   fontSize: 13,
                   color: type == 'Emergency'
@@ -4021,7 +4090,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                status,
+                _getTranslatedStatus(status),
                 style: TextStyle(
                   color: statusColor,
                   fontSize: 11,
@@ -4042,7 +4111,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 children: [
                   _buildActionLabel(
                     Icons.visibility_outlined,
-                    'View',
+                    context.tr('view', fallback: 'View'),
                     const Color(0xFF3182CE),
                     onTap: () => _openViewDetailsDialog(context, appt),
                   ),
@@ -4050,14 +4119,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     if (!hasVitals && !isFuture) ...[
                       _buildActionLabel(
                         Icons.monitor_heart_outlined,
-                        'Add Vitals',
+                        context.tr('add_vitals', fallback: 'Add Vitals'),
                         const Color(0xFF0F766E),
                         onTap: () => _openVitalsEntryDialog(context, appt),
                       ),
                     ],
                     _buildActionLabel(
                       Icons.cancel_outlined,
-                      'Cancel',
+                      context.tr('cancel', fallback: 'Cancel'),
                       Colors.redAccent,
                       onTap: () async {
                         String? cancelReason;

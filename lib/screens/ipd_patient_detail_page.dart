@@ -16,6 +16,8 @@ import '../services/api_service.dart';
 import '../utils/unsaved_changes_helper.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/app_top_bar_actions.dart';
 
 class IPDPatientDetailPage extends StatefulWidget {
   final Map<String, dynamic> admission;
@@ -926,49 +928,49 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                     // Nurse
                     _buildSidebarItem(
                       Icons.dashboard_outlined,
-                      'Dashboard',
+                      context.tr('dashboard', fallback: 'Dashboard'),
                       AppRoutes.nurseDashboard,
                       false,
                     ),
                     _buildSidebarItem(
                       Icons.people_outline,
-                      'Patients',
+                      context.tr('patients', fallback: 'Patients'),
                       AppRoutes.nursePatients,
                       false,
                     ),
                     _buildSidebarItem(
                       Icons.calendar_today_outlined,
-                      'Appointments',
+                      context.tr('appointments', fallback: 'Appointments'),
                       AppRoutes.nurseAppointments,
                       false,
                     ),
                     _buildSidebarItem(
                       Icons.medical_services_outlined,
-                      'Doctors',
+                      context.tr('doctors', fallback: 'Doctors'),
                       AppRoutes.nurseDoctors,
                       false,
                     ),
                     _buildSidebarItem(
                       Icons.local_hospital_outlined,
-                      'OPD Assistance',
+                      context.tr('opd_assistance', fallback: 'OPD Assistance'),
                       AppRoutes.nurseOpd,
                       false,
                     ),
                     _buildSidebarItem(
                       Icons.bedroom_child_outlined,
-                      'IPD Management',
+                      context.tr('ipd_management', fallback: 'IPD Management'),
                       AppRoutes.nurseIpd,
                       true,
                     ),
                     _buildSidebarItem(
                       Icons.healing_outlined,
-                      'OT Management',
+                      context.tr('ot_management', fallback: 'OT Management'),
                       AppRoutes.nurseOt,
                       false,
                     ),
                     _buildSidebarItem(
                       Icons.person_outline,
-                      'Profile',
+                      context.tr('profile', fallback: 'Profile'),
                       AppRoutes.nurseProfile,
                       false,
                     ),
@@ -1128,28 +1130,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
             ),
           ),
 
-          if (!isMobile) ...[
-            const SizedBox(width: 24),
-            const Spacer(),
-            const Icon(
-              Icons.notifications_none_outlined,
-              color: AppTheme.textSecondaryColor,
-            ),
-            const SizedBox(width: 16),
-            const Icon(Icons.help_outline, color: AppTheme.textSecondaryColor),
-            const SizedBox(width: 16),
-            ElevatedButton(
-              onPressed: () {},
-              style: AppTheme.primaryButton.copyWith(
-                minimumSize: WidgetStateProperty.all(const Size(80, 40)),
-              ),
-              child: const Text('Share', style: TextStyle(fontSize: 14)),
-            ),
-          ],
-          if (!isMobile) ...[
-            const SizedBox(width: 24),
-            const LiveClock(),
-          ],
+          const SizedBox(width: 16),
+          AppTopBarActions(
+            showClock: !isMobile,
+            liveClockWidget: const LiveClock(isDark: false),
+          ),
         ],
       ),
     );
@@ -1338,11 +1323,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     ];
 
     final nurseTabs = [
-      const Tab(text: 'Vitals Entry'),
-      const Tab(text: 'Medication Admin'),
-      const Tab(text: 'Nursing Notes'),
-      const Tab(text: 'Lab Coordination'),
-      const Tab(text: 'ICU Alerts'),
+      Tab(text: context.tr('tab_vitals_entry', fallback: 'Vitals Entry')),
+      Tab(text: context.tr('tab_medication_admin', fallback: 'Medication Admin')),
+      Tab(text: context.tr('tab_nursing_notes', fallback: 'Nursing Notes')),
+      Tab(text: context.tr('tab_lab_coordination', fallback: 'Lab Coordination')),
+      Tab(text: context.tr('tab_icu_alerts', fallback: 'ICU Alerts')),
     ];
 
     final Widget contentArea = Column(

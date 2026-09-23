@@ -6,12 +6,12 @@ import 'package:file_picker/file_picker.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/nurse/nurse_controller.dart';
-import '../widgets/custom_dropdown_search.dart';
 import '../services/media_service.dart';
 import '../widgets/document_view_dialog.dart';
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
 import '../utils/capitalize_formatter.dart';
+import '../utils/app_localizations.dart';
 
 class NurseProfileView extends StatefulWidget {
   final bool isEditing;
@@ -323,8 +323,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
         });
         GoRouter.of(context).go(AppRoutes.nurseProfile);
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully!', style: TextStyle(color: Colors.white)),
+          SnackBar(
+            content: Text(context.tr('profile_updated_success', fallback: 'Profile updated successfully!'), style: const TextStyle(color: Colors.white)),
             backgroundColor: Colors.green,
           ),
         );
@@ -332,7 +332,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     } catch (e) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text('Error saving profile: $e'), backgroundColor: AppTheme.dangerColor),
+          SnackBar(content: Text('${context.tr('error_saving_profile', fallback: 'Error saving profile')}: $e'), backgroundColor: AppTheme.dangerColor),
         );
       }
     } finally {
@@ -403,20 +403,20 @@ class _NurseProfileViewState extends State<NurseProfileView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Registration Certificate',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF718096)),
+                Text(
+                  context.tr('registration_certificate', fallback: 'Registration Certificate'),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF718096)),
                 ),
                 const SizedBox(height: 6),
                 if (isUrl)
                   OutlinedButton.icon(
                     onPressed: () {
-                      showDocumentViewer(context, certUrl, 'Registration Certificate');
+                      showDocumentViewer(context, certUrl, context.tr('registration_certificate', fallback: 'Registration Certificate'));
                     },
                     icon: const Icon(Icons.open_in_new, size: 14, color: Color(0xFF0F5A8E)),
-                    label: const Text(
-                      'view certificate',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F5A8E)),
+                    label: Text(
+                      context.tr('view_certificate', fallback: 'view certificate'),
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F5A8E)),
                     ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -427,7 +427,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   )
                 else
                   Text(
-                    hasCert ? certUrl : 'No certificate uploaded',
+                    hasCert ? certUrl : context.tr('no_certificate_uploaded', fallback: 'No certificate uploaded'),
                     style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2D3748)),
                   ),
               ],
@@ -448,9 +448,9 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Registration Certificate Document',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black),
+        Text(
+          context.tr('registration_certificate_doc', fallback: 'Registration Certificate Document'),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black),
         ),
         const SizedBox(height: 8),
         Container(
@@ -468,7 +468,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   child: Text(
                     isUrl
                         ? Uri.decodeFull(certUrl.split('/').last)
-                        : (isLocal ? _certFileName! : 'No certificate uploaded yet'),
+                        : (isLocal ? _certFileName! : context.tr('no_certificate_yet', fallback: 'No certificate uploaded yet')),
                     style: TextStyle(
                       color: hasAnyFile ? Colors.blue.shade800 : AppTheme.textSecondaryColor,
                       fontWeight: hasAnyFile ? FontWeight.bold : FontWeight.normal,
@@ -481,12 +481,12 @@ class _NurseProfileViewState extends State<NurseProfileView> {
               ),
               if (hasAnyFile) ...[
                 IconButton(
-                  tooltip: 'Open in new tab',
+                  tooltip: context.tr('open_in_new_tab', fallback: 'Open in new tab'),
                   icon: const Icon(Icons.open_in_new, color: Colors.blue, size: 20),
                   onPressed: _previewCertificate,
                 ),
                 IconButton(
-                  tooltip: 'Remove Document',
+                  tooltip: context.tr('remove_document', fallback: 'Remove Document'),
                   icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
                   onPressed: () {
                     setState(() {
@@ -503,7 +503,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
               ElevatedButton.icon(
                 onPressed: _pickCertificate,
                 icon: const Icon(Icons.file_present_outlined, size: 16, color: Colors.white),
-                label: const Text('Choose File', style: TextStyle(color: Colors.white, fontSize: 13)),
+                label: Text(context.tr('choose_file', fallback: 'Choose File'), style: const TextStyle(color: Colors.white, fontSize: 13)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.logoRed,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -519,8 +519,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
             padding: const EdgeInsets.only(left: 4.0),
             child: Text(
               isLocal
-                  ? 'Selected file size: $_certFileSizeStr (Will upload on save)'
-                  : 'Uploaded file size: $_uploadedFileSizeStr',
+                  ? '${context.tr('selected_file_size', fallback: 'Selected file size')}: $_certFileSizeStr'
+                  : '${context.tr('uploaded_file_size', fallback: 'Uploaded file size')}: $_uploadedFileSizeStr',
               style: const TextStyle(
                 fontSize: 11,
                 color: Colors.grey,
@@ -664,12 +664,12 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'Profile',
+                      context.tr('profile', fallback: 'Profile'),
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(fontSize: 24),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Overview of your professional details and settings',
+                      context.tr('overview_profile_desc', fallback: 'Overview of your professional details and settings'),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: AppTheme.textSecondaryColor,
                             fontSize: 12,
@@ -679,7 +679,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     ElevatedButton.icon(
                       onPressed: () => GoRouter.of(context).go(AppRoutes.nurseProfileEdit),
                       icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
-                      label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+                      label: Text(context.tr('edit_profile', fallback: 'Edit Profile'), style: const TextStyle(color: Colors.white)),
                       style: AppTheme.primaryButton.copyWith(
                         backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
                         minimumSize: MaterialStateProperty.all(const Size(double.infinity, 44)),
@@ -695,12 +695,12 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Profile',
+                            context.tr('profile', fallback: 'Profile'),
                             style: Theme.of(context).textTheme.displayLarge,
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Overview of your professional details and settings',
+                            context.tr('overview_profile_desc', fallback: 'Overview of your professional details and settings'),
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: AppTheme.textSecondaryColor,
                                 ),
@@ -712,7 +712,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     ElevatedButton.icon(
                       onPressed: () => GoRouter.of(context).go(AppRoutes.nurseProfileEdit),
                       icon: const Icon(Icons.edit_outlined, size: 18, color: Colors.white),
-                      label: const Text('Edit Profile', style: TextStyle(color: Colors.white)),
+                      label: Text(context.tr('edit_profile', fallback: 'Edit Profile'), style: const TextStyle(color: Colors.white)),
                       style: AppTheme.primaryButton.copyWith(
                         backgroundColor: MaterialStateProperty.all(AppTheme.logoRed),
                         minimumSize: MaterialStateProperty.all(const Size(0, 48)),
@@ -764,32 +764,32 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   const SizedBox(height: 24),
                   const Divider(height: 1, color: Color(0xFFE2E8F0)),
                   const SizedBox(height: 20),
-                  _buildDetailRow('Full Name', user?.rawFullname ?? '-', Icons.person_outline),
-                  _buildDetailRow('Staff ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
-                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.mail_outline),
-                  _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
-                  _buildDetailRow('Bio Summary', user?.bio ?? '-', Icons.description_outlined),
+                  _buildDetailRow(context.tr('full_name', fallback: 'Full Name'), user?.rawFullname ?? '-', Icons.person_outline),
+                  _buildDetailRow(context.tr('staff_id', fallback: 'Staff ID'), user?.staffUniqueId ?? '-', Icons.badge_outlined),
+                  _buildDetailRow(context.tr('email_address', fallback: 'Email Address'), user?.email ?? '-', Icons.mail_outline),
+                  _buildDetailRow(context.tr('mobile_number', fallback: 'Mobile Number'), user?.mobile ?? '-', Icons.phone_android_outlined),
+                  _buildDetailRow(context.tr('bio_summary', fallback: 'Bio Summary'), user?.bio ?? '-', Icons.description_outlined),
                 ] else ...[
                   const SizedBox(height: 24),
                   const Divider(height: 1, color: Color(0xFFE2E8F0)),
                   const SizedBox(height: 20),
-                  _buildDetailRow('Full Name', user?.rawFullname ?? '-', Icons.person_outline),
-                  _buildDetailRow('Staff ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
-                  _buildDetailRow('Email Address', user?.email ?? '-', Icons.mail_outline),
-                  _buildDetailRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
+                  _buildDetailRow(context.tr('full_name', fallback: 'Full Name'), user?.rawFullname ?? '-', Icons.person_outline),
+                  _buildDetailRow(context.tr('staff_id', fallback: 'Staff ID'), user?.staffUniqueId ?? '-', Icons.badge_outlined),
+                  _buildDetailRow(context.tr('email_address', fallback: 'Email Address'), user?.email ?? '-', Icons.mail_outline),
+                  _buildDetailRow(context.tr('mobile_number', fallback: 'Mobile Number'), user?.mobile ?? '-', Icons.phone_android_outlined),
                 ],
               ],
             ),
           ),
           sectionSpacing,
-          _buildInfoCard('Professional Details', [
-            _buildDetailRow('Qualification', user?.qualification ?? '-', Icons.school_outlined),
-            _buildDetailRow('Nursing Registration Number', user?.nursingRegistrationNumber ?? '-', Icons.badge_outlined),
+          _buildInfoCard(context.tr('professional_details', fallback: 'Professional Details'), [
+            _buildDetailRow(context.tr('qualification', fallback: 'Qualification'), user?.qualification ?? '-', Icons.school_outlined),
+            _buildDetailRow(context.tr('nursing_registration_number', fallback: 'Nursing Registration Number'), user?.nursingRegistrationNumber ?? '-', Icons.badge_outlined),
             _buildDetailRow(
-              'Years of Experience',
+              context.tr('years_of_experience', fallback: 'Years of Experience'),
               user?.yearsOfExperience == null || user?.yearsOfExperience == '0'
                   ? '-'
-                  : '${user!.yearsOfExperience} years',
+                  : '${user!.yearsOfExperience} ${context.tr('years_short', fallback: 'years')}',
               Icons.work_history_outlined,
             ),
             _buildCertificateDisplayRow(user?.registrationCertificate),
@@ -840,16 +840,16 @@ class _NurseProfileViewState extends State<NurseProfileView> {
              InkWell(
                onTap: () => GoRouter.of(context).go(AppRoutes.nurseProfile),
                borderRadius: BorderRadius.circular(8),
-               child: const Padding(
-                 padding: EdgeInsets.symmetric(vertical: 8),
+               child: Padding(
+                 padding: const EdgeInsets.symmetric(vertical: 8),
                  child: Row(
                    mainAxisSize: MainAxisSize.min,
                    children: [
-                     Icon(Icons.arrow_back, color: AppTheme.primaryColor, size: 16),
-                     SizedBox(width: 8),
+                     const Icon(Icons.arrow_back, color: AppTheme.primaryColor, size: 16),
+                     const SizedBox(width: 8),
                      Text(
-                       'Back to Profile',
-                       style: TextStyle(
+                       context.tr('back', fallback: 'Back to Profile'),
+                       style: const TextStyle(
                          color: AppTheme.primaryColor,
                          fontSize: 13,
                          fontWeight: FontWeight.w600,
@@ -860,9 +860,9 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                ),
              ),
              const SizedBox(height: 20),
-             const Text(
-               'Update Profile',
-               style: TextStyle(
+             Text(
+               context.tr('edit_profile', fallback: 'Update Profile'),
+               style: const TextStyle(
                  fontSize: 28,
                  fontWeight: FontWeight.bold,
                  color: Colors.black,
@@ -870,7 +870,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
              ),
              const SizedBox(height: 4),
              Text(
-               'Modify your professional details and availability',
+               context.tr('overview_profile_desc', fallback: 'Modify your professional details and availability'),
                style: const TextStyle(
                  color: Colors.black,
                  fontSize: 14,
@@ -948,24 +948,24 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   ),
                   const SizedBox(height: 32),
                   if (isMobile) ...[
-                    _buildProfileTextField('Full Name', _nameController, Icons.person_outline, isReadOnly: true),
+                    _buildProfileTextField(context.tr('full_name', fallback: 'Full Name'), _nameController, Icons.person_outline, isReadOnly: true),
                     fieldSpacing,
-                    _buildProfileTextField('Email Address', _emailController, Icons.email_outlined, isReadOnly: true),
+                    _buildProfileTextField(context.tr('email_address', fallback: 'Email Address'), _emailController, Icons.email_outlined, isReadOnly: true),
                     fieldSpacing,
-                    _buildProfileTextField('Mobile Number', _mobileController, Icons.phone_android_outlined, isReadOnly: true),
+                    _buildProfileTextField(context.tr('mobile_number', fallback: 'Mobile Number'), _mobileController, Icons.phone_android_outlined, isReadOnly: true),
                   ] else ...[
                     Row(
                       children: [
                         Expanded(
-                          child: _buildProfileTextField('Full Name', _nameController, Icons.person_outline, isReadOnly: true),
+                          child: _buildProfileTextField(context.tr('full_name', fallback: 'Full Name'), _nameController, Icons.person_outline, isReadOnly: true),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: _buildProfileTextField('Email Address', _emailController, Icons.email_outlined, isReadOnly: true),
+                          child: _buildProfileTextField(context.tr('email_address', fallback: 'Email Address'), _emailController, Icons.email_outlined, isReadOnly: true),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
-                          child: _buildProfileTextField('Mobile Number', _mobileController, Icons.phone_android_outlined, isReadOnly: true),
+                          child: _buildProfileTextField(context.tr('mobile_number', fallback: 'Mobile Number'), _mobileController, Icons.phone_android_outlined, isReadOnly: true),
                         ),
                       ],
                     ),
@@ -974,9 +974,9 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                       const Text(
-                         'Bio / Professional Summary',
-                         style: TextStyle(
+                       Text(
+                         context.tr('bio_summary', fallback: 'Bio / Professional Summary'),
+                         style: const TextStyle(
                            fontSize: 14,
                            fontWeight: FontWeight.bold,
                            color: Colors.black,
@@ -1061,24 +1061,24 @@ class _NurseProfileViewState extends State<NurseProfileView> {
               ),
             ),
             sectionSpacing,
-            sectionCard('1', 'Professional Details', const Color(0xFF0D5D9A), [
+            sectionCard('1', context.tr('professional_details', fallback: 'Professional Details'), const Color(0xFF0D5D9A), [
               if (isMobile) ...[
-                _buildProfileTextField('Qualification', _qualController, Icons.school_outlined, maxLength: 30),
+                _buildProfileTextField(context.tr('qualification', fallback: 'Qualification'), _qualController, Icons.school_outlined, maxLength: 30),
                 fieldSpacing,
-                 _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true, maxLength: 20),
+                 _buildProfileTextField(context.tr('nursing_registration_number', fallback: 'Nursing Registration Number'), _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true, maxLength: 20),
                 fieldSpacing,
-                _buildProfileTextField('Years of Experience', _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
+                _buildProfileTextField(context.tr('years_of_experience', fallback: 'Years of Experience'), _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
                 fieldSpacing,
                 _buildCertificateUploadField(),
               ] else ...[
                 Row(
                   children: [
                     Expanded(
-                      child: _buildProfileTextField('Qualification', _qualController, Icons.school_outlined, maxLength: 30),
+                      child: _buildProfileTextField(context.tr('qualification', fallback: 'Qualification'), _qualController, Icons.school_outlined, maxLength: 30),
                     ),
                     const SizedBox(width: 16),
                      Expanded(
-                       child: _buildProfileTextField('Nursing Registration Number', _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true, maxLength: 20),
+                       child: _buildProfileTextField(context.tr('nursing_registration_number', fallback: 'Nursing Registration Number'), _nursingLicenseController, Icons.badge_outlined, isAlphanumeric: true, maxLength: 20),
                      ),
                   ],
                 ),
@@ -1086,7 +1086,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                 Row(
                   children: [
                     Expanded(
-                      child: _buildProfileTextField('Years of Experience', _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
+                      child: _buildProfileTextField(context.tr('years_of_experience', fallback: 'Years of Experience'), _yearsExpController, Icons.work_outline, isNumeric: true, maxLength: 2),
                     ),
                     const SizedBox(width: 16),
                     const Expanded(child: SizedBox()), // Placeholder for balance
@@ -1107,7 +1107,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                   style: AppTheme.cancelButton.copyWith(
                     minimumSize: MaterialStateProperty.all(const Size(120, 48)),
                   ),
-                  child: const Text('Cancel'),
+                  child: Text(context.tr('cancel', fallback: 'Cancel')),
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
@@ -1129,9 +1129,9 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                             strokeWidth: 2,
                           ),
                         )
-                      : const Text(
-                          'Save Profile Changes',
-                          style: TextStyle(
+                      : Text(
+                          context.tr('save_changes', fallback: 'Save Profile Changes'),
+                          style: const TextStyle(
                             fontSize: 16,
                             color: Colors.white,
                             fontWeight: FontWeight.bold,

@@ -651,10 +651,10 @@ class _NewPatientRegistrationViewState
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Discard Unsaved Changes?',
-                      style: TextStyle(
+                      ctx.tr('discard_unsaved_changes', fallback: 'Discard Unsaved Changes?'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                         color: AppTheme.textPrimaryColor,
@@ -665,9 +665,9 @@ class _NewPatientRegistrationViewState
                 ],
               ),
               const SizedBox(height: 14),
-              const Text(
-                'You have unsaved form entries. Are you sure you want to discard changes and go back?',
-                style: TextStyle(
+              Text(
+                ctx.tr('discard_unsaved_body', fallback: 'You have unsaved form entries. Are you sure you want to discard changes and go back?'),
+                style: const TextStyle(
                   fontSize: 13.5,
                   color: Color(0xFF64748B),
                   height: 1.4,
@@ -688,10 +688,10 @@ class _NewPatientRegistrationViewState
                         ),
                       ),
                       onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text(
-                        'Stay on Form',
+                      child: Text(
+                        ctx.tr('stay_on_form', fallback: 'Stay on Form'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: 13),
                       ),
                     ),
                   ),
@@ -713,10 +713,10 @@ class _NewPatientRegistrationViewState
                           widget.onBack();
                         });
                       },
-                      child: const Text(
-                        'Discard & Leave',
+                      child: Text(
+                        ctx.tr('discard_and_leave', fallback: 'Discard & Leave'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: 13),
                       ),
                     ),
                   ),

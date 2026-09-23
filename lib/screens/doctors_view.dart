@@ -244,9 +244,9 @@ class _DoctorsViewState extends State<DoctorsView> {
                   children: [
                     // Departments Section
                     if (dynamicDepartments.isNotEmpty) ...[
-                      const Text(
-                        'Departments',
-                        style: TextStyle(
+                      Text(
+                        context.tr('departments', fallback: 'Departments'),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.textPrimaryColor,
@@ -259,10 +259,10 @@ class _DoctorsViewState extends State<DoctorsView> {
 
                     // Doctors Grid
                     if (filteredDoctors.isEmpty)
-                      const Center(
+                      Center(
                         child: Padding(
-                          padding: EdgeInsets.all(40.0),
-                          child: Text('No doctors found matching your criteria.'),
+                          padding: const EdgeInsets.all(40.0),
+                          child: Text(context.tr('no_doctors_found', fallback: 'No doctors found matching your criteria.')),
                         ),
                       )
                     else
@@ -554,9 +554,9 @@ class _DoctorsViewState extends State<DoctorsView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Specialization',
-                  style: TextStyle(
+                Text(
+                  context.tr('specialization', fallback: 'Specialization'),
+                  style: const TextStyle(
                     fontSize: 11,
                     color: AppTheme.textSecondaryColor,
                   ),
@@ -588,9 +588,9 @@ class _DoctorsViewState extends State<DoctorsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Experience',
-                        style: TextStyle(
+                      Text(
+                        context.tr('experience', fallback: 'Experience'),
+                        style: const TextStyle(
                           fontSize: 11,
                           color: AppTheme.textSecondaryColor,
                         ),
@@ -618,9 +618,9 @@ class _DoctorsViewState extends State<DoctorsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Patients',
-                        style: TextStyle(
+                      Text(
+                        context.tr('patients', fallback: 'Patients'),
+                        style: const TextStyle(
                           fontSize: 11,
                           color: AppTheme.textSecondaryColor,
                         ),
@@ -653,9 +653,9 @@ class _DoctorsViewState extends State<DoctorsView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Availability',
-                  style: TextStyle(
+                Text(
+                  context.tr('availability', fallback: 'Availability'),
+                  style: const TextStyle(
                     fontSize: 11,
                     color: Colors.redAccent,
                   ),
@@ -685,9 +685,9 @@ class _DoctorsViewState extends State<DoctorsView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Shift Timing',
-                  style: TextStyle(
+                Text(
+                  context.tr('shift_timing', fallback: 'Shift Timing'),
+                  style: const TextStyle(
                     fontSize: 11,
                     color: Colors.blueAccent,
                   ),
@@ -712,7 +712,7 @@ class _DoctorsViewState extends State<DoctorsView> {
               const Icon(Icons.calendar_today, size: 14, color: AppTheme.primaryColor),
               const SizedBox(width: 8),
               Text(
-                'Next available: $nextAvailable',
+                '${context.tr('next_available', fallback: 'Next available')}: $nextAvailable',
                 style: const TextStyle(
                   color: AppTheme.primaryColor,
                   fontWeight: FontWeight.w500,
@@ -741,7 +741,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     elevation: 0,
                   ),
-                  child: const Text('Book Appointment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  child: Text(context.tr('book_appointment', fallback: 'Book Appointment'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -752,7 +752,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   side: BorderSide(color: AppTheme.borderColor.withOpacity(0.5)),
                 ),
-                child: const Text('Profile', style: TextStyle(color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                child: Text(context.tr('profile', fallback: 'Profile'), style: const TextStyle(color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
               ),
             ],
           ),

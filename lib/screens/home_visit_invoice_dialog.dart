@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
 import '../models/home_visit_model.dart';
+import '../utils/app_localizations.dart';
 
 class HomeVisitInvoiceDialog extends StatelessWidget {
   final Map<String, dynamic> invoiceData;
@@ -13,6 +14,24 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
     required this.visit,
     this.onCloseAndComplete,
   });
+
+  String _getTranslatedStatus(BuildContext context, String status) {
+    final s = status.toLowerCase().trim();
+    if (s == 'paid') return context.tr('paid', fallback: 'Paid');
+    if (s == 'unpaid') return context.tr('unpaid', fallback: 'Unpaid');
+    if (s == 'pending') return context.tr('pending', fallback: 'Pending');
+    return status;
+  }
+
+  String _translateItemName(BuildContext context, String name) {
+    final lower = name.toLowerCase();
+    if (lower.contains('visit') || lower.contains('charge') || lower.contains('fee') || lower.contains('service')) {
+      return context.translateProcedure(name);
+    }
+    final cName = context.translateConsumable(name);
+    if (cName != name) return cName;
+    return context.translateMedicine(name);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,9 +74,9 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Home Visit Billing Invoice',
-                          style: TextStyle(
+                        Text(
+                          context.tr('home_visit_billing_invoice', fallback: 'Home Visit Billing Invoice'),
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.primaryColor,
@@ -65,7 +84,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'Invoice #: $invoiceNumber',
+                          '${context.tr('invoice_num_label', fallback: 'Invoice #:')} $invoiceNumber',
                           style: const TextStyle(
                             fontSize: 13,
                             color: Colors.grey,
@@ -83,7 +102,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    status,
+                    _getTranslatedStatus(context, status),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -107,17 +126,17 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: _infoColumn('Patient Name', visit.patientName ?? 'N/A')),
-                      Expanded(child: _infoColumn('Patient ID', visit.patientDisplayId ?? 'N/A')),
-                      Expanded(child: _infoColumn('Scheduled Date', visit.scheduledDate)),
+                      Expanded(child: _infoColumn(context.tr('patient_name_label', fallback: 'Patient Name'), visit.patientName ?? 'N/A')),
+                      Expanded(child: _infoColumn(context.tr('patient_id_label', fallback: 'Patient ID'), visit.patientDisplayId ?? 'N/A')),
+                      Expanded(child: _infoColumn(context.tr('scheduled_date_label', fallback: 'Scheduled Date'), visit.scheduledDate)),
                     ],
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(child: _infoColumn('Verified Attender', visit.attenderName ?? 'Attender')),
-                      Expanded(child: _infoColumn('Attender Relation', visit.attenderRelation ?? 'Attender')),
-                      Expanded(child: _infoColumn('Assigned Nurse', visit.nurseName ?? 'Nurse')),
+                      Expanded(child: _infoColumn(context.tr('verified_attender_label', fallback: 'Verified Attender'), visit.attenderName ?? 'Attender')),
+                      Expanded(child: _infoColumn(context.tr('attender_relation_label', fallback: 'Attender Relation'), visit.attenderRelation ?? 'Attender')),
+                      Expanded(child: _infoColumn(context.tr('assigned_nurse_label', fallback: 'Assigned Nurse'), visit.nurseName ?? 'Nurse')),
                     ],
                   ),
                   if ((visit.feedback != null && visit.feedback!.trim().isNotEmpty) ||
@@ -134,9 +153,9 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Visit & Attender Feedback',
-                                style: TextStyle(
+                              Text(
+                                context.tr('visit_attender_feedback', fallback: 'Visit & Attender Feedback'),
+                                style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.primaryColor,
@@ -164,9 +183,9 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            const Text(
-              'Itemized Service & Care Charges:',
-              style: TextStyle(
+            Text(
+              context.tr('itemized_service_care_charges', fallback: 'Itemized Service & Care Charges:'),
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
                 color: AppTheme.primaryColor,
@@ -189,12 +208,12 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                         color: Color(0xFFEDF2F7),
                         borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Expanded(flex: 3, child: Text('Service / Item Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                          Expanded(flex: 1, child: Text('Qty', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                          Expanded(flex: 1, child: Text('Unit Price', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                          Expanded(flex: 1, child: Text('Subtotal', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                          Expanded(flex: 3, child: Text(context.tr('service_item_description', fallback: 'Service / Item Description'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                          Expanded(flex: 1, child: Text(context.tr('qty_label', fallback: 'Qty'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                          Expanded(flex: 1, child: Text(context.tr('unit_price', fallback: 'Unit Price'), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                          Expanded(flex: 1, child: Text(context.tr('subtotal_header', fallback: 'Subtotal'), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
                         ],
                       ),
                     ),
@@ -219,7 +238,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                                 Expanded(
                                   flex: 3,
                                   child: Text(
-                                    item['item_name'] ?? 'Item',
+                                    _translateItemName(context, item['item_name'] ?? 'Item'),
                                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                                   ),
                                 ),
@@ -269,9 +288,9 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Net Total Bill Amount:',
-                    style: TextStyle(
+                  Text(
+                    context.tr('net_total_bill_amount', fallback: 'Net Total Bill Amount:'),
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryColor,
@@ -302,7 +321,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                     onCloseAndComplete!();
                   }
                 },
-                child: const Text('Close & Complete', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: Text(context.tr('close_and_complete', fallback: 'Close & Complete'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
           ],

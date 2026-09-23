@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
 
 class CustomDropdownSearch extends StatefulWidget {
   final String label;
@@ -97,9 +98,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       final lower = widget.label.toLowerCase();
       // If the label already starts with 'select', use it directly
       if (lower.startsWith('select')) return 'Select ${widget.label.substring(6).trim()}';
-      return 'Select ${widget.label}';
+      return '${context.tr('select', fallback: 'Select')} ${widget.label}';
     }
-    return 'Select...';
+    return '${context.tr('select', fallback: 'Select')}...';
   }
 
   @override

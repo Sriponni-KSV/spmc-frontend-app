@@ -4249,7 +4249,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         Text(
-                                          user.role,
+                                          context.translateRole(user.role),
                                           style: TextStyle(
                                             fontSize: 11,
                                             color: AppTheme.getTextSecondaryColor(context),

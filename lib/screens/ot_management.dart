@@ -19,6 +19,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../utils/web_audio_recorder.dart';
 import '../services/live_speech_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import '../utils/app_localizations.dart';
 
 
 // --- CUSTOM INPUT FORMATTERS ---
@@ -1504,25 +1505,31 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildTabItem(0, 'Dashboard', Icons.dashboard_outlined),
+          _buildTabItem(0, context.tr('dashboard', fallback: 'Dashboard'), Icons.dashboard_outlined),
           const SizedBox(width: 4),
           _buildTabItem(
             1,
-            widget.isMobile ? 'Active' : 'Active Cases',
+            widget.isMobile
+                ? context.tr('tab_active_cases', fallback: 'Active')
+                : context.tr('tab_active_cases', fallback: 'Active Cases'),
             Icons.pending_actions_outlined,
             badgeCount: activeCasesCount,
           ),
           const SizedBox(width: 4),
           _buildTabItem(
             2,
-            widget.isMobile ? 'Completed' : 'Completed Cases',
+            widget.isMobile
+                ? context.tr('tab_completed_cases', fallback: 'Completed')
+                : context.tr('tab_completed_cases', fallback: 'Completed Cases'),
             Icons.check_circle_outline,
             badgeCount: completedCasesCount,
           ),
           const SizedBox(width: 4),
           _buildTabItem(
             3,
-            widget.isMobile ? 'Schedule' : 'Schedule Surgery',
+            widget.isMobile
+                ? context.tr('tab_schedule_surgery', fallback: 'Schedule')
+                : context.tr('tab_schedule_surgery', fallback: 'Schedule Surgery'),
             Icons.add_circle_outline,
           ),
         ],
@@ -1614,21 +1621,21 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'OT Management',
-                            style: TextStyle(
+                            context.tr('ot_management', fallback: 'OT Management'),
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.textPrimaryColor,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
-                            'Schedule and view operation cases details',
-                            style: TextStyle(
+                            context.tr('ot_subtitle', fallback: 'Schedule and view operation cases details'),
+                            style: const TextStyle(
                               fontSize: 11,
                               color: AppTheme.textSecondaryColor,
                             ),
@@ -1645,21 +1652,21 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'OT Management',
-                            style: TextStyle(
+                            context.tr('ot_management', fallback: 'OT Management'),
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.textPrimaryColor,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
-                            'Schedule and view operation cases details',
-                            style: TextStyle(
+                            context.tr('ot_subtitle', fallback: 'Schedule and view operation cases details'),
+                            style: const TextStyle(
                               fontSize: 12,
                               color: AppTheme.textSecondaryColor,
                             ),
@@ -1724,24 +1731,80 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           widget.isMobile
               ? Column(
                   children: [
-                    _buildStatCard('Pending Requests', _pendingRequestsCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange),
+                    _buildStatCard(
+                      context.tr('pending_requests', fallback: 'Pending Requests'),
+                      _pendingRequestsCount.toString(),
+                      context.tr('requires_schedule', fallback: 'Requires Schedule'),
+                      Icons.calendar_month,
+                      Colors.orange,
+                    ),
                     const SizedBox(height: 12),
-                    _buildStatCard('Scheduled Today', _scheduledTodayCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue),
+                    _buildStatCard(
+                      context.tr('scheduled_today', fallback: 'Scheduled Today'),
+                      _scheduledTodayCount.toString(),
+                      context.tr('pre_op_in_progress', fallback: 'Pre-op in progress'),
+                      Icons.schedule,
+                      Colors.blue,
+                    ),
                     const SizedBox(height: 12),
-                    _buildStatCard('Active In Surgery', _activeInSurgeryCount.toString(), 'Live operating room', Icons.flash_on, Colors.purple),
+                    _buildStatCard(
+                      context.tr('active_in_surgery', fallback: 'Active In Surgery'),
+                      _activeInSurgeryCount.toString(),
+                      context.tr('live_operating_room', fallback: 'Live operating room'),
+                      Icons.flash_on,
+                      Colors.purple,
+                    ),
                     const SizedBox(height: 12),
-                    _buildStatCard('Recovery & Post-Op', _recoveryPostOpCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink),
+                    _buildStatCard(
+                      context.tr('recovery_post_op', fallback: 'Recovery & Post-Op'),
+                      _recoveryPostOpCount.toString(),
+                      context.tr('monitoring_vitals', fallback: 'Monitoring vitals'),
+                      Icons.monitor_heart,
+                      Colors.pink,
+                    ),
                   ],
                 )
               : Row(
                   children: [
-                    Expanded(child: _buildStatCard('Pending Requests', _pendingRequestsCount.toString(), 'Requires Schedule', Icons.calendar_month, Colors.orange)),
+                    Expanded(
+                      child: _buildStatCard(
+                        context.tr('pending_requests', fallback: 'Pending Requests'),
+                        _pendingRequestsCount.toString(),
+                        context.tr('requires_schedule', fallback: 'Requires Schedule'),
+                        Icons.calendar_month,
+                        Colors.orange,
+                      ),
+                    ),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Scheduled Today', _scheduledTodayCount.toString(), 'Pre-op in progress', Icons.schedule, Colors.blue)),
+                    Expanded(
+                      child: _buildStatCard(
+                        context.tr('scheduled_today', fallback: 'Scheduled Today'),
+                        _scheduledTodayCount.toString(),
+                        context.tr('pre_op_in_progress', fallback: 'Pre-op in progress'),
+                        Icons.schedule,
+                        Colors.blue,
+                      ),
+                    ),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Active In Surgery', _activeInSurgeryCount.toString(), 'Live operating room', Icons.flash_on, Colors.purple)),
+                    Expanded(
+                      child: _buildStatCard(
+                        context.tr('active_in_surgery', fallback: 'Active In Surgery'),
+                        _activeInSurgeryCount.toString(),
+                        context.tr('live_operating_room', fallback: 'Live operating room'),
+                        Icons.flash_on,
+                        Colors.purple,
+                      ),
+                    ),
                     const SizedBox(width: 16),
-                    Expanded(child: _buildStatCard('Recovery & Post-Op', _recoveryPostOpCount.toString(), 'Monitoring vitals', Icons.monitor_heart, Colors.pink)),
+                    Expanded(
+                      child: _buildStatCard(
+                        context.tr('recovery_post_op', fallback: 'Recovery & Post-Op'),
+                        _recoveryPostOpCount.toString(),
+                        context.tr('monitoring_vitals', fallback: 'Monitoring vitals'),
+                        Icons.monitor_heart,
+                        Colors.pink,
+                      ),
+                    ),
                   ],
                 ),
           const SizedBox(height: 28),

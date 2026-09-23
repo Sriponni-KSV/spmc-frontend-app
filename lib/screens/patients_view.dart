@@ -250,7 +250,7 @@ class _PatientsViewState extends State<PatientsView> {
 
   Widget _buildRecentPatientsHeader(bool isMobile) {
     return Text(
-      'Recent Patients',
+      context.tr('recent_patients', fallback: 'Recent Patients'),
       style: TextStyle(
         fontSize: isMobile ? 18 : 20,
         fontWeight: FontWeight.bold,
@@ -262,7 +262,7 @@ class _PatientsViewState extends State<PatientsView> {
 
   Widget _buildTableHeading(bool isMobile) {
     return Text(
-      'Patient Records',
+      context.tr('patient_records', fallback: 'Patient Records'),
       style: TextStyle(
         fontSize: isMobile ? 18 : 20,
         fontWeight: FontWeight.bold,
@@ -282,8 +282,8 @@ class _PatientsViewState extends State<PatientsView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Patients',
-            style: TextStyle(
+            context.tr('patients', fallback: 'Patients'),
+            style: const TextStyle(
               fontSize: 32,
               fontWeight: FontWeight.bold,
               color: AppTheme.textPrimaryColor,
@@ -292,8 +292,8 @@ class _PatientsViewState extends State<PatientsView> {
           ),
           const SizedBox(height: 2),
           Text(
-            'Manage patient records and hospital information',
-            style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+            context.tr('manage_patient_records', fallback: 'Manage patient records and hospital information'),
+            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
           ),
           const SizedBox(height: 16),
           if (user?.hasPermission('add_patient') ?? false)
@@ -882,9 +882,9 @@ class _PatientsViewState extends State<PatientsView> {
         );
       }
       if (allFilteredPatients.isEmpty) {
-        return const Padding(
-          padding: EdgeInsets.all(32.0),
-          child: Center(child: Text('No patients found')),
+        return Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Center(child: Text(context.tr('no_patients_found', fallback: 'No patients found'))),
         );
       }
 
@@ -952,9 +952,9 @@ class _PatientsViewState extends State<PatientsView> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (allFilteredPatients.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(32.0),
-                child: Center(child: Text('No patients found')),
+              Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Center(child: Text(context.tr('no_patients_found', fallback: 'No patients found'))),
               )
             else
               ...patients.asMap().entries.map((entry) {
@@ -980,9 +980,9 @@ class _PatientsViewState extends State<PatientsView> {
                       patient.gender,
                       patient.phone,
                       patient.email,
-                      'Active',
+                      context.tr('active', fallback: 'Active'),
                       initials,
-                      patient.isQuickRegister ? ['Quick'] : [],
+                      patient.isQuickRegister ? [context.tr('quick_tag', fallback: 'Quick')] : [],
                       isMobile,
                       '${(index + 1) + (_currentPage * _itemsPerPage)}',
                     ),
@@ -1183,7 +1183,7 @@ class _PatientsViewState extends State<PatientsView> {
                     Text(
                       patient.phone.isNotEmpty
                           ? patient.phone
-                          : 'Not Provided',
+                          : context.tr('not_provided', fallback: 'Not Provided'),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
@@ -1211,11 +1211,11 @@ class _PatientsViewState extends State<PatientsView> {
                           ),
                           side: const BorderSide(color: AppTheme.borderColor),
                         ),
-                        child: const FittedBox(
+                        child: FittedBox(
                           fit: BoxFit.scaleDown,
                           child: Text(
-                            'View Details',
-                            style: TextStyle(
+                            context.tr('view_details', fallback: 'View Details'),
+                            style: const TextStyle(
                               color: AppTheme.textPrimaryColor,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -1249,11 +1249,11 @@ class _PatientsViewState extends State<PatientsView> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                           ),
-                          child: const FittedBox(
+                          child: FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
-                              'Book Appt.',
-                              style: TextStyle(
+                              context.tr('book_appt', fallback: 'Book Appt.'),
+                              style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -1289,7 +1289,7 @@ class _PatientsViewState extends State<PatientsView> {
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
-                              isQuick ? 'Complete' : 'Edit',
+                              isQuick ? context.tr('complete', fallback: 'Complete') : context.tr('edit', fallback: 'Edit'),
                               style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -1318,7 +1318,7 @@ class _PatientsViewState extends State<PatientsView> {
     } else if (text == 'Age') {
       translated = context.tr('age_gender', fallback: text).split(' / ').first;
     } else if (text == 'Gender') {
-      translated = context.tr('all_genders', fallback: text).replaceAll('All ', '');
+      translated = context.tr('gender', fallback: text);
     } else if (text == 'Mobile No') {
       translated = context.tr('mobile_number', fallback: text);
     } else if (text == 'Email') {
@@ -1337,6 +1337,15 @@ class _PatientsViewState extends State<PatientsView> {
         letterSpacing: 0.5,
       ),
     );
+  }
+
+  String _formatGender(BuildContext context, String gender) {
+    if (gender.isEmpty) return context.tr('not_provided', fallback: 'Not Provided');
+    final g = gender.trim().toLowerCase();
+    if (g == 'male') return context.tr('male', fallback: 'Male');
+    if (g == 'female') return context.tr('female', fallback: 'Female');
+    if (g == 'other') return context.tr('other', fallback: 'Other');
+    return gender;
   }
 
   Widget _buildPatientTableRow(
@@ -1435,7 +1444,7 @@ class _PatientsViewState extends State<PatientsView> {
                           child: Wrap(
                             spacing: 4,
                             children: tags.map((t) {
-                              if (isQuick && t == 'Quick') {
+                              if (isQuick && (t == 'Quick' || t == context.tr('quick_tag', fallback: 'Quick'))) {
                                 return InkWell(
                                   onTap: () =>
                                       widget.onCompleteProfile(patient),
@@ -1500,7 +1509,7 @@ class _PatientsViewState extends State<PatientsView> {
           if (!isMobile)
             Expanded(
               child: Text(
-                gender.isNotEmpty ? gender : 'Not Provided',
+                _formatGender(context, gender),
                 style: TextStyle(
                   fontSize: 13,
                   color: isQuick
@@ -1512,7 +1521,7 @@ class _PatientsViewState extends State<PatientsView> {
           Expanded(
             flex: 2,
             child: Text(
-              contact.isNotEmpty ? contact : 'Not Provided',
+              contact.isNotEmpty ? contact : context.tr('not_provided', fallback: 'Not Provided'),
               style: TextStyle(
                 fontSize: 13,
                 color: isQuick
@@ -1525,7 +1534,7 @@ class _PatientsViewState extends State<PatientsView> {
             Expanded(
               flex: 2,
               child: Text(
-                email.isNotEmpty ? email : 'Not Provided',
+                email.isNotEmpty ? email : context.tr('not_provided', fallback: 'Not Provided'),
                 style: TextStyle(
                   fontSize: 13,
                   color: isQuick
@@ -1549,7 +1558,7 @@ class _PatientsViewState extends State<PatientsView> {
               children: [
                 _buildActionLabel(
                   Icons.visibility_outlined,
-                  'View',
+                  context.tr('view', fallback: 'View'),
                   isQuick ? const Color(0xFF805AD5) : const Color(0xFF3182CE),
                   onTap: () => _viewPatient(patient),
                 ),
@@ -1558,13 +1567,13 @@ class _PatientsViewState extends State<PatientsView> {
                 ))
                   _buildActionLabel(
                     Icons.calendar_month_outlined,
-                    'Book',
+                    context.tr('book', fallback: 'Book'),
                     const Color(0xFF38A169),
                     onTap: () => widget.onBookAppointment(patient),
                   ),
                 _buildActionLabel(
                   Icons.edit_outlined,
-                  'Edit',
+                  context.tr('edit', fallback: 'Edit'),
                   const Color(0xFFF6AD55),
                   onTap: () => widget.onCompleteProfile(patient),
                 ),
@@ -1575,7 +1584,7 @@ class _PatientsViewState extends State<PatientsView> {
                     false)
                   _buildActionLabel(
                     Icons.delete_outline,
-                    'Delete',
+                    context.tr('delete', fallback: 'Delete'),
                     Colors.redAccent,
                     onTap: () => _showDeletePatientConfirmation(patient),
                   ),
@@ -1673,7 +1682,7 @@ class _PatientsViewState extends State<PatientsView> {
                           strokeWidth: 2,
                         ),
                       )
-                    : const Text('Delete'),
+                    : Text(context.tr('delete', fallback: 'Delete')),
               ),
             ],
           ),
@@ -1891,11 +1900,53 @@ class _PatientsViewState extends State<PatientsView> {
     List<String> items,
     ValueChanged<String?> onChanged,
   ) {
+    String translatedLabel = label;
+    if (label == 'Age Range') {
+      translatedLabel = context.tr('age_range', fallback: label);
+    } else if (label == 'Gender') {
+      translatedLabel = context.tr('gender', fallback: label);
+    } else if (label == 'Last Visit') {
+      translatedLabel = context.tr('last_visit', fallback: label);
+    } else if (label == 'Status') {
+      translatedLabel = context.tr('status', fallback: label);
+    }
+
+    Map<String, String>? dropdownMap;
+    if (label == 'Gender') {
+      dropdownMap = {
+        'All Genders': context.tr('all_genders', fallback: 'All Genders'),
+        'Male': context.tr('male', fallback: 'Male'),
+        'Female': context.tr('female', fallback: 'Female'),
+        'Other': context.tr('other', fallback: 'Other'),
+      };
+    } else if (label == 'Status') {
+      dropdownMap = {
+        'All Status': context.tr('all_status', fallback: 'All Status'),
+        'Active': context.tr('active', fallback: 'Active'),
+        'Inactive': context.tr('inactive', fallback: 'Inactive'),
+      };
+    } else if (label == 'Age Range') {
+      dropdownMap = {
+        'All Ages': context.tr('all_ages', fallback: 'All Ages'),
+        'Under 18': context.tr('under_18', fallback: 'Under 18'),
+        '18-35': '18-35',
+        '36-60': '36-60',
+        'Over 60': context.tr('over_60', fallback: 'Over 60'),
+      };
+    } else if (label == 'Last Visit') {
+      dropdownMap = {
+        'Any Time': context.tr('any_time', fallback: 'Any Time'),
+        'Last 7 Days': context.tr('last_7_days', fallback: 'Last 7 Days'),
+        'Last 30 Days': context.tr('last_30_days', fallback: 'Last 30 Days'),
+        'This Year': context.tr('this_year', fallback: 'This Year'),
+      };
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          translatedLabel,
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -1906,7 +1957,8 @@ class _PatientsViewState extends State<PatientsView> {
         CustomDropdownSearch(
           label: '',
           value: value,
-          dropdownItems: items,
+          dropdownItems: dropdownMap == null ? items : null,
+          dropdownMap: dropdownMap,
           height: 48,
           onChanged: onChanged,
         ),
@@ -2140,7 +2192,7 @@ class _PatientsViewState extends State<PatientsView> {
             });
           } else {
             setDialogState(() {
-              phoneError = 'This mobile number is already registered to ${patients.first.name} (${patients.first.patientId ?? ""}).';
+              phoneError = '${context.tr('phone_already_registered', fallback: 'This mobile number is already registered to')} ${patients.first.name} (${patients.first.patientId ?? ""}).';
             });
           }
         }
@@ -2195,9 +2247,9 @@ class _PatientsViewState extends State<PatientsView> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'Quick Patient Registration',
-                                    style: TextStyle(
+                                  Text(
+                                    context.tr('quick_patient_registration', fallback: 'Quick Patient Registration'),
+                                    style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                       color: AppTheme.textPrimaryColor,
@@ -2205,8 +2257,8 @@ class _PatientsViewState extends State<PatientsView> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    'Fast check-in with minimal details',
-                                    style: TextStyle(
+                                    context.tr('fast_checkin_minimal_details', fallback: 'Fast check-in with minimal details'),
+                                    style: const TextStyle(
                                       fontSize: 13,
                                       color: AppTheme.textSecondaryColor,
                                     ),
@@ -2232,10 +2284,10 @@ class _PatientsViewState extends State<PatientsView> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if (MediaQuery.of(context).size.width < 500) ...[
-                                _buildQuickFieldLabel('Full Name'),
+                                _buildQuickFieldLabel(context.tr('full_name', fallback: 'Full Name')),
                                 _buildQuickTextField(
                                   controller: nameCtrl,
-                                  hint: 'Enter patient\'s full name',
+                                  hint: context.tr('enter_patient_full_name', fallback: "Enter patient's full name"),
                                   textCapitalization: TextCapitalization.words,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.allow(
@@ -2245,35 +2297,35 @@ class _PatientsViewState extends State<PatientsView> {
                                     LengthLimitingTextInputFormatter(60),
                                   ],
                                   validator: (val) {
-                                    if (val == null || val.trim().isEmpty) return 'Please enter Full Name';
-                                    if (val.trim().length < 3) return 'Name must be at least 3 characters';
-                                    if (val.trim().length > 60) return 'Full Name cannot exceed 60 characters';
+                                    if (val == null || val.trim().isEmpty) return context.tr('please_enter_full_name', fallback: 'Please enter Full Name');
+                                    if (val.trim().length < 3) return context.tr('name_min_chars', fallback: 'Name must be at least 3 characters');
+                                    if (val.trim().length > 60) return context.tr('name_max_chars', fallback: 'Full Name cannot exceed 60 characters');
                                     return null;
                                   },
                                 ),
                                 const SizedBox(height: 16),
-                                _buildQuickFieldLabel('Email Address'),
+                                _buildQuickFieldLabel(context.tr('email_address', fallback: 'Email Address')),
                                 _buildQuickTextField(
                                   controller: emailCtrl,
-                                  hint: 'Enter Email Address',
+                                  hint: context.tr('enter_email_address', fallback: 'Enter Email Address'),
                                   keyboardType: TextInputType.emailAddress,
                                   inputFormatters: [
                                     LengthLimitingTextInputFormatter(100),
                                   ],
                                   validator: (val) {
                                     if (val == null || val.trim().isEmpty) {
-                                      return 'Please enter Email Address';
+                                      return context.tr('please_enter_email', fallback: 'Please enter Email Address');
                                     }
                                     if (val.trim().length > 100) {
-                                      return 'Email address cannot exceed 100 characters';
+                                      return context.tr('email_max_chars', fallback: 'Email address cannot exceed 100 characters');
                                     }
                                     if (val.trim().contains(RegExp(r'[A-Z]'))) {
-                                      return 'Please enter a valid email address';
+                                      return context.tr('valid_email', fallback: 'Please enter a valid email address');
                                     }
                                     if (!RegExp(
                                       r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                                     ).hasMatch(val.trim())) {
-                                      return 'Please enter a valid email address';
+                                      return context.tr('valid_email', fallback: 'Please enter a valid email address');
                                     }
                                     return null;
                                   },
@@ -2286,10 +2338,10 @@ class _PatientsViewState extends State<PatientsView> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          _buildQuickFieldLabel('Full Name'),
+                                          _buildQuickFieldLabel(context.tr('full_name', fallback: 'Full Name')),
                                           _buildQuickTextField(
                                             controller: nameCtrl,
-                                            hint: 'Enter patient\'s full name',
+                                            hint: context.tr('enter_patient_full_name', fallback: "Enter patient's full name"),
                                             textCapitalization: TextCapitalization.words,
                                             inputFormatters: [
                                               FilteringTextInputFormatter.allow(
@@ -2301,9 +2353,9 @@ class _PatientsViewState extends State<PatientsView> {
                                               ),
                                             ],
                                             validator: (val) {
-                                              if (val == null || val.trim().isEmpty) return 'Please enter Full Name';
-                                              if (val.trim().length < 3) return 'Name must be at least 3 characters';
-                                              if (val.trim().length > 60) return 'Full Name cannot exceed 60 characters';
+                                              if (val == null || val.trim().isEmpty) return context.tr('please_enter_full_name', fallback: 'Please enter Full Name');
+                                              if (val.trim().length < 3) return context.tr('name_min_chars', fallback: 'Name must be at least 3 characters');
+                                              if (val.trim().length > 60) return context.tr('name_max_chars', fallback: 'Full Name cannot exceed 60 characters');
                                               return null;
                                             },
                                           ),
@@ -2317,11 +2369,11 @@ class _PatientsViewState extends State<PatientsView> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           _buildQuickFieldLabel(
-                                            'Email Address',
+                                            context.tr('email_address', fallback: 'Email Address'),
                                           ),
                                           _buildQuickTextField(
                                             controller: emailCtrl,
-                                            hint: 'Enter Email Address',
+                                            hint: context.tr('enter_email_address', fallback: 'Enter Email Address'),
                                             keyboardType:
                                                 TextInputType.emailAddress,
                                             inputFormatters: [
@@ -2330,18 +2382,18 @@ class _PatientsViewState extends State<PatientsView> {
                                             validator: (val) {
                                               if (val == null ||
                                                   val.trim().isEmpty) {
-                                                return 'Please enter Email Address';
+                                                return context.tr('please_enter_email', fallback: 'Please enter Email Address');
                                               }
                                               if (val.trim().length > 100) {
-                                                return 'Email address cannot exceed 100 characters';
+                                                return context.tr('email_max_chars', fallback: 'Email address cannot exceed 100 characters');
                                               }
                                               if (val.trim().contains(RegExp(r'[A-Z]'))) {
-                                                return 'Please enter a valid email address';
+                                                return context.tr('valid_email', fallback: 'Please enter a valid email address');
                                               }
                                               if (!RegExp(
                                                 r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                                               ).hasMatch(val.trim())) {
-                                                return 'Please enter a valid email address';
+                                                return context.tr('valid_email', fallback: 'Please enter a valid email address');
                                               }
                                               return null;
                                             },
@@ -2353,14 +2405,14 @@ class _PatientsViewState extends State<PatientsView> {
                                 ),
                               const SizedBox(height: 16),
                               if (MediaQuery.of(context).size.width < 500) ...[
-                                _buildQuickFieldLabel('Date of Birth'),
+                                _buildQuickFieldLabel(context.tr('date_of_birth', fallback: 'Date of Birth')),
                                 _buildQuickTextField(
                                   controller: dobCtrl,
                                   hint: 'dd/mm/yyyy',
                                   icon: Icons.calendar_today_outlined,
                                   readOnly: true,
                                   validator: (val) => val == null || val.isEmpty
-                                      ? 'Please enter Date of Birth'
+                                      ? context.tr('please_enter_dob', fallback: 'Please enter Date of Birth')
                                       : null,
                                   onTap: () async {
                                     DateTime? pickedDate = await showDatePicker(
@@ -2381,10 +2433,10 @@ class _PatientsViewState extends State<PatientsView> {
                                   },
                                 ),
                                 const SizedBox(height: 16),
-                                _buildQuickFieldLabel('Mobile Number'),
+                                _buildQuickFieldLabel(context.tr('mobile_number', fallback: 'Mobile Number')),
                                 _buildQuickTextField(
                                   controller: phoneCtrl,
-                                  hint: 'Enter Mobile Number',
+                                  hint: context.tr('enter_mobile_number', fallback: 'Enter Mobile Number'),
                                   keyboardType: TextInputType.phone,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
@@ -2394,13 +2446,13 @@ class _PatientsViewState extends State<PatientsView> {
                                     setState(() {
                                       final clean = val.trim();
                                       if (clean.isEmpty) {
-                                        phoneError = 'Please enter Mobile Number';
+                                        phoneError = context.tr('please_enter_mobile', fallback: 'Please enter Mobile Number');
                                         lastCheckedPhone = '';
                                       } else if (!RegExp(r'^[6-9]').hasMatch(clean)) {
-                                        phoneError = 'Mobile number must start with 6, 7, 8, or 9';
+                                        phoneError = context.tr('mobile_start_digit', fallback: 'Mobile number must start with 6, 7, 8, or 9');
                                         lastCheckedPhone = '';
                                       } else if (clean.length < 10) {
-                                        phoneError = 'Please enter a valid Mobile Number (${clean.length}/10)';
+                                        phoneError = '${context.tr('please_enter_valid_mobile', fallback: 'Please enter a valid Mobile Number')} (${clean.length}/10)';
                                         lastCheckedPhone = '';
                                       } else {
                                         phoneError = null;
@@ -2414,14 +2466,14 @@ class _PatientsViewState extends State<PatientsView> {
                                   errorText: phoneError,
                                   validator: (val) {
                                     if (val == null || val.trim().isEmpty) {
-                                      return 'Please enter Mobile Number';
+                                      return context.tr('please_enter_mobile', fallback: 'Please enter Mobile Number');
                                     }
                                     final clean = val.trim();
                                     if (!RegExp(r'^[6-9]').hasMatch(clean)) {
-                                      return 'Mobile number must start with 6, 7, 8, or 9';
+                                      return context.tr('mobile_start_digit', fallback: 'Mobile number must start with 6, 7, 8, or 9');
                                     }
                                     if (clean.length != 10) {
-                                      return 'Mobile number must be exactly 10 digits';
+                                      return context.tr('mobile_exact_10_digits', fallback: 'Mobile number must be exactly 10 digits');
                                     }
                                     return null;
                                   },
@@ -2435,7 +2487,7 @@ class _PatientsViewState extends State<PatientsView> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           _buildQuickFieldLabel(
-                                            'Date of Birth',
+                                            context.tr('date_of_birth', fallback: 'Date of Birth'),
                                           ),
                                           _buildQuickTextField(
                                             controller: dobCtrl,
@@ -2444,7 +2496,7 @@ class _PatientsViewState extends State<PatientsView> {
                                             readOnly: true,
                                             validator: (val) =>
                                                 val == null || val.isEmpty
-                                                ? 'Please enter Date of Birth'
+                                                ? context.tr('please_enter_dob', fallback: 'Please enter Date of Birth')
                                                 : null,
                                             onTap: () async {
                                               DateTime? pickedDate =
@@ -2478,11 +2530,11 @@ class _PatientsViewState extends State<PatientsView> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           _buildQuickFieldLabel(
-                                            'Mobile Number',
+                                            context.tr('mobile_number', fallback: 'Mobile Number'),
                                           ),
                                           _buildQuickTextField(
                                             controller: phoneCtrl,
-                                            hint: 'Enter Mobile Number',
+                                            hint: context.tr('enter_mobile_number', fallback: 'Enter Mobile Number'),
                                             keyboardType: TextInputType.phone,
                                             inputFormatters: [
                                               FilteringTextInputFormatter
@@ -2496,15 +2548,15 @@ class _PatientsViewState extends State<PatientsView> {
                                                 final clean = val.trim();
                                                 if (clean.isEmpty) {
                                                   phoneError =
-                                                      'Please enter Mobile Number';
+                                                      context.tr('please_enter_mobile', fallback: 'Please enter Mobile Number');
                                                   lastCheckedPhone = '';
                                                 } else if (!RegExp(r'^[6-9]').hasMatch(clean)) {
                                                   phoneError =
-                                                      'Mobile number must start with 6, 7, 8, or 9';
+                                                      context.tr('mobile_start_digit', fallback: 'Mobile number must start with 6, 7, 8, or 9');
                                                   lastCheckedPhone = '';
                                                 } else if (clean.length < 10) {
                                                   phoneError =
-                                                      'Please enter a valid Mobile Number (${clean.length}/10)';
+                                                      '${context.tr('please_enter_valid_mobile', fallback: 'Please enter a valid Mobile Number')} (${clean.length}/10)';
                                                   lastCheckedPhone = '';
                                                 } else {
                                                   phoneError = null;
@@ -2519,14 +2571,14 @@ class _PatientsViewState extends State<PatientsView> {
                                             errorText: phoneError,
                                             validator: (val) {
                                               if (val == null || val.trim().isEmpty) {
-                                                return 'Please enter Mobile Number';
+                                                return context.tr('please_enter_mobile', fallback: 'Please enter Mobile Number');
                                               }
                                               final clean = val.trim();
                                               if (!RegExp(r'^[6-9]').hasMatch(clean)) {
-                                                return 'Mobile number must start with 6, 7, 8, or 9';
+                                                return context.tr('mobile_start_digit', fallback: 'Mobile number must start with 6, 7, 8, or 9');
                                               }
                                               if (clean.length != 10) {
-                                                return 'Mobile number must be exactly 10 digits';
+                                                return context.tr('mobile_exact_10_digits', fallback: 'Mobile number must be exactly 10 digits');
                                               }
                                               return null;
                                             },
@@ -2545,24 +2597,24 @@ class _PatientsViewState extends State<PatientsView> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        _buildQuickFieldLabel('Gender'),
+                                        _buildQuickFieldLabel(context.tr('gender', fallback: 'Gender')),
                                         CustomDropdownSearch(
                                           label: '',
-                                          hint: 'Select gender',
-                                          dropdownItems: const [
-                                            'Male',
-                                            'Female',
-                                            'Other',
-                                          ],
+                                          hint: context.tr('select_gender', fallback: 'Select gender'),
+                                          dropdownMap: {
+                                            'Male': context.tr('gender_male', fallback: 'Male'),
+                                            'Female': context.tr('gender_female', fallback: 'Female'),
+                                            'Other': context.tr('gender_other', fallback: 'Other'),
+                                          },
                                           value: selectedGender,
                                           onChanged: (val) {
                                             setState(() {
-                                              selectedGender = val;
+                                              selectedGender = _toEnglishGender(val);
                                             });
                                           },
                                           validator: (val) =>
                                               val == null || val.isEmpty
-                                              ? 'Please select gender'
+                                              ? context.tr('please_select_gender', fallback: 'Please select gender')
                                               : null,
                                           height: 52,
                                           borderColor: const Color(0xFFE2E8F0),
@@ -2580,17 +2632,17 @@ class _PatientsViewState extends State<PatientsView> {
                               ),
                               const SizedBox(height: 16),
                               _buildQuickFieldLabel(
-                                'Reason for Visit (Optional)',
+                                context.tr('reason_for_visit_optional', fallback: 'Reason for Visit (Optional)'),
                                 isRequired: false,
                               ),
                               _buildQuickTextField(
                                 controller: reasonCtrl,
                                 hint:
-                                    'Brief description of symptoms or reason...',
+                                    context.tr('reason_for_visit_hint', fallback: 'Brief description of symptoms or reason...'),
                                 maxLines: 3,
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
-                                    RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                                    RegExp(r'[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;]'),
                                   ),
                                   LengthLimitingTextInputFormatter(100),
                                 ],
@@ -2600,10 +2652,10 @@ class _PatientsViewState extends State<PatientsView> {
                                   }
                                   final trimmed = val.trim();
                                   if (trimmed.length > 100) {
-                                    return 'Reason for visit cannot exceed 100 characters';
+                                    return context.tr('reason_max_chars', fallback: 'Reason for visit cannot exceed 100 characters');
                                   }
-                                  if (!RegExp(r'[a-zA-Z]').hasMatch(trimmed)) {
-                                    return 'Reason for visit must contain alphabetical text';
+                                  if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(trimmed)) {
+                                    return context.tr('reason_must_contain_alpha', fallback: 'Reason for visit must contain alphabetical or Tamil text');
                                   }
                                   return null;
                                 },
@@ -2624,7 +2676,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                 const Size(double.infinity, 48),
                                               ),
                                         ),
-                                        child: const Text('Cancel'),
+                                        child: Text(context.tr('cancel', fallback: 'Cancel')),
                                       ),
                                     ),
                                   ),
@@ -2696,8 +2748,7 @@ class _PatientsViewState extends State<PatientsView> {
                                                             .trim(),
                                                         age: calculatedAge,
                                                         gender:
-                                                            selectedGender ??
-                                                            'Other',
+                                                            _toEnglishGender(selectedGender),
                                                         phone: phoneCtrl.text
                                                             .trim(),
                                                         email: emailCtrl.text
@@ -2748,9 +2799,9 @@ class _PatientsViewState extends State<PatientsView> {
                                                     ScaffoldMessenger.of(
                                                       context,
                                                     ).showSnackBar(
-                                                      const SnackBar(
+                                                      SnackBar(
                                                         content: Text(
-                                                          'Patient Registered Successfully!',
+                                                          context.tr('patient_registered_success', fallback: 'Patient Registered Successfully!'),
                                                         ),
                                                         backgroundColor:
                                                             Colors.green,
@@ -2811,9 +2862,9 @@ class _PatientsViewState extends State<PatientsView> {
                                                       strokeWidth: 2,
                                                     ),
                                               )
-                                            : const Text(
-                                                'Register',
-                                                style: TextStyle(
+                                            : Text(
+                                                context.tr('register_btn', fallback: 'Register'),
+                                                style: const TextStyle(
                                                   fontWeight: FontWeight.bold,
                                                 ),
                                               ),
@@ -2855,7 +2906,7 @@ class _PatientsViewState extends State<PatientsView> {
                                   name: nameCtrl.text.trim(),
                                   dob: dobCtrl.text.trim(),
                                   age: calculatedAge,
-                                  gender: selectedGender ?? '',
+                                  gender: _toEnglishGender(selectedGender),
                                   phone: phoneCtrl.text.trim(),
                                   email: emailCtrl.text.trim(),
                                   complaints: reasonCtrl.text.trim(),
@@ -2889,9 +2940,9 @@ class _PatientsViewState extends State<PatientsView> {
                                   widget.onRegisterPatient(partialPatient);
                                 });
                               },
-                              child: const Text(
-                                'Need full registration with complete details?',
-                                style: TextStyle(
+                              child: Text(
+                                context.tr('need_full_registration', fallback: 'Need full registration with complete details?'),
+                                style: const TextStyle(
                                   color: Color(0xFF3182CE),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
@@ -2911,6 +2962,17 @@ class _PatientsViewState extends State<PatientsView> {
         );
       },
     );
+  }
+
+  String _toEnglishGender(String? g) {
+    if (g == null) return 'Other';
+    final trimmed = g.trim();
+    if (trimmed == 'Male' || trimmed == 'ஆண்') return 'Male';
+    if (trimmed == 'Female' || trimmed == 'பெண்') return 'Female';
+    final lower = trimmed.toLowerCase();
+    if (lower.contains('male') || lower.contains('aan')) return 'Male';
+    if (lower.contains('female') || lower.contains('pen')) return 'Female';
+    return 'Other';
   }
 
   Widget _buildQuickFieldLabel(String text, {bool isRequired = true}) {
@@ -3238,20 +3300,20 @@ class _PatientDetailViewState extends State<PatientDetailView>
               InkWell(
                 onTap: () => setState(() => _isShowingInsights = false),
                 borderRadius: BorderRadius.circular(8),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.arrow_back,
                         size: 18,
                         color: AppTheme.primaryColor,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        'Back to Profile',
-                        style: TextStyle(
+                        context.tr('back_to_profile', fallback: 'Back to Profile'),
+                        style: const TextStyle(
                           color: AppTheme.primaryColor,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
@@ -3268,9 +3330,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Patient Insights',
-                        style: TextStyle(
+                      Text(
+                        context.tr('patient_insights', fallback: 'Patient Insights'),
+                        style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.textPrimaryColor,
@@ -3354,20 +3416,20 @@ class _PatientDetailViewState extends State<PatientDetailView>
             InkWell(
               onTap: widget.onBack,
               borderRadius: BorderRadius.circular(8),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.arrow_back,
                       size: 18,
                       color: AppTheme.primaryColor,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Text(
-                      'Back to Patients',
-                      style: TextStyle(
+                      context.tr('back_to_patients', fallback: 'Back to Patients'),
+                      style: const TextStyle(
                         color: AppTheme.primaryColor,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
@@ -3532,7 +3594,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Patient ID: ${p.patientId ?? "N/A"}  •  ${p.displayAge}  •  ${p.gender}${p.bloodGroup.isNotEmpty ? "  •  Blood Group: ${p.bloodGroup}" : ""}',
+                    '${context.tr('patient_id_label', fallback: 'Patient ID')}: ${p.patientId ?? "N/A"}  •  ${p.displayAge}  •  ${p.gender}${p.bloodGroup.isNotEmpty ? "  •  ${context.tr('blood_group_label', fallback: 'Blood Group')}: ${p.bloodGroup}" : ""}',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.9),
                       fontSize: isTablet ? 14 : 15,
@@ -3555,21 +3617,21 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   p.isQuickRegister
                       ? Icons.edit_note_outlined
                       : Icons.edit_outlined,
-                  p.isQuickRegister ? 'Complete Profile' : 'Edit Patient',
+                  p.isQuickRegister ? context.tr('complete_profile', fallback: 'Complete Profile') : context.tr('edit_patient', fallback: 'Edit Patient'),
                   onTap: () => widget.onCompleteProfile(p),
                   isPrimary: true,
                 ),
                 const SizedBox(width: 12),
                 _buildHeaderButton(
                   Icons.calendar_today_outlined,
-                  'Book Appointment',
+                  context.tr('book_appointment_desktop', fallback: 'Book Appointment'),
                   onTap: () => widget.onBookAppointment(p),
                   isPrimary: true,
                 ),
                 const SizedBox(width: 12),
                 _buildHeaderButton(
                   Icons.lightbulb_outline,
-                  'Patient Insights',
+                  context.tr('patient_insights', fallback: 'Patient Insights'),
                   onTap: () => setState(() => _isShowingInsights = true),
                   isPrimary: false,
                 ),
@@ -3593,12 +3655,12 @@ class _PatientDetailViewState extends State<PatientDetailView>
               ),
             _buildContactIconItem(
               Icons.mail_outline,
-              p.email.isNotEmpty ? p.email : 'Not Provided',
+              p.email.isNotEmpty ? p.email : context.tr('not_provided', fallback: 'Not Provided'),
             ),
             if (p.createdAt != null && p.createdAt!.isNotEmpty)
               _buildContactIconItem(
                 Icons.calendar_today_outlined,
-                'Onboarded: ${p.createdAt!}',
+                '${context.tr('onboarded', fallback: 'Onboarded')}: ${p.createdAt!}',
               ),
           ],
         ),
@@ -3737,19 +3799,19 @@ class _PatientDetailViewState extends State<PatientDetailView>
               p.isQuickRegister
                   ? Icons.edit_note_outlined
                   : Icons.edit_outlined,
-              p.isQuickRegister ? 'Complete Profile' : 'Edit Patient',
+              p.isQuickRegister ? context.tr('complete_profile', fallback: 'Complete Profile') : context.tr('edit_patient', fallback: 'Edit Patient'),
               onTap: () => widget.onCompleteProfile(p),
               isPrimary: true,
             ),
             _buildHeaderButton(
               Icons.calendar_month_outlined,
-              p.age < 18 ? 'Book Pediatric' : 'Book Appt.',
+              p.age < 18 ? context.tr('book_pediatric', fallback: 'Book Pediatric') : context.tr('book_appt', fallback: 'Book Appt.'),
               onTap: () => widget.onBookAppointment(p),
               isPrimary: true,
             ),
             _buildHeaderButton(
               Icons.lightbulb_outline,
-              'Patient Insights',
+              context.tr('patient_insights', fallback: 'Patient Insights'),
               onTap: () => setState(() => _isShowingInsights = true),
               isPrimary: false,
             ),
@@ -3768,7 +3830,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
           const SizedBox(height: 6),
           _buildContactItem(
             Icons.calendar_today_outlined,
-            'Onboarded: ${p.createdAt!}',
+            '${context.tr('onboarded', fallback: 'Onboarded')}: ${p.createdAt!}',
           ),
         ],
         if (p.fullAddress.isNotEmpty) ...[
@@ -3784,19 +3846,19 @@ class _PatientDetailViewState extends State<PatientDetailView>
     if (p.smokingStatus.toLowerCase() != 'never' &&
         p.smokingStatus.isNotEmpty &&
         p.smokingStatus.toLowerCase() != 'no') {
-      tags.add(_buildTag('Smoker'));
+      tags.add(_buildTag(context.tr('smoker_tag', fallback: 'Smoker')));
     }
     if (p.alcoholStatus.toLowerCase() == 'regular') {
-      tags.add(_buildTag('Alcohol'));
+      tags.add(_buildTag(context.tr('alcohol_tag', fallback: 'Alcohol')));
     }
     if (p.history.toLowerCase().contains('diabet')) {
-      tags.add(_buildTag('Diabetic'));
+      tags.add(_buildTag(context.tr('diabetic_tag', fallback: 'Diabetic')));
     }
     if (p.complaints.isNotEmpty) {
-      tags.add(_buildTag('Active Complaints'));
+      tags.add(_buildTag(context.tr('active_complaints_tag', fallback: 'Active Complaints')));
     }
     if (tags.isEmpty) {
-      tags.add(_buildTag('General Patient'));
+      tags.add(_buildTag(context.tr('general_patient_tag', fallback: 'General Patient')));
     }
     return tags;
   }
@@ -3885,34 +3947,34 @@ class _PatientDetailViewState extends State<PatientDetailView>
         MediaQuery.of(context).size.width < 1000;
     final vitals = [
       _VitalItem(
-        label: 'Blood Pressure',
+        label: context.tr('blood_pressure', fallback: 'Blood Pressure'),
         value: (p.bpSystolic == 0 && p.bpDiastolic == 0)
-            ? 'Not Provided'
+            ? context.tr('not_provided', fallback: 'Not Provided')
             : '${p.bpSystolic}/${p.bpDiastolic}',
         color: const Color(0xFFEDF2F7), // Light blueish grey
         textColor: const Color(0xFF2D3748),
       ),
       _VitalItem(
-        label: 'Sugar Level',
-        value: p.sugar == 0.0 ? 'Not Provided' : '${p.sugar} mg/dL',
+        label: context.tr('sugar_level', fallback: 'Sugar Level'),
+        value: p.sugar == 0.0 ? context.tr('not_provided', fallback: 'Not Provided') : '${p.sugar} mg/dL',
         color: const Color(0xFFFFF5F5), // Light pink
         textColor: const Color(0xFFC53030),
       ),
       _VitalItem(
-        label: 'Temperature',
-        value: p.temp == 0.0 ? 'Not Provided' : '${p.temp}°F',
+        label: context.tr('temperature', fallback: 'Temperature'),
+        value: p.temp == 0.0 ? context.tr('not_provided', fallback: 'Not Provided') : '${p.temp}°F',
         color: const Color(0xFFFFF5EB), // Light orange
         textColor: const Color(0xFFC05621),
       ),
       _VitalItem(
-        label: 'Weight',
-        value: p.weight == 0.0 ? 'Not Provided' : '${p.weight} kg',
+        label: context.tr('weight', fallback: 'Weight'),
+        value: p.weight == 0.0 ? context.tr('not_provided', fallback: 'Not Provided') : '${p.weight} kg',
         color: const Color(0xFFF0FFF4), // Light green
         textColor: const Color(0xFF2F855A),
       ),
       _VitalItem(
-        label: 'Height',
-        value: p.height == 0.0 ? 'Not Provided' : '${p.height} cm',
+        label: context.tr('height', fallback: 'Height'),
+        value: p.height == 0.0 ? context.tr('not_provided', fallback: 'Not Provided') : '${p.height} cm',
         color: const Color(0xFFFAF5FF), // Light purple
         textColor: AppTheme.nurseColor,
       ),
@@ -3929,9 +3991,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Current Vitals',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          Text(
+            context.tr('current_vitals', fallback: 'Current Vitals'),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: isMobile ? 14 : 20),
           if (isMobile)
@@ -4061,23 +4123,23 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 fontSize: 14,
               ),
               tabs: [
-                const Tab(
+                Tab(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.description_outlined, size: 16),
-                      SizedBox(width: 8),
-                      Text('Medical History'),
+                      const Icon(Icons.description_outlined, size: 16),
+                      const SizedBox(width: 8),
+                      Text(context.tr('medical_history', fallback: 'Medical History')),
                     ],
                   ),
                 ),
-                const Tab(
+                Tab(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.timeline_outlined, size: 16),
-                      SizedBox(width: 8),
-                      Text('Visits Timeline'),
+                      const Icon(Icons.timeline_outlined, size: 16),
+                      const SizedBox(width: 8),
+                      Text(context.tr('visits_timeline', fallback: 'Visits Timeline')),
                     ],
                   ),
                 ),
@@ -4095,9 +4157,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.medical_services_outlined, size: 16),
-                      SizedBox(width: 8),
-                      Text('Consultations'),
+                      const Icon(Icons.medical_services_outlined, size: 16),
+                      const SizedBox(width: 8),
+                      Text(context.tr('consultations', fallback: 'Consultations')),
                     ],
                   ),
                 ),
@@ -4105,9 +4167,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.self_improvement_outlined, size: 16),
-                      SizedBox(width: 8),
-                      Text('Lifestyle Data'),
+                      const Icon(Icons.self_improvement_outlined, size: 16),
+                      const SizedBox(width: 8),
+                      Text(context.tr('lifestyle_data', fallback: 'Lifestyle Data')),
                     ],
                   ),
                 ),
@@ -4267,10 +4329,10 @@ class _PatientDetailViewState extends State<PatientDetailView>
     }
 
     if (complaintItems.isEmpty && historyItems.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
-          'No medical history recorded.',
-          style: TextStyle(color: AppTheme.textSecondaryColor),
+          context.tr('no_data', fallback: 'No medical history recorded.'),
+          style: const TextStyle(color: AppTheme.textSecondaryColor),
         ),
       );
     }
@@ -4281,9 +4343,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (complaintItems.isNotEmpty) ...[
-            const Text(
-              'Chief Complaints',
-              style: TextStyle(
+            Text(
+              context.tr('chief_complaints', fallback: 'Chief Complaints'),
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textPrimaryColor,
@@ -4294,9 +4356,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
             const SizedBox(height: 24),
           ],
           if (historyItems.isNotEmpty) ...[
-            const Text(
-              'Past Medical History',
-              style: TextStyle(
+            Text(
+              context.tr('past_medical_history', fallback: 'Past Medical History'),
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.primaryColor,
@@ -5408,16 +5470,16 @@ class _PatientDetailViewState extends State<PatientDetailView>
         children: [
           if (isMobile) ...[
             _buildLifestyleCard(
-              'Occupation',
-              p.occupation.isNotEmpty ? p.occupation : 'Not Provided',
+              context.tr('occupation', fallback: 'Occupation'),
+              p.occupation.isNotEmpty ? p.occupation : context.tr('not_provided', fallback: 'Not Provided'),
               const Color(0xFFEEF2F7),
               const Color(0xFF4A5568),
               icon: Icons.work_outline,
             ),
             const SizedBox(height: 12),
             _buildLifestyleCard(
-              'Hobbies',
-              p.hobbies.isNotEmpty ? p.hobbies : 'Not Provided',
+              context.tr('hobbies', fallback: 'Hobbies'),
+              p.hobbies.isNotEmpty ? p.hobbies : context.tr('not_provided', fallback: 'Not Provided'),
               const Color(0xFFEEF2F7),
               const Color(0xFF4A5568),
               icon: Icons.sports_esports_outlined,
@@ -5427,8 +5489,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
               children: [
                 Expanded(
                   child: _buildLifestyleCard(
-                    'Occupation',
-                    p.occupation.isNotEmpty ? p.occupation : 'Not Provided',
+                    context.tr('occupation', fallback: 'Occupation'),
+                    p.occupation.isNotEmpty ? p.occupation : context.tr('not_provided', fallback: 'Not Provided'),
                     const Color(0xFFEEF2F7),
                     const Color(0xFF4A5568),
                     icon: Icons.work_outline,
@@ -5437,8 +5499,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 const SizedBox(width: 14),
                 Expanded(
                   child: _buildLifestyleCard(
-                    'Hobbies',
-                    p.hobbies.isNotEmpty ? p.hobbies : 'Not Provided',
+                    context.tr('hobbies', fallback: 'Hobbies'),
+                    p.hobbies.isNotEmpty ? p.hobbies : context.tr('not_provided', fallback: 'Not Provided'),
                     const Color(0xFFEEF2F7),
                     const Color(0xFF4A5568),
                     icon: Icons.sports_esports_outlined,
@@ -5448,8 +5510,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
             ),
           const SizedBox(height: 12),
           _buildLifestyleCard(
-            'Food Habits',
-            p.foodHabits.isNotEmpty ? p.foodHabits : 'Not Provided',
+            context.tr('food_habits', fallback: 'Food Habits'),
+            p.foodHabits.isNotEmpty ? p.foodHabits : context.tr('not_provided', fallback: 'Not Provided'),
             const Color(0xFFEEF2F7),
             const Color(0xFF4A5568),
             icon: Icons.restaurant_outlined,
@@ -5457,16 +5519,16 @@ class _PatientDetailViewState extends State<PatientDetailView>
           const SizedBox(height: 12),
           if (isMobile) ...[
             _buildLifestyleCard(
-              'Smoking',
-              p.smokingStatus.isNotEmpty ? p.smokingStatus : 'Not Provided',
+              context.tr('smoking', fallback: 'Smoking'),
+              p.smokingStatus.isNotEmpty ? p.smokingStatus : context.tr('not_provided', fallback: 'Not Provided'),
               const Color(0xFFFFF7ED),
               const Color(0xFF9A3412),
               icon: Icons.smoking_rooms_outlined,
             ),
             const SizedBox(height: 12),
             _buildLifestyleCard(
-              'Alcohol Usage',
-              p.alcoholStatus.isNotEmpty ? p.alcoholStatus : 'Not Provided',
+              context.tr('alcohol_usage', fallback: 'Alcohol Usage'),
+              p.alcoholStatus.isNotEmpty ? p.alcoholStatus : context.tr('not_provided', fallback: 'Not Provided'),
               const Color(0xFFFEFCE8),
               const Color(0xFF713F12),
               icon: Icons.local_bar_outlined,
@@ -5476,10 +5538,10 @@ class _PatientDetailViewState extends State<PatientDetailView>
               children: [
                 Expanded(
                   child: _buildLifestyleCard(
-                    'Smoking',
+                    context.tr('smoking', fallback: 'Smoking'),
                     p.smokingStatus.isNotEmpty
                         ? p.smokingStatus
-                        : 'Not Provided',
+                        : context.tr('not_provided', fallback: 'Not Provided'),
                     const Color(0xFFFFF7ED),
                     const Color(0xFF9A3412),
                     icon: Icons.smoking_rooms_outlined,
@@ -5488,10 +5550,10 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 const SizedBox(width: 14),
                 Expanded(
                   child: _buildLifestyleCard(
-                    'Alcohol Usage',
+                    context.tr('alcohol_usage', fallback: 'Alcohol Usage'),
                     p.alcoholStatus.isNotEmpty
                         ? p.alcoholStatus
-                        : 'Not Provided',
+                        : context.tr('not_provided', fallback: 'Not Provided'),
                     const Color(0xFFFEFCE8),
                     const Color(0xFF713F12),
                     icon: Icons.local_bar_outlined,
@@ -5501,8 +5563,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
             ),
           const SizedBox(height: 12),
           _buildLifestyleCard(
-            'Physical Activity',
-            p.physicalActivity.isNotEmpty ? p.physicalActivity : 'Not Provided',
+            context.tr('physical_activity', fallback: 'Physical Activity'),
+            p.physicalActivity.isNotEmpty ? p.physicalActivity : context.tr('not_provided', fallback: 'Not Provided'),
             const Color(0xFFEEF2F7),
             const Color(0xFF4A5568),
             icon: Icons.fitness_center_outlined,
