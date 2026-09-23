@@ -4153,7 +4153,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isDark = AppTheme.isDark(context);
 
     return Container(
-      width: 260,
+      width: 275,
       margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
       decoration: BoxDecoration(
         color: AppTheme.getCardColor(context),
@@ -4298,6 +4298,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSidebarItem(int index, IconData icon, String label) {
+    final displayLabel = _translateDoctorLabel(label);
     bool isSelected = _selectedIndex == index;
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final hasTimings = user?.role != 'Doctor' || (
@@ -4342,7 +4343,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       },
       borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
+      child: Tooltip(
+        message: displayLabel,
+        waitDuration: const Duration(milliseconds: 200),
+        preferBelow: false,
+        verticalOffset: 20,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        textStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w500,
+        ),
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -4372,6 +4394,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

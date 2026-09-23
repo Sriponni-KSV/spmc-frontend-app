@@ -15610,213 +15610,227 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.dangerColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+        builder: (context, setDialogState) {
+          final isTamil = Localizations.localeOf(context).languageCode == 'ta';
+          final patientDisplayName = TamilTransliterationHelper.formatName(
+            visit.patientName ?? '',
+            isTamil: isTamil,
+          );
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.do_not_disturb_on_outlined,
+                    color: AppTheme.dangerColor,
+                    size: 24,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.do_not_disturb_on_outlined,
-                  color: AppTheme.dangerColor,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Stop Home Visit Care',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
-                        color: AppTheme.textPrimaryColor,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('stop_home_visit_care_title', fallback: 'Stop Home Visit Care'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                          color: AppTheme.textPrimaryColor,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Terminate & Cancel Care Plan',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF1F2),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFFECDD3)),
+                      Text(
+                        context.tr('terminate_cancel_care_plan', fallback: 'Terminate & Cancel Care Plan'),
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.info_outline_rounded,
-                            color: AppTheme.dangerColor,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Filling this form will stop all further home visit care for ${visit.patientName ?? "Patient #${visit.patientId}"} and cancel the active care plan.',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF9F1239),
-                                height: 1.4,
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1F2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFECDD3)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.info_outline_rounded,
+                              color: AppTheme.dangerColor,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                context.tr(
+                                  'stop_care_plan_warning',
+                                  fallback: 'Filling this form will stop all further home visit care for {patient} and cancel the active care plan.',
+                                  params: {'patient': patientDisplayName.isNotEmpty ? patientDisplayName : "Patient #${visit.patientId}"},
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF9F1239),
+                                  height: 1.4,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Select Reason to Stop Care *',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    CustomDropdownSearch(
-                      label: '',
-                      hint: 'Select Reason',
-                      dropdownMap: const {
-                        'Patient Cured / Fully Recovered':
-                            'Patient Cured / Fully Recovered',
-                        'Patient / Attender Requested Discontinuation':
-                            'Patient / Attender Requested Discontinuation',
-                        'Admitted to Hospital / IPD Care':
-                            'Admitted to Hospital / IPD Care',
-                        'Doctor Advice / Care Plan Completed':
-                            'Doctor Advice / Care Plan Completed',
-                        'Patient Relocated / Not Reachable':
-                            'Patient Relocated / Not Reachable',
-                        'Financial / Billing Constraints':
-                            'Financial / Billing Constraints',
-                        'Other Reason': 'Other Reason',
-                      },
-                      value: selectedReason,
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDialogState(() => selectedReason = val);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Remarks / Nurse Handover Notes (Optional):',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: notesCtrl,
-                      maxLines: 3,
-                      maxLength: 250,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;%+]'),
+                          ],
                         ),
-                        LengthLimitingTextInputFormatter(250),
-                      ],
-                      decoration: AppTheme.standardInputDecoration(
-                        hintText:
-                            'Enter details (e.g., patient recovered after 5 days of care and attender requested stop)...',
                       ),
-                      validator: (val) {
-                        if (val != null && val.trim().isNotEmpty) {
-                          final clean = val.trim();
-                          if (clean.length > 250) {
-                            return 'Notes cannot exceed 250 characters';
+                      const SizedBox(height: 16),
+                      Text(
+                        context.tr('select_reason_to_stop', fallback: 'Select Reason to Stop Care *'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: context.tr('select_reason_hint', fallback: 'Select Reason'),
+                        dropdownMap: {
+                          'Patient Cured / Fully Recovered':
+                              context.tr('reason_cured', fallback: 'Patient Cured / Fully Recovered'),
+                          'Patient / Attender Requested Discontinuation':
+                              context.tr('reason_patient_requested', fallback: 'Patient / Attender Requested Discontinuation'),
+                          'Admitted to Hospital / IPD Care':
+                              context.tr('reason_admitted_hospital', fallback: 'Admitted to Hospital / IPD Care'),
+                          'Doctor Advice / Care Plan Completed':
+                              context.tr('reason_doctor_advice', fallback: 'Doctor Advice / Care Plan Completed'),
+                          'Patient Relocated / Not Reachable':
+                              context.tr('reason_relocated', fallback: 'Patient Relocated / Not Reachable'),
+                          'Financial / Billing Constraints':
+                              context.tr('reason_financial', fallback: 'Financial / Billing Constraints'),
+                          'Other Reason':
+                              context.tr('reason_other', fallback: 'Other Reason'),
+                        },
+                        value: selectedReason,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedReason = val);
                           }
-                          if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
-                            return 'Notes must contain alphabetical characters if provided';
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        context.tr('remarks_nurse_handover_notes', fallback: 'Remarks / Nurse Handover Notes (Optional):'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: notesCtrl,
+                        maxLines: 3,
+                        maxLength: 250,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;%+]'),
+                          ),
+                          LengthLimitingTextInputFormatter(250),
+                        ],
+                        decoration: AppTheme.standardInputDecoration(
+                          hintText: context.tr('stop_notes_hint', fallback: 'Enter details (e.g., patient recovered after 5 days of care and attender requested stop)...'),
+                        ),
+                        validator: (val) {
+                          if (val != null && val.trim().isNotEmpty) {
+                            final clean = val.trim();
+                            if (clean.length > 250) {
+                              return 'Notes cannot exceed 250 characters';
+                            }
+                            if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
+                              return 'Notes must contain alphabetical characters if provided';
+                            }
                           }
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text(
-                'Go Back',
-                style: TextStyle(color: Colors.grey),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(),
+                child: Text(
+                  context.tr('go_back', fallback: 'Go Back'),
+                  style: const TextStyle(color: Colors.grey),
+                ),
               ),
-            ),
-            ElevatedButton.icon(
-              style: AppTheme.dangerButton,
-              icon: isSubmitting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(Icons.check_circle_outline, size: 18),
-              label: Text(
-                isSubmitting ? 'Stopping Care...' : 'Confirm Stop Care',
-              ),
-              onPressed: isSubmitting
-                  ? null
-                  : () async {
-                      if (formKey.currentState != null &&
-                          !formKey.currentState!.validate()) {
-                        return;
-                      }
-                      setDialogState(() => isSubmitting = true);
-                      final homeVisitCtrl = Provider.of<HomeVisitController>(
-                        context,
-                        listen: false,
-                      );
-                      final success = await homeVisitCtrl.cancelVisit(
-                        visit.id,
-                        selectedReason,
-                        notesCtrl.text.trim(),
-                      );
-                      setDialogState(() => isSubmitting = false);
-                      if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
-
-                      if (success && context.mounted) {
-                        AppNotification.showSuccess(
+              ElevatedButton.icon(
+                style: AppTheme.dangerButton,
+                icon: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.check_circle_outline, size: 18),
+                label: Text(
+                  isSubmitting
+                      ? context.tr('stopping_care', fallback: 'Stopping Care...')
+                      : context.tr('confirm_stop_care', fallback: 'Confirm Stop Care'),
+                ),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        if (formKey.currentState != null &&
+                            !formKey.currentState!.validate()) {
+                          return;
+                        }
+                        setDialogState(() => isSubmitting = true);
+                        final homeVisitCtrl = Provider.of<HomeVisitController>(
                           context,
-                          'Home visit care plan (${visit.visitNumber}) for ${visit.patientName ?? "Patient"} stopped and cancelled successfully.',
+                          listen: false,
                         );
-                        _handleLeave();
-                      }
-                    },
-            ),
-          ],
-        ),
+                        final success = await homeVisitCtrl.cancelVisit(
+                          visit.id,
+                          selectedReason,
+                          notesCtrl.text.trim(),
+                        );
+                        setDialogState(() => isSubmitting = false);
+                        if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+
+                        if (success && context.mounted) {
+                          AppNotification.showSuccess(
+                            context,
+                            'Home visit care plan (${visit.visitNumber}) for ${patientDisplayName.isNotEmpty ? patientDisplayName : "Patient"} stopped and cancelled successfully.',
+                          );
+                          _handleLeave();
+                        }
+                      },
+              ),
+            ],
+          );
+        },
       ),
     );
   }

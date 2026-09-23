@@ -746,51 +746,73 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     String routePath,
     bool isSelected,
   ) {
-    return InkWell(
-      onTap: () {
-        final router = GoRouter.of(context);
-        final scaffoldState = Scaffold.maybeOf(context);
-        if (scaffoldState != null && scaffoldState.isDrawerOpen) {
-          Navigator.of(context).pop(); // Close drawer
-        }
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop(); // Pop IPDPatientDetailPage
-        }
-        router.go(routePath);
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.primaryColor.withOpacity(0.1)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected
-                  ? AppTheme.primaryColor
-                  : AppTheme.textSecondaryColor,
-              size: 22,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isSelected
-                      ? AppTheme.primaryColor
-                      : AppTheme.textSecondaryColor,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+    return Tooltip(
+      message: label,
+      waitDuration: const Duration(milliseconds: 200),
+      preferBelow: false,
+      verticalOffset: 20,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      textStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w500,
+      ),
+      child: InkWell(
+        onTap: () {
+          final router = GoRouter.of(context);
+          final scaffoldState = Scaffold.maybeOf(context);
+          if (scaffoldState != null && scaffoldState.isDrawerOpen) {
+            Navigator.of(context).pop(); // Close drawer
+          }
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop(); // Pop IPDPatientDetailPage
+          }
+          router.go(routePath);
+        },
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: isSelected
+                    ? AppTheme.primaryColor
+                    : AppTheme.textSecondaryColor,
+                size: 22,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isSelected
+                        ? AppTheme.primaryColor
+                        : AppTheme.textSecondaryColor,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -804,7 +826,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     final bool isDoctor = _userRole == 'Doctor';
 
     return Container(
-      width: 260,
+      width: 275,
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(

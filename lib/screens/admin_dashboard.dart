@@ -2016,7 +2016,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final isDark = AppTheme.isDark(context);
 
     return Container(
-      width: 260,
+      width: 275,
       margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
       decoration: BoxDecoration(
         color: AppTheme.getCardColor(context),
@@ -2262,8 +2262,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     bool isSelected =
         (_selectedIndex == index && !_isRegisteringPatient) ||
         (_isRegisteringPatient && index == 2);
-    return InkWell(
-      onTap: () {
+    final displayLabel = _translateAdminLabel(context, label);
+    return Tooltip(
+      message: displayLabel,
+      waitDuration: const Duration(milliseconds: 200),
+      preferBelow: false,
+      verticalOffset: 20,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      textStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w500,
+      ),
+      child: InkWell(
+        onTap: () {
         switch (index) {
           case 0:
             context.go(AppRoutes.adminDashboard);
@@ -2359,6 +2381,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

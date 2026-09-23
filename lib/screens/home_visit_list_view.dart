@@ -1763,219 +1763,277 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 40,
-            vertical: 24,
-          ),
-          title: const Row(
-            children: [
-              Icon(
-                Icons.do_not_disturb_on_outlined,
-                color: AppTheme.dangerColor,
-                size: 26,
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Stop / Discontinue Care Session',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        builder: (context, setDialogState) {
+          final isTamil = Localizations.localeOf(context).languageCode == 'ta';
+          final patientDisplayName = TamilTransliterationHelper.formatName(
+            visit.patientName ?? '',
+            isTamil: isTamil,
+          );
+          final statusDisplay = visit.status.toLowerCase() == 'completed'
+              ? context.tr('completed_status', fallback: 'Completed')
+              : visit.status;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 40,
+              vertical: 24,
+            ),
+            title: Row(
+              children: [
+                const Icon(
+                  Icons.do_not_disturb_on_outlined,
+                  color: AppTheme.dangerColor,
+                  size: 26,
                 ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    context.tr(
+                      'stop_discontinue_care_session_title',
+                      fallback: 'Stop / Discontinue Care Session',
+                    ),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 480,
+              child: Form(
+                key: formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.borderColor),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${context.tr('care_session_label', fallback: 'Care Session')}: ${visit.visitNumber}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${context.tr('patient_label', fallback: 'Patient')}: $patientDisplayName (${visit.patientDisplayId ?? ""})',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${context.tr('scheduled_date_label', fallback: 'Scheduled Date')}: ${visit.scheduledDate} | ${context.tr('status', fallback: 'Status')}: $statusDisplay',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        context.tr(
+                          'stop_care_session_confirm_msg',
+                          fallback:
+                              'Are you sure you want to stop/discontinue care session ({session}) for {patient}?',
+                          params: {
+                            'session': visit.visitNumber,
+                            'patient': patientDisplayName.isNotEmpty
+                                ? patientDisplayName
+                                : "Patient",
+                          },
+                        ),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        context.tr(
+                          'select_discontinuation_reason',
+                          fallback: 'Select Discontinuation Reason:',
+                        ),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: context.tr(
+                          'search_select_reason',
+                          fallback: 'Search & Select Reason',
+                        ),
+                        allowFreeText: false,
+                        dropdownMap: {
+                          'Patient Cured / Fully Recovered': context.tr(
+                            'discontinue_reason_cured',
+                            fallback: 'Patient Cured / Fully Recovered',
+                          ),
+                          'Patient / Attender Requested Discontinuation': context
+                              .tr(
+                                'discontinue_reason_requested',
+                                fallback:
+                                    'Patient / Attender Requested Discontinuation',
+                              ),
+                          'Admitted to Hospital / IPD Care': context.tr(
+                            'discontinue_reason_admitted',
+                            fallback: 'Admitted to Hospital / IPD Care',
+                          ),
+                          'Doctor Advice / Care Plan Ended': context.tr(
+                            'discontinue_reason_plan_ended',
+                            fallback: 'Doctor Advice / Care Plan Ended',
+                          ),
+                          'Other Reason': context.tr(
+                            'discontinue_reason_other',
+                            fallback: 'Other Reason',
+                          ),
+                        },
+                        value: selectedReason,
+                        onChanged: (val) {
+                          setDialogState(() => selectedReason = val ?? '');
+                        },
+                        validator: (val) {
+                          const validReasons = [
+                            'Patient Cured / Fully Recovered',
+                            'Patient / Attender Requested Discontinuation',
+                            'Admitted to Hospital / IPD Care',
+                            'Doctor Advice / Care Plan Ended',
+                            'Other Reason',
+                          ];
+                          if (val == null ||
+                              val.trim().isEmpty ||
+                              !validReasons.contains(val.trim())) {
+                            return context.tr(
+                              'select_valid_reason',
+                              fallback:
+                                  'Please select a valid discontinuation reason',
+                            );
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        context.tr(
+                          'additional_notes_remarks_optional',
+                          fallback: 'Additional Notes / Remarks (Optional):',
+                        ),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: notesCtrl,
+                        maxLines: 2,
+                        maxLength: 250,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;%+]'),
+                          ),
+                          LengthLimitingTextInputFormatter(250),
+                        ],
+                        decoration: AppTheme.standardInputDecoration(
+                          hintText: context.tr(
+                            'reason_notes_hint',
+                            fallback:
+                                'Enter reason notes (e.g. Cured and recovered)...',
+                          ),
+                        ).copyWith(counterText: ''),
+                        validator: (val) {
+                          if (val != null && val.trim().isNotEmpty) {
+                            final clean = val.trim();
+                            if (clean.length > 250) {
+                              return 'Notes cannot exceed 250 characters';
+                            }
+                            if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
+                              return 'Notes must contain alphabetical characters if provided';
+                            }
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(),
+                child: Text(
+                  context.tr('cancel', fallback: 'Cancel'),
+                  style: const TextStyle(color: Colors.grey),
+                ),
+              ),
+              ElevatedButton.icon(
+                style: AppTheme.dangerButton,
+                icon: const Icon(Icons.check_circle_outline, size: 18),
+                label: Text(
+                  context.tr(
+                    'stop_care_session_btn',
+                    fallback: 'Stop Care Session',
+                  ),
+                ),
+                onPressed: () async {
+                  if (formKey.currentState != null &&
+                      !formKey.currentState!.validate()) {
+                    return;
+                  }
+                  final homeVisitCtrl = Provider.of<HomeVisitController>(
+                    context,
+                    listen: false,
+                  );
+                  final success = await homeVisitCtrl.cancelVisit(
+                    visit.id,
+                    selectedReason,
+                    notesCtrl.text.trim(),
+                  );
+                  if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+
+                  if (success && context.mounted) {
+                    AppNotification.showSuccess(
+                      context,
+                      context.tr(
+                        'care_session_stopped_success',
+                        fallback:
+                            'Care session ({session}) for {patient} stopped/discontinued successfully.',
+                        params: {
+                          'session': visit.visitNumber,
+                          'patient': patientDisplayName.isNotEmpty
+                              ? patientDisplayName
+                              : "Patient",
+                        },
+                      ),
+                    );
+                  }
+                },
               ),
             ],
-          ),
-          content: SizedBox(
-            width: 480,
-            child: Form(
-              key: formKey,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppTheme.borderColor),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Care Session: ${visit.visitNumber}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: AppTheme.primaryColor,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? ""})',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Scheduled Date: ${visit.scheduledDate} | Status: ${visit.status}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondaryColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      'Are you sure you want to stop/discontinue care session (${visit.visitNumber}) for ${visit.patientName ?? "the patient"}?',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Select Discontinuation Reason:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    CustomDropdownSearch(
-                      label: '',
-                      hint: 'Search & Select Reason',
-                      allowFreeText: false,
-                      dropdownMap: {
-                        'Patient Cured / Fully Recovered': context.tr(
-                          'discontinue_reason_cured',
-                          fallback: 'Patient Cured / Fully Recovered',
-                        ),
-                        'Patient / Attender Requested Discontinuation': context
-                            .tr(
-                              'discontinue_reason_requested',
-                              fallback:
-                                  'Patient / Attender Requested Discontinuation',
-                            ),
-                        'Admitted to Hospital / IPD Care': context.tr(
-                          'discontinue_reason_admitted',
-                          fallback: 'Admitted to Hospital / IPD Care',
-                        ),
-                        'Doctor Advice / Care Plan Ended': context.tr(
-                          'discontinue_reason_plan_ended',
-                          fallback: 'Doctor Advice / Care Plan Ended',
-                        ),
-                        'Other Reason': context.tr(
-                          'discontinue_reason_other',
-                          fallback: 'Other Reason',
-                        ),
-                      },
-                      value: selectedReason,
-                      onChanged: (val) {
-                        setDialogState(() => selectedReason = val ?? '');
-                      },
-                      validator: (val) {
-                        const validReasons = [
-                          'Patient Cured / Fully Recovered',
-                          'Patient / Attender Requested Discontinuation',
-                          'Admitted to Hospital / IPD Care',
-                          'Doctor Advice / Care Plan Ended',
-                          'Other Reason',
-                        ];
-                        if (val == null ||
-                            val.trim().isEmpty ||
-                            !validReasons.contains(val.trim())) {
-                          return 'Please select a valid discontinuation reason';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Additional Notes / Remarks (Optional):',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: notesCtrl,
-                      maxLines: 2,
-                      maxLength: 250,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;%+]'),
-                        ),
-                        LengthLimitingTextInputFormatter(250),
-                      ],
-                      decoration: AppTheme.standardInputDecoration(
-                        hintText:
-                            'Enter reason notes (e.g. Cured and recovered)...',
-                      ).copyWith(counterText: ''),
-                      validator: (val) {
-                        if (val != null && val.trim().isNotEmpty) {
-                          final clean = val.trim();
-                          if (clean.length > 250) {
-                            return 'Notes cannot exceed 250 characters';
-                          }
-                          if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
-                            return 'Notes must contain alphabetical characters if provided';
-                          }
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton.icon(
-              style: AppTheme.dangerButton,
-              icon: const Icon(Icons.check_circle_outline, size: 18),
-              label: const Text('Stop Care Session'),
-              onPressed: () async {
-                if (formKey.currentState != null &&
-                    !formKey.currentState!.validate()) {
-                  return;
-                }
-                final homeVisitCtrl = Provider.of<HomeVisitController>(
-                  context,
-                  listen: false,
-                );
-                final success = await homeVisitCtrl.cancelVisit(
-                  visit.id,
-                  selectedReason,
-                  notesCtrl.text.trim(),
-                );
-                if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
-
-                if (success && context.mounted) {
-                  AppNotification.showSuccess(
-                    context,
-                    'Care session (${visit.visitNumber}) for ${visit.patientName ?? "Patient"} stopped/discontinued successfully.',
-                  );
-                }
-              },
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

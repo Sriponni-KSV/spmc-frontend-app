@@ -583,7 +583,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
       builder: (context, auth, _) {
         final user = auth.user;
         return Container(
-          width: 260,
+          width: 275,
           margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
           decoration: BoxDecoration(
             color: AppTheme.getCardColor(context),
@@ -743,38 +743,60 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
 
   Widget _buildSidebarItem(int index, IconData icon, String label) {
     bool isSelected = _selectedIndex == index;
-    return InkWell(
-      onTap: () => _changePage(index),
-      borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13.5,
+    return Tooltip(
+      message: label,
+      waitDuration: const Duration(milliseconds: 200),
+      preferBelow: false,
+      verticalOffset: 20,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      textStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w500,
+      ),
+      child: InkWell(
+        onTap: () => _changePage(index),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

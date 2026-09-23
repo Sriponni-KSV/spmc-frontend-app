@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
 import '../models/home_visit_model.dart';
 import '../utils/app_localizations.dart';
+import '../utils/tamil_transliteration_helper.dart';
 
 class HomeVisitInvoiceDialog extends StatelessWidget {
   final Map<String, dynamic> invoiceData;
@@ -23,18 +24,110 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
     return status;
   }
 
-  String _translateItemName(BuildContext context, String name) {
-    final lower = name.toLowerCase();
-    if (lower.contains('visit') || lower.contains('charge') || lower.contains('fee') || lower.contains('service')) {
-      return context.translateProcedure(name);
+  String _translateFrequency(String freq) {
+    final lower = freq.toLowerCase().trim();
+    if (lower == 'once daily' || lower == '1 time daily' || lower == '1 - 0 - 0' || lower == 'od') {
+      return 'தினமும் ஒரு முறை (Once Daily)';
     }
-    final cName = context.translateConsumable(name);
-    if (cName != name) return cName;
-    return context.translateMedicine(name);
+    if (lower == 'twice daily' || lower == '2 times daily' || lower == '1 - 0 - 1' || lower == 'bd') {
+      return 'தினமும் இரு முறை (Twice Daily)';
+    }
+    if (lower == 'three times daily' || lower == '3 times daily' || lower == '1 - 1 - 1' || lower == 'tds') {
+      return 'தினமும் மூன்று முறை (TDS)';
+    }
+    if (lower == 'four times daily' || lower == 'qid') {
+      return 'தினமும் 4 முறை (QID)';
+    }
+    if (lower == 'as needed' || lower == 'sos') {
+      return 'தேவைப்படும் போது (SOS)';
+    }
+    if (lower == 'stat' || lower == 'immediately') {
+      return 'உடனடியாக (STAT)';
+    }
+    return freq;
+  }
+
+  String _translateItemName(BuildContext context, String name) {
+    if (Localizations.localeOf(context).languageCode != 'ta') {
+      return name;
+    }
+    final trimmed = name.trim();
+    final lower = trimmed.toLowerCase();
+
+    // 1. Home visit base consultation & nursing care fee
+    if (lower.contains('home visit consultation') ||
+        (lower.contains('basic nursing care') && lower.contains('fee')) ||
+        lower == 'home visit consultation & basic nursing care fee') {
+      return 'வீட்டுப் பராமரிப்பு ஆலோசனை & அடிப்படை நர்சிங் கட்டணம் (Home Visit Fee)';
+    }
+
+    // 2. Nail Trimming & Hygiene Care Activity
+    if (lower.contains('nail trimming')) {
+      return 'நகங்கள் வெட்டுதல் & சுகாதார பராமரிப்பு (Nail Trimming & Hygiene Care)';
+    }
+
+    // 3. Dressing Procedure with details
+    if (lower.startsWith('dressing procedure')) {
+      final parenMatch = RegExp(r'dressing procedure\s*(\(.*\))?', caseSensitive: false).firstMatch(trimmed);
+      if (parenMatch != null && parenMatch.group(1) != null) {
+        return 'கட்டு கட்டும் செயல்முறை ${parenMatch.group(1)}';
+      }
+      return 'கட்டு கட்டும் செயல்முறை (Dressing Procedure)';
+    }
+
+    // 4. Procedure: <Proc Name> (<Frequency>)
+    if (lower.startsWith('procedure:')) {
+      final content = trimmed.substring('procedure:'.length).trim();
+      final match = RegExp(r'^(.*?)(?:\s*\((.*?)\))?$').firstMatch(content);
+      if (match != null) {
+        final rawProcName = match.group(1)?.trim() ?? content;
+        final rawFreq = match.group(2)?.trim();
+        final translatedProc = context.translateProcedure(rawProcName);
+        if (rawFreq != null && rawFreq.isNotEmpty) {
+          final translatedFreq = _translateFrequency(rawFreq);
+          return 'செயல்முறை: $translatedProc ($translatedFreq)';
+        }
+        return 'செயல்முறை: $translatedProc';
+      }
+      return 'செயல்முறை: ${context.translateProcedure(content)}';
+    }
+
+    // 5. Medicine: <Med Name> (<Dosage>)
+    if (lower.startsWith('medicine:')) {
+      final content = trimmed.substring('medicine:'.length).trim();
+      final match = RegExp(r'^(.*?)(?:\s*\((.*?)\))?$').firstMatch(content);
+      if (match != null) {
+        final rawMedName = match.group(1)?.trim() ?? content;
+        final rawDosage = match.group(2)?.trim();
+        final translatedMed = context.translateMedicine(rawMedName);
+        if (rawDosage != null && rawDosage.isNotEmpty) {
+          return 'மருந்து: $translatedMed ($rawDosage)';
+        }
+        return 'மருந்து: $translatedMed';
+      }
+      return 'மருந்து: ${context.translateMedicine(content)}';
+    }
+
+    // 6. Consumable: <Item Name>
+    if (lower.startsWith('consumable:')) {
+      final content = trimmed.substring('consumable:'.length).trim();
+      return 'உபயோகப் பொருள்: ${context.translateConsumable(content)}';
+    }
+
+    // 7. General Fallbacks
+    final cName = context.translateConsumable(trimmed);
+    if (cName != trimmed) return cName;
+    final pName = context.translateProcedure(trimmed);
+    if (pName != trimmed) return pName;
+    final mName = context.translateMedicine(trimmed);
+    if (mName != trimmed) return mName;
+
+    return trimmed;
   }
 
   @override
   Widget build(BuildContext context) {
+    final isTamil = Localizations.localeOf(context).languageCode == 'ta';
     final Map<String, dynamic> invoice = (invoiceData['invoice'] is Map)
         ? Map<String, dynamic>.from(invoiceData['invoice'])
         : Map<String, dynamic>.from(invoiceData);
@@ -46,6 +139,19 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
         ? double.tryParse(invoice['total_amount'].toString()) ?? 0.0
         : 0.0;
     final String status = invoice['payment_status'] ?? 'Unpaid';
+
+    final patientDisplayName = TamilTransliterationHelper.formatName(
+      visit.patientName ?? 'N/A',
+      isTamil: isTamil,
+    );
+    final attenderDisplayName = TamilTransliterationHelper.formatName(
+      visit.attenderName ?? 'Attender',
+      isTamil: isTamil,
+    );
+    final nurseDisplayName = TamilTransliterationHelper.formatName(
+      visit.nurseName ?? 'Nurse',
+      isTamil: isTamil,
+    );
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
@@ -65,7 +171,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.receipt_long, color: AppTheme.primaryColor, size: 28),
@@ -126,7 +232,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Expanded(child: _infoColumn(context.tr('patient_name_label', fallback: 'Patient Name'), visit.patientName ?? 'N/A')),
+                      Expanded(child: _infoColumn(context.tr('patient_name_label', fallback: 'Patient Name'), patientDisplayName)),
                       Expanded(child: _infoColumn(context.tr('patient_id_label', fallback: 'Patient ID'), visit.patientDisplayId ?? 'N/A')),
                       Expanded(child: _infoColumn(context.tr('scheduled_date_label', fallback: 'Scheduled Date'), visit.scheduledDate)),
                     ],
@@ -134,9 +240,9 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(child: _infoColumn(context.tr('verified_attender_label', fallback: 'Verified Attender'), visit.attenderName ?? 'Attender')),
+                      Expanded(child: _infoColumn(context.tr('verified_attender_label', fallback: 'Verified Attender'), attenderDisplayName)),
                       Expanded(child: _infoColumn(context.tr('attender_relation_label', fallback: 'Attender Relation'), visit.attenderRelation ?? 'Attender')),
-                      Expanded(child: _infoColumn(context.tr('assigned_nurse_label', fallback: 'Assigned Nurse'), visit.nurseName ?? 'Nurse')),
+                      Expanded(child: _infoColumn(context.tr('assigned_nurse_label', fallback: 'Assigned Nurse'), nurseDisplayName)),
                     ],
                   ),
                   if ((visit.feedback != null && visit.feedback!.trim().isNotEmpty) ||
@@ -282,7 +388,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.08),
+                color: AppTheme.primaryColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
