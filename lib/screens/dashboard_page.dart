@@ -718,7 +718,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       focusNode: _mainFocusNode,
       autofocus: true,
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: AppTheme.getBackgroundColor(context),
         drawer: isMobile ? Drawer(child: _buildSidebar(isMobile)) : null,
         floatingActionButton: null,
         body: SafeArea(
@@ -4150,20 +4150,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSidebar(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final isAnaesthetist = user?.role == 'Anaesthetist';
+    final isDark = AppTheme.isDark(context);
 
     return Container(
       width: 260,
       margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppTheme.getBorderColor(context)),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         children: [
@@ -4198,8 +4202,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           // User Profile Footer
           Container(
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: AppTheme.borderColor, width: 1)),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: AppTheme.getBorderColor(context), width: 1)),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: user == null
@@ -4237,18 +4241,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       children: [
                                         Text(
                                           user.rawFullname ?? user.fullname,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
-                                            color: AppTheme.textPrimaryColor,
+                                            color: AppTheme.getTextPrimaryColor(context),
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         Text(
                                           user.role,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 11,
-                                            color: AppTheme.textSecondaryColor,
+                                            color: AppTheme.getTextSecondaryColor(context),
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -4260,10 +4264,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.logout,
                               size: 18,
-                              color: AppTheme.textSecondaryColor,
+                              color: AppTheme.getTextSecondaryColor(context),
                             ),
                             onPressed: () => LogoutHelper.showLogoutConfirmation(
                               context,
@@ -4289,6 +4293,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (lower.contains('ot')) return context.tr('ot_management', fallback: label);
     if (lower.contains('dictation')) return context.tr('ot_management', fallback: label);
     if (lower.contains('lab')) return context.tr('laboratory', fallback: label);
+    if (lower.contains('home visit') || lower.contains('home care')) return context.tr('home_visit_care', fallback: label);
     return label;
   }
 
@@ -4349,16 +4354,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? Colors.white : const Color(0xFF4A5568),
+              color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
               size: 20,
             ),
             const SizedBox(width: 16),
-            Text(
-              _translateDoctorLabel(label),
-              style: TextStyle(
-                color: isSelected ? Colors.white : const Color(0xFF4D5568),
-                fontSize: 15,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            Expanded(
+              child: Text(
+                _translateDoctorLabel(label),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
+                  fontSize: 15,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                ),
               ),
             ),
           ],
@@ -4368,6 +4377,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildBannerTopBar(bool isMobile) {
+    final isDark = AppTheme.isDark(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final double width = constraints.maxWidth;
@@ -4379,9 +4389,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (isMobile)
               Builder(
                 builder: (context) => IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.menu,
-                    color: AppTheme.textSecondaryColor,
+                    color: AppTheme.getTextPrimaryColor(context),
                   ),
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
@@ -4398,33 +4408,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     height: 40,
                     constraints: const BoxConstraints(maxWidth: 380),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.getCardColor(context),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
+                      border: Border.all(color: AppTheme.getBorderColor(context), width: 1.2),
+                      boxShadow: isDark
+                          ? []
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.search,
                           size: 18,
-                          color: AppTheme.textSecondaryColor,
+                          color: AppTheme.getTextSecondaryColor(context),
                         ),
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            isCompact ? 'Search...' : 'Quick search (e.g. Patient ID, Name)...',
+                            context.tr('search_anything', fallback: isCompact ? 'Search...' : 'Quick search (e.g. Patient ID, Name)...'),
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: AppTheme.textSecondaryColor,
+                              color: AppTheme.getTextSecondaryColor(context),
                             ),
                           ),
                         ),

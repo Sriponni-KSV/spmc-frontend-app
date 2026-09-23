@@ -6,6 +6,7 @@ import '../widgets/custom_dropdown_search.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
 import '../models/patient_model.dart';
 import '../models/user_model.dart';
 import '../models/appointment_model.dart';
@@ -15,6 +16,9 @@ import '../controllers/appointment_controller.dart';
 import '../widgets/appointment_details_dialog.dart';
 import 'mocdoc_appointments_view.dart';
 import '../utils/date_formatter.dart';
+import '../utils/tamil_transliteration_helper.dart';
+import '../providers/language_provider.dart';
+import 'package:provider/provider.dart';
 
 class AppointmentsView extends StatefulWidget {
   final bool startWithBookingForm;
@@ -2884,31 +2888,35 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       margin: const EdgeInsets.only(bottom: 16),
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.search,
             size: 20,
-            color: AppTheme.textSecondaryColor,
+            color: AppTheme.getTextSecondaryColor(context),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: _apptSearchController,
+              style: TextStyle(
+                color: AppTheme.getTextPrimaryColor(context),
+                fontSize: 14,
+              ),
               onChanged: (v) => setState(() {
                 _searchQuery = v;
                 _currentPage = 0;
               }),
-              decoration: const InputDecoration(
-                hintText: 'Search appointments by patient, doctor, or department...',
+              decoration: InputDecoration(
+                hintText: context.tr('search_appointments', fallback: 'Search appointments by patient, doctor, or department...'),
                 hintStyle: TextStyle(
                   fontSize: 14,
-                  color: AppTheme.textSecondaryColor,
+                  color: AppTheme.getTextSecondaryColor(context),
                 ),
                 filled: false,
                 fillColor: Colors.transparent,
@@ -2968,16 +2976,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: AppTheme.isDark(context) ? AppTheme.darkInputFillColor : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.borderColor),
+              border: Border.all(color: AppTheme.getBorderColor(context)),
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.calendar_today,
                   size: 16,
-                  color: Color(0xFF64748B),
+                  color: AppTheme.getTextSecondaryColor(context),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -3002,7 +3010,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         _filterDate == null
                             ? 'Select Date'
                             : DateFormat('dd/MM/yyyy').format(_filterDate!),
-                        style: const TextStyle(fontSize: 14),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.getTextPrimaryColor(context),
+                        ),
                       ),
                     ),
                   ),
@@ -3058,16 +3069,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: AppTheme.isDark(context) ? AppTheme.darkInputFillColor : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.borderColor),
+                border: Border.all(color: AppTheme.getBorderColor(context)),
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.calendar_today,
                     size: 16,
-                    color: Color(0xFF64748B),
+                    color: AppTheme.getTextSecondaryColor(context),
                   ),
                   const SizedBox(width: 12),
                   InkWell(
@@ -3091,7 +3102,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         _filterDate == null
                             ? 'Select Date'
                             : DateFormat('dd/MM/yyyy').format(_filterDate!),
-                        style: const TextStyle(fontSize: 14),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.getTextPrimaryColor(context),
+                        ),
                       ),
                     ),
                   ),
@@ -3220,17 +3234,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: const BoxDecoration(
-              color: Color(0xFFEDF2F7),
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: AppTheme.isDark(context) ? AppTheme.darkSurfaceColor : const Color(0xFFEDF2F7),
+              borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
@@ -3287,9 +3301,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3322,7 +3336,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        appt.patientName,
+                        TamilTransliterationHelper.translate(context, appt.patientName),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -3700,14 +3714,37 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     int flex = 1,
     double leftPadding = 0,
   }) {
+    String translated = label;
+    if (label == 'Time') {
+      translated = context.tr('time', fallback: label);
+    } else if (label == 'Date') {
+      translated = context.tr('date', fallback: label);
+    } else if (label == 'Patient') {
+      translated = context.tr('patient_name', fallback: label);
+    } else if (label == 'Department') {
+      translated = context.tr('department', fallback: label);
+    } else if (label == 'Doctor') {
+      translated = context.tr('doctor', fallback: label);
+    } else if (label == 'Type') {
+      translated = context.tr('type', fallback: label);
+    } else if (label == 'Reason') {
+      translated = context.tr('reason', fallback: label);
+    } else if (label == 'Status') {
+      translated = context.tr('status', fallback: label);
+    } else if (label == 'Actions') {
+      translated = context.tr('actions', fallback: label);
+    }
+
     return Expanded(
       flex: flex,
       child: Padding(
         padding: EdgeInsets.only(left: leftPadding),
         child: Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF64748B),
+          translated,
+          style: TextStyle(
+            color: AppTheme.isDark(context)
+                ? AppTheme.darkTextSecondaryColor
+                : const Color(0xFF64748B),
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -3861,7 +3898,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        patientName,
+                        TamilTransliterationHelper.translate(context, patientName),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

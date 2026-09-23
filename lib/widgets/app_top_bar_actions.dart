@@ -9,11 +9,13 @@ import 'app_settings_dialog.dart';
 class AppTopBarActions extends StatelessWidget {
   final bool showClock;
   final Widget? liveClockWidget;
+  final bool showThemeSelector;
 
   const AppTopBarActions({
     super.key,
     this.showClock = false,
     this.liveClockWidget,
+    this.showThemeSelector = false,
   });
 
   @override
@@ -77,64 +79,66 @@ class AppTopBarActions extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(width: 10),
+        if (showThemeSelector) ...[
+          const SizedBox(width: 10),
 
-        // Theme Mode Selector Menu (Light, Dark, System Default)
-        PopupMenuButton<ThemeMode>(
-          tooltip: context.tr('theme'),
-          initialValue: themeProvider.themeMode,
-          onSelected: (ThemeMode mode) {
-            themeProvider.setThemeMode(mode);
-          },
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: borderColor),
+          // Theme Mode Selector Menu (Light, Dark, System Default)
+          PopupMenuButton<ThemeMode>(
+            tooltip: context.tr('theme'),
+            initialValue: themeProvider.themeMode,
+            onSelected: (ThemeMode mode) {
+              themeProvider.setThemeMode(mode);
+            },
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: borderColor),
+            ),
+            color: buttonBg,
+            offset: const Offset(0, 44),
+            child: Container(
+              height: 34,
+              width: 34,
+              decoration: BoxDecoration(
+                color: buttonBg,
+                shape: BoxShape.circle,
+                border: Border.all(color: borderColor, width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: _buildThemeIcon(themeProvider.themeMode, isDark),
+              ),
+            ),
+            itemBuilder: (context) => [
+              _buildThemeMenuItem(
+                context: context,
+                mode: ThemeMode.light,
+                icon: Icons.light_mode_outlined,
+                label: context.tr('light_mode'),
+                isSelected: themeProvider.themeMode == ThemeMode.light,
+              ),
+              _buildThemeMenuItem(
+                context: context,
+                mode: ThemeMode.dark,
+                icon: Icons.dark_mode_outlined,
+                label: context.tr('dark_mode'),
+                isSelected: themeProvider.themeMode == ThemeMode.dark,
+              ),
+              _buildThemeMenuItem(
+                context: context,
+                mode: ThemeMode.system,
+                icon: Icons.brightness_auto_outlined,
+                label: context.tr('system_default'),
+                isSelected: themeProvider.themeMode == ThemeMode.system,
+              ),
+            ],
           ),
-          color: buttonBg,
-          offset: const Offset(0, 44),
-          child: Container(
-            height: 34,
-            width: 34,
-            decoration: BoxDecoration(
-              color: buttonBg,
-              shape: BoxShape.circle,
-              border: Border.all(color: borderColor, width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Center(
-              child: _buildThemeIcon(themeProvider.themeMode, isDark),
-            ),
-          ),
-          itemBuilder: (context) => [
-            _buildThemeMenuItem(
-              context: context,
-              mode: ThemeMode.light,
-              icon: Icons.light_mode_outlined,
-              label: context.tr('light_mode'),
-              isSelected: themeProvider.themeMode == ThemeMode.light,
-            ),
-            _buildThemeMenuItem(
-              context: context,
-              mode: ThemeMode.dark,
-              icon: Icons.dark_mode_outlined,
-              label: context.tr('dark_mode'),
-              isSelected: themeProvider.themeMode == ThemeMode.dark,
-            ),
-            _buildThemeMenuItem(
-              context: context,
-              mode: ThemeMode.system,
-              icon: Icons.brightness_auto_outlined,
-              label: context.tr('system_default'),
-              isSelected: themeProvider.themeMode == ThemeMode.system,
-            ),
-          ],
-        ),
+        ],
 
         const SizedBox(width: 10),
 

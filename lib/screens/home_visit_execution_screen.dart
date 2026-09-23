@@ -26,6 +26,9 @@ import '../utils/capitalize_formatter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/live_speech_service.dart';
+import '../utils/app_localizations.dart';
+import '../utils/tamil_transliteration_helper.dart';
+import '../providers/language_provider.dart';
 
 class HomeVisitExecutionScreen extends StatefulWidget {
   final int visitId;
@@ -126,10 +129,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Unsaved Form Data',
-                        style: TextStyle(
+                        ctx.tr('unsaved_form_data', fallback: 'Unsaved Form Data'),
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                           color: AppTheme.textPrimaryColor,
@@ -141,9 +144,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ],
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Do you want to leave this page? Any unsaved form data or entries will be lost.',
-                  style: TextStyle(
+                Text(
+                  ctx.tr('unsaved_form_leave_confirm', fallback: 'Do you want to leave this page? Any unsaved form data or entries will be lost.'),
+                  style: const TextStyle(
                     fontSize: 13.5,
                     color: Color(0xFF64748B),
                     height: 1.4,
@@ -164,13 +167,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           UnsavedChangesHelper.clear();
                           _handleLeave();
                         },
-                        child: const Text('Leave Page'),
+                        child: Text(ctx.tr('leave_page', fallback: 'Leave Page')),
                       ),
                       const SizedBox(height: 10),
                       OutlinedButton(
                         style: AppTheme.cancelButton,
                         onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Stay on Page'),
+                        child: Text(ctx.tr('stay_on_page', fallback: 'Stay on Page')),
                       ),
                     ],
                   )
@@ -181,7 +184,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       OutlinedButton(
                         style: AppTheme.cancelButton,
                         onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Stay on Page'),
+                        child: Text(ctx.tr('stay_on_page', fallback: 'Stay on Page')),
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
@@ -193,7 +196,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           UnsavedChangesHelper.clear();
                           _handleLeave();
                         },
-                        child: const Text('Leave Page'),
+                        child: Text(ctx.tr('leave_page', fallback: 'Leave Page')),
                       ),
                     ],
                   ),
@@ -5355,29 +5358,43 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Home Visit Care - ${visit.visitNumber}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimaryColor,
-                              fontFamily: 'Inter',
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? ""})',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey,
-                              fontFamily: 'Inter',
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                      child: Builder(
+                        builder: (ctx) {
+                          final isTamil = Provider.of<LanguageProvider>(ctx).isTamil;
+                          final rawPatientName = visit.patientName ?? (isTamil ? 'நோயாளி' : 'Patient');
+                          final formattedPatientName = TamilTransliterationHelper.formatName(
+                            rawPatientName,
+                            isTamil: isTamil,
+                            showBoth: true,
+                          );
+                          final pId = (visit.patientDisplayId != null && visit.patientDisplayId!.isNotEmpty)
+                              ? ' (${visit.patientDisplayId})'
+                              : '';
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${ctx.tr('home_visit_care', fallback: 'Home Visit Care')} - ${visit.visitNumber}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                  fontFamily: 'Inter',
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '${ctx.tr('patient_label', fallback: 'Patient:')} $formattedPatientName$pId',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                  fontFamily: 'Inter',
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -5395,7 +5412,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         padding: const EdgeInsets.only(top: 16.0, right: 16.0),
                         child: isMobile
                             ? IconButton(
-                                tooltip: 'Stop / Cancel Home Visit Care Plan',
+                                tooltip: ctx.tr('stop_care_plan', fallback: 'Stop Care Plan'),
                                 style: IconButton.styleFrom(
                                   foregroundColor: AppTheme.dangerColor,
                                   backgroundColor: AppTheme.dangerColor
@@ -5428,9 +5445,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   Icons.do_not_disturb_on_outlined,
                                   size: 16,
                                 ),
-                                label: const Text(
-                                  'Stop Care Plan',
-                                  style: TextStyle(
+                                label: Text(
+                                  ctx.tr('stop_care_plan', fallback: 'Stop Care Plan'),
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
@@ -5451,48 +5468,48 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       indicatorColor: AppTheme.primaryColor,
                       indicatorWeight: 3,
                       isScrollable: true,
-                      tabs: const [
+                      tabs: [
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.medical_services_outlined,
                             color: Color(0xFF0284C7),
                           ),
-                          text: 'Kit & Devices',
+                          text: context.tr('tab_kit_devices', fallback: 'Kit & Devices'),
                         ),
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.monitor_heart_outlined,
                             color: Color(0xFF16A34A),
                           ),
-                          text: 'Vitals',
+                          text: context.tr('tab_vitals', fallback: 'Vitals'),
                         ),
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.health_and_safety_outlined,
                             color: Color(0xFFE11D48),
                           ),
-                          text: 'Nursing Care & Dressing',
+                          text: context.tr('tab_nursing_care', fallback: 'Nursing Care & Dressing'),
                         ),
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.medication_liquid_outlined,
                             color: Color(0xFFEA580C),
                           ),
-                          text: 'Meds & Consumables',
+                          text: context.tr('tab_meds_consumables', fallback: 'Meds & Consumables'),
                         ),
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.insert_photo_outlined,
                             color: Color(0xFF9333EA),
                           ),
-                          text: 'Photo Evidence',
+                          text: context.tr('tab_photo_evidence', fallback: 'Photo Evidence'),
                         ),
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.analytics_outlined,
                             color: Color(0xFF0D9488),
                           ),
-                          text: 'View Live Summary',
+                          text: context.tr('tab_live_summary', fallback: 'View Live Summary'),
                         ),
                       ],
                     ),
@@ -5540,10 +5557,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         children: [
           // Section 1 Header
           _buildSectionHeader(
-            'Select & Add Kit Items & Medical Devices Used',
+            context.tr('select_add_kit_header', fallback: 'Select & Add Kit Items & Medical Devices Used'),
             Icons.fact_check_outlined,
-            subtitle:
-                'Add the kit items or medical devices used during this visit.',
+            subtitle: context.tr('select_add_kit_sub', fallback: 'Add the kit items or medical devices used during this visit.'),
           ),
           const SizedBox(height: 16),
 
@@ -5560,17 +5576,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  children: const [
-                    Icon(
+                  children: [
+                    const Icon(
                       Icons.tune_rounded,
                       color: AppTheme.secondaryColor,
                       size: 20,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Add Kit Device / Item Used During Visit',
-                        style: TextStyle(
+                        context.tr('add_kit_box_header', fallback: 'Add Kit Device / Item Used During Visit'),
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.secondaryColor,
@@ -5748,7 +5764,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             )
                           : const Icon(Icons.add, size: 18),
                       label: Text(
-                        _isAddingKitItem ? 'Adding...' : 'Add Kit Item',
+                        _isAddingKitItem
+                            ? context.tr('adding', fallback: 'Adding...')
+                            : context.tr('add_kit_item', fallback: '+ Add Kit Item'),
                       ),
                       onPressed: _isAddingKitItem ? null : addKitItem,
                     );
@@ -5757,10 +5775,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _buildLabel('Kit / Device Item'),
+                          _buildLabel(context.tr('kit_device_item', fallback: 'Kit / Device Item')),
                           CustomDropdownSearch(
                             label: '',
-                            hint: 'Select Kit Item / Device',
+                            hint: context.tr('select_kit_item_hint', fallback: 'Select Kit Item / Device'),
                             dropdownItems: _effectiveKitDevices,
                             value: _selectedKitDropdown,
                             allowFreeText: false,
@@ -5788,10 +5806,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ),
                           ],
                           const SizedBox(height: 12),
-                          _buildLabel('Category'),
+                          _buildLabel(context.tr('category', fallback: 'Category')),
                           CustomDropdownSearch(
                             label: '',
-                            hint: 'Select Category',
+                            hint: context.tr('category', fallback: 'Category'),
                             dropdownItems: _kitItemTypes,
                             value: _kitItemType,
                             allowFreeText: false,
@@ -5803,7 +5821,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             },
                           ),
                           const SizedBox(height: 12),
-                          _buildLabel('Quantity'),
+                          _buildLabel(context.tr('quantity', fallback: 'Quantity')),
                           _buildQtyStepperField(
                             controller: _kitItemQtyCtrl,
                             min: 1,
@@ -5822,10 +5840,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Kit / Device Item'),
+                                _buildLabel(context.tr('kit_device_item', fallback: 'Kit / Device Item')),
                                 CustomDropdownSearch(
                                   label: '',
-                                  hint: 'Select Kit Item / Device',
+                                  hint: context.tr('select_kit_item_hint', fallback: 'Select Kit Item / Device'),
                                   dropdownItems: _effectiveKitDevices,
                                   value: _selectedKitDropdown,
                                   allowFreeText: false,
@@ -5870,10 +5888,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Category'),
+                                _buildLabel(context.tr('category', fallback: 'Category')),
                                 CustomDropdownSearch(
                                   label: '',
-                                  hint: 'Select Category',
+                                  hint: context.tr('category', fallback: 'Category'),
                                   dropdownItems: _kitItemTypes,
                                   value: _kitItemType,
                                   allowFreeText: false,
@@ -5894,7 +5912,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Quantity'),
+                                _buildLabel(context.tr('quantity', fallback: 'Quantity')),
                                 _buildQtyStepperField(
                                   controller: _kitItemQtyCtrl,
                                   min: 1,
@@ -5921,7 +5939,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             children: [
               Expanded(
                 child: _buildSectionHeader(
-                  'Carried & Used Kit Devices List',
+                  context.tr('carried_used_kit_list', fallback: 'Carried & Used Kit Devices List'),
                   Icons.assignment_turned_in_outlined,
                 ),
               ),
@@ -5936,7 +5954,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  '${visit.carriedItems.length} Items',
+                  '${visit.carriedItems.length} ${context.tr('items', fallback: 'Items')}',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -6060,7 +6078,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Category: ${item.itemType} • Qty: ${item.quantityCarried}',
+                                  '${context.tr('category', fallback: 'Category')}: ${item.itemType} • ${context.tr('qty', fallback: 'Qty')}: ${item.quantityCarried}',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey,

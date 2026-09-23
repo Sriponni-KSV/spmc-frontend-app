@@ -13,6 +13,7 @@ import '../services/api_service.dart';
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
+import '../utils/app_localizations.dart';
 
 class BillingManagementView extends StatefulWidget {
   const BillingManagementView({Key? key}) : super(key: key);
@@ -286,14 +287,14 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Billing & Invoices',
+                  context.tr('billing_invoices', fallback: 'Billing & Invoices'),
                   style: Theme.of(context).textTheme.displayLarge ??
                       const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: AppTheme.primaryColor),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  subtitle,
-                  style: TextStyle(
+                  context.tr('manage_billing_subtitle', fallback: subtitle),
+                  style: const TextStyle(
                     color: AppTheme.textSecondaryColor,
                     fontSize: 13,
                   ),
@@ -956,11 +957,11 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                     hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
                     prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondaryColor, size: 20),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: AppTheme.getCardColor(context),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                      borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -1210,11 +1211,11 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                     hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
                     prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondaryColor, size: 20),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: AppTheme.getCardColor(context),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                      borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -1251,11 +1252,11 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                       hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
                       prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondaryColor, size: 20),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: AppTheme.getCardColor(context),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppTheme.borderColor),
+                        borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -2528,9 +2529,9 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.getCardColor(context),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.borderColor),
+                  border: Border.all(color: AppTheme.getBorderColor(context)),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(

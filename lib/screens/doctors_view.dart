@@ -10,6 +10,7 @@ import '../models/user_model.dart';
 import '../models/appointment_model.dart';
 import '../providers/auth_provider.dart';
 import '../utils/capitalize_formatter.dart';
+import '../utils/app_localizations.dart';
 
 class DoctorsView extends StatefulWidget {
   final Function(UserModel)? onBookAppointment;
@@ -97,18 +98,18 @@ class _DoctorsViewState extends State<DoctorsView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Doctors',
+                context.tr('doctor_directory', fallback: 'Doctors'),
                 style: TextStyle(
                   fontSize: isMobile ? 24 : 32,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimaryColor,
+                  color: AppTheme.getTextPrimaryColor(context),
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Manage doctor profiles and schedules',
+              Text(
+                context.tr('doctor_directory_subtitle', fallback: 'Manage doctor profiles and schedules'),
                 style: TextStyle(
-                  color: AppTheme.textSecondaryColor,
+                  color: AppTheme.getTextSecondaryColor(context),
                   fontSize: 14,
                 ),
               ),
@@ -124,23 +125,37 @@ class _DoctorsViewState extends State<DoctorsView> {
           child: Container(
             height: 48,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.getCardColor(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              border: Border.all(color: AppTheme.getBorderColor(context)),
+              boxShadow: AppTheme.isDark(context)
+                  ? []
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
             ),
             child: TextField(
               controller: _searchCtrl,
+              style: TextStyle(
+                color: AppTheme.getTextPrimaryColor(context),
+                fontSize: 14,
+              ),
               onChanged: (val) => setState(() => _searchQuery = val),
               decoration: InputDecoration(
-                hintText: 'Search doctors by name or specialization...',
-                prefixIcon: const Icon(Icons.search, size: 20),
+                hintText: context.tr('search_doctors_hint', fallback: 'Search doctors by name or specialization...'),
+                hintStyle: TextStyle(
+                  color: AppTheme.getTextSecondaryColor(context),
+                  fontSize: 13,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  size: 20,
+                  color: AppTheme.getTextSecondaryColor(context),
+                ),
                 suffixIcon: _searchCtrl.text.isNotEmpty
                     ? MouseRegion(
                         cursor: SystemMouseCursors.click,

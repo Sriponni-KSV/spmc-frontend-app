@@ -4,14 +4,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ThemeProvider extends ChangeNotifier {
   static const String _prefKey = 'spmc_theme_mode';
 
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.light;
 
   ThemeMode get themeMode => _themeMode;
 
   bool isDarkMode(BuildContext context) {
-    if (_themeMode == ThemeMode.system) {
-      return MediaQuery.platformBrightnessOf(context) == Brightness.dark;
-    }
     return _themeMode == ThemeMode.dark;
   }
 
@@ -30,21 +27,14 @@ class ThemeProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedMode = prefs.getString(_prefKey);
-      if (savedMode != null) {
-        switch (savedMode) {
-          case 'light':
-            _themeMode = ThemeMode.light;
-            break;
-          case 'dark':
-            _themeMode = ThemeMode.dark;
-            break;
-          case 'system':
-          default:
-            _themeMode = ThemeMode.system;
-            break;
-        }
-        notifyListeners();
+      if (savedMode != null && savedMode == 'dark') {
+        // As requested by user, reset theme to white (light) as previous
+        _themeMode = ThemeMode.light;
+        await prefs.setString(_prefKey, 'light');
+      } else {
+        _themeMode = ThemeMode.light;
       }
+      notifyListeners();
     } catch (e) {
       debugPrint('Error initializing ThemeProvider: $e');
     }

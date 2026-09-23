@@ -65,7 +65,7 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: AppTheme.getBackgroundColor(context),
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
       body: Row(
         children: [
@@ -84,6 +84,7 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
   }
 
   Widget _buildSidebar(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         final user = auth.user;
@@ -91,15 +92,18 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
           width: 260,
           margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.getCardColor(context),
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(color: AppTheme.getBorderColor(context)),
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           ),
           child: Column(
             children: [
@@ -131,9 +135,9 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
 
               // Footer Profile
               Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
-                    top: BorderSide(color: AppTheme.borderColor, width: 1),
+                    top: BorderSide(color: AppTheme.getBorderColor(context), width: 1),
                   ),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -166,18 +170,18 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
                                       children: [
                                         Text(
                                           user.fullname,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
-                                            color: AppTheme.textPrimaryColor,
+                                            color: AppTheme.getTextPrimaryColor(context),
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         Text(
                                           user.role,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 11,
-                                            color: AppTheme.textSecondaryColor,
+                                            color: AppTheme.getTextSecondaryColor(context),
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -189,10 +193,10 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.logout,
                               size: 18,
-                              color: AppTheme.textSecondaryColor,
+                              color: AppTheme.getTextSecondaryColor(context),
                             ),
                             onPressed: () =>
                                 LogoutHelper.showLogoutConfirmation(
@@ -227,7 +231,7 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? Colors.white : const Color(0xFF4A5568),
+              color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -235,7 +239,7 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : const Color(0xFF2D3748),
+                  color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
                   fontWeight: FontWeight.bold,
                   fontSize: 13.5,
                 ),
@@ -269,9 +273,9 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
         if (isMobile) ...[
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.menu,
-                color: Color(0xFF4A5568),
+                color: AppTheme.getTextPrimaryColor(context),
               ),
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
@@ -285,8 +289,9 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
             alignment: Alignment.centerLeft,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.getCardColor(context),
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppTheme.getBorderColor(context), width: 1.2),
             ),
             child: const Text(
               'SPMC Pharmacy Portal',
@@ -303,9 +308,9 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
         Stack(
           clipBehavior: Clip.none,
           children: [
-            const Icon(
+            Icon(
               Icons.notifications_none_outlined,
-              color: Color(0xFF4A5568),
+              color: AppTheme.getTextPrimaryColor(context),
               size: 22,
             ),
             Positioned(

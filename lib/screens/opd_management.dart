@@ -604,31 +604,35 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.search,
             size: 18,
-            color: AppTheme.textSecondaryColor,
+            color: AppTheme.getTextSecondaryColor(context),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
               controller: _searchCtrl,
+              style: TextStyle(
+                color: AppTheme.getTextPrimaryColor(context),
+                fontSize: 14,
+              ),
               onChanged: (v) => setState(() => _searchQuery = v),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Search patient name, ID, or phone...',
                 hintStyle: TextStyle(
                   fontSize: 13,
-                  color: AppTheme.textSecondaryColor,
+                  color: AppTheme.getTextSecondaryColor(context),
                 ),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: Colors.transparent,
                 contentPadding: EdgeInsets.zero,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,

@@ -27,6 +27,8 @@ import '../utils/capitalize_formatter.dart';
 import '../utils/modal_history_helper.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
+import '../utils/tamil_transliteration_helper.dart';
+import '../providers/language_provider.dart';
 
 class FrontDeskDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -379,7 +381,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     return Scaffold(
       key: const ValueKey('front_desk_dashboard'),
       resizeToAvoidBottomInset: false,
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: AppTheme.getBackgroundColor(context),
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
       floatingActionButton: null,
       body: Stack(
@@ -576,6 +578,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
   }
 
   Widget _buildSidebar(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         final user = auth.user;
@@ -583,15 +586,18 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           width: 260,
           margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.getCardColor(context),
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(color: AppTheme.getBorderColor(context)),
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           ),
           child: Column(
             children: [
@@ -656,9 +662,9 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
 
               // User Profile Area at Bottom
               Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
-                    top: BorderSide(color: AppTheme.borderColor, width: 1),
+                    top: BorderSide(color: AppTheme.getBorderColor(context), width: 1),
                   ),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -691,18 +697,18 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                                       children: [
                                         Text(
                                           user.fullname,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
-                                            color: AppTheme.textPrimaryColor,
+                                            color: AppTheme.getTextPrimaryColor(context),
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         Text(
                                           user.role,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 11,
-                                            color: AppTheme.textSecondaryColor,
+                                            color: AppTheme.getTextSecondaryColor(context),
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -714,10 +720,10 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.logout,
                               size: 18,
-                              color: AppTheme.textSecondaryColor,
+                              color: AppTheme.getTextSecondaryColor(context),
                             ),
                             onPressed: () =>
                                 LogoutHelper.showLogoutConfirmation(
@@ -752,16 +758,20 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? Colors.white : const Color(0xFF4A5568),
+              color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
               size: 20,
             ),
             const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : const Color(0xFF2D3748),
-                fontWeight: FontWeight.bold,
-                fontSize: 13.5,
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13.5,
+                ),
               ),
             ),
           ],
@@ -786,14 +796,15 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
   }
 
   Widget _buildBannerTopBar(bool isMobile) {
+    final isDark = AppTheme.isDark(context);
     return Row(
       children: [
         if (isMobile) ...[
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.menu,
-                color: Color(0xFF4A5568),
+                color: AppTheme.getTextPrimaryColor(context),
               ),
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
@@ -809,30 +820,35 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.getCardColor(context),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
+                border: Border.all(color: AppTheme.getBorderColor(context), width: 1.2),
+                boxShadow: isDark
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(
                     Icons.search,
                     size: 18,
-                    color: AppTheme.textSecondaryColor,
+                    color: AppTheme.getTextSecondaryColor(context),
                   ),
-                  SizedBox(width: 8),
-                  Text(
-                    'Search anything...',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textSecondaryColor,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.tr('search_anything', fallback: 'Search anything...'),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.getTextSecondaryColor(context),
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -845,9 +861,9 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         Stack(
           clipBehavior: Clip.none,
           children: [
-            const Icon(
+            Icon(
               Icons.notifications_none_outlined,
-              color: Color(0xFF4A5568),
+              color: AppTheme.getTextPrimaryColor(context),
               size: 22,
             ),
             Positioned(
@@ -895,7 +911,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           children: [
             Expanded(
               child: Text(
-                user != null ? 'Hello, ${user.rawFullname ?? ''}' : 'Dashboard',
+                user != null ? '${context.tr('welcome', fallback: 'Hello')}, ${user.rawFullname ?? ''}' : context.tr('dashboard', fallback: 'Dashboard'),
                 style: Theme.of(context).textTheme.displayLarge,
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
@@ -904,9 +920,9 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           ],
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Welcome back! Here\'s your front desk overview',
-          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+        Text(
+          context.tr('system_overview', fallback: 'Welcome back! Here\'s your front desk overview'),
+          style: TextStyle(color: AppTheme.getTextSecondaryColor(context), fontSize: 14),
         ),
       ],
     );
@@ -1011,8 +1027,17 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     Color color,
     bool isMobile,
   ) {
+    String translatedTitle = title;
+    if (title == 'Total Patients') {
+      translatedTitle = context.tr('total_patients', fallback: title);
+    } else if (title.contains('Appointments')) {
+      translatedTitle = context.tr('upcoming_appointments', fallback: title);
+    } else if (title.contains('Checked In')) {
+      translatedTitle = context.tr('active_patients', fallback: title);
+    }
+
     return StatCard(
-      title: title,
+      title: translatedTitle,
       value: value,
       subLabel: change,
       icon: icon,
@@ -1026,23 +1051,28 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.error_outline,
                 color: AppTheme.alertTextColor,
                 size: 20,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 'Front Desk Notifications',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppTheme.getTextPrimaryColor(context),
+                ),
               ),
             ],
           ),
@@ -1097,18 +1127,23 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Recent Patients',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: AppTheme.getTextPrimaryColor(context),
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -1158,6 +1193,12 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     String status,
     Color statusColor,
   ) {
+    final isTamil = Provider.of<LanguageProvider>(context).isTamil;
+    final patientDisplayName = TamilTransliterationHelper.formatName(
+      name,
+      isTamil: isTamil,
+      showBoth: true,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
@@ -1184,18 +1225,19 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
-                  style: const TextStyle(
+                  patientDisplayName,
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
+                    color: AppTheme.getTextPrimaryColor(context),
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
                 Text(
                   info,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondaryColor,
+                  style: TextStyle(
+                    color: AppTheme.getTextSecondaryColor(context),
                     fontSize: 12,
                   ),
                 ),
@@ -1223,6 +1265,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
   }
 
   Widget _buildUpcomingAppointments() {
+    final isTamil = Provider.of<LanguageProvider>(context).isTamil;
     final String today = DateFormat('dd/MM/yyyy').format(DateTime.now());
     final upcoming = _dbAppointments
         .where(
@@ -1236,8 +1279,9 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1245,16 +1289,20 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Today\'s Queue',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  context.tr('upcoming_appointments', fallback: "Today's Queue"),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: AppTheme.getTextPrimaryColor(context),
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               TextButton(
                 onPressed: () => _changePage(2),
-                child: const Text('View All'),
+                child: Text(context.tr('view_all', fallback: 'View All')),
               ),
             ],
           ),
@@ -1267,12 +1315,12 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
               ),
             )
           else if (upcoming.isEmpty)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
                 child: Text(
-                  'No appointments for today',
-                  style: TextStyle(color: Colors.grey),
+                  context.tr('no_appointments_today', fallback: 'No appointments for today'),
+                  style: const TextStyle(color: Colors.grey),
                 ),
               ),
             )
@@ -1292,6 +1340,14 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                 default:
                   badgeColor = Colors.amber.shade700;
               }
+              final patientDisplayName = TamilTransliterationHelper.formatName(
+                appt.patientName,
+                isTamil: isTamil,
+                showBoth: true,
+              );
+              final doctorDisplayName = isTamil
+                  ? 'மரு. ${TamilTransliterationHelper.transliterate(appt.doctorName)}'
+                  : 'Dr. ${appt.doctorName}';
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16.0),
                 child: Row(
@@ -1301,17 +1357,18 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            appt.patientName,
-                            style: const TextStyle(
+                            patientDisplayName,
+                            style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 14,
+                              color: AppTheme.getTextPrimaryColor(context),
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            'Dr. ${appt.doctorName} • ${appt.appointmentTime}',
-                            style: const TextStyle(
-                              color: AppTheme.textSecondaryColor,
+                            '$doctorDisplayName • ${appt.appointmentTime}',
+                            style: TextStyle(
+                              color: AppTheme.getTextSecondaryColor(context),
                               fontSize: 12,
                             ),
                           ),
@@ -1536,7 +1593,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                     Text(
                       'Manage your personal details and duty schedule',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppTheme.textSecondaryColor,
+                            color: AppTheme.getTextSecondaryColor(context),
                             fontSize: 12,
                           ),
                     ),
@@ -1566,7 +1623,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                         Text(
                           'Manage your personal details and duty schedule',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppTheme.textSecondaryColor,
+                                color: AppTheme.getTextSecondaryColor(context),
                               ),
                         ),
                       ],
@@ -1791,19 +1848,19 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                         children: [
                           Text(
                             user?.rawFullname ?? 'Front Desk',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimaryColor,
+                              color: AppTheme.getTextPrimaryColor(context),
                             ),
                           ),
                           if (user?.staffUniqueId != null && user!.staffUniqueId!.isNotEmpty) ...[
                             const SizedBox(height: 2),
                             Text(
                               user!.staffUniqueId!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: AppTheme.textSecondaryColor,
+                                color: AppTheme.getTextSecondaryColor(context),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -1880,8 +1937,8 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                           }
                           return null;
                         },
-                        style: const TextStyle(
-                          color: AppTheme.textPrimaryColor,
+                        style: TextStyle(
+                          color: AppTheme.getTextPrimaryColor(context),
                           fontWeight: FontWeight.normal,
                         ),
                         decoration: InputDecoration(
@@ -1976,8 +2033,8 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
           onTap: onTap,
           style: TextStyle(
             color: (isReadOnly && onTap == null) 
-                ? AppTheme.textSecondaryColor.withOpacity(0.7) 
-                : AppTheme.textPrimaryColor,
+                ? AppTheme.getTextSecondaryColor(context).withOpacity(0.7) 
+                : AppTheme.getTextPrimaryColor(context),
           ),
           decoration: InputDecoration(
             counterText: '',

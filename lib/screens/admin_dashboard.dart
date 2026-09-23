@@ -523,7 +523,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: AppTheme.getBackgroundColor(context),
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
       body: SafeArea(
         child: Row(
@@ -2013,20 +2013,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildSidebar(BuildContext context) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final isDark = AppTheme.isDark(context);
 
     return Container(
       width: 260,
       margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppTheme.getBorderColor(context)),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         children: [
@@ -2062,9 +2066,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           // User Profile Footer
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(color: AppTheme.borderColor, width: 1),
+                top: BorderSide(color: AppTheme.getBorderColor(context), width: 1),
               ),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -2108,18 +2112,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       children: [
                                         Text(
                                           user.rawFullname ?? user.fullname,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
-                                            color: AppTheme.textPrimaryColor,
+                                            color: AppTheme.getTextPrimaryColor(context),
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         Text(
                                           user.role,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 11,
-                                            color: AppTheme.textSecondaryColor,
+                                            color: AppTheme.getTextSecondaryColor(context),
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -2131,10 +2135,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.logout,
                               size: 18,
-                              color: AppTheme.textSecondaryColor,
+                              color: AppTheme.getTextSecondaryColor(context),
                             ),
                             onPressed: () =>
                                 LogoutHelper.showLogoutConfirmation(
@@ -2244,6 +2248,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (lower.contains('setting')) return context.tr('settings', fallback: label);
     if (lower.contains('staff') || lower.contains('user')) return context.tr('staff', fallback: label);
     if (lower.contains('report')) return context.tr('reports', fallback: label);
+    if (lower.contains('home visit') || lower.contains('home care')) return context.tr('home_visit_care', fallback: label);
     if (lower.contains('profile')) return context.tr('profile', fallback: label);
     return label;
   }
@@ -2334,7 +2339,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             if (isSubItem) const SizedBox(width: 12),
             Icon(
               icon,
-              color: isSelected ? Colors.white : const Color(0xFF4A5568),
+              color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
               size: isSubItem ? 18 : 20,
             ),
             const SizedBox(width: 14),
@@ -2342,7 +2347,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: Text(
                 _translateAdminLabel(context, label),
                 style: TextStyle(
-                  color: isSelected ? Colors.white : const Color(0xFF4A5568),
+                  color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
                   fontWeight: isSelected
                       ? FontWeight.bold
                       : (isSubItem ? FontWeight.w600 : FontWeight.bold),
@@ -2358,13 +2363,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildBannerTopBar(BuildContext context, bool isMobile) {
+    final isDark = AppTheme.isDark(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (isMobile) ...[
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(Icons.menu, color: AppTheme.textSecondaryColor),
+              icon: Icon(Icons.menu, color: AppTheme.getTextPrimaryColor(context)),
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           ),
@@ -2378,23 +2384,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: Container(
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.getCardColor(context),
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.getBorderColor(context), width: 1.2),
+                boxShadow: isDark
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
               ),
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.search,
                     size: 18,
-                    color: AppTheme.textSecondaryColor,
+                    color: AppTheme.getTextSecondaryColor(context),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    isMobile ? 'Search...' : 'Quick search...',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textSecondaryColor,
+                  Expanded(
+                    child: Text(
+                      context.tr('search_anything', fallback: isMobile ? 'Search...' : 'Quick search...'),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.getTextSecondaryColor(context),
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -2410,15 +2429,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.notifications_none_outlined,
-                color: AppTheme.textSecondaryColor,
+                color: AppTheme.getTextPrimaryColor(context),
                 size: 22,
               ),
               const SizedBox(width: 20),
-              const Icon(
+              Icon(
                 Icons.help_outline,
-                color: AppTheme.textSecondaryColor,
+                color: AppTheme.getTextPrimaryColor(context),
                 size: 22,
               ),
               const SizedBox(width: 20),

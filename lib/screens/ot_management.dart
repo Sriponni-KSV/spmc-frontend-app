@@ -2154,6 +2154,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       _searchQuery = val;
                     });
                   },
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.getTextPrimaryColor(context),
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Search registry...',
                     prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
@@ -2180,10 +2184,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
+                    fillColor: AppTheme.isDark(context) ? AppTheme.darkInputFillColor : const Color(0xFFF8FAFC),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
+                      borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                     ),
                   ),
                 ),
@@ -2476,6 +2480,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       _searchQuery = val;
                     });
                   },
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppTheme.getTextPrimaryColor(context),
+                  ),
                   decoration: InputDecoration(
                     hintText: 'Search registry...',
                     prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
@@ -2502,10 +2510,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     filled: true,
-                    fillColor: const Color(0xFFF8FAFC),
+                    fillColor: AppTheme.isDark(context) ? AppTheme.darkInputFillColor : const Color(0xFFF8FAFC),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
+                      borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                     ),
                   ),
                 ),

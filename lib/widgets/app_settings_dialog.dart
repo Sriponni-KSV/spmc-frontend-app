@@ -6,13 +6,18 @@ import '../utils/app_theme.dart';
 import '../utils/app_localizations.dart';
 
 class AppSettingsDialog extends StatelessWidget {
-  const AppSettingsDialog({super.key});
+  final bool showThemeSelection;
 
-  static void show(BuildContext context) {
+  const AppSettingsDialog({
+    super.key,
+    this.showThemeSelection = false,
+  });
+
+  static void show(BuildContext context, {bool showThemeSelection = false}) {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => const AppSettingsDialog(),
+      builder: (context) => AppSettingsDialog(showThemeSelection: showThemeSelection),
     );
   }
 
@@ -150,78 +155,80 @@ class AppSettingsDialog extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 24),
-            Divider(height: 1, thickness: 1, color: borderColor),
-            const SizedBox(height: 20),
+            if (showThemeSelection) ...[
+              const SizedBox(height: 24),
+              Divider(height: 1, thickness: 1, color: borderColor),
+              const SizedBox(height: 20),
 
-            // Section 2: Theme Mode Selection
-            Row(
-              children: [
-                const Icon(Icons.palette_outlined, size: 20, color: AppTheme.secondaryColor),
-                const SizedBox(width: 8),
-                Text(
-                  context.tr('theme'),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: textPrimary,
+              // Section 2: Theme Mode Selection
+              Row(
+                children: [
+                  const Icon(Icons.palette_outlined, size: 20, color: AppTheme.secondaryColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    context.tr('theme'),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: textPrimary,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              context.tr('theme_subtitle'),
-              style: TextStyle(fontSize: 12, color: textSecondary),
-            ),
-            const SizedBox(height: 12),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                context.tr('theme_subtitle'),
+                style: TextStyle(fontSize: 12, color: textSecondary),
+              ),
+              const SizedBox(height: 12),
 
-            // Theme Mode Options (Light, Dark, System)
-            Row(
-              children: [
-                Expanded(
-                  child: _buildThemeCard(
-                    context: context,
-                    mode: ThemeMode.light,
-                    icon: Icons.light_mode_outlined,
-                    label: context.tr('light_mode'),
-                    isSelected: themeProvider.themeMode == ThemeMode.light,
-                    onTap: () => themeProvider.setThemeMode(ThemeMode.light),
-                    borderColor: borderColor,
-                    textPrimary: textPrimary,
-                    textSecondary: textSecondary,
+              // Theme Mode Options (Light, Dark, System)
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildThemeCard(
+                      context: context,
+                      mode: ThemeMode.light,
+                      icon: Icons.light_mode_outlined,
+                      label: context.tr('light_mode'),
+                      isSelected: themeProvider.themeMode == ThemeMode.light,
+                      onTap: () => themeProvider.setThemeMode(ThemeMode.light),
+                      borderColor: borderColor,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildThemeCard(
-                    context: context,
-                    mode: ThemeMode.dark,
-                    icon: Icons.dark_mode_outlined,
-                    label: context.tr('dark_mode'),
-                    isSelected: themeProvider.themeMode == ThemeMode.dark,
-                    onTap: () => themeProvider.setThemeMode(ThemeMode.dark),
-                    borderColor: borderColor,
-                    textPrimary: textPrimary,
-                    textSecondary: textSecondary,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildThemeCard(
+                      context: context,
+                      mode: ThemeMode.dark,
+                      icon: Icons.dark_mode_outlined,
+                      label: context.tr('dark_mode'),
+                      isSelected: themeProvider.themeMode == ThemeMode.dark,
+                      onTap: () => themeProvider.setThemeMode(ThemeMode.dark),
+                      borderColor: borderColor,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildThemeCard(
-                    context: context,
-                    mode: ThemeMode.system,
-                    icon: Icons.brightness_auto_outlined,
-                    label: context.tr('system_default'),
-                    isSelected: themeProvider.themeMode == ThemeMode.system,
-                    onTap: () => themeProvider.setThemeMode(ThemeMode.system),
-                    borderColor: borderColor,
-                    textPrimary: textPrimary,
-                    textSecondary: textSecondary,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildThemeCard(
+                      context: context,
+                      mode: ThemeMode.system,
+                      icon: Icons.brightness_auto_outlined,
+                      label: context.tr('system_default'),
+                      isSelected: themeProvider.themeMode == ThemeMode.system,
+                      onTap: () => themeProvider.setThemeMode(ThemeMode.system),
+                      borderColor: borderColor,
+                      textPrimary: textPrimary,
+                      textSecondary: textSecondary,
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
 
             const SizedBox(height: 28),
 

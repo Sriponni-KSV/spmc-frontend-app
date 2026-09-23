@@ -416,22 +416,23 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                 type: MaterialType.card,
                 elevation: 6,
                 borderRadius: BorderRadius.circular(12),
-                color: widget.popupBgColor ?? Colors.white,
+                color: widget.popupBgColor ?? (AppTheme.isDark(context) ? AppTheme.darkCardColor : Colors.white),
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onTap: () {}, // absorb taps inside overlay
                   child: Container(
                     decoration: BoxDecoration(
-                      color: widget.popupBgColor ?? Colors.white,
+                      color: widget.popupBgColor ?? (AppTheme.isDark(context) ? AppTheme.darkCardColor : Colors.white),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         width: 1,
-                        color: const Color(0xFF302861).withValues(alpha: 0.1),
+                        color: AppTheme.isDark(context) ? AppTheme.darkBorderColor : const Color(0xFF302861).withValues(alpha: 0.1),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color:
-                              const Color(0xFF302861).withValues(alpha: 0.08),
+                          color: AppTheme.isDark(context)
+                              ? Colors.black.withOpacity(0.3)
+                              : const Color(0xFF302861).withValues(alpha: 0.08),
                           blurRadius: 16,
                           offset: const Offset(0, 4),
                         ),
@@ -486,7 +487,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                         'No matching items found',
                                         style: TextStyle(
                                           fontFamily: 'Inter',
-                                          color: Colors.grey.shade500,
+                                          color: AppTheme.isDark(context) ? AppTheme.darkTextSecondaryColor : Colors.grey.shade500,
                                           fontSize: 13,
                                         ),
                                       ),
@@ -541,11 +542,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                                 borderRadius:
                                                     BorderRadius.circular(6),
                                                 color: isSelected
-                                                    ? const Color(0xFF302861)
-                                                        .withValues(
-                                                            alpha: 0.06)
+                                                    ? AppTheme.primaryColor.withOpacity(0.12)
                                                     : (isHighlighted
-                                                        ? Colors.grey.shade100
+                                                        ? (AppTheme.isDark(context) ? Colors.white.withOpacity(0.06) : Colors.grey.shade100)
                                                         : Colors.transparent),
                                               ),
                                               child: Row(
@@ -557,9 +556,8 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                                           TextStyle(
                                                         fontFamily: 'Inter',
                                                         color: isSelected
-                                                            ? const Color(
-                                                                0xFF302861)
-                                                            : Colors.black87,
+                                                            ? AppTheme.primaryColor
+                                                            : (AppTheme.isDark(context) ? AppTheme.darkTextPrimaryColor : Colors.black87),
                                                         fontSize: 14,
                                                         fontWeight: isSelected
                                                             ? FontWeight.w600
@@ -572,7 +570,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                                       Icons.check,
                                                       size: 16,
                                                       color:
-                                                          Color(0xFF302861),
+                                                          AppTheme.primaryColor,
                                                     ),
                                                 ],
                                               ),
@@ -653,7 +651,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                     text: widget.label,
                     style: TextStyle(
                       fontFamily: 'Manrope',
-                      color: Colors.grey.shade700,
+                      color: AppTheme.isDark(context)
+                          ? AppTheme.darkTextPrimaryColor
+                          : Colors.grey.shade700,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -723,24 +723,33 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                         clipBehavior: Clip.none,
                         decoration: BoxDecoration(
                           color: widget.isEnabled
-                              ? (widget.fillColor ?? const Color(0xFFF1F5F9))
-                              : const Color(0xFFF9FAFB),
+                              ? (widget.fillColor ??
+                                  (AppTheme.isDark(context)
+                                      ? AppTheme.darkInputFillColor
+                                      : const Color(0xFFF1F5F9)))
+                              : (AppTheme.isDark(context)
+                                  ? const Color(0xFF1E293B)
+                                  : const Color(0xFFF9FAFB)),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             width: field.hasError
                                 ? 1.5
                                 : _searchFocusNode.hasFocus
                                     ? (widget.focusedBorderWidth ?? 1.4)
-                                    : (widget.borderWidth ?? 0),
+                                    : (widget.borderWidth ?? (AppTheme.isDark(context) ? 1.0 : 0)),
                             color: field.hasError
                                 ? Colors.red
                                 : _searchFocusNode.hasFocus
                                     ? (widget.focusedBorderColor ??
-                                        const Color(0xFF302861))
+                                        AppTheme.primaryColor)
                                     : widget.isEnabled
                                         ? (widget.borderColor ??
-                                            Colors.transparent)
-                                        : const Color(0xFFE5E7EB),
+                                            (AppTheme.isDark(context)
+                                                ? AppTheme.darkBorderColor
+                                                : Colors.transparent))
+                                        : (AppTheme.isDark(context)
+                                            ? AppTheme.darkBorderColor
+                                            : const Color(0xFFE5E7EB)),
                           ),
                         ),
                         child: Row(
@@ -782,7 +791,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                   counterText: '',
                                   hintStyle: TextStyle(
                                     fontFamily: 'Inter',
-                                    color: const Color(0xFF9CA3AF),
+                                    color: AppTheme.isDark(context)
+                                        ? AppTheme.darkTextSecondaryColor.withOpacity(0.7)
+                                        : const Color(0xFF9CA3AF),
                                     fontSize: widget.hintFontSize ?? 14,
                                   ),
                                   border: InputBorder.none,
@@ -799,8 +810,12 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                 style: TextStyle(
                                   fontFamily: 'Inter',
                                   color: widget.isEnabled
-                                      ? const Color(0xFF1E293B)
-                                      : Colors.grey.shade500,
+                                      ? (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextPrimaryColor
+                                          : const Color(0xFF1E293B))
+                                      : (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextSecondaryColor
+                                          : Colors.grey.shade500),
                                   fontSize: 14,
                                   fontWeight: FontWeight.w400,
                                 ),
@@ -855,8 +870,12 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                       : Icons.keyboard_arrow_down_rounded,
                                   size: 22,
                                   color: widget.isEnabled
-                                      ? const Color(0xFF302861)
-                                      : Colors.grey.shade400,
+                                      ? (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextSecondaryColor
+                                          : const Color(0xFF302861))
+                                      : (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextSecondaryColor.withOpacity(0.5)
+                                          : Colors.grey.shade400),
                                 ),
                               ),
                             ),

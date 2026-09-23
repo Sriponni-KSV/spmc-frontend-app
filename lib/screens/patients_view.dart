@@ -17,9 +17,12 @@ import '../widgets/access_denied_widget.dart';
 import '../models/appointment_model.dart';
 import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
+import '../utils/app_localizations.dart';
 import '../models/home_visit_model.dart';
 import '../services/home_visit_service.dart';
 import '../utils/capitalize_formatter.dart';
+import '../utils/tamil_transliteration_helper.dart';
+import '../providers/language_provider.dart';
 
 class PatientsView extends StatefulWidget {
   final List<PatientModel> patients;
@@ -297,9 +300,9 @@ class _PatientsViewState extends State<PatientsView> {
             ElevatedButton.icon(
               onPressed: widget.onRegisterPatient,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text(
-                'New Patient Registration',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              label: Text(
+                context.tr('new_patient_registration', fallback: 'New Patient Registration'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.dangerColor,
@@ -323,7 +326,7 @@ class _PatientsViewState extends State<PatientsView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Patients',
+                context.tr('patient_records', fallback: 'Patients'),
                 style: TextStyle(
                   fontSize: fontSize,
                   fontWeight: FontWeight.bold,
@@ -333,7 +336,7 @@ class _PatientsViewState extends State<PatientsView> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Manage patient records and information',
+                context.tr('manage_patient_records', fallback: 'Manage patient records and information'),
                 style: TextStyle(
                   color: AppTheme.textSecondaryColor,
                   fontSize: subtitleSize,
@@ -348,7 +351,7 @@ class _PatientsViewState extends State<PatientsView> {
           ElevatedButton.icon(
             onPressed: widget.onRegisterPatient,
             icon: const Icon(Icons.add, size: 20),
-            label: const Text('New Patient'),
+            label: Text(context.tr('new_patient', fallback: 'New Patient')),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.dangerColor,
               foregroundColor: Colors.white,
@@ -379,16 +382,18 @@ class _PatientsViewState extends State<PatientsView> {
           Container(
             height: 54,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.getCardColor(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.borderColor),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.03),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              border: Border.all(color: AppTheme.getBorderColor(context)),
+              boxShadow: AppTheme.isDark(context)
+                  ? []
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
@@ -406,13 +411,14 @@ class _PatientsViewState extends State<PatientsView> {
                       _searchQuery = val;
                       _currentPage = 0;
                     }),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
+                      color: AppTheme.getTextPrimaryColor(context),
                     ),
-                    decoration: const InputDecoration(
-                      hintText: 'Search by Patient ID, name, or phone...',
-                      hintStyle: TextStyle(
+                    decoration: InputDecoration(
+                      hintText: context.tr('search_patients_hint', fallback: 'Search by Patient ID, name, or phone...'),
+                      hintStyle: const TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,
                         fontWeight: FontWeight.normal,
@@ -459,9 +465,9 @@ class _PatientsViewState extends State<PatientsView> {
                   child: ElevatedButton.icon(
                     onPressed: () => _showQuickRegisterDialog(context),
                     icon: const Icon(Icons.flash_on, size: 16),
-                    label: const Text(
-                      'Quick Register',
-                      style: TextStyle(
+                    label: Text(
+                      context.tr('register_patient', fallback: 'Quick Register'),
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
                       ),
@@ -490,14 +496,14 @@ class _PatientsViewState extends State<PatientsView> {
                         : Icons.filter_list,
                     size: 16,
                   ),
-                  label: const Text('Filter', style: TextStyle(fontSize: 13)),
+                  label: Text(context.tr('filter', fallback: 'Filter'), style: const TextStyle(fontSize: 13)),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: AppTheme.textPrimaryColor,
+                    backgroundColor: AppTheme.getCardColor(context),
+                    foregroundColor: AppTheme.getTextPrimaryColor(context),
                     minimumSize: const Size(0, 48),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     elevation: 0,
-                    side: const BorderSide(color: AppTheme.borderColor),
+                    side: BorderSide(color: AppTheme.getBorderColor(context)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -520,16 +526,16 @@ class _PatientsViewState extends State<PatientsView> {
                 child: Container(
                   height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppTheme.getCardColor(context),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.borderColor),
+                    border: Border.all(color: AppTheme.getBorderColor(context)),
                   ),
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.search,
-                        color: AppTheme.textSecondaryColor,
+                        color: AppTheme.getTextSecondaryColor(context),
                         size: 18,
                       ),
                       const SizedBox(width: 10),
@@ -540,10 +546,14 @@ class _PatientsViewState extends State<PatientsView> {
                             _searchQuery = val;
                             _currentPage = 0;
                           }),
-                          decoration: const InputDecoration(
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.getTextPrimaryColor(context),
+                          ),
+                          decoration: InputDecoration(
                             hintText:
-                                'Search by Patient ID, name, mobile number...',
-                            hintStyle: TextStyle(
+                                context.tr('search_patients_hint', fallback: 'Search by Patient ID, name, mobile number...'),
+                            hintStyle: const TextStyle(
                               color: AppTheme.textSecondaryColor,
                               fontSize: 13,
                             ),
@@ -586,9 +596,9 @@ class _PatientsViewState extends State<PatientsView> {
                 ElevatedButton.icon(
                   onPressed: () => _showQuickRegisterDialog(context),
                   icon: const Icon(Icons.flash_on, size: 16),
-                  label: const Text(
-                    'Quick Register',
-                    style: TextStyle(fontSize: 12),
+                  label: Text(
+                    context.tr('register_patient', fallback: 'Quick Register'),
+                    style: const TextStyle(fontSize: 12),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0D5D9A),
@@ -604,20 +614,20 @@ class _PatientsViewState extends State<PatientsView> {
               const SizedBox(width: 8),
               ElevatedButton.icon(
                 onPressed: () =>
-                    _toggleFilterVisibility,
+                    _toggleFilterVisibility(),
                 icon: Icon(
                   _isFilterVisible ? Icons.filter_list_off : Icons.filter_list,
                   size: 16,
                 ),
-                label: const Text('Filter', style: TextStyle(fontSize: 12)),
+                label: Text(context.tr('filter', fallback: 'Filter'), style: const TextStyle(fontSize: 12)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppTheme.textPrimaryColor,
+                  backgroundColor: AppTheme.getCardColor(context),
+                  foregroundColor: AppTheme.getTextPrimaryColor(context),
                   minimumSize: const Size(100, 48),
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
-                    side: const BorderSide(color: AppTheme.borderColor),
+                    side: BorderSide(color: AppTheme.getBorderColor(context)),
                   ),
                   elevation: 0,
                 ),
@@ -635,19 +645,19 @@ class _PatientsViewState extends State<PatientsView> {
           child: Container(
             height: 52,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.getCardColor(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.borderColor),
+              border: Border.all(color: AppTheme.getBorderColor(context)),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
                 const Icon(
                   Icons.search,
-                  color: AppTheme.textSecondaryColor,
-                  size: 20,
+                  color: AppTheme.primaryColor,
+                  size: 22,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Expanded(
                   child: TextField(
                     controller: _searchCtrl,
@@ -655,10 +665,14 @@ class _PatientsViewState extends State<PatientsView> {
                       _searchQuery = val;
                       _currentPage = 0;
                     }),
-                    decoration: const InputDecoration(
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppTheme.getTextPrimaryColor(context),
+                    ),
+                    decoration: InputDecoration(
                       hintText:
-                          'Search by Patient ID, name, or mobile number...',
-                      hintStyle: TextStyle(
+                          context.tr('search_patients_hint', fallback: 'Search by Patient ID, name, or mobile number...'),
+                      hintStyle: const TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 14,
                       ),
@@ -700,9 +714,9 @@ class _PatientsViewState extends State<PatientsView> {
           ElevatedButton.icon(
             onPressed: () => _showQuickRegisterDialog(context),
             icon: const Icon(Icons.flash_on, size: 18),
-            label: const Text(
-              'Quick Register',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            label: Text(
+              context.tr('register_patient', fallback: 'Quick Register'),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0D5D9A),
@@ -722,18 +736,18 @@ class _PatientsViewState extends State<PatientsView> {
             _isFilterVisible ? Icons.filter_list_off : Icons.filter_list,
             size: 18,
           ),
-          label: const Text(
-            'Filter',
-            style: TextStyle(fontWeight: FontWeight.bold),
+          label: Text(
+            context.tr('filter', fallback: 'Filter'),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
           ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.white,
-            foregroundColor: AppTheme.textPrimaryColor,
+            backgroundColor: AppTheme.getCardColor(context),
+            foregroundColor: AppTheme.getTextPrimaryColor(context),
             minimumSize: const Size(120, 52),
             padding: const EdgeInsets.symmetric(horizontal: 24),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: AppTheme.borderColor),
+              side: BorderSide(color: AppTheme.getBorderColor(context)),
             ),
             elevation: 0,
           ),
@@ -759,10 +773,16 @@ class _PatientsViewState extends State<PatientsView> {
 
     final recentPatients = widget.patients.take(3).toList();
     List<Widget> cards = [];
+    final bool isTamil = Provider.of<LanguageProvider>(context).isTamil;
 
     for (int i = 0; i < recentPatients.length; i++) {
       final patient = recentPatients[i];
       final String name = patient.name;
+      final String displayName = TamilTransliterationHelper.formatName(
+        name,
+        isTamil: isTamil,
+        showBoth: true,
+      );
       final String age = patient.age.toString();
       final String gender = patient.gender;
 
@@ -784,7 +804,7 @@ class _PatientsViewState extends State<PatientsView> {
             ? SizedBox(
                 width: 240,
                 child: PatientInfoCard(
-                  name: name,
+                  name: displayName,
                   info: '${patient.shortDisplayAge} • $gender',
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
@@ -796,7 +816,7 @@ class _PatientsViewState extends State<PatientsView> {
             ? SizedBox(
                 width: 280,
                 child: PatientInfoCard(
-                  name: name,
+                  name: displayName,
                   info: '${patient.shortDisplayAge} • $gender',
                   initials: initials,
                   tags: patient.isQuickRegister ? ['Quick'] : [],
@@ -805,7 +825,7 @@ class _PatientsViewState extends State<PatientsView> {
                 ),
               )
             : PatientInfoCard(
-                name: name,
+                name: displayName,
                 info: '${patient.shortDisplayAge} • $gender',
                 initials: initials,
                 tags: patient.isQuickRegister ? ['Quick'] : [],
@@ -984,7 +1004,13 @@ class _PatientsViewState extends State<PatientsView> {
   }
 
   Widget _buildPatientCardMobile(PatientModel patient) {
+    final bool isTamil = Provider.of<LanguageProvider>(context).isTamil;
     final String name = patient.name;
+    final String displayName = TamilTransliterationHelper.formatName(
+      name,
+      isTamil: isTamil,
+      showBoth: true,
+    );
     final String ageStr = patient.shortDisplayAge;
     final bool isQuick = patient.isQuickRegister;
 
@@ -1050,7 +1076,7 @@ class _PatientsViewState extends State<PatientsView> {
                           children: [
                             Expanded(
                               child: Text(
-                                name,
+                                displayName,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
@@ -1078,18 +1104,18 @@ class _PatientsViewState extends State<PatientsView> {
                                       ).withValues(alpha: 0.3),
                                     ),
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(
+                                      const Icon(
                                         Icons.edit_note,
                                         size: 13,
                                         color: Color(0xFF7C3AED),
                                       ),
-                                      SizedBox(width: 3),
+                                      const SizedBox(width: 3),
                                       Text(
-                                        'Complete',
-                                        style: TextStyle(
+                                        context.tr('complete', fallback: 'Complete'),
+                                        style: const TextStyle(
                                           color: Color(0xFF7C3AED),
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold,
@@ -1284,12 +1310,30 @@ class _PatientsViewState extends State<PatientsView> {
   }
 
   Widget _buildTableHeaderText(String text) {
+    String translated = text;
+    if (text == 'S.No') {
+      translated = 'S.No';
+    } else if (text == 'Patient') {
+      translated = context.tr('patient_name', fallback: text);
+    } else if (text == 'Age') {
+      translated = context.tr('age_gender', fallback: text).split(' / ').first;
+    } else if (text == 'Gender') {
+      translated = context.tr('all_genders', fallback: text).replaceAll('All ', '');
+    } else if (text == 'Mobile No') {
+      translated = context.tr('mobile_number', fallback: text);
+    } else if (text == 'Email') {
+      translated = context.tr('email_address', fallback: text);
+    } else if (text == 'Status') {
+      translated = context.tr('status', fallback: text);
+    } else if (text == 'Actions') {
+      translated = context.tr('actions', fallback: text);
+    }
     return Text(
-      text,
-      style: const TextStyle(
+      translated,
+      style: TextStyle(
         fontWeight: FontWeight.bold,
         fontSize: 12,
-        color: Color(0xFF4A5568),
+        color: AppTheme.getTextSecondaryColor(context),
         letterSpacing: 0.5,
       ),
     );
@@ -1359,7 +1403,11 @@ class _PatientsViewState extends State<PatientsView> {
                         children: [
                           Flexible(
                             child: Text(
-                              name,
+                              TamilTransliterationHelper.formatName(
+                                name,
+                                isTamil: Provider.of<LanguageProvider>(context).isTamil,
+                                showBoth: true,
+                              ),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -1407,16 +1455,16 @@ class _PatientsViewState extends State<PatientsView> {
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        Icon(
+                                      children: [
+                                        const Icon(
                                           Icons.edit_note,
                                           size: 14,
                                           color: Color(0xFF7C3AED),
                                         ),
-                                        SizedBox(width: 4),
+                                        const SizedBox(width: 4),
                                         Text(
-                                          'Complete',
-                                          style: TextStyle(
+                                          context.tr('complete', fallback: 'Complete'),
+                                          style: const TextStyle(
                                             color: Color(0xFF7C3AED),
                                             fontSize: 10,
                                             fontWeight: FontWeight.bold,
@@ -3470,7 +3518,11 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    p.name,
+                    TamilTransliterationHelper.formatName(
+                      p.name,
+                      isTamil: Provider.of<LanguageProvider>(context).isTamil,
+                      showBoth: true,
+                    ),
                     style: TextStyle(
                       fontSize: isTablet ? 26 : 32,
                       fontWeight: FontWeight.bold,
@@ -3635,7 +3687,11 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    p.name,
+                    TamilTransliterationHelper.formatName(
+                      p.name,
+                      isTamil: Provider.of<LanguageProvider>(context).isTamil,
+                      showBoth: true,
+                    ),
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -4004,8 +4060,8 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
-              tabs: const [
-                Tab(
+              tabs: [
+                const Tab(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -4015,7 +4071,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
                     ],
                   ),
                 ),
-                Tab(
+                const Tab(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -4029,9 +4085,9 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.home_work_outlined, size: 16),
-                      SizedBox(width: 8),
-                      Text('Home Visit Timeline'),
+                      const Icon(Icons.home_work_outlined, size: 16),
+                      const SizedBox(width: 8),
+                      Text(context.tr('home_visit_timeline', fallback: 'Home Visit Timeline')),
                     ],
                   ),
                 ),
@@ -4609,18 +4665,18 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'No Home Visit Records Found',
-                style: TextStyle(
+              Text(
+                context.tr('no_home_visit_records', fallback: 'No Home Visit Records Found'),
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textPrimaryColor,
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                'There are no home visits recorded for this patient.',
-                style: TextStyle(
+              Text(
+                context.tr('no_home_visit_desc', fallback: 'There are no home visits recorded for this patient.'),
+                style: const TextStyle(
                   fontSize: 13,
                   color: AppTheme.textSecondaryColor,
                 ),

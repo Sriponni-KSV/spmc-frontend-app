@@ -15,6 +15,9 @@ import '../services/api_service.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../utils/modal_history_helper.dart';
 import '../utils/app_notification.dart';
+import '../utils/app_localizations.dart';
+import '../utils/tamil_transliteration_helper.dart';
+import '../providers/language_provider.dart';
 
 class HomeVisitListView extends StatefulWidget {
   final Function(int visitId)? onExecuteVisit;
@@ -225,28 +228,28 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             child: Row(
               children: [
                 buildCompactItem(
-                  'Total',
+                  context.tr('total', fallback: 'Total'),
                   totalCount,
                   Icons.home_work_outlined,
                   AppTheme.primaryColor,
                 ),
                 Container(height: 22, width: 1, color: const Color(0xFFE2E8F0)),
                 buildCompactItem(
-                  'Scheduled',
+                  context.tr('scheduled', fallback: 'Scheduled'),
                   scheduledCount,
                   Icons.calendar_today_outlined,
                   Colors.orange.shade700,
                 ),
                 Container(height: 22, width: 1, color: const Color(0xFFE2E8F0)),
                 buildCompactItem(
-                  'Active',
+                  context.tr('active', fallback: 'Active'),
                   inProgressCount,
                   Icons.hourglass_top_outlined,
                   const Color(0xFF0284C7),
                 ),
                 Container(height: 22, width: 1, color: const Color(0xFFE2E8F0)),
                 buildCompactItem(
-                  'Completed',
+                  context.tr('completed_status', fallback: 'Completed'),
                   completedCount,
                   Icons.check_circle_outline,
                   AppTheme.secondaryColor,
@@ -258,28 +261,28 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
         return Row(
           children: [
             buildStatCard(
-              'Total Visits',
+              context.tr('total_visits', fallback: 'Total Visits'),
               totalCount,
               Icons.home_work_outlined,
               AppTheme.primaryColor,
             ),
             const SizedBox(width: 12),
             buildStatCard(
-              'Scheduled',
+              context.tr('scheduled', fallback: 'Scheduled'),
               scheduledCount,
               Icons.calendar_today_outlined,
               Colors.orange,
             ),
             const SizedBox(width: 12),
             buildStatCard(
-              'In-Progress',
+              context.tr('in_progress', fallback: 'In-Progress'),
               inProgressCount,
               Icons.hourglass_top_outlined,
               AppTheme.primaryColor,
             ),
             const SizedBox(width: 12),
             buildStatCard(
-              'Completed',
+              context.tr('completed_status', fallback: 'Completed'),
               completedCount,
               Icons.check_circle_outline,
               AppTheme.secondaryColor,
@@ -297,8 +300,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
         final authUser = Provider.of<AuthProvider>(context, listen: false).user;
         final isNurse = authUser != null && authUser.role == 'Nurse';
         final hintText = isNurse
-            ? 'Search patient, patient ID, visit #...'
-            : 'Search patient, patient ID, nurse, visit #...';
+            ? context.tr('search_patient_hint', fallback: 'Search patient, patient ID, visit #...')
+            : context.tr('search_patient_admin_hint', fallback: 'Search patient, patient ID, nurse, visit #...');
         final searchField = SizedBox(
           width: isMobile ? double.infinity : 340,
           height: 42,
@@ -362,7 +365,10 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             children: [
               ChoiceChip(
                 showCheckmark: false,
-                label: const Text('All Dates', style: TextStyle(fontSize: 12)),
+                label: Text(
+                  context.tr('all_dates', fallback: 'All Dates'),
+                  style: const TextStyle(fontSize: 12),
+                ),
                 selected: _dateFilterType == 'All Dates',
                 selectedColor: AppTheme.primaryColor,
                 backgroundColor: Colors.white,
@@ -392,7 +398,10 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               const SizedBox(width: 6),
               ChoiceChip(
                 showCheckmark: false,
-                label: const Text('Today', style: TextStyle(fontSize: 12)),
+                label: Text(
+                  context.tr('today', fallback: 'Today'),
+                  style: const TextStyle(fontSize: 12),
+                ),
                 selected: _dateFilterType == 'Today',
                 selectedColor: AppTheme.primaryColor,
                 backgroundColor: Colors.white,
@@ -422,7 +431,10 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               const SizedBox(width: 6),
               ChoiceChip(
                 showCheckmark: false,
-                label: const Text('Tomorrow', style: TextStyle(fontSize: 12)),
+                label: Text(
+                  context.tr('tomorrow', fallback: 'Tomorrow'),
+                  style: const TextStyle(fontSize: 12),
+                ),
                 selected: _dateFilterType == 'Tomorrow',
                 selectedColor: AppTheme.primaryColor,
                 backgroundColor: Colors.white,
@@ -461,7 +473,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 label: Text(
                   _selectedCustomDate != null
                       ? DateFormat('dd-MM-yyyy').format(_selectedCustomDate!)
-                      : 'Pick Date',
+                      : context.tr('pick_date', fallback: 'Pick Date'),
                   style: TextStyle(
                     fontSize: 12,
                     color: _dateFilterType == 'Custom'
@@ -1070,12 +1082,25 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         if (status == 'Cancelled')
                           activeColor = AppTheme.dangerColor;
 
+                        String displayStatus = status;
+                        if (status == 'All') {
+                          displayStatus = context.tr('all', fallback: 'All');
+                        } else if (status == 'Scheduled') {
+                          displayStatus = context.tr('scheduled', fallback: 'Scheduled');
+                        } else if (status == 'In-Progress') {
+                          displayStatus = context.tr('in_progress', fallback: 'In-Progress');
+                        } else if (status == 'Completed') {
+                          displayStatus = context.tr('completed_status', fallback: 'Completed');
+                        } else if (status == 'Cancelled') {
+                          displayStatus = context.tr('cancelled', fallback: 'Cancelled');
+                        }
+
                         return Padding(
                           padding: const EdgeInsets.only(right: 6.0),
                           child: ChoiceChip(
                             showCheckmark: false,
                             label: Text(
-                              status,
+                              displayStatus,
                               style: TextStyle(
                                 color: isSelected ? Colors.white : activeColor,
                                 fontWeight: FontWeight.bold,
@@ -1174,20 +1199,20 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                 color: const Color(0xFFE2E8F0),
                               ),
                             ),
-                            child: const Column(
+                            child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.home_work_outlined,
                                   size: 40,
                                   color: Colors.grey,
                                 ),
-                                SizedBox(height: 10),
+                                const SizedBox(height: 10),
                                 Text(
-                                  'No home visits found matching search or filter.',
+                                  context.tr('no_home_visits_found', fallback: 'No home visits found matching search or filter.'),
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.grey,
@@ -1265,8 +1290,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   visit.status.toLowerCase() == 'in-progress' ||
                   effectiveStatus.toLowerCase() == 'in-progress';
               final String btnText = isInProgress
-                  ? 'Resume Visit'
-                  : 'Execute Visit';
+                  ? context.tr('resume_visit', fallback: 'Resume Visit')
+                  : context.tr('execute_visit', fallback: 'Execute Visit');
               final IconData btnIcon = isInProgress
                   ? Icons.play_arrow_outlined
                   : (canExecute
@@ -1357,7 +1382,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                       color: AppTheme.dangerColor,
                       size: 22,
                     ),
-                    tooltip: 'Stop / Discontinue Care',
+                    tooltip: context.tr('stop_discontinue_care', fallback: 'Stop / Discontinue Care'),
                     onPressed: () => _showDiscontinueDialog(context, visit),
                   ),
                 ),
@@ -1377,9 +1402,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     ),
                   ),
                   icon: const Icon(Icons.visibility_outlined, size: 16),
-                  label: const Text(
-                    'View Summary',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  label: Text(
+                    context.tr('view_summary', fallback: 'View Summary'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   onPressed: () {
                     if (widget.onViewSummary != null) {
@@ -1437,41 +1462,63 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Wrap(
-                        spacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            '${visit.patientName ?? "Patient"} ($pIdStr)',
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimaryColor,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: badgeBg,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              effectiveStatus,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: badgeText,
+                      Builder(
+                        builder: (context) {
+                          final isTamil = Provider.of<LanguageProvider>(context).isTamil;
+                          final patientNameStr = visit.patientName ?? (isTamil ? 'நோயாளி' : 'Patient');
+                          final formattedPatientName = TamilTransliterationHelper.formatName(
+                            patientNameStr,
+                            isTamil: isTamil,
+                            showBoth: true,
+                          );
+                          String displayEffectiveStatus = effectiveStatus;
+                          if (effectiveStatus == 'Scheduled') {
+                            displayEffectiveStatus = context.tr('scheduled', fallback: 'Scheduled');
+                          } else if (effectiveStatus == 'In-Progress') {
+                            displayEffectiveStatus = context.tr('in_progress', fallback: 'In-Progress');
+                          } else if (effectiveStatus == 'Completed') {
+                            displayEffectiveStatus = context.tr('completed_status', fallback: 'Completed');
+                          } else if (effectiveStatus == 'Cancelled') {
+                            displayEffectiveStatus = context.tr('cancelled', fallback: 'Cancelled');
+                          }
+
+                          return Wrap(
+                            spacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(
+                                '$formattedPatientName ($pIdStr)',
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
                               ),
-                            ),
-                          ),
-                        ],
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: badgeBg,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  displayEffectiveStatus,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: badgeText,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Visit #: ${visit.visitNumber} • Date: $displayDate (${(visit.scheduledTime == null || visit.scheduledTime == "10:00 AM") ? "9:00 AM" : visit.scheduledTime})',
+                        '${context.tr('visit_num_label', fallback: 'Visit #:')} ${visit.visitNumber} • ${context.tr('date_label', fallback: 'Date:')} $displayDate (${(visit.scheduledTime == null || visit.scheduledTime == "10:00 AM") ? "9:00 AM" : visit.scheduledTime})',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.grey,
@@ -1562,7 +1609,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                           color: AppTheme.dangerColor,
                           size: 20,
                         ),
-                        tooltip: 'Stop / Discontinue Care',
+                        tooltip: context.tr('stop_discontinue_care', fallback: 'Stop / Discontinue Care'),
                         onPressed: () => _showDiscontinueDialog(context, visit),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(
@@ -1583,9 +1630,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                           ),
                         ),
                         icon: const Icon(Icons.visibility_outlined, size: 14),
-                        label: const Text(
-                          'View Summary',
-                          style: TextStyle(
+                        label: Text(
+                          context.tr('view_summary', fallback: 'View Summary'),
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
                           ),
@@ -1655,8 +1702,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                 (visit.status.toLowerCase() == 'in-progress' ||
                                         effectiveStatus.toLowerCase() ==
                                             'in-progress')
-                                    ? 'Resume Visit'
-                                    : 'Execute Visit',
+                                    ? context.tr('resume_visit', fallback: 'Resume Visit')
+                                    : context.tr('execute_visit', fallback: 'Execute Visit'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,

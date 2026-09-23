@@ -5,6 +5,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
 import 'package:intl/intl.dart';
 import '../widgets/custom_dropdown_search.dart';
+import '../utils/app_localizations.dart';
 
 class PharmacyManagementView extends StatefulWidget {
   final bool isMobile;
@@ -336,15 +337,15 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Text('Pharmacy Management', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                Text(context.tr('pharmacy_management', fallback: 'Pharmacy Management'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text('Dispensing · Stock Monitoring · Controlled Drug Audit',
+                Text(context.tr('manage_pharmacy_subtitle', fallback: 'Dispensing · Stock Monitoring · Controlled Drug Audit'),
                     style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13)),
               ]),
               IconButton(
                 icon: const Icon(Icons.refresh_rounded, color: AppTheme.primaryColor),
                 onPressed: _loadAll,
-                tooltip: 'Refresh',
+                tooltip: context.tr('refresh', fallback: 'Refresh'),
               ),
             ],
           ),
@@ -392,7 +393,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
               Tab(
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 12 : 4),
-                  child: const Text('Dashboard'),
+                  child: Text(context.tr('dashboard', fallback: 'Dashboard')),
                 ),
               ),
               Tab(
@@ -401,7 +402,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                   child: Text(
                     widget.isMobile
                         ? 'Rx (${_prescriptions.where((p) => p["pharmacy_status"] == "Pending").length})'
-                        : 'Prescriptions (${_prescriptions.where((p) => p["pharmacy_status"] == "Pending").length})',
+                        : '${context.tr('prescriptions', fallback: 'Prescriptions')} (${_prescriptions.where((p) => p["pharmacy_status"] == "Pending").length})',
                   ),
                 ),
               ),
@@ -858,9 +859,21 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
       children: [
         TextField(
           controller: _searchController,
+          style: TextStyle(
+            color: AppTheme.getTextPrimaryColor(context),
+            fontSize: 14,
+          ),
           decoration: InputDecoration(
             hintText: 'Search patient name or ID…',
-            prefixIcon: const Icon(Icons.search, size: 18),
+            hintStyle: TextStyle(
+              fontSize: 13,
+              color: AppTheme.getTextSecondaryColor(context),
+            ),
+            prefixIcon: Icon(
+              Icons.search,
+              size: 18,
+              color: AppTheme.getTextSecondaryColor(context),
+            ),
             suffixIcon: _searchQuery.isNotEmpty
                 ? MouseRegion(
                     cursor: SystemMouseCursors.click,
@@ -869,19 +882,19 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                         _searchController.clear();
                         setState(() => _searchQuery = '');
                       },
-                      child: const Icon(
+                      child: Icon(
                         Icons.close,
                         size: 16,
-                        color: AppTheme.textSecondaryColor,
+                        color: AppTheme.getTextSecondaryColor(context),
                       ),
                     ),
                   )
                 : null,
-            fillColor: Colors.white,
+            fillColor: AppTheme.getCardColor(context),
             filled: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.borderColor)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.borderColor)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppTheme.getBorderColor(context))),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: AppTheme.getBorderColor(context))),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5)),
           ),
           onChanged: (v) => setState(() => _searchQuery = v),
@@ -1606,14 +1619,18 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
             Expanded(
               child: TextField(
                 controller: _ctrlSearchController,
+                style: TextStyle(
+                  color: AppTheme.getTextPrimaryColor(context),
+                  fontSize: 14,
+                ),
                 onChanged: (v) => setState(() {
                   _ctrlSearchQuery = v;
                   _ctrlPage = 0;
                 }),
                 decoration: InputDecoration(
                   hintText: 'Search controlled drugs...',
-                  hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                  prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                  hintStyle: TextStyle(fontSize: 13, color: AppTheme.getTextSecondaryColor(context)),
+                  prefixIcon: Icon(Icons.search, size: 18, color: AppTheme.getTextSecondaryColor(context)),
                   suffixIcon: _ctrlSearchQuery.isNotEmpty
                       ? MouseRegion(
                           cursor: SystemMouseCursors.click,
@@ -1625,24 +1642,24 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                                 _ctrlPage = 0;
                               });
                             },
-                            child: const Icon(
+                            child: Icon(
                               Icons.close,
                               size: 16,
-                              color: AppTheme.textSecondaryColor,
+                              color: AppTheme.getTextSecondaryColor(context),
                             ),
                           ),
                         )
                       : null,
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: AppTheme.getCardColor(context),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.borderColor),
+                    borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.borderColor),
+                    borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),

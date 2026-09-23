@@ -53,6 +53,12 @@ class _StatCardState extends State<StatCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final cardBg = isDark ? AppTheme.darkCardColor : Colors.white;
+    final cardBorder = isDark ? AppTheme.darkBorderColor : const Color(0xFFE8EDF2);
+    final textColor = isDark ? AppTheme.darkTextPrimaryColor : const Color(0xFF1A202C);
+    final subTextColor = isDark ? AppTheme.darkTextSecondaryColor : const Color(0xFF718096);
+
     Widget card = MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
@@ -60,13 +66,13 @@ class _StatCardState extends State<StatCard> {
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
               color: _isHovered
                   ? widget.color.withOpacity(0.12)
-                  : Colors.black.withOpacity(0.04),
+                  : (isDark ? Colors.black.withOpacity(0.2) : Colors.black.withOpacity(0.04)),
               blurRadius: _isHovered ? 16 : 6,
               offset: const Offset(0, 2),
             ),
@@ -74,7 +80,7 @@ class _StatCardState extends State<StatCard> {
           border: Border.all(
             color: _isHovered
                 ? widget.color.withOpacity(0.35)
-                : const Color(0xFFE8EDF2),
+                : cardBorder,
           ),
         ),
         child: Column(
@@ -94,7 +100,7 @@ class _StatCardState extends State<StatCard> {
               style: TextStyle(
                 fontSize: widget.isMobile ? 22 : 26,
                 fontWeight: FontWeight.w800,
-                color: const Color(0xFF1A202C),
+                color: textColor,
                 letterSpacing: -0.5,
               ),
               maxLines: 1,
@@ -104,7 +110,7 @@ class _StatCardState extends State<StatCard> {
             Text(
               widget.title,
               style: TextStyle(
-                color: const Color(0xFF718096),
+                color: subTextColor,
                 fontSize: widget.isMobile ? 11 : 12,
                 fontWeight: FontWeight.w500,
               ),
@@ -152,14 +158,15 @@ class _LiveClockState extends State<LiveClock> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = widget.isDark || AppTheme.isDark(context);
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: widget.isDark ? const Color(0xFF0F5132).withOpacity(0.4) : AppTheme.backgroundColor,
+        color: isDarkMode ? AppTheme.darkCardColor : AppTheme.backgroundColor,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: widget.isDark ? Colors.white.withOpacity(0.15) : AppTheme.borderColor.withOpacity(0.3),
+          color: isDarkMode ? AppTheme.darkBorderColor : AppTheme.borderColor.withOpacity(0.3),
         ),
       ),
       child: Row(
@@ -168,7 +175,7 @@ class _LiveClockState extends State<LiveClock> {
           Icon(
             Icons.access_time,
             size: 16,
-            color: widget.isDark ? Colors.white70 : AppTheme.primaryColor,
+            color: isDarkMode ? AppTheme.secondaryColor : AppTheme.primaryColor,
           ),
           const SizedBox(width: 10),
           Column(
@@ -180,7 +187,7 @@ class _LiveClockState extends State<LiveClock> {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: widget.isDark ? Colors.white : AppTheme.textPrimaryColor,
+                  color: isDarkMode ? AppTheme.darkTextPrimaryColor : AppTheme.textPrimaryColor,
                 ),
               ),
               Text(
@@ -188,7 +195,7 @@ class _LiveClockState extends State<LiveClock> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: widget.isDark ? Colors.white70 : AppTheme.primaryColor,
+                  color: isDarkMode ? AppTheme.secondaryColor : AppTheme.primaryColor,
                   letterSpacing: 0.5,
                 ),
               ),
