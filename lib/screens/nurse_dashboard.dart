@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -19,7 +18,6 @@ import 'ipd_management.dart';
 import 'ot_management.dart';
 import 'home_visit_list_view.dart';
 import 'home_visit_execution_screen.dart';
-import '../controllers/home_visit_controller.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
@@ -28,7 +26,6 @@ import '../models/user_model.dart';
 import '../controllers/nurse_shift_controller.dart';
 import '../widgets/user_profile_dialog.dart';
 import '../utils/modal_history_helper.dart';
-import '../utils/unsaved_changes_helper.dart';
 import '../config/nurse_nav_config.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
@@ -595,16 +592,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return SearchOverlay(
           patients: _dbPatients.map((p) => p.toJson()).toList(),
           onNewPatient: () => _changePage(1, isRegistering: true),
-          onBookAppointment: (patientMap) {
-            if (patientMap != null) {
-              setState(
-                () => _selectedPatientForBooking = PatientModel.fromJson(
-                  patientMap,
-                ),
-              );
-            }
-            _changePage(2, forceBooking: true);
-          },
+          onBookAppointment: NurseNavConfig.showAppointments
+              ? (patientMap) {
+                  if (patientMap != null) {
+                    setState(
+                      () => _selectedPatientForBooking = PatientModel.fromJson(
+                        patientMap,
+                      ),
+                    );
+                  }
+                  _changePage(2, forceBooking: true);
+                }
+              : null,
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -684,11 +683,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                     color: AppTheme.dangerColor,
                     onTap: () => _changePage(1, isRegistering: true),
                   ),
-                if (Provider.of<AuthProvider>(
-                      context,
-                      listen: false,
-                    ).user?.hasPermission('book_appointment') ??
-                    false)
+                if (NurseNavConfig.showAppointments &&
+                    (Provider.of<AuthProvider>(
+                          context,
+                          listen: false,
+                        ).user?.hasPermission('book_appointment') ??
+                        false))
                   SpeedDialChild(
                     label: context.tr('book_appointment', fallback: 'Book Appointment'),
                     icon: Icons.calendar_month_outlined,
@@ -750,8 +750,21 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               context.go(AppRoutes.nurseEditPatient, extra: patient);
             },
             onBookAppointment: (patient) {
-              setState(() => _selectedPatientForBooking = patient);
-              _changePage(2, forceBooking: true);
+              if (NurseNavConfig.showAppointments) {
+                setState(() => _selectedPatientForBooking = patient);
+                _changePage(2, forceBooking: true);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      context.tr(
+                        'appointment_booking_disabled',
+                        fallback: 'Appointment section is currently disabled.',
+                      ),
+                    ),
+                  ),
+                );
+              }
             },
             onRefresh: _fetchPatients,
           );
@@ -769,10 +782,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return const AccessDeniedWidget();
       case 3:
         return DoctorsView(
-          onBookAppointment: (doctor) {
-            setState(() => _selectedDoctorForBooking = doctor);
-            _changePage(2, forceBooking: true);
-          },
+          onBookAppointment: NurseNavConfig.showAppointments
+              ? (doctor) {
+                  setState(() => _selectedDoctorForBooking = doctor);
+                  _changePage(2, forceBooking: true);
+                }
+              : null,
         );
       case 4:
         return NurseProfileView(isEditing: widget.isEditingProfile);
@@ -871,17 +886,27 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   _buildAlertsSection(),
                   const SizedBox(height: 20),
                   _buildRecentPatients(),
-                  const SizedBox(height: 20),
-                  _buildUpcomingAppointments(),
+                  if (NurseNavConfig.showAppointments) ...[
+                    const SizedBox(height: 20),
+                    _buildUpcomingAppointments(),
+                  ],
                 ] else
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(flex: 5, child: _buildAlertsSection()),
+                      Expanded(
+                        flex: NurseNavConfig.showAppointments ? 5 : 1,
+                        child: _buildAlertsSection(),
+                      ),
                       const SizedBox(width: 20),
-                      Expanded(flex: 5, child: _buildRecentPatients()),
-                      const SizedBox(width: 20),
-                      Expanded(flex: 4, child: _buildUpcomingAppointments()),
+                      Expanded(
+                        flex: NurseNavConfig.showAppointments ? 5 : 1,
+                        child: _buildRecentPatients(),
+                      ),
+                      if (NurseNavConfig.showAppointments) ...[
+                        const SizedBox(width: 20),
+                        Expanded(flex: 4, child: _buildUpcomingAppointments()),
+                      ],
                     ],
                   ),
                 const SizedBox(height: 20),
@@ -1223,6 +1248,45 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         )
         .length;
 
+    final List<Widget> statItems = [
+      _buildStatItem(
+        'Total Patients',
+        totalPatients.toString(),
+        Icons.people_outline,
+        const Color(0xFF0C5D9A),
+      ),
+      if (NurseNavConfig.showAppointments)
+        _buildStatItem(
+          'Today\'s Appointments',
+          todaysApptsCount.toString(),
+          Icons.calendar_today_outlined,
+          AppTheme.secondaryColor,
+        ),
+      if (NurseNavConfig.showIpdManagement)
+        _buildStatItem(
+          'Active Admissions',
+          _activeAdmissionsCount,
+          Icons.bedroom_child_outlined,
+          const Color(0xFFDD3B3B),
+        ),
+      if (NurseNavConfig.showOpdAssistance)
+        _buildStatItem(
+          'Patient Visits',
+          _patientVisitsCount,
+          Icons.monitor_heart_outlined,
+          const Color(0xFF7C5CBF),
+        ),
+      if (!NurseNavConfig.showAppointments &&
+          !NurseNavConfig.showIpdManagement &&
+          !NurseNavConfig.showOpdAssistance)
+        _buildStatItem(
+          'Pending Handovers',
+          _handovers.length.toString(),
+          Icons.assignment_turned_in_outlined,
+          AppTheme.secondaryColor,
+        ),
+    ];
+
     if (isMobile) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -1243,34 +1307,17 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         child: Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: [
-            _buildStatItem(
-              'Total Patients',
-              totalPatients.toString(),
-              Icons.people_outline,
-              const Color(0xFF0C5D9A),
-            ),
-            _buildStatItem(
-              'Today\'s Appointments',
-              todaysApptsCount.toString(),
-              Icons.calendar_today_outlined,
-              AppTheme.secondaryColor,
-            ),
-            _buildStatItem(
-              'Active Admissions',
-              _activeAdmissionsCount,
-              Icons.bedroom_child_outlined,
-              const Color(0xFFDD3B3B),
-            ),
-            _buildStatItem(
-              'Patient Visits',
-              _patientVisitsCount,
-              Icons.monitor_heart_outlined,
-              const Color(0xFF7C5CBF),
-            ),
-          ],
+          children: statItems,
         ),
       );
+    }
+
+    final List<Widget> rowChildren = [];
+    for (int i = 0; i < statItems.length; i++) {
+      if (i > 0) {
+        rowChildren.add(_buildVerticalDivider());
+      }
+      rowChildren.add(Expanded(child: statItems[i]));
     }
 
     return Container(
@@ -1290,43 +1337,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       ),
       child: IntrinsicHeight(
         child: Row(
-          children: [
-            Expanded(
-              child: _buildStatItem(
-                'Total Patients',
-                totalPatients.toString(),
-                Icons.people_outline,
-                const Color(0xFF0C5D9A),
-              ),
-            ),
-            _buildVerticalDivider(),
-            Expanded(
-              child: _buildStatItem(
-                'Today\'s Appointments',
-                todaysApptsCount.toString(),
-                Icons.calendar_today_outlined,
-                AppTheme.secondaryColor,
-              ),
-            ),
-            _buildVerticalDivider(),
-            Expanded(
-              child: _buildStatItem(
-                'Active Admissions',
-                _activeAdmissionsCount,
-                Icons.bedroom_child_outlined,
-                const Color(0xFFDD3B3B),
-              ),
-            ),
-            _buildVerticalDivider(),
-            Expanded(
-              child: _buildStatItem(
-                'Patient Visits',
-                _patientVisitsCount,
-                Icons.monitor_heart_outlined,
-                const Color(0xFF7C5CBF),
-              ),
-            ),
-          ],
+          children: rowChildren,
         ),
       ),
     );
@@ -1355,6 +1366,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       translatedTitle = context.tr('active_admissions', fallback: title);
     } else if (title == 'Patient Visits') {
       translatedTitle = context.tr('patient_visits', fallback: title);
+    } else if (title == 'Pending Handovers') {
+      translatedTitle = context.tr('pending_handovers', fallback: title);
     }
 
     return Padding(

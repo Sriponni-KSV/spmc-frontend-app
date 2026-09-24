@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -862,19 +861,10 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         children: [
                           Row(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.home_work_outlined,
-                                  color: AppTheme.primaryColor,
-                                  size: 24,
-                                ),
+                              const Icon(
+                                Icons.home_work_outlined,
+                                color: AppTheme.primaryColor,
+                                size: 24,
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -956,19 +946,10 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         Flexible(
                           child: Row(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(
-                                  Icons.home_work_outlined,
-                                  color: AppTheme.primaryColor,
-                                  size: 28,
-                                ),
+                              const Icon(
+                                Icons.home_work_outlined,
+                                color: AppTheme.primaryColor,
+                                size: 28,
                               ),
                               const SizedBox(width: 14),
                               Flexible(
@@ -2044,11 +2025,6 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       listen: false,
     );
 
-    final scheduledPatientIds = homeVisitCtrl.visits
-        .where((v) => v.status != 'Cancelled')
-        .map((v) => v.patientId)
-        .toSet();
-
     final availablePatients = _patientsList
         .where((p) => p.id != null)
         .toList();
@@ -2060,293 +2036,371 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
         "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}";
     final dateCtrl = TextEditingController(text: formattedNow);
     final timeCtrl = TextEditingController(text: '09:00 AM');
-    final List<Map<String, String>> shiftOptions = [
-      {
-        'label': context.tr(
-          'shift_morning',
-          fallback: 'Morning Shift (09:00 AM - 06:00 PM)',
-        ),
-        'time': '09:00 AM',
-      },
-      {
-        'label': context.tr(
-          'shift_night',
-          fallback: 'Night Shift (06:00 PM - 09:00 AM)',
-        ),
-        'time': '06:00 PM',
-      },
-      {
-        'label': context.tr('shift_custom', fallback: 'Custom Time'),
-        'time': 'Custom',
-      },
-    ];
-    String selectedShift = shiftOptions.first['label']!;
+    String selectedShiftKey = 'morning';
 
     showDialog(
       context: context,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Row(
-            children: [
-              Icon(Icons.home_work, color: AppTheme.primaryColor),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Schedule New Home Visit',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      builder: (dialogCtx) => Consumer<LanguageProvider>(
+        builder: (context, langProvider, child) => StatefulBuilder(
+          builder: (context, setDialogState) {
+            final bool isTamil = langProvider.isTamil;
+            final Map<String, String> shiftLabels = {
+              'morning': context.tr(
+                'shift_morning',
+                fallback: 'Morning Shift (09:00 AM - 06:00 PM)',
+              ),
+              'night': context.tr(
+                'shift_night',
+                fallback: 'Night Shift (06:00 PM - 09:00 AM)',
+              ),
+              'custom': context.tr('shift_custom', fallback: 'Custom Time'),
+            };
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  const Icon(Icons.home_work, color: AppTheme.primaryColor),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      context.tr('schedule_new_home_visit', fallback: 'Schedule New Home Visit'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () {
+                      langProvider.toggleLanguage();
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.translate,
+                            size: 15,
+                            color: AppTheme.primaryColor,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            isTamil ? 'தமிழ்' : 'English',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                    onPressed: () => Navigator.of(dialogCtx).pop(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    splashRadius: 18,
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 440,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.tr('select_patient_name_id', fallback: 'Select Patient (Name & ID):'),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 6),
+                    if (_isLoadingPatients)
+                      Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Row(
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              context.tr('loading_patients_list', fallback: 'Loading patients list...'),
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (availablePatients.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          context.tr('no_patients_available', fallback: 'No patients available to schedule.'),
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      )
+                    else
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: context.tr('select_patient_name_id_hint', fallback: 'Select Patient (Name & ID)'),
+                        dropdownMap: {
+                          for (var p in availablePatients)
+                            p.id.toString():
+                                '${TamilTransliterationHelper.formatName(p.name, isTamil: isTamil, showBoth: true)} (${(p.patientId != null && p.patientId!.isNotEmpty) ? p.patientId! : "ID: ${p.id}"})',
+                        },
+                        value: selectedPatient?.id.toString(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            final pId = int.tryParse(val);
+                            final found = availablePatients.firstWhere(
+                              (p) => p.id == pId,
+                              orElse: () => availablePatients.first,
+                            );
+                            setDialogState(() {
+                              selectedPatient = found;
+                              addressCtrl.text = found.fullAddress.isNotEmpty
+                                  ? found.fullAddress
+                                  : found.address;
+                            });
+                          } else {
+                            setDialogState(() {
+                              selectedPatient = null;
+                              addressCtrl.text = '';
+                            });
+                          }
+                        },
+                      ),
+                    const SizedBox(height: 6),
+                    // Single small gray line for Visit Address directly below patient field
+                    Padding(
+                      padding: const EdgeInsets.only(left: 2.0),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on_outlined,
+                            color: Colors.grey,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              selectedPatient != null
+                                  ? '${context.tr('visit_address_label', fallback: 'Visit Address:')} ${addressCtrl.text.isNotEmpty ? addressCtrl.text : context.tr('no_address_recorded', fallback: "No address recorded")}'
+                                  : '${context.tr('visit_address_label', fallback: 'Visit Address:')} ${context.tr('select_patient_to_view_address', fallback: 'Select a patient to view address')}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      context.tr('scheduled_date', fallback: 'Scheduled Date:'),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: dateCtrl,
+                      readOnly: true,
+                      decoration: AppTheme.standardInputDecoration(
+                        suffixIcon: const Icon(
+                          Icons.calendar_today,
+                          size: 18,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      onTap: () async {
+                        final DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          setDialogState(() {
+                            dateCtrl.text =
+                                "${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}";
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      context.tr('shift_scheduled_time', fallback: 'Shift & Scheduled Time:'),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 6),
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: context.tr('select_shift_time_hint', fallback: 'Select Shift / Time'),
+                      dropdownMap: shiftLabels,
+                      value: selectedShiftKey,
+                      onChanged: (val) async {
+                        if (val == null) return;
+                        setDialogState(() => selectedShiftKey = val);
+                        if (val == 'custom') {
+                          final TimeOfDay? customPicked = await showTimePicker(
+                            context: context,
+                            initialTime: const TimeOfDay(hour: 9, minute: 0),
+                            helpText: context.tr('select_custom_scheduled_time', fallback: 'Select Custom Scheduled Time'),
+                          );
+                          if (customPicked != null) {
+                            final dt = DateTime(2026, 1, 1, customPicked.hour, customPicked.minute);
+                            setDialogState(() {
+                              timeCtrl.text = DateFormat('hh:mm a').format(dt);
+                            });
+                          }
+                        } else if (val == 'morning') {
+                          setDialogState(() {
+                            timeCtrl.text = '09:00 AM';
+                          });
+                        } else if (val == 'night') {
+                          setDialogState(() {
+                            timeCtrl.text = '06:00 PM';
+                          });
+                        }
+                      },
+                      height: 48,
+                      borderColor: const Color(0xFFE2E8F0),
+                      focusedBorderColor: AppTheme.primaryColor,
+                      fillColor: AppTheme.backgroundColor,
+                      popupBgColor: Colors.white,
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-          content: SizedBox(
-            width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Select Patient (Name & ID):',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                if (_isLoadingPatients)
-                  const Padding(
-                    padding: EdgeInsets.all(12.0),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        SizedBox(width: 10),
-                        Text(
-                          'Loading patients list...',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  )
-                else if (availablePatients.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'No patients available to schedule.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  )
-                else
-                  CustomDropdownSearch(
-                    label: '',
-                    hint: 'Select Patient (Name & ID)',
-                    dropdownMap: {
-                      for (var p in availablePatients)
-                        p.id.toString():
-                            '${p.name} (${(p.patientId != null && p.patientId!.isNotEmpty) ? p.patientId! : "ID: ${p.id}"})',
-                    },
-                    value: selectedPatient?.id.toString(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        final pId = int.tryParse(val);
-                        final found = availablePatients.firstWhere(
-                          (p) => p.id == pId,
-                          orElse: () => availablePatients.first,
-                        );
-                        setDialogState(() {
-                          selectedPatient = found;
-                          addressCtrl.text = found.fullAddress.isNotEmpty
-                              ? found.fullAddress
-                              : found.address;
-                        });
-                      }
-                    },
-                  ),
-                const SizedBox(height: 6),
-                // Single small gray line for Visit Address directly below patient field
-                Padding(
-                  padding: const EdgeInsets.only(left: 2.0),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.location_on_outlined,
-                        color: Colors.grey,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          selectedPatient != null
-                              ? 'Visit Address: ${addressCtrl.text.isNotEmpty ? addressCtrl.text : "No address recorded"}'
-                              : 'Visit Address: Select a patient to view address',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogCtx).pop(),
+                  child: Text(
+                    context.tr('cancel', fallback: 'Cancel'),
+                    style: const TextStyle(color: Colors.grey),
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Scheduled Date:',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: dateCtrl,
-                  readOnly: true,
-                  decoration: AppTheme.standardInputDecoration(
-                    suffixIcon: const Icon(
-                      Icons.calendar_today,
-                      size: 18,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                  onTap: () async {
-                    final DateTime? picked = await showDatePicker(
-                      context: context,
-                      initialDate: DateTime.now(),
-                      firstDate: DateTime.now(),
-                      lastDate: DateTime(2030),
-                    );
-                    if (picked != null) {
-                      setDialogState(() {
-                        dateCtrl.text =
-                            "${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}";
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Shift & Scheduled Time:',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                CustomDropdownSearch(
-                  label: '',
-                  hint: 'Select Shift / Time',
-                  dropdownItems: shiftOptions.map((opt) => opt['label']!).toList(),
-                  value: selectedShift,
-                  onChanged: (val) async {
-                    if (val == null) return;
-                    setDialogState(() => selectedShift = val);
-                    final matched = shiftOptions.firstWhere((o) => o['label'] == val);
-                    if (matched['time'] == 'Custom') {
-                      final TimeOfDay? customPicked = await showTimePicker(
-                        context: context,
-                        initialTime: const TimeOfDay(hour: 9, minute: 0),
-                        helpText: 'Select Custom Scheduled Time',
+                ElevatedButton(
+                  style: AppTheme.dangerButton,
+                  onPressed: () async {
+                    final targetPatient =
+                        selectedPatient ??
+                        (_patientsList.isNotEmpty ? _patientsList.first : null);
+                    if (targetPatient == null || targetPatient.id == null) {
+                      AppNotification.showError(
+                        dialogCtx,
+                        context.tr(
+                          'select_valid_patient_error',
+                          fallback: 'Please select a valid patient to schedule a home visit.',
+                        ),
                       );
-                      if (customPicked != null) {
-                        final dt = DateTime(2026, 1, 1, customPicked.hour, customPicked.minute);
-                        setDialogState(() {
-                          timeCtrl.text = DateFormat('hh:mm a').format(dt);
-                        });
+                      return;
+                    }
+
+                    String apiDateStr = dateCtrl.text;
+                    final dateParts = dateCtrl.text.split('-');
+                    if (dateParts.length == 3 && dateParts[2].length == 4) {
+                      apiDateStr =
+                          "${dateParts[2]}-${dateParts[1]}-${dateParts[0]}";
+                    }
+
+                    final homeVisitCtrl = Provider.of<HomeVisitController>(
+                      context,
+                      listen: false,
+                    );
+
+                    final String targetTime = timeCtrl.text.trim();
+
+                    // Prevent scheduling duplicate visit for same patient on same date and same shift/time
+                    final bool existingSameShift = homeVisitCtrl.visits.any(
+                      (v) =>
+                          v.patientId == targetPatient.id &&
+                          v.scheduledDate == apiDateStr &&
+                          (v.scheduledTime ?? '09:00 AM').trim().toLowerCase() == targetTime.toLowerCase() &&
+                          v.status != 'Cancelled',
+                    );
+
+                    if (existingSameShift) {
+                      AppNotification.showWarning(
+                        dialogCtx,
+                        context.tr(
+                          'visit_already_scheduled_warning',
+                          params: {
+                            'patient': TamilTransliterationHelper.formatName(
+                              targetPatient.name,
+                              isTamil: isTamil,
+                              showBoth: true,
+                            ),
+                            'date': dateCtrl.text,
+                            'time': targetTime,
+                          },
+                          fallback: 'A home visit is already scheduled for ${targetPatient.name} on ${dateCtrl.text} at $targetTime. You can schedule another shift (e.g. Night Shift) at a different time.',
+                        ),
+                      );
+                      return;
+                    }
+                    final newVisit = await homeVisitCtrl.createVisit({
+                      'patient_id': targetPatient.id,
+                      'scheduled_date': apiDateStr,
+                      'scheduled_time': targetTime,
+                      'visit_address': addressCtrl.text,
+                      'carried_items': [],
+                    });
+
+                    if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+
+                    if (newVisit != null) {
+                      await homeVisitCtrl.fetchVisits();
+                      if (context.mounted) {
+                        AppNotification.showSuccess(
+                          context,
+                          context.tr(
+                            'home_visit_scheduled_success',
+                            params: {
+                              'visitNum': newVisit.visitNumber,
+                              'time': targetTime,
+                            },
+                            fallback: 'Home visit ${newVisit.visitNumber} ($targetTime) scheduled successfully!',
+                          ),
+                        );
                       }
-                    } else {
-                      setDialogState(() {
-                        timeCtrl.text = matched['time']!;
-                      });
+                    } else if (context.mounted) {
+                      AppNotification.showError(
+                        context,
+                        homeVisitCtrl.errorMessage ??
+                            context.tr(
+                              'failed_to_schedule_visit',
+                              fallback: 'Failed to schedule home visit.',
+                            ),
+                      );
                     }
                   },
-                  height: 48,
-                  borderColor: const Color(0xFFE2E8F0),
-                  focusedBorderColor: AppTheme.primaryColor,
-                  fillColor: AppTheme.backgroundColor,
-                  popupBgColor: Colors.white,
+                  child: Text(
+                    context.tr('schedule_visit_action', fallback: 'Schedule Visit'),
+                  ),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              style: AppTheme.dangerButton,
-              onPressed: () async {
-                final targetPatient =
-                    selectedPatient ??
-                    (_patientsList.isNotEmpty ? _patientsList.first : null);
-                if (targetPatient == null || targetPatient.id == null) {
-                  AppNotification.showError(
-                    dialogCtx,
-                    'Please select a valid patient to schedule a home visit.',
-                  );
-                  return;
-                }
-
-                String apiDateStr = dateCtrl.text;
-                final dateParts = dateCtrl.text.split('-');
-                if (dateParts.length == 3 && dateParts[2].length == 4) {
-                  apiDateStr =
-                      "${dateParts[2]}-${dateParts[1]}-${dateParts[0]}";
-                }
-
-                final homeVisitCtrl = Provider.of<HomeVisitController>(
-                  context,
-                  listen: false,
-                );
-
-                final String targetTime = timeCtrl.text.trim();
-
-                // Prevent scheduling duplicate visit for same patient on same date and same shift/time
-                final bool existingSameShift = homeVisitCtrl.visits.any(
-                  (v) =>
-                      v.patientId == targetPatient.id &&
-                      v.scheduledDate == apiDateStr &&
-                      (v.scheduledTime ?? '09:00 AM').trim().toLowerCase() == targetTime.toLowerCase() &&
-                      v.status != 'Cancelled',
-                );
-
-                if (existingSameShift) {
-                  AppNotification.showWarning(
-                    dialogCtx,
-                    'A home visit is already scheduled for ${targetPatient.name} on ${dateCtrl.text} at $targetTime. You can schedule another shift (e.g. Night Shift) at a different time.',
-                  );
-                  return;
-                }
-                final newVisit = await homeVisitCtrl.createVisit({
-                  'patient_id': targetPatient.id,
-                  'scheduled_date': apiDateStr,
-                  'scheduled_time': targetTime,
-                  'visit_address': addressCtrl.text,
-                  'carried_items': [],
-                });
-
-                if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
-
-                if (newVisit != null) {
-                  await homeVisitCtrl.fetchVisits();
-                  if (context.mounted) {
-                    AppNotification.showSuccess(
-                      context,
-                      'Home visit ${newVisit.visitNumber} ($targetTime) scheduled successfully!',
-                    );
-                  }
-                } else if (context.mounted) {
-                  AppNotification.showError(
-                    context,
-                    homeVisitCtrl.errorMessage ??
-                        'Failed to schedule home visit.',
-                  );
-                }
-              },
-              child: const Text('Schedule Visit'),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );

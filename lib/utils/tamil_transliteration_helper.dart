@@ -130,7 +130,6 @@ class TamilTransliterationHelper {
     'madhavan': 'மாதவன்',
     'muthu': 'முத்து',
     'perumal': 'பெருமாள்',
-    'raja': 'ராஜா',
     'kannan': 'கண்ணன்',
     'elango': 'இளங்கோ',
     'velu': 'வேலு',
@@ -172,10 +171,17 @@ class TamilTransliterationHelper {
     'amutha': 'அமுதா',
     'banu': 'பானு',
     'bhuvanesh': 'புவனேஷ்',
+    'boomika': 'பூமிகா',
+    'bhoomika': 'பூமிகா',
+    'bhumika': 'பூமிகா',
     'chellappa': 'செல்லப்பா',
+    'devi': 'தேவி',
+    'deva': 'தேவா',
+    'devan': 'தேவன்',
+    'devaraj': 'தேவராஜ்',
     'devika': 'தேவிகா',
     'dharshini': 'தர்ஷினி',
-    'gayathri': 'காயத்ரி',
+    'deepika': 'தீபிகா',
     'gomathi': 'கோமதி',
     'jeeva': 'ஜீவா',
     'kanchana': 'காஞ்சனா',
@@ -189,6 +195,11 @@ class TamilTransliterationHelper {
     'mohamed': 'முகமது',
     'muthukumar': 'முத்துக்குமார்',
     'mythili': 'மைத்திலி',
+    'nivi': 'நிவி',
+    'niva': 'நிவா',
+    'nivetha': 'நிவேதா',
+    'nivedha': 'நிவேதா',
+    'niveditha': 'நிவேதிதா',
     'nithya': 'நித்யா',
     'padma': 'பத்மா',
     'parvathi': 'பார்வதி',
@@ -247,7 +258,7 @@ class TamilTransliterationHelper {
       'bh': 'ப', 'kh': 'க', 'gh': 'க', 'kr': 'க்ர', 'pr': 'ப்ர',
       'br': 'ப்ர', 'tr': 'த்ர', 'dr': 'த்ர', 'st': 'ஸ்த்', 'sp': 'ஸ்ப்',
       'sk': 'ஸ்க்', 'sm': 'ஸ்ம', 'sn': 'ஸ்ந', 'k': 'க', 'g': 'க',
-      'c': 'க', 'j': 'ஜ', 's': 'ச', 't': 'ட', 'd': 'ட',
+      'c': 'க', 'j': 'ஜ', 's': 'ச', 't': 'ட', 'd': 'த',
       'n': 'ன', 'p': 'ப', 'b': 'ப', 'm': 'ம', 'y': 'ய',
       'r': 'ர', 'l': 'ல', 'v': 'வ', 'w': 'வ', 'h': 'ஹ', 'z': 'ஸ',
     };
@@ -257,8 +268,17 @@ class TamilTransliterationHelper {
     bool isStart = true;
 
     while (i < lower.length) {
-      // Check if at start and matches initial independent vowel
+      // Check if at start: special syllables for Indian names
       if (isStart) {
+        // 'de' -> 'தே' (e.g. Devi -> தேவி, Devan, Deva)
+        if (i + 2 <= lower.length && lower.substring(i, i + 2) == 'de') {
+          buffer.write('தே');
+          i += 2;
+          isStart = false;
+          continue;
+        }
+
+        // Initial independent vowels
         String? matchedInitVowel;
         int vowelLen = 0;
         for (var len = 2; len >= 1; len--) {
@@ -294,6 +314,15 @@ class TamilTransliterationHelper {
       }
 
       if (matchedConsonant != null) {
+        // In Tamil, words never begin with 'ன' (two-loop na); at word start, 'n' is dental 'ந'
+        if (isStart && lower.substring(i, i + consLen) == 'n') {
+          matchedConsonant = 'ந';
+        }
+        // In Tamil names, initial 'd' is dental 'த' (e.g. Devi, Dinesh, Divya), never retroflex 'ட'
+        if (isStart && lower.substring(i, i + consLen) == 'd') {
+          matchedConsonant = 'த';
+        }
+
         i += consLen;
         isStart = false;
 
@@ -306,6 +335,10 @@ class TamilTransliterationHelper {
             if (depVowels.containsKey(sub)) {
               matchedDepVowel = depVowels[sub];
               vLen = len;
+              // In Indian names ending in 'a' (e.g. Boomika, Deepika, Kavitha, Anitha), final 'a' is long 'ா'
+              if (sub == 'a' && i + len == lower.length) {
+                matchedDepVowel = 'ா';
+              }
               break;
             }
           }

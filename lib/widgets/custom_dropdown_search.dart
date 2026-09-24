@@ -300,6 +300,13 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         widget.dropdownMap != oldWidget.dropdownMap) {
       if (!_searchFocusNode.hasFocus) {
         _filteredItems = _allEntries.entries.toList();
+        final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
+        if (displayValue != _textEditingController.text) {
+          _textEditingController.text = displayValue;
+        }
+      }
+      if (_overlayEntry != null && _overlayEntry!.mounted) {
+        _overlayEntry!.markNeedsBuild();
       }
     }
   }
@@ -310,9 +317,11 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       if (query.isEmpty) {
         _filteredItems = _allEntries.entries.toList();
       } else {
+        final q = query.toLowerCase();
         _filteredItems = _allEntries.entries
             .where((entry) =>
-                entry.value.toLowerCase().contains(query.toLowerCase()))
+                entry.value.toLowerCase().contains(q) ||
+                entry.key.toLowerCase().contains(q))
             .toList();
       }
     });
