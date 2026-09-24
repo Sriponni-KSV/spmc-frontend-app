@@ -15,6 +15,7 @@ import '../utils/date_formatter.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/unsaved_changes_helper.dart';
+import '../utils/app_localizations.dart';
 
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -340,7 +341,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        widget.title,
+                        (widget.title == 'OPD Assistance' || widget.title == 'OPD Management')
+                            ? context.tr('opd_assistance', fallback: widget.title)
+                            : widget.title,
                         style: TextStyle(
                           fontSize: widget.isMobile ? 18 : 24,
                           fontWeight: FontWeight.bold,
@@ -352,7 +355,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Today\'s OPD Pipeline: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
+                  '${context.tr('today_opd_pipeline', fallback: "Today's OPD Pipeline")}: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 12,
@@ -364,9 +367,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   ElevatedButton.icon(
                     onPressed: () => _showWalkInDialog(),
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text(
-                      'Walk-in',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    label: Text(
+                      context.tr('walk_in', fallback: 'Walk-in'),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
@@ -399,7 +402,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            widget.title,
+                            (widget.title == 'OPD Assistance' || widget.title == 'OPD Management')
+                                ? context.tr('opd_assistance', fallback: widget.title)
+                                : widget.title,
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -410,7 +415,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Today\'s OPD Pipeline: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
+                        '${context.tr('today_opd_pipeline', fallback: "Today's OPD Pipeline")}: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.9),
                           fontSize: 13,
@@ -425,7 +430,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     onPressed: () => _showWalkInDialog(),
                     icon: const Icon(Icons.add, size: 18),
                     label: Text(
-                      widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
+                      widget.isMobile
+                          ? context.tr('walk_in', fallback: 'Walk-in')
+                          : context.tr('new_walk_in_entry', fallback: 'New Walk-in Entry'),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -456,56 +463,56 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         scrollDirection: Axis.horizontal,
         children: [
           _buildStatCard(
-            title: 'Total OPD Today',
+            title: context.tr('total_opd_today', fallback: 'Total OPD Today'),
             count: _walkInAppointments.length,
             color: Colors.blue.shade700,
             icon: Icons.people_outline,
             onTap: null,
           ),
           _buildStatCard(
-            title: 'Waiting Queue',
+            title: context.tr('waiting_queue', fallback: 'Waiting Queue'),
             count: _getCountForTab(0),
             color: const Color(0xFF0D9488),
             icon: Icons.hourglass_empty,
             onTap: () => _tabController.animateTo(0),
           ),
           _buildStatCard(
-            title: 'In Consultation',
+            title: context.tr('in_consultation', fallback: 'In Consultation'),
             count: _getCountForTab(1),
             color: const Color(0xFFF59E0B),
             icon: Icons.medical_services_outlined,
             onTap: () => _tabController.animateTo(1),
           ),
           _buildStatCard(
-            title: 'Completed',
+            title: context.tr('completed', fallback: 'Completed'),
             count: _getCountForTab(2),
             color: const Color(0xFF22C55E),
             icon: Icons.check_circle_outline,
             onTap: () => _tabController.animateTo(2),
           ),
           _buildStatCard(
-            title: 'Cancelled',
+            title: context.tr('cancelled', fallback: 'Cancelled'),
             count: _getCountForTab(3),
             color: const Color(0xFFEF4444),
             icon: Icons.cancel_outlined,
             onTap: () => _tabController.animateTo(3),
           ),
           _buildStatCard(
-            title: 'Prescriptions',
+            title: context.tr('prescriptions', fallback: 'Prescriptions'),
             count: _getPrescriptionsCount(),
             color: Colors.indigo,
             icon: Icons.description_outlined,
             onTap: () => _tabController.animateTo(4),
           ),
           _buildStatCard(
-            title: 'Lab Orders',
+            title: context.tr('lab_orders', fallback: 'Lab Orders'),
             count: _getLabTestsCount(),
             color: Colors.teal.shade700,
             icon: Icons.science_outlined,
             onTap: () => _tabController.animateTo(5),
           ),
           _buildStatCard(
-            title: 'Pharmacy Status',
+            title: context.tr('pharmacy_status', fallback: 'Pharmacy Status'),
             count: _getPharmacyCount(),
             color: Colors.purple.shade700,
             icon: Icons.local_pharmacy_outlined,
@@ -604,31 +611,35 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.search,
             size: 18,
-            color: AppTheme.textSecondaryColor,
+            color: AppTheme.getTextSecondaryColor(context),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
               controller: _searchCtrl,
+              style: TextStyle(
+                color: AppTheme.getTextPrimaryColor(context),
+                fontSize: 14,
+              ),
               onChanged: (v) => setState(() => _searchQuery = v),
-              decoration: const InputDecoration(
-                hintText: 'Search patient name, ID, or phone...',
+              decoration: InputDecoration(
+                hintText: context.tr('search_opd_hint', fallback: 'Search patient name, ID, or phone...'),
                 hintStyle: TextStyle(
                   fontSize: 13,
-                  color: AppTheme.textSecondaryColor,
+                  color: AppTheme.getTextSecondaryColor(context),
                 ),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: Colors.transparent,
                 contentPadding: EdgeInsets.zero,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
@@ -836,7 +847,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.hourglass_empty, size: 16),
                 const SizedBox(width: 4),
-                Text('Waiting (${_getCountForTab(0)})'),
+                Text('${context.tr('tab_waiting', fallback: 'Waiting')} (${_getCountForTab(0)})'),
               ],
             ),
           ),
@@ -846,7 +857,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.medical_services_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Consulting (${_getCountForTab(1)})'),
+                Text('${context.tr('tab_consulting', fallback: 'Consulting')} (${_getCountForTab(1)})'),
               ],
             ),
           ),
@@ -856,7 +867,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.check_circle_outline, size: 16),
                 const SizedBox(width: 4),
-                Text('Completed (${_getCountForTab(2)})'),
+                Text('${context.tr('tab_completed', fallback: 'Completed')} (${_getCountForTab(2)})'),
               ],
             ),
           ),
@@ -866,7 +877,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.cancel_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Cancelled (${_getCountForTab(3)})'),
+                Text('${context.tr('tab_cancelled', fallback: 'Cancelled')} (${_getCountForTab(3)})'),
               ],
             ),
           ),
@@ -876,7 +887,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.description_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Prescriptions (${_getPrescriptionsCount()})'),
+                Text('${context.tr('tab_prescriptions', fallback: 'Prescriptions')} (${_getPrescriptionsCount()})'),
               ],
             ),
           ),
@@ -886,7 +897,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.science_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Lab Orders (${_getLabTestsCount()})'),
+                Text('${context.tr('tab_lab_orders', fallback: 'Lab Orders')} (${_getLabTestsCount()})'),
               ],
             ),
           ),
@@ -896,7 +907,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.local_pharmacy_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Pharmacy Status (${_getPharmacyCount()})'),
+                Text('${context.tr('tab_pharmacy_status', fallback: 'Pharmacy Status')} (${_getPharmacyCount()})'),
               ],
             ),
           ),
@@ -1193,9 +1204,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 if (app.bloodPressureSystolic != null ||
                     app.temperature != null ||
                     app.sugarLevel != null) ...[
-                  const Text(
-                    'Patient Vitals:',
-                    style: TextStyle(
+                  Text(
+                    '${context.tr('patient_vitals_label', fallback: 'Patient Vitals')}:',
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textSecondaryColor,
@@ -1247,7 +1258,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Complaint: ${app.reasonForVisit}',
+                            '${context.tr('complaint_label', fallback: 'Complaint')}: ${app.reasonForVisit}',
                             style: TextStyle(
                               fontSize: 12,
                               fontStyle: FontStyle.italic,
@@ -1270,9 +1281,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       OutlinedButton.icon(
                         onPressed: () => _showVisitDetails(app),
                         icon: const Icon(Icons.visibility_outlined, size: 16),
-                        label: const Text(
-                          'View Details',
-                          style: TextStyle(
+                        label: Text(
+                          context.tr('view_details', fallback: 'View Details'),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1301,9 +1312,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                               size: 14,
                               color: Colors.white,
                             ),
-                            label: const Text(
-                              'Add Vitals',
-                              style: TextStyle(
+                            label: Text(
+                              context.tr('add_vitals', fallback: 'Add Vitals'),
+                              style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -1323,9 +1334,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         ElevatedButton.icon(
                           onPressed: () => _showCancelAppointmentDialog(app),
                           icon: const Icon(Icons.cancel_outlined, size: 14),
-                          label: const Text(
-                            'Cancel',
-                            style: TextStyle(
+                          label: Text(
+                            context.tr('cancel', fallback: 'Cancel'),
+                            style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1358,9 +1369,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           if (app.bloodPressureSystolic != null ||
                               app.temperature != null ||
                               app.sugarLevel != null) ...[
-                            const Text(
-                              'Patient Vitals:',
-                              style: TextStyle(
+                            Text(
+                              '${context.tr('patient_vitals_label', fallback: 'Patient Vitals')}:',
+                              style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.textSecondaryColor,
@@ -1412,7 +1423,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Complaint: ${app.reasonForVisit}',
+                                      '${context.tr('complaint_label', fallback: 'Complaint')}: ${app.reasonForVisit}',
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontStyle: FontStyle.italic,
@@ -1437,9 +1448,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         OutlinedButton.icon(
                           onPressed: () => _showVisitDetails(app),
                           icon: const Icon(Icons.visibility_outlined, size: 16),
-                          label: const Text(
-                            'View Details',
-                            style: TextStyle(
+                          label: Text(
+                            context.tr('view_details', fallback: 'View Details'),
+                            style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1468,9 +1479,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 size: 14,
                                 color: Colors.white,
                               ),
-                              label: const Text(
-                                'Add Vitals',
-                                style: TextStyle(
+                              label: Text(
+                                context.tr('add_vitals', fallback: 'Add Vitals'),
+                                style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -1490,9 +1501,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ElevatedButton.icon(
                             onPressed: () => _showCancelAppointmentDialog(app),
                             icon: const Icon(Icons.cancel_outlined, size: 14),
-                            label: const Text(
-                              'Cancel',
-                              style: TextStyle(
+                            label: Text(
+                              context.tr('cancel', fallback: 'Cancel'),
+                              style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),

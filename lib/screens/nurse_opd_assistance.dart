@@ -985,6 +985,22 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
   }
 
   void _showTriageDialog(AppointmentModel app) {
+    final apptDt = DateFormatter.toDateTime(app.appointmentDate);
+    if (apptDt != null) {
+      final now = DateTime.now();
+      final todayMidnight = DateTime(now.year, now.month, now.day);
+      final apptMidnight = DateTime(apptDt.year, apptDt.month, apptDt.day);
+      if (apptMidnight.isAfter(todayMidnight)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vitals collection is disabled for future-dated appointments.'),
+            backgroundColor: Color(0xFFB45309),
+          ),
+        );
+        return;
+      }
+    }
+
     final sysCtrl = TextEditingController(
       text: app.bloodPressureSystolic?.toString() ?? '',
     );

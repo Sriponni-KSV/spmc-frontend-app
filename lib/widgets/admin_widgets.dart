@@ -34,18 +34,25 @@ class _AdminLiveClockState extends State<AdminLiveClock> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: AppTheme.backgroundColor,
+        color: isDark ? AppTheme.darkCardColor : AppTheme.backgroundColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.3)),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorderColor : AppTheme.borderColor.withOpacity(0.3),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.access_time, size: 16, color: AppTheme.primaryColor),
+          Icon(
+            Icons.access_time,
+            size: 16,
+            color: isDark ? AppTheme.secondaryColor : AppTheme.primaryColor,
+          ),
           const SizedBox(width: 10),
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -53,17 +60,18 @@ class _AdminLiveClockState extends State<AdminLiveClock> {
             children: [
               Text(
                 DateFormat('dd/MM/yyyy').format(_currentTime),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
+                  color: isDark ? AppTheme.darkTextPrimaryColor : AppTheme.textPrimaryColor,
                 ),
               ),
               Text(
                 DateFormat('hh:mm:ss a').format(_currentTime),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
+                  color: isDark ? AppTheme.secondaryColor : AppTheme.primaryColor,
                   letterSpacing: 0.5,
                 ),
               ),

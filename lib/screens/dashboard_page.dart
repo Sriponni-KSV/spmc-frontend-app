@@ -26,6 +26,8 @@ import '../controllers/ot_controller.dart';
 import '../controllers/lab_controller.dart';
 import '../controllers/notification_controller.dart';
 import '../config/doctor_nav_config.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/app_top_bar_actions.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
@@ -716,7 +718,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       focusNode: _mainFocusNode,
       autofocus: true,
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: AppTheme.getBackgroundColor(context),
         drawer: isMobile ? Drawer(child: _buildSidebar(isMobile)) : null,
         floatingActionButton: null,
         body: SafeArea(
@@ -4148,20 +4150,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSidebar(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final isAnaesthetist = user?.role == 'Anaesthetist';
+    final isDark = AppTheme.isDark(context);
 
     return Container(
-      width: 260,
+      width: 275,
       margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppTheme.getBorderColor(context)),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         children: [
@@ -4196,8 +4202,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           // User Profile Footer
           Container(
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: AppTheme.borderColor, width: 1)),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: AppTheme.getBorderColor(context), width: 1)),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: user == null
@@ -4235,18 +4241,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       children: [
                                         Text(
                                           user.rawFullname ?? user.fullname,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
-                                            color: AppTheme.textPrimaryColor,
+                                            color: AppTheme.getTextPrimaryColor(context),
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         Text(
-                                          user.role,
-                                          style: const TextStyle(
+                                          context.translateRole(user.role),
+                                          style: TextStyle(
                                             fontSize: 11,
-                                            color: AppTheme.textSecondaryColor,
+                                            color: AppTheme.getTextSecondaryColor(context),
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -4258,10 +4264,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.logout,
                               size: 18,
-                              color: AppTheme.textSecondaryColor,
+                              color: AppTheme.getTextSecondaryColor(context),
                             ),
                             onPressed: () => LogoutHelper.showLogoutConfirmation(
                               context,
@@ -4278,7 +4284,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  String _translateDoctorLabel(String label) {
+    final lower = label.toLowerCase();
+    if (lower == 'dashboard') return context.tr('dashboard', fallback: label);
+    if (lower == 'patients' || lower.contains('patient')) return context.tr('patients', fallback: label);
+    if (lower == 'profile' || lower.contains('profile')) return context.tr('profile', fallback: label);
+    if (lower.contains('ipd')) return context.tr('ipd_management', fallback: label);
+    if (lower.contains('ot')) return context.tr('ot_management', fallback: label);
+    if (lower.contains('dictation')) return context.tr('ot_management', fallback: label);
+    if (lower.contains('lab')) return context.tr('laboratory', fallback: label);
+    if (lower.contains('home visit') || lower.contains('home care')) return context.tr('home_visit_care', fallback: label);
+    return label;
+  }
+
   Widget _buildSidebarItem(int index, IconData icon, String label) {
+    final displayLabel = _translateDoctorLabel(label);
     bool isSelected = _selectedIndex == index;
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final hasTimings = user?.role != 'Doctor' || (
@@ -4323,7 +4343,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       },
       borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
+      child: Tooltip(
+        message: displayLabel,
+        waitDuration: const Duration(milliseconds: 200),
+        preferBelow: false,
+        verticalOffset: 20,
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        textStyle: const TextStyle(
+          color: Colors.white,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w500,
+        ),
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
@@ -4335,25 +4376,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(
               icon,
-              color: isSelected ? Colors.white : const Color(0xFF4A5568),
+              color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
               size: 20,
             ),
             const SizedBox(width: 16),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : const Color(0xFF4D5568),
-                fontSize: 15,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            Expanded(
+              child: Text(
+                _translateDoctorLabel(label),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
+                  fontSize: 15,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                ),
               ),
             ),
           ],
         ),
       ),
+      ),
     );
   }
 
   Widget _buildBannerTopBar(bool isMobile) {
+    final isDark = AppTheme.isDark(context);
     return LayoutBuilder(
       builder: (context, constraints) {
         final double width = constraints.maxWidth;
@@ -4365,9 +4412,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (isMobile)
               Builder(
                 builder: (context) => IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.menu,
-                    color: AppTheme.textSecondaryColor,
+                    color: AppTheme.getTextPrimaryColor(context),
                   ),
                   onPressed: () => Scaffold.of(context).openDrawer(),
                 ),
@@ -4384,33 +4431,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     height: 40,
                     constraints: const BoxConstraints(maxWidth: 380),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppTheme.getCardColor(context),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 4,
-                          offset: const Offset(0, 1),
-                        ),
-                      ],
+                      border: Border.all(color: AppTheme.getBorderColor(context), width: 1.2),
+                      boxShadow: isDark
+                          ? []
+                          : [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 4,
+                                offset: const Offset(0, 1),
+                              ),
+                            ],
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.search,
                           size: 18,
-                          color: AppTheme.textSecondaryColor,
+                          color: AppTheme.getTextSecondaryColor(context),
                         ),
                         const SizedBox(width: 8),
                         Flexible(
                           child: Text(
-                            isCompact ? 'Search...' : 'Quick search (e.g. Patient ID, Name)...',
+                            context.tr('search_anything', fallback: isCompact ? 'Search...' : 'Quick search (e.g. Patient ID, Name)...'),
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: AppTheme.textSecondaryColor,
+                              color: AppTheme.getTextSecondaryColor(context),
                             ),
                           ),
                         ),
@@ -4465,7 +4514,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               IconButton(
                 icon: const Icon(Icons.help_outline, color: AppTheme.textSecondaryColor),
                 onPressed: () {},
-                tooltip: 'Help',
+                tooltip: context.tr('help', fallback: 'Help'),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
@@ -4476,15 +4525,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('Share', style: TextStyle(fontSize: 13)),
+                child: Text(context.tr('share', fallback: 'Share'), style: const TextStyle(fontSize: 13)),
               ),
             ],
 
-            // Date & Time Clock on screens with sufficient space
-            if (!isCompact) ...[
-              const SizedBox(width: 12),
-              const LiveClock(),
-            ],
+            const SizedBox(width: 12),
+            AppTopBarActions(
+              showClock: !isCompact,
+              liveClockWidget: const LiveClock(),
+            ),
           ],
         );
       },

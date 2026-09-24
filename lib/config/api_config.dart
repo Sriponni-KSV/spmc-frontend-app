@@ -7,7 +7,7 @@ class ApiEndpoints {
   static bool get useLocalhost => false;
 
   /// Your laptop's local Wi-Fi IP address on the network for local testing
-  static const String backendIp = '192.168.1.6';
+  static const String backendIp = '192.168.1.35';
 
   /// Backend server port for local development.
   static const String port = '3001';

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/date_formatter.dart';
 import '../models/appointment_model.dart';
 import '../controllers/appointment_controller.dart';
 
@@ -34,10 +35,19 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
   bool _isSaving = false;
   late bool _editingVitalsMode;
 
+  bool get _isFutureAppointment {
+    final apptDate = DateFormatter.toDateTime(widget.appointment.appointmentDate);
+    if (apptDate == null) return false;
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
+    final apptMidnight = DateTime(apptDate.year, apptDate.month, apptDate.day);
+    return apptMidnight.isAfter(todayMidnight);
+  }
+
   @override
   void initState() {
     super.initState();
-    _editingVitalsMode = widget.editVitalsOnly;
+    _editingVitalsMode = widget.editVitalsOnly && !_isFutureAppointment;
     
     _systolicCtrl = TextEditingController(text: widget.appointment.bloodPressureSystolic?.toString() ?? '');
     _diastolicCtrl = TextEditingController(text: widget.appointment.bloodPressureDiastolic?.toString() ?? '');
@@ -98,6 +108,18 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
   }
 
   Future<void> _saveVitals() async {
+    if (_isFutureAppointment) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vitals cannot be entered or saved for future-dated appointments.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+      }
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
@@ -187,19 +209,43 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                       _buildSectionHeader(
                         _editingVitalsMode ? 'Enter Vital Details' : 'Vital Details',
                         Icons.monitor_heart_outlined,
-                        trailing: !_editingVitalsMode && widget.appointment.status == 'Confirmed'
-                            ? TextButton.icon(
-                                onPressed: () => setState(() => _editingVitalsMode = true),
-                                icon: const Icon(Icons.edit, size: 14),
-                                label: const Text('Add/Edit Vitals', style: TextStyle(fontSize: 12)),
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppTheme.primaryColor,
-                                  padding: EdgeInsets.zero,
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        trailing: _isFutureAppointment
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.lock_outline, size: 12, color: Color(0xFFB45309)),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Locked (Future Date)',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFB45309),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               )
-                            : null,
+                            : (!_editingVitalsMode && widget.appointment.status == 'Confirmed'
+                                ? TextButton.icon(
+                                    onPressed: () => setState(() => _editingVitalsMode = true),
+                                    icon: const Icon(Icons.edit, size: 14),
+                                    label: const Text('Add/Edit Vitals', style: TextStyle(fontSize: 12)),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: AppTheme.primaryColor,
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                  )
+                                : null),
                       ),
                       _buildVitalsCard(isMobile),
                       const SizedBox(height: 24),
@@ -541,12 +587,42 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
         ),
         child: Column(
           children: [
+            if (_isFutureAppointment) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Vitals collection is disabled for future-dated appointments. Vitals can only be entered on or after the scheduled appointment date (${widget.appointment.appointmentDate}).',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF92400E),
+                          height: 1.35,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (isMobile) ...[
               _buildVitalInputField(
                 controller: _systolicCtrl,
                 label: 'BP Systolic (mmHg) *',
                 hint: 'e.g. 120',
                 isNumeric: true,
+                enabled: !_isFutureAppointment,
                 validator: (val) {
                   final text = val?.trim() ?? '';
                   if (text.isEmpty) return 'Please enter BP systolic';
@@ -563,6 +639,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                 label: 'BP Diastolic (mmHg) *',
                 hint: 'e.g. 80',
                 isNumeric: true,
+                enabled: !_isFutureAppointment,
                 validator: (val) {
                   final text = val?.trim() ?? '';
                   if (text.isEmpty) return 'Please enter BP diastolic';
@@ -579,6 +656,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                 label: 'Sugar Level (mg/dL) *',
                 hint: 'e.g. 95',
                 isNumeric: true,
+                enabled: !_isFutureAppointment,
                 validator: (val) {
                   final text = val?.trim() ?? '';
                   if (text.isEmpty) return 'Please enter sugar level';
@@ -595,6 +673,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                 label: 'Temperature (°F) *',
                 hint: 'e.g. 98.6',
                 isNumeric: true,
+                enabled: !_isFutureAppointment,
                 validator: (val) {
                   final text = val?.trim() ?? '';
                   if (text.isEmpty) return 'Please enter temperature';
@@ -614,6 +693,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                       label: 'BP Systolic (mmHg) *',
                       hint: 'e.g. 120',
                       isNumeric: true,
+                      enabled: !_isFutureAppointment,
                       validator: (val) {
                         final text = val?.trim() ?? '';
                         if (text.isEmpty) return 'Please enter BP systolic';
@@ -632,6 +712,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                       label: 'BP Diastolic (mmHg) *',
                       hint: 'e.g. 80',
                       isNumeric: true,
+                      enabled: !_isFutureAppointment,
                       validator: (val) {
                         final text = val?.trim() ?? '';
                         if (text.isEmpty) return 'Please enter BP diastolic';
@@ -654,6 +735,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                       label: 'Sugar Level (mg/dL) *',
                       hint: 'e.g. 95',
                       isNumeric: true,
+                      enabled: !_isFutureAppointment,
                       validator: (val) {
                         final text = val?.trim() ?? '';
                         if (text.isEmpty) return 'Please enter sugar level';
@@ -672,6 +754,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                       label: 'Temperature (°F) *',
                       hint: 'e.g. 98.6',
                       isNumeric: true,
+                      enabled: !_isFutureAppointment,
                       validator: (val) {
                         final text = val?.trim() ?? '';
                         if (text.isEmpty) return 'Please enter temperature';
@@ -692,6 +775,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
               label: 'Reason for Visit *',
               hint: 'Describe patient complaints...',
               maxLines: 3,
+              enabled: !_isFutureAppointment,
               validator: (val) {
                 if (val == null || val.trim().isEmpty) return 'Please enter reason for visit';
                 return null;
@@ -712,6 +796,35 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_isFutureAppointment) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline, color: Color(0xFFD97706), size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Vitals collection is disabled for future-dated appointments. Vitals can only be entered on or after the scheduled appointment date (${widget.appointment.appointmentDate}).',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF92400E),
+                        height: 1.35,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           Row(
             children: [
               Expanded(
@@ -773,6 +886,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
     required String hint,
     bool isNumeric = false,
     int maxLines = 1,
+    bool enabled = true,
     String? Function(String?)? validator,
   }) {
     final bool hasAsterisk = label.endsWith(' *');
@@ -784,12 +898,12 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
         Text.rich(
           TextSpan(
             text: displayLabel,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF475569),
+              color: enabled ? const Color(0xFF475569) : const Color(0xFF94A3B8),
             ),
-            children: hasAsterisk
+            children: (hasAsterisk && enabled)
                 ? const [
                     TextSpan(
                       text: ' *',
@@ -802,9 +916,14 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
+          enabled: enabled,
+          readOnly: !enabled,
           keyboardType: isNumeric ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
           maxLines: maxLines,
-          style: const TextStyle(fontSize: 13, color: AppTheme.textPrimaryColor),
+          style: TextStyle(
+            fontSize: 13,
+            color: enabled ? AppTheme.textPrimaryColor : const Color(0xFF64748B),
+          ),
           inputFormatters: isNumeric
               ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
               : null,
@@ -813,7 +932,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
             hintText: hint,
             hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            fillColor: Colors.white,
+            fillColor: enabled ? Colors.white : const Color(0xFFF1F5F9),
             filled: true,
             errorMaxLines: 2,
             border: OutlineInputBorder(
@@ -821,6 +940,10 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
               borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
             ),
             enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(6),
+              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+            ),
+            disabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(6),
               borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
             ),
@@ -838,7 +961,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
             ),
             errorStyle: const TextStyle(fontSize: 11, color: AppTheme.dangerColor),
           ),
-          validator: validator,
+          validator: enabled ? validator : null,
         ),
       ],
     );
@@ -1188,7 +1311,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
               style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.bold),
             ),
           ),
-          if (_editingVitalsMode) ...[
+          if (_editingVitalsMode && !_isFutureAppointment) ...[
             const SizedBox(width: 12),
             ElevatedButton(
               onPressed: _isSaving ? null : _saveVitals,

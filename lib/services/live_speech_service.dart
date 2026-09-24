@@ -111,6 +111,7 @@ class LiveSpeechService {
           onSoundLevel?.call(level);
         },
         listenOptions: stt.SpeechListenOptions(
+          localeId: lang,
           listenMode: stt.ListenMode.dictation,
           partialResults: true,
           cancelOnError: false,

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../providers/auth_provider.dart';
 import '../core/routes/route_constants.dart';
 import 'app_theme.dart';
+import 'app_localizations.dart';
 
 class LogoutHelper {
   static void showLogoutConfirmation(BuildContext context, AuthProvider auth) {
@@ -33,10 +34,10 @@ class LogoutHelper {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Confirm Logout',
-                  style: TextStyle(
+                  context.tr('confirm_logout', fallback: 'Confirm Logout'),
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textPrimaryColor,
@@ -46,9 +47,9 @@ class LogoutHelper {
               ),
             ],
           ),
-          content: const Text(
-            'Are you sure you want to logout?',
-            style: TextStyle(
+          content: Text(
+            context.tr('are_you_sure_logout', fallback: 'Are you sure you want to logout?'),
+            style: const TextStyle(
               fontSize: 14,
               color: AppTheme.textSecondaryColor,
             ),
@@ -72,7 +73,7 @@ class LogoutHelper {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    child: const Text('Cancel'),
+                    child: Text(context.tr('cancel', fallback: 'Cancel')),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -99,7 +100,7 @@ class LogoutHelper {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    child: const Text('Yes'),
+                    child: Text(context.tr('yes', fallback: 'Yes')),
                   ),
                 ),
               ],

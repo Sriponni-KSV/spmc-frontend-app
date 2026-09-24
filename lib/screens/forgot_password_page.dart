@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import '../widgets/otp_input_widget.dart';
 import '../utils/auth_nav_state.dart';
 import '../utils/no_paste_formatter.dart';
+import '../utils/app_localizations.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
@@ -468,30 +469,30 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'Enter Email',
+            context.tr('forgot_password_title', fallback: 'Forgot Password'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimaryColor,
+              color: AppTheme.getTextPrimaryColor(context),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Please enter your registered email id to receive an OTP.',
+            context.tr('forgot_password_subtitle', fallback: 'Please enter your registered email id to receive an OTP.'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textSecondaryColor,
+              color: AppTheme.getTextSecondaryColor(context),
             ),
           ),
           const SizedBox(height: 32),
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Email Address',
+              context.tr('email_address', fallback: 'Email Address'),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: Colors.black,
+                color: AppTheme.getTextPrimaryColor(context),
                 fontFamily: AppTheme.fontFamily,
               ),
             ),
@@ -500,37 +501,38 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           TextFormField(
             controller: _emailController,
             autovalidateMode: AutovalidateMode.onUserInteraction,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 14,
+              color: AppTheme.getTextPrimaryColor(context),
             ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
-                return 'Please enter Email Address';
+                return context.tr('please_enter_email', fallback: 'Please enter Email Address');
               }
               if (value.trim().contains(RegExp(r'[A-Z]'))) {
-                return 'Please enter a valid email address';
+                return context.tr('valid_email', fallback: 'Please enter a valid email address');
               }
               if (!RegExp(
                 r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
               ).hasMatch(value.trim())) {
-                return 'Please enter a valid email address';
+                return context.tr('valid_email', fallback: 'Please enter a valid email address');
               }
               return null;
             },
             onFieldSubmitted: (_) => _nextStep(),
             maxLength: 50,
             inputFormatters: [LengthLimitingTextInputFormatter(50)],
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               counterText: '',
-              hintText: 'Enter Email Address',
-              hintStyle: TextStyle(
+              hintText: context.tr('enter_email_address', fallback: 'Enter Email Address'),
+              hintStyle: const TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: Color(0xFFCBD5E0),
                 fontSize: 13,
                 fontWeight: FontWeight.normal,
               ),
-              prefixIcon: Icon(Icons.email_outlined),
+              prefixIcon: const Icon(Icons.email_outlined),
             ),
           ),
           if (_emailErrorMessage != null) ...[
@@ -586,7 +588,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       strokeWidth: 2,
                     ),
                   )
-                : const Text('Send OTP'),
+                : Text(context.tr('send_otp', fallback: 'Send Verification Code')),
           ),
           const SizedBox(height: 16),
           TextButton(
@@ -604,7 +606,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 fontSize: 14,
               ),
             ),
-            child: const Text('Back to Login'),
+            child: Text(context.tr('back_to_sign_in', fallback: 'Back to Sign In')),
           ),
         ],
       ),
@@ -634,19 +636,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'Enter OTP',
+            context.tr('enter_otp', fallback: 'Enter Verification Code'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimaryColor,
+              color: AppTheme.getTextPrimaryColor(context),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Please enter the 6-digit OTP sent to your email.',
+            context.tr('forgot_password_subtitle', fallback: 'Please enter the 6-digit OTP sent to your email.'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textSecondaryColor,
+              color: AppTheme.getTextSecondaryColor(context),
             ),
           ),
           const SizedBox(height: 32),
@@ -675,7 +677,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       strokeWidth: 2,
                     ),
                   )
-                : const Text('Verify OTP'),
+                : Text(context.tr('verify_otp', fallback: 'Verify & Proceed')),
           ),
           const SizedBox(height: 16),
           Row(
@@ -683,17 +685,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             children: [
               Text(
                 _secondsRemaining > 0 ? "Didn't receive OTP? " : "",
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontSize: 14,
-                  color: AppTheme.textSecondaryColor,
+                  color: AppTheme.getTextSecondaryColor(context),
                 ),
               ),
               TextButton(
                 onPressed: _secondsRemaining == 0 && !_isLoading ? _resendOtp : null,
                 style: TextButton.styleFrom(
                   foregroundColor: AppTheme.primaryColor,
-                  disabledForegroundColor: AppTheme.textSecondaryColor,
+                  disabledForegroundColor: AppTheme.getTextSecondaryColor(context),
                   padding: EdgeInsets.zero,
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -706,7 +708,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 child: Text(
                   _secondsRemaining > 0
                       ? 'Resend OTP in ${_secondsRemaining}s'
-                      : 'Resend OTP',
+                      : context.tr('resend_otp', fallback: 'Resend Code'),
                 ),
               ),
             ],
@@ -727,7 +729,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 fontSize: 14,
               ),
             ),
-            child: const Text('Back to Login'),
+            child: Text(context.tr('back_to_sign_in', fallback: 'Back to Sign In')),
           ),
         ],
       ),
@@ -757,11 +759,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            'Reset Password',
+            context.tr('reset_password', fallback: 'Reset Password'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimaryColor,
+              color: AppTheme.getTextPrimaryColor(context),
             ),
           ),
           const SizedBox(height: 8),
@@ -769,18 +771,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             'Enter your new password. Must be different from the previous one.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textSecondaryColor,
+              color: AppTheme.getTextSecondaryColor(context),
             ),
           ),
           const SizedBox(height: 24),
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'New Password',
+              context.tr('new_password', fallback: 'New Password'),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: Colors.black,
+                color: AppTheme.getTextPrimaryColor(context),
                 fontFamily: AppTheme.fontFamily,
               ),
             ),
@@ -791,9 +793,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             obscureText: _obscureNewPassword,
             autovalidateMode: AutovalidateMode.onUserInteraction,
             textInputAction: TextInputAction.next,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 14,
+              color: AppTheme.getTextPrimaryColor(context),
             ),
             validator: PasswordPolicy.validatePassword,
             maxLength: 16,
@@ -802,7 +805,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 FocusScope.of(context).requestFocus(_confirmPasswordFocus),
             decoration: InputDecoration(
               counterText: '',
-              hintText: 'Enter New Password',
+              hintText: context.tr('enter_password', fallback: 'Enter New Password'),
               hintStyle: const TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: Color(0xFFCBD5E0),
@@ -827,14 +830,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          const Align(
+          Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              'Confirm Password',
+              context.tr('confirm_password', fallback: 'Confirm Password'),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
-                color: Colors.black,
+                color: AppTheme.getTextPrimaryColor(context),
                 fontFamily: AppTheme.fontFamily,
               ),
             ),
@@ -846,13 +849,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             obscureText: _obscureConfirmPassword,
             autovalidateMode: AutovalidateMode.onUserInteraction,
             textInputAction: TextInputAction.done,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: AppTheme.fontFamily,
               fontSize: 14,
+              color: AppTheme.getTextPrimaryColor(context),
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'Please enter Confirm Password';
+                return context.tr('confirm_password', fallback: 'Please enter Confirm Password');
               }
               if (value != _newPasswordController.text) {
                 return 'Passwords do not match';
@@ -877,7 +881,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             },
             decoration: InputDecoration(
               counterText: '',
-              hintText: 'Enter Confirm Password',
+              hintText: context.tr('confirm_password', fallback: 'Enter Confirm Password'),
               hintStyle: const TextStyle(
                 fontFamily: AppTheme.fontFamily,
                 color: Color(0xFFCBD5E0),
@@ -916,7 +920,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       strokeWidth: 2,
                     ),
                   )
-                : const Text('Reset Password'),
+                : Text(context.tr('reset_password', fallback: 'Reset Password')),
           ),
         ],
       ),

@@ -18,6 +18,7 @@ import '../services/api_service.dart';
 import '../services/home_visit_service.dart';
 import '../services/media_service.dart';
 import '../widgets/custom_dropdown_search.dart';
+import '../widgets/app_top_bar_actions.dart';
 import 'home_visit_invoice_dialog.dart';
 import '../utils/unsaved_changes_helper.dart';
 import '../utils/modal_history_helper.dart';
@@ -26,6 +27,9 @@ import '../utils/capitalize_formatter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/live_speech_service.dart';
+import '../utils/app_localizations.dart';
+import '../utils/tamil_transliteration_helper.dart';
+import '../providers/language_provider.dart';
 
 class HomeVisitExecutionScreen extends StatefulWidget {
   final int visitId;
@@ -126,10 +130,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Text(
-                        'Unsaved Form Data',
-                        style: TextStyle(
+                        ctx.tr('unsaved_form_data', fallback: 'Unsaved Form Data'),
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                           color: AppTheme.textPrimaryColor,
@@ -141,9 +145,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ],
                 ),
                 const SizedBox(height: 14),
-                const Text(
-                  'Do you want to leave this page? Any unsaved form data or entries will be lost.',
-                  style: TextStyle(
+                Text(
+                  ctx.tr('unsaved_form_leave_confirm', fallback: 'Do you want to leave this page? Any unsaved form data or entries will be lost.'),
+                  style: const TextStyle(
                     fontSize: 13.5,
                     color: Color(0xFF64748B),
                     height: 1.4,
@@ -164,13 +168,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           UnsavedChangesHelper.clear();
                           _handleLeave();
                         },
-                        child: const Text('Leave Page'),
+                        child: Text(ctx.tr('leave_page', fallback: 'Leave Page')),
                       ),
                       const SizedBox(height: 10),
                       OutlinedButton(
                         style: AppTheme.cancelButton,
                         onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Stay on Page'),
+                        child: Text(ctx.tr('stay_on_page', fallback: 'Stay on Page')),
                       ),
                     ],
                   )
@@ -181,7 +185,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       OutlinedButton(
                         style: AppTheme.cancelButton,
                         onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Stay on Page'),
+                        child: Text(ctx.tr('stay_on_page', fallback: 'Stay on Page')),
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton(
@@ -193,7 +197,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           UnsavedChangesHelper.clear();
                           _handleLeave();
                         },
-                        child: const Text('Leave Page'),
+                        child: Text(ctx.tr('leave_page', fallback: 'Leave Page')),
                       ),
                     ],
                   ),
@@ -298,6 +302,157 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     'Monitoring Tool',
     'Accessories',
   ];
+
+  String _getTranslatedKitDevice(String name) {
+    switch (name.trim()) {
+      case 'BP Apparatus':
+        return context.tr('kit_bp_apparatus', fallback: 'BP Apparatus');
+      case 'Stethoscope':
+        return context.tr('kit_stethoscope', fallback: 'Stethoscope');
+      case 'Thermometer':
+      case 'Thermometer (Digital)':
+        return context.tr('kit_thermometer', fallback: 'Thermometer');
+      case 'Glucometer Kit':
+        return context.tr('kit_glucometer', fallback: 'Glucometer Kit');
+      case 'Pulse Oximeter':
+        return context.tr('kit_pulse_oximeter', fallback: 'Pulse Oximeter');
+      case 'Nebulizer Machine':
+        return context.tr('kit_nebulizer', fallback: 'Nebulizer Machine');
+      case 'ECG Machine (Portable)':
+        return context.tr('kit_ecg_machine', fallback: 'ECG Machine (Portable)');
+      case 'Oxygen Concentrator / Cylinder':
+        return context.tr(
+          'kit_oxygen',
+          fallback: 'Oxygen Concentrator / Cylinder',
+        );
+      case 'Suction Machine':
+        return context.tr('kit_suction', fallback: 'Suction Machine');
+      case 'Dressing & Minor Procedure Kit':
+        return context.tr(
+          'kit_dressing',
+          fallback: 'Dressing & Minor Procedure Kit',
+        );
+      case 'Other (Type Custom Kit Item...)':
+        return context.tr(
+          'kit_item_other',
+          fallback: 'Other (Type Custom Kit Item...)',
+        );
+      default:
+        return name;
+    }
+  }
+
+  Map<String, String> _getKitDeviceMap() {
+    final map = <String, String>{};
+    for (final item in _effectiveKitDevices) {
+      map[item] = _getTranslatedKitDevice(item);
+    }
+    return map;
+  }
+
+  String _getTranslatedKitType(String type) {
+    switch (type.trim()) {
+      case 'Device':
+        return context.tr('cat_device', fallback: 'Device');
+      case 'Equipment':
+        return context.tr('cat_equipment', fallback: 'Equipment');
+      case 'Kit':
+        return context.tr('cat_kit', fallback: 'Kit');
+      case 'Monitoring Tool':
+        return context.tr('cat_monitoring_tool', fallback: 'Monitoring Tool');
+      case 'Accessories':
+        return context.tr('cat_accessories', fallback: 'Accessories');
+      default:
+        return type;
+    }
+  }
+
+  Map<String, String> _getKitTypeMap() {
+    final map = <String, String>{};
+    for (final type in _kitItemTypes) {
+      map[type] = _getTranslatedKitType(type);
+    }
+    return map;
+  }
+
+  String _getTranslatedHomeVisitStatus(String status) {
+    final s = status.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_').trim();
+    switch (s) {
+      case 'in_progress':
+        return context.tr('in_progress', fallback: 'In-Progress');
+      case 'scheduled':
+        return context.tr('scheduled', fallback: 'Scheduled');
+      case 'completed':
+        return context.tr('completed_status', fallback: 'Completed');
+      case 'verified':
+        return context.tr('verified', fallback: 'Verified');
+      case 'cancelled':
+        return context.tr('cancelled', fallback: 'Cancelled');
+      case 'stopped':
+        return context.tr('stopped', fallback: 'Stopped');
+      default:
+        return status;
+    }
+  }
+
+  String _getTranslatedAttenderRelation(String? relation) {
+    if (relation == null || relation.trim().isEmpty) return context.tr('attender_label', fallback: 'Attender');
+    final r = relation.toLowerCase().trim();
+    switch (r) {
+      case 'father':
+        return context.tr('rel_father', fallback: 'Father');
+      case 'mother':
+        return context.tr('rel_mother', fallback: 'Mother');
+      case 'son':
+        return context.tr('rel_son', fallback: 'Son');
+      case 'daughter':
+        return context.tr('rel_daughter', fallback: 'Daughter');
+      case 'spouse':
+      case 'husband':
+      case 'wife':
+        return context.tr('rel_spouse', fallback: relation);
+      case 'brother':
+        return context.tr('rel_brother', fallback: 'Brother');
+      case 'sister':
+        return context.tr('rel_sister', fallback: 'Sister');
+      case 'guardian':
+        return context.tr('rel_guardian', fallback: 'Guardian');
+      case 'attender':
+        return context.tr('attender_label', fallback: 'Attender');
+      default:
+        return relation;
+    }
+  }
+
+  String _getTranslatedPaymentStatus(String status) {
+    final s = status.toLowerCase().trim();
+    if (s == 'paid') return context.tr('paid', fallback: 'Paid');
+    if (s == 'unpaid') return context.tr('unpaid', fallback: 'Unpaid');
+    if (s == 'pending') return context.tr('pending', fallback: 'Pending');
+    return status;
+  }
+
+  String _getTranslatedPhotoCategory(String? category) {
+    if (category == null || category.trim().isEmpty) {
+      return context.tr('evidence_label', fallback: 'Evidence');
+    }
+    switch (category) {
+      case 'Dressing Pre-Procedure':
+        return context.tr('photo_cat_dressing_pre', fallback: 'Pre-Dressing Wound Photo');
+      case 'Dressing Post-Procedure':
+        return context.tr('photo_cat_dressing_post', fallback: 'Post-Dressing Photo');
+      case 'Care Activity':
+        return context.tr('photo_cat_care_activity', fallback: 'Care Activity Evidence');
+      case 'General Care':
+        return context.tr('photo_cat_general_care', fallback: 'General Visit Photo');
+      case 'Photo Evidence':
+      case 'Timestamped Photo Evidence':
+      case 'Evidence':
+        return context.tr('evidence_label', fallback: 'Evidence');
+      default:
+        return category;
+    }
+  }
 
   void _clearKitForm() {
     setState(() {
@@ -655,11 +810,29 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   final List<Offset?> _signaturePoints = [];
   bool _isSigningSignature = false;
 
-  // Voice to Text (Speech Recognition) State for Feedback
+  // Voice to Text (Speech Recognition) State
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _speechEnabled = false;
-  bool _isListeningFeedback = false;
+  String? _activeDictationField;
+  bool get _isListeningFeedback => _activeDictationField != null;
   String _speechTranscription = '';
+  String _dictationLanguage = 'ta-IN';
+
+  static const List<String> _quickNursingNoteTemplates = [
+    'Patient is stable and comfortable / நோயாளி சீராக உள்ளார்',
+    'Vitals checked & within normal limits / உயிரளவுகள் இயல்பானவை',
+    'Sterile dressing changed cleanly / டிரஸ்ஸிங் மாற்றப்பட்டது',
+    'Wound healing well, no discharge / காயம் சீராக ஆறி வருகிறது',
+    'Patient advised on diet & hydration / உணவு, நீர்ச்சத்து ஆலோசனை வழங்கப்பட்டது',
+    'Hygiene & position care provided / சுகாதாரம், நிலை மாற்றம் செய்யப்பட்டது',
+  ];
+
+  static const List<String> _quickDressingTemplates = [
+    'Cleaned with Normal Saline & Betadine / நார்மல் சலைன் மூலம் சுத்தம் செய்யப்பட்டது',
+    'Sterile gauze & adhesive tape applied / சுத்தமான பேண்டேஜ் போடப்பட்டது',
+    'Surgical wound clean, sutures intact / அறுவைசிகிச்சை காயம் சுத்தமாக உள்ளது',
+    'Minimal serous discharge, no signs of infection / தொற்று அறிகுறிகள் இல்லை',
+  ];
 
   bool _isSavingVitals = false;
   bool _isSavingCare = false;
@@ -708,34 +881,41 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
   Future<void> _toggleSpeechDictation({
     required TextEditingController targetController,
+    required String fieldId,
     StateSetter? setModalState,
   }) async {
-    if (_isListeningFeedback) {
+    if (_activeDictationField == fieldId) {
       await LiveSpeechService().stopListening();
       if (mounted) {
-        setState(() => _isListeningFeedback = false);
+        setState(() => _activeDictationField = null);
       }
       if (setModalState != null) {
-        setModalState(() => _isListeningFeedback = false);
+        setModalState(() => _activeDictationField = null);
       }
       return;
+    }
+
+    if (_activeDictationField != null) {
+      await LiveSpeechService().stopListening();
     }
 
     final initialText = targetController.text.trim();
     if (mounted) {
       setState(() {
-        _isListeningFeedback = true;
+        _activeDictationField = fieldId;
         _speechTranscription = '';
       });
     }
     if (setModalState != null) {
       setModalState(() {
-        _isListeningFeedback = true;
+        _activeDictationField = fieldId;
         _speechTranscription = '';
       });
     }
 
+    final lang = _dictationLanguage;
     final success = await LiveSpeechService().startListening(
+      lang: lang,
       onResult: (liveWords) {
         final words = liveWords.trim();
         if (words.isNotEmpty) {
@@ -758,65 +938,151 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       onStatus: (status) {
         if (status == 'notListening' || status == 'done') {
           if (mounted) {
-            setState(() => _isListeningFeedback = false);
+            setState(() => _activeDictationField = null);
           }
           if (setModalState != null) {
-            setModalState(() => _isListeningFeedback = false);
+            setModalState(() => _activeDictationField = null);
           }
         }
       },
       onError: (err) {
         if (mounted) {
-          setState(() => _isListeningFeedback = false);
+          setState(() => _activeDictationField = null);
           AppNotification.showError(
             context,
             'Speech recognition error: $err',
           );
         }
         if (setModalState != null) {
-          setModalState(() => _isListeningFeedback = false);
+          setModalState(() => _activeDictationField = null);
         }
       },
     );
 
     if (!success) {
       if (mounted) {
-        setState(() => _isListeningFeedback = false);
+        setState(() => _activeDictationField = null);
       }
       if (setModalState != null) {
-        setModalState(() => _isListeningFeedback = false);
+        setModalState(() => _activeDictationField = null);
       }
     }
   }
 
-  Widget _buildFeedbackVoiceField({
+  Widget _buildDictationLanguagePill({StateSetter? setModalState}) {
+    final isTamil = _dictationLanguage.startsWith('ta');
+    return Container(
+      padding: const EdgeInsets.all(2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            onTap: () {
+              if (_dictationLanguage != 'ta-IN') {
+                if (setModalState != null) {
+                  setModalState(() => _dictationLanguage = 'ta-IN');
+                } else if (mounted) {
+                  setState(() => _dictationLanguage = 'ta-IN');
+                }
+              }
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: isTamil ? AppTheme.primaryColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                'தமிழ் (ta)',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  color: isTamil ? Colors.white : const Color(0xFF475569),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 2),
+          InkWell(
+            onTap: () {
+              if (_dictationLanguage != 'en-IN') {
+                if (setModalState != null) {
+                  setModalState(() => _dictationLanguage = 'en-IN');
+                } else if (mounted) {
+                  setState(() => _dictationLanguage = 'en-IN');
+                }
+              }
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              decoration: BoxDecoration(
+                color: !isTamil ? AppTheme.primaryColor : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                'English (en)',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  color: !isTamil ? Colors.white : const Color(0xFF475569),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVoiceSupportedNotesField({
+    required String fieldId,
+    required String label,
     required TextEditingController controller,
+    String? hintText,
+    int maxLines = 3,
+    int maxLength = 500,
+    List<String>? quickTemplates,
+    String? Function(String?)? validator,
     StateSetter? setModalState,
     bool isModal = false,
   }) {
+    final isListening = _activeDictationField == fieldId;
+    final isTamil = _dictationLanguage.startsWith('ta');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildLabel('Visit & Care Feedback / Remarks'),
+            Expanded(child: _buildLabel(label)),
+            const SizedBox(width: 8),
+            _buildDictationLanguagePill(setModalState: setModalState),
+            const SizedBox(width: 8),
             InkWell(
               onTap: () => _toggleSpeechDictation(
                 targetController: controller,
+                fieldId: fieldId,
                 setModalState: setModalState,
               ),
               borderRadius: BorderRadius.circular(20),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: _isListeningFeedback
+                  color: isListening
                       ? AppTheme.dangerColor.withOpacity(0.12)
                       : AppTheme.primaryColor.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: _isListeningFeedback
+                    color: isListening
                         ? AppTheme.dangerColor
                         : AppTheme.primaryColor.withOpacity(0.4),
                     width: 1.2,
@@ -826,19 +1092,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      _isListeningFeedback ? Icons.stop_circle : Icons.mic,
+                      isListening ? Icons.stop_circle : Icons.mic,
                       size: 15,
-                      color: _isListeningFeedback
+                      color: isListening
                           ? AppTheme.dangerColor
                           : AppTheme.primaryColor,
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      _isListeningFeedback ? 'Stop Voice Input' : 'Voice to Text',
+                      isListening
+                          ? context.tr('stop_voice_input')
+                          : context.tr('voice_to_text'),
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.bold,
-                        color: _isListeningFeedback
+                        color: isListening
                             ? AppTheme.dangerColor
                             : AppTheme.primaryColor,
                       ),
@@ -849,7 +1117,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             ),
           ],
         ),
-        if (_isListeningFeedback) ...[
+        if (isListening) ...[
           const SizedBox(height: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -869,10 +1137,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Listening... Speak clearly into microphone (live dictation active)',
-                    style: TextStyle(
+                    isTamil
+                        ? 'நேரடி குரல் பதிவு செயலில் உள்ளது (தமிழ் ta-IN)... மைக்ரோஃபோனில் பேசவும்'
+                        : 'Live dictation active (English en-IN)... Speak clearly into microphone',
+                    style: const TextStyle(
                       fontSize: 11.5,
                       color: Color(0xFF991B1B),
                       fontWeight: FontWeight.w500,
@@ -882,6 +1152,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 GestureDetector(
                   onTap: () => _toggleSpeechDictation(
                     targetController: controller,
+                    fieldId: fieldId,
                     setModalState: setModalState,
                   ),
                   child: Container(
@@ -907,33 +1178,37 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         const SizedBox(height: 6),
         TextFormField(
           controller: controller,
-          maxLines: isModal ? 3 : 4,
-          maxLength: 500,
+          maxLines: isModal ? 3 : maxLines,
+          maxLength: maxLength,
           inputFormatters: [
-            LengthLimitingTextInputFormatter(500),
+            LengthLimitingTextInputFormatter(maxLength),
             FilteringTextInputFormatter.allow(
-              RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;?!]'),
+              RegExp(r'[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;?!]'),
             ),
           ],
           decoration: AppTheme.standardInputDecoration(
-            hintText: 'Speak or type attender feedback, patient condition, care remarks...',
+            hintText: hintText ?? (isTamil
+                ? 'நேரடி குரல் மூலம் பேசவும் அல்லது தட்டச்சு செய்யவும்...'
+                : 'Speak with voice to text or type here...'),
             suffixIcon: IconButton(
               icon: Icon(
-                _isListeningFeedback ? Icons.mic_off : Icons.mic,
-                color: _isListeningFeedback
+                isListening ? Icons.mic_off : Icons.mic,
+                color: isListening
                     ? AppTheme.dangerColor
                     : AppTheme.primaryColor,
                 size: 20,
               ),
-              tooltip: _isListeningFeedback
-                  ? 'Stop Voice Dictation'
-                  : 'Start Voice to Text Dictation',
+              tooltip: isListening
+                  ? context.tr('stop_voice_input')
+                  : '${context.tr('voice_to_text')} (${isTamil ? "தமிழ்" : "English"})',
               onPressed: () => _toggleSpeechDictation(
                 targetController: controller,
+                fieldId: fieldId,
                 setModalState: setModalState,
               ),
             ),
           ),
+          validator: validator,
           onChanged: (val) {
             if (setModalState != null) {
               setModalState(() {});
@@ -942,56 +1217,76 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             }
           },
         ),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: _quickFeedbackTemplates.map((template) {
-            return InkWell(
-              onTap: () {
-                final cur = controller.text.trim();
-                if (cur.isEmpty) {
-                  controller.text = template;
-                } else if (!cur.contains(template)) {
-                  controller.text = '$cur. $template';
-                }
-                controller.selection = TextSelection.fromPosition(
-                  TextPosition(offset: controller.text.length),
-                );
-                if (setModalState != null) {
-                  setModalState(() {});
-                } else if (mounted) {
-                  setState(() {});
-                }
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFCBD5E1)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.add, size: 12, color: Color(0xFF475569)),
-                    const SizedBox(width: 3),
-                    Text(
-                      template,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF475569),
+        if (quickTemplates != null && quickTemplates.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: quickTemplates.map((template) {
+              return InkWell(
+                onTap: () {
+                  final cur = controller.text.trim();
+                  if (cur.isEmpty) {
+                    controller.text = template;
+                  } else if (!cur.contains(template)) {
+                    controller.text = '$cur. $template';
+                  }
+                  controller.selection = TextSelection.fromPosition(
+                    TextPosition(offset: controller.text.length),
+                  );
+                  if (setModalState != null) {
+                    setModalState(() {});
+                  } else if (mounted) {
+                    setState(() {});
+                  }
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add, size: 12, color: Color(0xFF475569)),
+                      const SizedBox(width: 3),
+                      Text(
+                        template,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF475569),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          }).toList(),
-        ),
+              );
+            }).toList(),
+          ),
+        ],
       ],
+    );
+  }
+
+  Widget _buildFeedbackVoiceField({
+    required TextEditingController controller,
+    StateSetter? setModalState,
+    bool isModal = false,
+  }) {
+    return _buildVoiceSupportedNotesField(
+      fieldId: 'feedback',
+      label: 'Visit & Care Feedback / Remarks',
+      controller: controller,
+      hintText: 'Speak or type attender feedback, patient condition, care remarks...',
+      maxLines: isModal ? 3 : 4,
+      maxLength: 500,
+      quickTemplates: _quickFeedbackTemplates,
+      setModalState: setModalState,
+      isModal: isModal,
     );
   }
 
@@ -1174,9 +1469,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: const Color(0xFFFBD38D)),
         ),
-        child: const Text(
-          'STAT - Given Immediately (Single Dose)',
-          style: TextStyle(
+        child: Text(
+          context.tr('stat_given_immediately', fallback: 'STAT - Given Immediately (Single Dose)'),
+          style: const TextStyle(
             fontSize: 11,
             fontWeight: FontWeight.bold,
             color: Color(0xFFC05621),
@@ -1247,16 +1542,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     size: 14,
                     color: AppTheme.primaryColor,
                   ),
-                  const Text(
-                    'Daily Tablet Administration Checklist:',
-                    style: TextStyle(
+                  Text(
+                    context.tr('daily_tablet_checklist', fallback: 'Daily Tablet Administration Checklist:'),
+                    style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryColor,
                     ),
                   ),
                   Text(
-                    '($totalDays Days Plan | Prescribed/Added: $startDateStr | Current Visit: Day $activeDayNumber)',
+                    '($totalDays ${context.tr('days_plan', fallback: 'Days Plan')} | ${context.tr('prescribed_added', fallback: 'Prescribed/Added')}: $startDateStr | ${context.tr('current_visit', fallback: 'Current Visit')}: ${context.tr('day', fallback: 'Day')} $activeDayNumber)',
                     style: const TextStyle(
                       fontSize: 10,
                       color: Color(0xFF64748B),
@@ -1372,7 +1667,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ),
                                 const SizedBox(width: 5),
                                 Text(
-                                  'Day $dayIdx ($dayDateStr)',
+                                  "${context.tr('day', fallback: 'Day')} $dayIdx ($dayDateStr)",
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: isToday || isChecked
@@ -1398,14 +1693,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       color: AppTheme.primaryColor,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: const Text(
-                                      'TODAY',
-                                      style: TextStyle(
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
+                                    child: Text(
+                                       context.tr('today_badge', fallback: 'TODAY'),
+                                       style: const TextStyle(
+                                         fontSize: 8,
+                                         fontWeight: FontWeight.bold,
+                                         color: Colors.white,
+                                       ),
+                                     ),
                                   ),
                                 ] else if (isFuture) ...[
                                   const SizedBox(width: 5),
@@ -1418,14 +1713,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       color: const Color(0xFFCBD5E1),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
-                                    child: const Text(
-                                      'LOCKED',
-                                      style: TextStyle(
-                                        fontSize: 7,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
+                                    child: Text(
+                                       context.tr('locked_badge', fallback: 'LOCKED'),
+                                       style: const TextStyle(
+                                         fontSize: 7,
+                                         fontWeight: FontWeight.bold,
+                                         color: Colors.white,
+                                       ),
+                                     ),
                                   ),
                                 ],
                               ],
@@ -1661,8 +1956,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       const SizedBox(width: 8),
                       Text(
                         existingMedicine != null
-                            ? 'Edit Medicine Item'
-                            : 'Record Medicine Item',
+                            ? context.tr('edit_medicine_item')
+                            : context.tr('record_medicine_item'),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -1684,11 +1979,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLabel('Medicine Type *'),
+                      _buildLabel(context.tr('medicine_type_req')),
                       Row(
                         children: [
                           ChoiceChip(
-                            label: const Text('Regular'),
+                            label: Text(context.tr('regular')),
                             selected: localType == 'Regular',
                             selectedColor: AppTheme.primaryColor,
                             labelStyle: TextStyle(
@@ -1709,7 +2004,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                           const SizedBox(width: 8),
                           ChoiceChip(
-                            label: const Text('STAT'),
+                            label: Text(context.tr('stat')),
                             selected: localType == 'STAT',
                             selectedColor: const Color(0xFFDD6B20),
                             labelStyle: TextStyle(
@@ -1731,13 +2026,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ],
                       ),
                       const SizedBox(height: 14),
-                      _buildLabel('Medicine Name *'),
+                      _buildLabel(context.tr('medicine_name_req')),
                       CustomDropdownSearch(
                         label: '',
-                        hint: 'Select or type medicine (e.g. Paracetamol)',
-                        dropdownItems: _dbMedicines.isNotEmpty
-                            ? _dbMedicines
-                            : _defaultMedicines,
+                        hint: context.tr('select_medicine_hint'),
+                        dropdownMap: {
+                          for (final m in (_dbMedicines.isNotEmpty
+                              ? _dbMedicines
+                              : _defaultMedicines))
+                            m: context.translateMedicine(m),
+                        },
                         value: nameCtrl.text.isNotEmpty ? nameCtrl.text : null,
                         allowFreeText: true,
                         onChanged: (val) {
@@ -1760,7 +2058,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                       const SizedBox(height: 14),
                       if (MediaQuery.of(context).size.width < 600) ...[
-                        _buildLabel('Qty *'),
+                        _buildLabel(context.tr('qty_req', fallback: 'Qty *')),
                         _buildQtyStepperField(
                           controller: qtyCtrl,
                           min: 1,
@@ -1768,19 +2066,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           setModalState: setModalState,
                         ),
                         const SizedBox(height: 14),
-                        _buildLabel('Food Relation'),
+                        _buildLabel(context.tr('food_label', fallback: 'Food Relation')),
                         DropdownButtonFormField<String>(
                           isExpanded: true,
                           value: selectedFoodTiming,
                           decoration: AppTheme.standardInputDecoration(
                             hintText: 'Select Food Relation',
                           ),
-                          items: const [
+                          items: [
                             DropdownMenuItem(
                               value: 'After Food',
                               child: Text(
-                                'After Food',
-                                style: TextStyle(
+                                context.tr('food_after', fallback: 'After Food'),
+                                style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1789,8 +2087,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             DropdownMenuItem(
                               value: 'Before Food',
                               child: Text(
-                                'Before Food',
-                                style: TextStyle(
+                                context.tr('food_before', fallback: 'Before Food'),
+                                style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1799,8 +2097,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             DropdownMenuItem(
                               value: 'With Food',
                               child: Text(
-                                'With Food',
-                                style: TextStyle(
+                                context.tr('food_with', fallback: 'With Food'),
+                                style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1816,8 +2114,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         const SizedBox(height: 14),
                         _buildLabel(
                           localType == 'STAT'
-                              ? 'Frequency'
-                              : 'Frequency (1 - 0 - 1 - 0) *',
+                              ? context.tr('frequency', fallback: 'Frequency')
+                              : context.tr('frequency_req', fallback: 'Frequency (1 - 0 - 1 - 0) *'),
                         ),
                         if (localType == 'STAT')
                           Container(
@@ -1831,9 +2129,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 color: const Color(0xFFFBD38D),
                               ),
                             ),
-                            child: const Text(
-                              'STAT (Immediate Single Dose)',
-                              style: TextStyle(
+                            child: Text(
+                              context.tr('stat_single_dose', fallback: 'STAT (Immediate Single Dose)'),
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFFC05621),
                                 fontSize: 13,
@@ -1860,7 +2158,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   f1Ctrl,
                                   fn1,
                                   fn2,
-                                  'M',
+                                  context.tr('morning_abbr', fallback: 'M'),
                                   updateFreqText,
                                   setModalState,
                                 ),
@@ -1879,7 +2177,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   f2Ctrl,
                                   fn2,
                                   fn3,
-                                  'A',
+                                  context.tr('afternoon_abbr', fallback: 'A'),
                                   updateFreqText,
                                   setModalState,
                                 ),
@@ -1898,7 +2196,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   f3Ctrl,
                                   fn3,
                                   fn4,
-                                  'E',
+                                  context.tr('evening_abbr', fallback: 'E'),
                                   updateFreqText,
                                   setModalState,
                                 ),
@@ -1917,7 +2215,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   f4Ctrl,
                                   fn4,
                                   null,
-                                  'N',
+                                  context.tr('night_abbr', fallback: 'N'),
                                   updateFreqText,
                                   setModalState,
                                 ),
@@ -1926,7 +2224,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         const SizedBox(height: 14),
                         _buildLabel(
-                          localType == 'STAT' ? 'Duration' : 'Duration *',
+                          localType == 'STAT'
+                              ? context.tr('duration', fallback: 'Duration')
+                              : '${context.tr("duration", fallback: "Duration")} *',
                         ),
                         if (localType == 'STAT')
                           Container(
@@ -1940,9 +2240,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 color: const Color(0xFFCBD5E1),
                               ),
                             ),
-                            child: const Text(
-                              'STAT - Single Dose',
-                              style: TextStyle(
+                            child: Text(
+                              context.tr('stat_single_dose_display', fallback: 'STAT - Single Dose'),
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.primaryColor,
                                 fontSize: 12,
@@ -1968,7 +2268,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _buildLabel('Qty *'),
+                                  _buildLabel(context.tr('qty_req', fallback: 'Qty *')),
                                   _buildQtyStepperField(
                                     controller: qtyCtrl,
                                     min: 1,
@@ -1983,19 +2283,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _buildLabel('Food Relation'),
+                                  _buildLabel(context.tr('food_label', fallback: 'Food Relation')),
                                   DropdownButtonFormField<String>(
+                                    isExpanded: true,
                                     value: selectedFoodTiming,
                                     decoration:
                                         AppTheme.standardInputDecoration(
                                           hintText: 'Select Food Relation',
                                         ),
-                                    items: const [
+                                    items: [
                                       DropdownMenuItem(
                                         value: 'After Food',
                                         child: Text(
-                                          'After Food',
-                                          style: TextStyle(
+                                          context.tr('food_after', fallback: 'After Food'),
+                                          style: const TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w500,
                                           ),
@@ -2004,8 +2305,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       DropdownMenuItem(
                                         value: 'Before Food',
                                         child: Text(
-                                          'Before Food',
-                                          style: TextStyle(
+                                          context.tr('food_before', fallback: 'Before Food'),
+                                          style: const TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w500,
                                           ),
@@ -2014,8 +2315,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       DropdownMenuItem(
                                         value: 'With Food',
                                         child: Text(
-                                          'With Food',
-                                          style: TextStyle(
+                                          context.tr('food_with', fallback: 'With Food'),
+                                          style: const TextStyle(
                                             fontSize: 13,
                                             fontWeight: FontWeight.w500,
                                           ),
@@ -2046,8 +2347,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 children: [
                                   _buildLabel(
                                     localType == 'STAT'
-                                        ? 'Frequency'
-                                        : 'Frequency (1 - 0 - 1 - 0) *',
+                                        ? context.tr('frequency', fallback: 'Frequency')
+                                        : context.tr('frequency_req', fallback: 'Frequency (1 - 0 - 1 - 0) *'),
                                   ),
                                   if (localType == 'STAT')
                                     Container(
@@ -2063,9 +2364,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           color: const Color(0xFFFBD38D),
                                         ),
                                       ),
-                                      child: const Text(
-                                        'STAT (Immediate Single Dose)',
-                                        style: TextStyle(
+                                      child: Text(
+                                        context.tr('stat_single_dose', fallback: 'STAT (Immediate Single Dose)'),
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           color: Color(0xFFC05621),
                                           fontSize: 13,
@@ -2093,7 +2394,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                             f1Ctrl,
                                             fn1,
                                             fn2,
-                                            'M',
+                                            context.tr('morning_abbr', fallback: 'M'),
                                             updateFreqText,
                                             setModalState,
                                           ),
@@ -2114,7 +2415,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                             f2Ctrl,
                                             fn2,
                                             fn3,
-                                            'A',
+                                            context.tr('afternoon_abbr', fallback: 'A'),
                                             updateFreqText,
                                             setModalState,
                                           ),
@@ -2135,7 +2436,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                             f3Ctrl,
                                             fn3,
                                             fn4,
-                                            'E',
+                                            context.tr('evening_abbr', fallback: 'E'),
                                             updateFreqText,
                                             setModalState,
                                           ),
@@ -2156,7 +2457,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                             f4Ctrl,
                                             fn4,
                                             null,
-                                            'N',
+                                            context.tr('night_abbr', fallback: 'N'),
                                             updateFreqText,
                                             setModalState,
                                           ),
@@ -2174,8 +2475,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 children: [
                                   _buildLabel(
                                     localType == 'STAT'
-                                        ? 'Duration'
-                                        : 'Duration *',
+                                        ? context.tr('duration', fallback: 'Duration')
+                                        : '${context.tr("duration", fallback: "Duration")} *',
                                   ),
                                   if (localType == 'STAT')
                                     Container(
@@ -2191,9 +2492,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           color: const Color(0xFFCBD5E1),
                                         ),
                                       ),
-                                      child: const Text(
-                                        'STAT - Single Dose',
-                                        style: TextStyle(
+                                      child: Text(
+                                        context.tr('stat_single_dose_display', fallback: 'STAT - Single Dose'),
+                                        style: const TextStyle(
                                           fontWeight: FontWeight.bold,
                                           color: AppTheme.primaryColor,
                                           fontSize: 12,
@@ -2205,7 +2506,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       controller: durDaysCtrl,
                                       min: 1,
                                       max: 365,
-                                      suffix: 'Days',
+                                     suffix: context.tr('days', fallback: 'Days'),
                                       setModalState: setModalState,
                                       onChanged: (val) {
                                         durCtrl.text = '$val Days';
@@ -2219,7 +2520,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ],
                       if (localType == 'STAT') ...[
                         const SizedBox(height: 14),
-                        _buildLabel('Given Time *'),
+                        _buildLabel(context.tr('given_time_req', fallback: 'Given Time *')),
                         TextFormField(
                           controller: givenTimeCtrl,
                           readOnly: true,
@@ -2280,7 +2581,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 OutlinedButton(
                   style: AppTheme.cancelButton,
                   onPressed: isSubmitting ? null : () => Navigator.pop(dCtx),
-                  child: const Text('Cancel'),
+                  child: Text(context.tr('cancel')),
                 ),
                 ElevatedButton.icon(
                   style: AppTheme.dangerButton,
@@ -2297,11 +2598,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   label: Text(
                     isSubmitting
                         ? (existingMedicine != null
-                              ? 'Updating...'
-                              : 'Saving...')
+                              ? context.tr('updating')
+                              : context.tr('saving'))
                         : (existingMedicine != null
-                              ? 'Update Medicine Item'
-                              : 'Save Medicine Item'),
+                              ? context.tr('update_medicine_item')
+                              : context.tr('save_medicine_item')),
                   ),
                   onPressed: isSubmitting
                       ? null
@@ -2457,7 +2758,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       inputFormatters: [
                         LengthLimitingTextInputFormatter(60),
                         FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z0-9\s]'),
+                          RegExp(r'[a-zA-Z0-9\u0B80-\u0BFF\s]'),
                         ),
                       ],
                       onChanged: (val) {
@@ -2522,14 +2823,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             );
                             return;
                           }
-                          if (!RegExp(r'[a-zA-Z]').hasMatch(cName)) {
+                          if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(cName)) {
                             AppNotification.showError(
                               dialogCtx,
-                              'Consumable name must contain alphabetical characters and cannot consist solely of numbers or symbols',
+                              'Consumable name must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols',
                             );
                             return;
                           }
-                          if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(cName)) {
+                          if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s]+$').hasMatch(cName)) {
                             AppNotification.showError(
                               dialogCtx,
                               'Special characters are not allowed in consumable item name',
@@ -2792,14 +3093,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       );
                       return;
                     }
-                    if (!RegExp(r'[a-zA-Z]').hasMatch(cName)) {
+                    if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(cName)) {
                       AppNotification.showError(
                         ctx,
-                        'Consumable name must contain alphabetical characters and cannot consist solely of numbers or symbols',
+                        'Consumable name must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols',
                       );
                       return;
                     }
-                    if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(cName)) {
+                    if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s]+$').hasMatch(cName)) {
                       AppNotification.showError(
                         ctx,
                         'Special characters are not allowed in consumable item name',
@@ -2930,8 +3231,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       const SizedBox(width: 8),
                       Text(
                         existingProcedure != null
-                            ? 'Edit Procedure Item'
-                            : 'Record Procedure Item',
+                            ? context.tr('edit_procedure_item')
+                            : context.tr('record_procedure_item'),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -2953,12 +3254,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLabel('Procedure Name *'),
+                      _buildLabel(context.tr('procedure_name_req')),
                       CustomDropdownSearch(
                         label: '',
-                        hint:
-                            'Select or type procedure (e.g. Diaper Change, Wound Dressing)',
-                        dropdownItems: procNames,
+                        hint: context.tr('select_procedure_hint'),
+                        dropdownMap: {
+                          for (final p in procs) p.name: context.translateProcedure(p.name),
+                        },
                         value: selectedProcName.isNotEmpty
                             ? selectedProcName
                             : null,
@@ -3009,7 +3311,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Procedure Charge (₹)'),
+                                _buildLabel(context.tr('procedure_charge')),
                                 TextFormField(
                                   controller: chargeCtrl,
                                   keyboardType:
@@ -3038,17 +3340,29 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Frequency'),
+                                _buildLabel(context.tr('frequency')),
                                 CustomDropdownSearch(
                                   label: '',
                                   hint:
                                       'Select or enter frequency (e.g. 1-999)',
-                                  dropdownItems: const [
-                                    'Once Daily (1x/day)',
-                                    '2 Times/Day (2x/day)',
-                                    '3 Times/Day (3x/day)',
-                                    'Every 4 Hours (6x/day)',
-                                  ],
+                                  dropdownMap: {
+                                    'Once Daily (1x/day)': context.tr(
+                                      'freq_once_daily',
+                                      fallback: 'Once Daily (1x/day)',
+                                    ),
+                                    '2 Times/Day (2x/day)': context.tr(
+                                      'freq_twice_daily',
+                                      fallback: '2 Times/Day (2x/day)',
+                                    ),
+                                    '3 Times/Day (3x/day)': context.tr(
+                                      'freq_thrice_daily',
+                                      fallback: '3 Times/Day (3x/day)',
+                                    ),
+                                    'Every 4 Hours (6x/day)': context.tr(
+                                      'freq_every_4_hours',
+                                      fallback: 'Every 4 Hours (6x/day)',
+                                    ),
+                                  },
                                   value: selectedFreq.isNotEmpty
                                       ? selectedFreq
                                       : null,
@@ -3708,7 +4022,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 OutlinedButton(
                   style: AppTheme.cancelButton,
                   onPressed: isSubmitting ? null : () => Navigator.pop(dCtx),
-                  child: const Text('Cancel'),
+                  child: Text(context.tr('cancel')),
                 ),
                 ElevatedButton.icon(
                   style: AppTheme.dangerButton,
@@ -3725,11 +4039,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   label: Text(
                     isSubmitting
                         ? (existingProcedure != null
-                              ? 'Updating...'
-                              : 'Saving...')
+                              ? context.tr('updating')
+                              : context.tr('saving'))
                         : (existingProcedure != null
-                              ? 'Update Procedure Item'
-                              : 'Save Procedure Item'),
+                              ? context.tr('update_procedure_item')
+                              : context.tr('save_procedure_item')),
                   ),
                   onPressed: (isSubmitting || selectedProcName.trim().isEmpty)
                       ? null
@@ -3742,15 +4056,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             );
                             return;
                           }
-                          if (!RegExp(r'[a-zA-Z]').hasMatch(procName)) {
+                          if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(procName)) {
                             AppNotification.showError(
                               dialogCtx,
-                              'Procedure name must contain alphabetical characters and cannot consist solely of numbers or symbols',
+                              'Procedure name must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols',
                             );
                             return;
                           }
                           if (!RegExp(
-                            r'^[a-zA-Z0-9\s.,/#\-\(\):;]+$',
+                            r'^[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;]+$',
                           ).hasMatch(procName)) {
                             AppNotification.showError(
                               dialogCtx,
@@ -5355,35 +5669,53 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Home Visit Care - ${visit.visitNumber}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimaryColor,
-                              fontFamily: 'Inter',
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? ""})',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey,
-                              fontFamily: 'Inter',
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
+                      child: Builder(
+                        builder: (ctx) {
+                          final isTamil = Provider.of<LanguageProvider>(ctx).isTamil;
+                          final rawPatientName = visit.patientName ?? (isTamil ? 'நோயாளி' : 'Patient');
+                          final formattedPatientName = TamilTransliterationHelper.formatName(
+                            rawPatientName,
+                            isTamil: isTamil,
+                            showBoth: true,
+                          );
+                          final pId = (visit.patientDisplayId != null && visit.patientDisplayId!.isNotEmpty)
+                              ? ' (${visit.patientDisplayId})'
+                              : '';
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${ctx.tr('home_visit_care', fallback: 'Home Visit Care')} - ${visit.visitNumber}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                  fontFamily: 'Inter',
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                '${ctx.tr('patient_label', fallback: 'Patient:')} $formattedPatientName$pId',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey,
+                                  fontFamily: 'Inter',
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ],
                 ),
               ),
               actions: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 16.0, right: 12.0),
+                  child: AppTopBarActions(showClock: false),
+                ),
                 if (visit.status != 'Cancelled' &&
                     visit.status != 'Completed' &&
                     visit.status != 'Verified')
@@ -5395,7 +5727,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         padding: const EdgeInsets.only(top: 16.0, right: 16.0),
                         child: isMobile
                             ? IconButton(
-                                tooltip: 'Stop / Cancel Home Visit Care Plan',
+                                tooltip: ctx.tr('stop_care_plan', fallback: 'Stop Care Plan'),
                                 style: IconButton.styleFrom(
                                   foregroundColor: AppTheme.dangerColor,
                                   backgroundColor: AppTheme.dangerColor
@@ -5428,9 +5760,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   Icons.do_not_disturb_on_outlined,
                                   size: 16,
                                 ),
-                                label: const Text(
-                                  'Stop Care Plan',
-                                  style: TextStyle(
+                                label: Text(
+                                  ctx.tr('stop_care_plan', fallback: 'Stop Care Plan'),
+                                  style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
@@ -5451,48 +5783,48 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       indicatorColor: AppTheme.primaryColor,
                       indicatorWeight: 3,
                       isScrollable: true,
-                      tabs: const [
+                      tabs: [
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.medical_services_outlined,
                             color: Color(0xFF0284C7),
                           ),
-                          text: 'Kit & Devices',
+                          text: context.tr('tab_kit_devices', fallback: 'Kit & Devices'),
                         ),
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.monitor_heart_outlined,
                             color: Color(0xFF16A34A),
                           ),
-                          text: 'Vitals',
+                          text: context.tr('tab_vitals', fallback: 'Vitals'),
                         ),
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.health_and_safety_outlined,
                             color: Color(0xFFE11D48),
                           ),
-                          text: 'Nursing Care & Dressing',
+                          text: context.tr('tab_nursing_care', fallback: 'Nursing Care & Dressing'),
                         ),
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.medication_liquid_outlined,
                             color: Color(0xFFEA580C),
                           ),
-                          text: 'Meds & Consumables',
+                          text: context.tr('tab_meds_consumables', fallback: 'Meds & Consumables'),
                         ),
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.insert_photo_outlined,
                             color: Color(0xFF9333EA),
                           ),
-                          text: 'Photo Evidence',
+                          text: context.tr('tab_photo_evidence', fallback: 'Photo Evidence'),
                         ),
                         Tab(
-                          icon: Icon(
+                          icon: const Icon(
                             Icons.analytics_outlined,
                             color: Color(0xFF0D9488),
                           ),
-                          text: 'View Live Summary',
+                          text: context.tr('tab_live_summary', fallback: 'View Live Summary'),
                         ),
                       ],
                     ),
@@ -5540,10 +5872,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         children: [
           // Section 1 Header
           _buildSectionHeader(
-            'Select & Add Kit Items & Medical Devices Used',
+            context.tr('select_add_kit_header', fallback: 'Select & Add Kit Items & Medical Devices Used'),
             Icons.fact_check_outlined,
-            subtitle:
-                'Add the kit items or medical devices used during this visit.',
+            subtitle: context.tr('select_add_kit_sub', fallback: 'Add the kit items or medical devices used during this visit.'),
           ),
           const SizedBox(height: 16),
 
@@ -5560,17 +5891,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  children: const [
-                    Icon(
+                  children: [
+                    const Icon(
                       Icons.tune_rounded,
                       color: AppTheme.secondaryColor,
                       size: 20,
                     ),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Add Kit Device / Item Used During Visit',
-                        style: TextStyle(
+                        context.tr('add_kit_box_header', fallback: 'Add Kit Device / Item Used During Visit'),
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.secondaryColor,
@@ -5748,7 +6079,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             )
                           : const Icon(Icons.add, size: 18),
                       label: Text(
-                        _isAddingKitItem ? 'Adding...' : 'Add Kit Item',
+                        _isAddingKitItem
+                            ? context.tr('adding', fallback: 'Adding...')
+                            : context.tr('add_kit_item', fallback: '+ Add Kit Item'),
                       ),
                       onPressed: _isAddingKitItem ? null : addKitItem,
                     );
@@ -5757,11 +6090,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _buildLabel('Kit / Device Item'),
+                          _buildLabel(context.tr('kit_device_item', fallback: 'Kit / Device Item')),
                           CustomDropdownSearch(
                             label: '',
-                            hint: 'Select Kit Item / Device',
-                            dropdownItems: _effectiveKitDevices,
+                            hint: context.tr('select_kit_item_hint', fallback: 'Select Kit Item / Device'),
+                            dropdownMap: _getKitDeviceMap(),
                             value: _selectedKitDropdown,
                             allowFreeText: false,
                             maxLength: 60,
@@ -5788,11 +6121,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ),
                           ],
                           const SizedBox(height: 12),
-                          _buildLabel('Category'),
+                          _buildLabel(context.tr('category', fallback: 'Category')),
                           CustomDropdownSearch(
                             label: '',
-                            hint: 'Select Category',
-                            dropdownItems: _kitItemTypes,
+                            hint: context.tr('category', fallback: 'Category'),
+                            dropdownMap: _getKitTypeMap(),
                             value: _kitItemType,
                             allowFreeText: false,
                             maxLength: 30,
@@ -5803,7 +6136,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             },
                           ),
                           const SizedBox(height: 12),
-                          _buildLabel('Quantity'),
+                          _buildLabel(context.tr('quantity', fallback: 'Quantity')),
                           _buildQtyStepperField(
                             controller: _kitItemQtyCtrl,
                             min: 1,
@@ -5822,11 +6155,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Kit / Device Item'),
+                                _buildLabel(context.tr('kit_device_item', fallback: 'Kit / Device Item')),
                                 CustomDropdownSearch(
                                   label: '',
-                                  hint: 'Select Kit Item / Device',
-                                  dropdownItems: _effectiveKitDevices,
+                                  hint: context.tr('select_kit_item_hint', fallback: 'Select Kit Item / Device'),
+                                  dropdownMap: _getKitDeviceMap(),
                                   value: _selectedKitDropdown,
                                   allowFreeText: false,
                                   maxLength: 60,
@@ -5870,11 +6203,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Category'),
+                                _buildLabel(context.tr('category', fallback: 'Category')),
                                 CustomDropdownSearch(
                                   label: '',
-                                  hint: 'Select Category',
-                                  dropdownItems: _kitItemTypes,
+                                  hint: context.tr('category', fallback: 'Category'),
+                                  dropdownMap: _getKitTypeMap(),
                                   value: _kitItemType,
                                   allowFreeText: false,
                                   maxLength: 30,
@@ -5894,7 +6227,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Quantity'),
+                                _buildLabel(context.tr('quantity', fallback: 'Quantity')),
                                 _buildQtyStepperField(
                                   controller: _kitItemQtyCtrl,
                                   min: 1,
@@ -5921,7 +6254,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             children: [
               Expanded(
                 child: _buildSectionHeader(
-                  'Carried & Used Kit Devices List',
+                  context.tr('carried_used_kit_list', fallback: 'Carried & Used Kit Devices List'),
                   Icons.assignment_turned_in_outlined,
                 ),
               ),
@@ -5936,7 +6269,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  '${visit.carriedItems.length} Items',
+                  '${visit.carriedItems.length} ${context.tr('items', fallback: 'Items')}',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -6051,7 +6384,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text(
-                                  item.itemName,
+                                  _getTranslatedKitDevice(item.itemName),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
@@ -6060,7 +6393,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'Category: ${item.itemType} • Qty: ${item.quantityCarried}',
+                                  '${context.tr('category', fallback: 'Category')}: ${_getTranslatedKitType(item.itemType)} • ${context.tr('qty', fallback: 'Qty')}: ${item.quantityCarried}',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey,
@@ -6202,8 +6535,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               children: [
                                 Text(
                                   existingVital != null
-                                      ? 'Update Patient Vital Signs'
-                                      : 'Record Patient Vital Signs',
+                                      ? context.tr('update_patient_vital_signs')
+                                      : context.tr('record_patient_vital_signs'),
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -6247,7 +6580,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Systolic BP (mmHg) *'),
+                                _buildLabel(context.tr('systolic_bp_req')),
                                 TextFormField(
                                   controller: _sysBpCtrl,
                                   keyboardType: TextInputType.number,
@@ -6282,7 +6615,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Diastolic BP (mmHg) *'),
+                                _buildLabel(context.tr('diastolic_bp_req')),
                                 TextFormField(
                                   controller: _diaBpCtrl,
                                   keyboardType: TextInputType.number,
@@ -6323,7 +6656,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Pulse Rate (bpm) *'),
+                                _buildLabel(context.tr('pulse_rate_req')),
                                 TextFormField(
                                   controller: _pulseCtrl,
                                   keyboardType: TextInputType.number,
@@ -6358,7 +6691,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Temperature (°F) *'),
+                                _buildLabel(context.tr('temperature_req')),
                                 TextFormField(
                                   controller: _tempCtrl,
                                   keyboardType:
@@ -6404,7 +6737,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('SpO2 (%) *'),
+                                _buildLabel(context.tr('spo2_req')),
                                 TextFormField(
                                   controller: _spo2Ctrl,
                                   keyboardType: TextInputType.number,
@@ -6439,7 +6772,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Blood Sugar (mg/dL)'),
+                                _buildLabel(context.tr('blood_sugar_label')),
                                 TextFormField(
                                   controller: _sugarCtrl,
                                   keyboardType: TextInputType.number,
@@ -6479,7 +6812,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Weight (kg)'),
+                                _buildLabel(context.tr('weight_label')),
                                 TextFormField(
                                   controller: _weightCtrl,
                                   keyboardType:
@@ -6518,7 +6851,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel('Height (cm)'),
+                                _buildLabel(context.tr('height_label')),
                                 TextFormField(
                                   controller: _heightCtrl,
                                   keyboardType:
@@ -6567,7 +6900,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               _clearVitalsForm();
                               Navigator.of(dialogCtx).pop();
                             },
-                            child: const Text('Cancel'),
+                            child: Text(context.tr('cancel')),
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
@@ -6587,10 +6920,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                             label: Text(
                               _isSavingVitals
-                                  ? 'Saving...'
+                                  ? context.tr('saving')
                                   : existingVital != null
-                                  ? 'Update Vitals Entry'
-                                  : 'Save Vitals Entry',
+                                  ? context.tr('update_vitals_entry')
+                                  : context.tr('save_vitals_entry'),
                             ),
                             onPressed: _isSavingVitals
                                 ? null
@@ -7123,10 +7456,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Flexible(
+                  Flexible(
                     child: Text(
-                      'Patient Vitals History Log',
-                      style: TextStyle(
+                      context.tr('patient_vitals_history_log'),
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.primaryColor,
@@ -7158,7 +7491,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               PopupMenuButton<String>(
                 initialValue: _vitalsFilter,
-                tooltip: 'Filter Vitals',
+                tooltip: context.tr('filter'),
                 onSelected: (val) {
                   setState(() {
                     _vitalsFilter = val;
@@ -7166,45 +7499,45 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   });
                 },
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'All',
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.list_alt,
                           size: 18,
                           color: AppTheme.primaryColor,
                         ),
-                        SizedBox(width: 8),
-                        Text('All Entries'),
+                        const SizedBox(width: 8),
+                        Text(context.tr('all_entries', fallback: 'All Entries')),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'Today',
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.today,
                           size: 18,
                           color: AppTheme.secondaryColor,
                         ),
-                        SizedBox(width: 8),
-                        Text("Today's Entries"),
+                        const SizedBox(width: 8),
+                        Text(context.tr('todays_entries', fallback: "Today's Entries")),
                       ],
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'Abnormal',
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.warning_amber_rounded,
                           size: 18,
                           color: AppTheme.dangerColor,
                         ),
-                        SizedBox(width: 8),
-                        Text('Abnormal Vitals'),
+                        const SizedBox(width: 8),
+                        Text(context.tr('abnormal_vitals', fallback: 'Abnormal Vitals')),
                       ],
                     ),
                   ),
@@ -7238,8 +7571,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       const SizedBox(width: 4),
                       Text(
                         _vitalsFilter == 'All'
-                            ? 'Filter'
-                            : 'Filter: $_vitalsFilter',
+                            ? context.tr('filter')
+                            : '${context.tr('filter')}: $_vitalsFilter',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -7276,18 +7609,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       color: Colors.grey.shade300,
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      'No records found',
-                      style: TextStyle(
+                    Text(
+                      context.tr('no_records_found'),
+                      style: const TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'No vital signs recorded yet for this session.',
-                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                    Text(
+                      context.tr('no_vitals_recorded_yet'),
+                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                     ),
                   ],
                 ),
@@ -7329,14 +7662,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               bottom: BorderSide(color: Color(0xFFE2E8F0)),
                             ),
                           ),
-                          children: const [
+                          children: [
                             Padding(
                               padding: EdgeInsets.symmetric(
                                 horizontal: 12,
                                 vertical: 14,
                               ),
                               child: Text(
-                                'Date & Time Recorded',
+                                context.tr('vitals_date_time', fallback: 'Date & Time Recorded'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -7350,7 +7683,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 vertical: 14,
                               ),
                               child: Text(
-                                'Time Gap / Duration',
+                                context.tr('vitals_time_gap', fallback: 'Time Gap / Duration'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -7364,7 +7697,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 vertical: 14,
                               ),
                               child: Text(
-                                'BP (mmHg)',
+                                context.tr('vitals_bp', fallback: 'BP (mmHg)'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -7378,7 +7711,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 vertical: 14,
                               ),
                               child: Text(
-                                'Pulse (bpm)',
+                                context.tr('vitals_pulse', fallback: 'Pulse (bpm)'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -7392,7 +7725,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 vertical: 14,
                               ),
                               child: Text(
-                                'Temp (°F)',
+                                context.tr('vitals_temp', fallback: 'Temp (°F)'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -7406,7 +7739,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 vertical: 14,
                               ),
                               child: Text(
-                                'SpO₂ (%)',
+                                context.tr('vitals_spo2', fallback: 'SpO₂ (%)'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -7420,7 +7753,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 vertical: 14,
                               ),
                               child: Text(
-                                'Sugar (mg/dL)',
+                                context.tr('vitals_sugar', fallback: 'Sugar (mg/dL)'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -7434,7 +7767,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 vertical: 14,
                               ),
                               child: Text(
-                                'Weight (kg)',
+                                context.tr('vitals_weight', fallback: 'Weight (kg)'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -7448,7 +7781,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 vertical: 14,
                               ),
                               child: Text(
-                                'Height (cm)',
+                                context.tr('vitals_height', fallback: 'Height (cm)'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -7789,7 +8122,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Showing ${totalVitals == 0 ? 0 : vitalsStartIdx + 1} to $vitalsEndIdx of $totalVitals entries',
+                        AppLocalizations.of(context).locale.languageCode == 'ta'
+                            ? 'மொத்தம் $totalVitals பதிவுகளில் ${totalVitals == 0 ? 0 : vitalsStartIdx + 1} முதல் $vitalsEndIdx வரை காட்டப்படுகிறது'
+                            : 'Showing ${totalVitals == 0 ? 0 : vitalsStartIdx + 1} to $vitalsEndIdx of $totalVitals entries',
                         style: const TextStyle(
                           fontSize: 13,
                           color: Color(0xFF64748B),
@@ -7821,8 +8156,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           size: 16,
                           color: Color(0xFF64748B),
                         ),
-                        label: const Text(
-                          'Previous',
+                        label: Text(
+                          context.tr('previous', fallback: 'Previous'),
                           style: TextStyle(
                             fontSize: 12,
                             color: Color(0xFF64748B),
@@ -7840,7 +8175,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          '$currentVitalsPage of $totalVitalsPages',
+                          AppLocalizations.of(context).locale.languageCode == 'ta' ? '$currentVitalsPage / $totalVitalsPages' : '$currentVitalsPage of $totalVitalsPages',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -7869,8 +8204,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           size: 16,
                           color: Color(0xFF64748B),
                         ),
-                        label: const Text(
-                          'Next',
+                        label: Text(
+                          context.tr('next', fallback: 'Next'),
                           style: TextStyle(
                             fontSize: 12,
                             color: Color(0xFF64748B),
@@ -7899,10 +8234,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             builder: (context, constraints) {
               final isNarrow = constraints.maxWidth < 650;
               final header = _buildSectionHeader(
-                'Record Patient Vitals Entry',
+                context.tr('record_patient_vitals_entry'),
                 Icons.monitor_heart_outlined,
-                subtitle:
-                    'Track and manage patient vital signs during the visit.',
+                subtitle: context.tr('track_manage_vitals'),
               );
 
               if (isNarrow) {
@@ -7927,7 +8261,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         ),
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Vitals Entry'),
+                        label: Text(context.tr('add_vitals_entry_btn')),
                         onPressed: () => _showAddVitalsModalDialog(
                           context,
                           visit,
@@ -7962,7 +8296,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                       ),
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add Vitals Entry'),
+                      label: Text(context.tr('add_vitals_entry_btn')),
                       onPressed: () =>
                           _showAddVitalsModalDialog(context, visit, controller),
                     ),
@@ -8697,65 +9031,51 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Record Nursing Care Entry',
-              style: TextStyle(
+            Text(
+              context.tr('record_nursing_care_entry'),
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.primaryColor,
               ),
             ),
             const SizedBox(height: 16),
-            _buildLabel('Nursing Notes & Observations'),
-            TextFormField(
+            _buildVoiceSupportedNotesField(
+              fieldId: 'nursing_notes',
+              label: context.tr('nursing_notes_observations'),
               controller: _notesCtrl,
+              hintText: context.tr('enter_clinical_observations'),
               maxLines: 3,
               maxLength: 500,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(500),
-                FilteringTextInputFormatter.allow(
-                  RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
-                ),
-              ],
-              decoration: AppTheme.standardInputDecoration(
-                hintText:
-                    'Enter clinical observations, general health condition, and comments...',
-              ),
+              quickTemplates: _quickNursingNoteTemplates,
               validator: (val) {
                 if (val != null && val.trim().isNotEmpty) {
                   if (val.trim().length > 500) {
                     return 'Nursing notes cannot exceed 500 characters';
                   }
-                  if (!RegExp(r'[a-zA-Z]').hasMatch(val)) {
-                    return 'Notes must contain alphabetical characters and cannot consist solely of numbers or symbols';
+                  if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(val)) {
+                    return 'Notes must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols';
                   }
                 }
                 return null;
               },
             ),
             const SizedBox(height: 16),
-            _buildLabel('Dressing Procedures & Wound Care Details'),
-            TextFormField(
+            _buildVoiceSupportedNotesField(
+              fieldId: 'dressing_procedures',
+              label: context.tr('dressing_procedures_details'),
               controller: _dressingCtrl,
+              hintText: context.tr('describe_wound_site'),
               maxLines: 3,
               maxLength: 500,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(500),
-                FilteringTextInputFormatter.allow(
-                  RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
-                ),
-              ],
-              decoration: AppTheme.standardInputDecoration(
-                hintText:
-                    'Describe wound site, cleaning agent used, sterile dressing applied, etc.',
-              ),
+              quickTemplates: _quickDressingTemplates,
               validator: (val) {
                 if (val != null && val.trim().isNotEmpty) {
                   if (val.trim().length > 500) {
                     return 'Dressing details cannot exceed 500 characters';
                   }
-                  if (!RegExp(r'[a-zA-Z]').hasMatch(val)) {
-                    return 'Dressing details must contain alphabetical characters and cannot consist solely of numbers or symbols';
+                  if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(val)) {
+                    return 'Dressing details must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols';
                   }
                 }
                 return null;
@@ -8771,12 +9091,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               child: CheckboxListTile(
                 activeColor: AppTheme.primaryColor,
-                title: const Text(
-                  'Nail Trimming & Hygiene Care Activity Performed',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                title: Text(
+                  context.tr('nail_trimming_hygiene'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
-                subtitle: const Text(
-                  'Check if nail trimming or foot care was performed during visit.',
+                subtitle: Text(
+                  context.tr('check_nail_trimming'),
                 ),
                 value: _nailTrimmingDone,
                 onChanged: (val) {
@@ -8787,28 +9107,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
             ),
             const SizedBox(height: 16),
-            _buildLabel('Other Personal Care & Nursing Activities'),
-            TextFormField(
+            _buildVoiceSupportedNotesField(
+              fieldId: 'other_care',
+              label: context.tr('other_personal_care_activities', fallback: 'Other Personal Care & Nursing Activities'),
               controller: _otherCareCtrl,
+              hintText: context.tr('other_personal_care_hint', fallback: 'Catheter care, bed bath assistance, oral hygiene, position changes, etc.'),
               maxLines: 2,
               maxLength: 500,
-              inputFormatters: [
-                LengthLimitingTextInputFormatter(500),
-                FilteringTextInputFormatter.allow(
-                  RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
-                ),
-              ],
-              decoration: AppTheme.standardInputDecoration(
-                hintText:
-                    'Catheter care, bed bath assistance, oral hygiene, position changes, etc.',
-              ),
               validator: (val) {
                 if (val != null && val.trim().isNotEmpty) {
                   if (val.trim().length > 500) {
                     return 'Personal care details cannot exceed 500 characters';
                   }
-                  if (!RegExp(r'[a-zA-Z]').hasMatch(val)) {
-                    return 'Personal care details must contain alphabetical characters and cannot consist solely of numbers or symbols';
+                  if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(val)) {
+                    return 'Personal care details must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols';
                   }
                 }
                 return null;
@@ -8867,9 +9179,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       },
                 child: _isSavingCare
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Save Nursing Care',
-                        style: TextStyle(
+                    : Text(
+                        context.tr('save_care_entry', fallback: 'Save Nursing Care'),
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -8915,10 +9227,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Nursing Care History',
-                  style: TextStyle(
+                  context.tr('nursing_care_history'),
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryColor,
@@ -8958,18 +9270,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       color: Colors.grey.shade300,
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      'No records found',
-                      style: TextStyle(
+                    Text(
+                      context.tr('no_records_found'),
+                      style: const TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'No nursing care activities recorded yet for this session.',
-                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                    Text(
+                      context.tr('no_nursing_care_recorded'),
+                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                     ),
                   ],
                 ),
@@ -9001,14 +9313,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         ),
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.symmetric(
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 10,
                             ),
                             child: Center(
                               child: Text(
-                                'Date & Time Recorded',
+                                context.tr('vitals_date_time', fallback: 'Date & Time Recorded'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -9289,7 +9601,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(
-            'Nursing Notes & Care Activities',
+            context.tr('nursing_notes_care_activities'),
             Icons.edit_note_outlined,
           ),
           const SizedBox(height: 20),
@@ -9403,10 +9715,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 size: 20,
               ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Medicines History',
-                  style: TextStyle(
+                  context.tr('medicines_history'),
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryColor,
@@ -9446,18 +9758,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       color: Colors.grey.shade300,
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      'No records found',
-                      style: TextStyle(
+                    Text(
+                      context.tr('no_records_found'),
+                      style: const TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'No medicines recorded yet for this session.',
-                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                    Text(
+                      context.tr('no_medicines_recorded_yet'),
+                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                     ),
                   ],
                 ),
@@ -9499,13 +9811,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 runSpacing: 4,
                                 children: [
                                   Text(
-                                    m.medicineName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                    softWrap: true,
-                                  ),
+                                         context.translateMedicine(m.medicineName),
+                                         style: const TextStyle(
+                                           fontWeight: FontWeight.bold,
+                                           fontSize: 14,
+                                         ),
+                                         softWrap: true,
+                                       ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
@@ -9523,7 +9835,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       ),
                                     ),
                                     child: Text(
-                                      m.medicineType,
+                                      m.medicineType == 'Regular' ? context.tr('regular_badge', fallback: 'Regular') : (m.medicineType == 'STAT' ? context.tr('stat_badge', fallback: 'STAT') : m.medicineType),
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -9593,7 +9905,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Qty: ${m.quantity} | Food: ${m.foodTiming != null && m.foodTiming!.isNotEmpty ? m.foodTiming! : (m.route != null && m.route!.isNotEmpty ? m.route! : "After Food")} | Freq: ${m.frequency != null && m.frequency!.isNotEmpty ? m.frequency! : "N/A"} | Duration: ${m.duration != null && m.duration!.isNotEmpty ? m.duration! : "N/A"}',
+                          '${context.tr('qty_label', fallback: 'Qty')}: ${m.quantity} | ${context.tr('food_label', fallback: 'Food')}: ${(m.foodTiming == 'After Food' ? context.tr('food_after', fallback: 'After Food') : (m.foodTiming == 'Before Food' ? context.tr('food_before', fallback: 'Before Food') : (m.foodTiming == 'With Food' ? context.tr('food_with', fallback: 'With Food') : (m.foodTiming ?? (m.route ?? context.tr('food_after', fallback: 'After Food'))))))} | ${context.tr('freq_label', fallback: 'Freq')}: ${m.frequency != null && m.frequency!.isNotEmpty ? m.frequency! : "N/A"} | ${context.tr('duration_label', fallback: 'Duration')}: ${m.duration != null && m.duration!.isNotEmpty ? (AppLocalizations.of(context).locale.languageCode == 'ta' ? m.duration!.replaceAll('Days', 'நாட்கள்').replaceAll('days', 'நாட்கள்') : m.duration!) : "N/A"}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF475569),
@@ -9654,13 +9966,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     runSpacing: 4,
                                     children: [
                                       Text(
-                                        m.medicineName,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                        softWrap: true,
-                                      ),
+                                         context.translateMedicine(m.medicineName),
+                                         style: const TextStyle(
+                                           fontWeight: FontWeight.bold,
+                                           fontSize: 14,
+                                         ),
+                                         softWrap: true,
+                                       ),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 6,
@@ -9680,7 +9992,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           ),
                                         ),
                                         child: Text(
-                                          m.medicineType,
+                                      m.medicineType == 'Regular' ? context.tr('regular_badge', fallback: 'Regular') : (m.medicineType == 'STAT' ? context.tr('stat_badge', fallback: 'STAT') : m.medicineType),
                                           style: TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.bold,
@@ -9694,7 +10006,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Qty: ${m.quantity} | Food: ${m.foodTiming != null && m.foodTiming!.isNotEmpty ? m.foodTiming! : (m.route != null && m.route!.isNotEmpty ? m.route! : "After Food")} | Freq: ${m.frequency != null && m.frequency!.isNotEmpty ? m.frequency! : "N/A"} | Duration: ${m.duration != null && m.duration!.isNotEmpty ? m.duration! : "N/A"}',
+                                    '${context.tr('qty_label', fallback: 'Qty')}: ${m.quantity} | ${context.tr('food_label', fallback: 'Food')}: ${(m.foodTiming == 'After Food' ? context.tr('food_after', fallback: 'After Food') : (m.foodTiming == 'Before Food' ? context.tr('food_before', fallback: 'Before Food') : (m.foodTiming == 'With Food' ? context.tr('food_with', fallback: 'With Food') : (m.foodTiming ?? (m.route ?? context.tr('food_after', fallback: 'After Food'))))))} | ${context.tr('freq_label', fallback: 'Freq')}: ${m.frequency != null && m.frequency!.isNotEmpty ? m.frequency! : "N/A"} | ${context.tr('duration_label', fallback: 'Duration')}: ${m.duration != null && m.duration!.isNotEmpty ? (AppLocalizations.of(context).locale.languageCode == 'ta' ? m.duration!.replaceAll('Days', 'நாட்கள்').replaceAll('days', 'நாட்கள்') : m.duration!) : "N/A"}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Color(0xFF475569),
@@ -9810,7 +10122,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             runSpacing: 8,
             children: [
               Text(
-                'Showing ${totalMeds == 0 ? 0 : medsStartIdx + 1}-$medsEndIdx of $totalMeds entries',
+                AppLocalizations.of(context).locale.languageCode == 'ta' ? 'மொத்தம் $totalMeds பதிவுகளில் ${totalMeds == 0 ? 0 : medsStartIdx + 1}-$medsEndIdx காட்டப்படுகிறது' : 'Showing ${totalMeds == 0 ? 0 : medsStartIdx + 1}-$medsEndIdx of $totalMeds entries',
                 style: const TextStyle(
                   fontSize: 11.5,
                   color: Colors.grey,
@@ -9928,10 +10240,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 size: 20,
               ),
               const SizedBox(width: 8),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Procedures History',
-                  style: TextStyle(
+                  context.tr('procedures_history'),
+                  style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryColor,
@@ -9971,18 +10283,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       color: Colors.grey.shade300,
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      'No records found',
-                      style: TextStyle(
+                    Text(
+                      context.tr('no_records_found'),
+                      style: const TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'No procedures recorded yet for this session.',
-                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                    Text(
+                      context.tr('no_procedures_recorded_yet'),
+                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
                     ),
                   ],
                 ),
@@ -10034,13 +10346,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 runSpacing: 4,
                                 children: [
                                   Text(
-                                    p.procedureName,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                    softWrap: true,
-                                  ),
+                                         context.translateProcedure(p.procedureName),
+                                         style: const TextStyle(
+                                           fontWeight: FontWeight.bold,
+                                           fontSize: 14,
+                                         ),
+                                         softWrap: true,
+                                       ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
@@ -10054,7 +10366,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       ),
                                     ),
                                     child: Text(
-                                      p.frequency,
+                                      p.frequency == 'Once Daily' ? context.tr('freq_once_daily', fallback: 'Once Daily') : (p.frequency == '2 Times/Day' ? context.tr('freq_2x_day', fallback: '2 Times/Day') : (p.frequency == '3 Times/Day' ? context.tr('freq_3x_day', fallback: '3 Times/Day') : (p.frequency == 'Every 4 Hours' ? context.tr('freq_every_4h', fallback: 'Every 4 Hours') : p.frequency))),
                                       style: const TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -10123,8 +10435,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         const SizedBox(height: 6),
                         Text(
                           consumableCharge > 0
-                              ? 'Procedure: ₹${p.totalProcedureCharge.toStringAsFixed(2)} | Consumables: ₹${consumableCharge.toStringAsFixed(2)}'
-                              : 'Charge/Proc: ₹${p.chargePerProcedure.toStringAsFixed(2)} | Total Charge: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
+                              ? '${context.tr('procedure_label', fallback: 'Procedure')}: ₹${p.totalProcedureCharge.toStringAsFixed(2)} | ${context.tr('consumables_label', fallback: 'Consumables')}: ₹${consumableCharge.toStringAsFixed(2)}'
+                              : '${context.tr('charge_per_proc', fallback: 'Charge/Proc')}: ₹${p.chargePerProcedure.toStringAsFixed(2)} | ${context.tr('total_charge', fallback: 'Total Charge')}: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
                           style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF475569),
@@ -10153,7 +10465,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                 ),
                                 child: Text(
-                                  '$cleanName (${c.quantityUsed}x) • ₹${totalCost.toStringAsFixed(0)}',
+                                  '${context.translateConsumable(cleanName)} (${c.quantityUsed}x) • ₹${totalCost.toStringAsFixed(0)}',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     color: Color(0xFF475569),
@@ -10180,7 +10492,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
-                                'Total: ₹${grandTotalProc.toStringAsFixed(2)}',
+                                '${context.tr('total', fallback: 'Total')}: ₹${grandTotalProc.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
@@ -10215,13 +10527,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     runSpacing: 4,
                                     children: [
                                       Text(
-                                        p.procedureName,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                        ),
-                                        softWrap: true,
-                                      ),
+                                         context.translateProcedure(p.procedureName),
+                                         style: const TextStyle(
+                                           fontWeight: FontWeight.bold,
+                                           fontSize: 14,
+                                         ),
+                                         softWrap: true,
+                                       ),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 6,
@@ -10237,7 +10549,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           ),
                                         ),
                                         child: Text(
-                                          p.frequency,
+                                      p.frequency == 'Once Daily' ? context.tr('freq_once_daily', fallback: 'Once Daily') : (p.frequency == '2 Times/Day' ? context.tr('freq_2x_day', fallback: '2 Times/Day') : (p.frequency == '3 Times/Day' ? context.tr('freq_3x_day', fallback: '3 Times/Day') : (p.frequency == 'Every 4 Hours' ? context.tr('freq_every_4h', fallback: 'Every 4 Hours') : p.frequency))),
                                           style: const TextStyle(
                                             fontSize: 10,
                                             fontWeight: FontWeight.bold,
@@ -10250,8 +10562,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   const SizedBox(height: 4),
                                   Text(
                                     consumableCharge > 0
-                                        ? 'Procedure: ₹${p.totalProcedureCharge.toStringAsFixed(2)} | Consumables: ₹${consumableCharge.toStringAsFixed(2)}'
-                                        : 'Charge/Proc: ₹${p.chargePerProcedure.toStringAsFixed(2)} | Total Charge: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
+                              ? '${context.tr('procedure_label', fallback: 'Procedure')}: ₹${p.totalProcedureCharge.toStringAsFixed(2)} | ${context.tr('consumables_label', fallback: 'Consumables')}: ₹${consumableCharge.toStringAsFixed(2)}'
+                              : '${context.tr('charge_per_proc', fallback: 'Charge/Proc')}: ₹${p.chargePerProcedure.toStringAsFixed(2)} | ${context.tr('total_charge', fallback: 'Total Charge')}: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Color(0xFF475569),
@@ -10490,7 +10802,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             builder: (context, headerConstraints) {
               final isNarrow = headerConstraints.maxWidth < 800;
               final headerWidget = _buildSectionHeader(
-                'Log Administered Medicines & Procedures',
+                context.tr('log_administered_meds_proc'),
                 Icons.medication_liquid_outlined,
               );
 
@@ -10508,9 +10820,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ElevatedButton.icon(
                             style: AppTheme.dangerButton,
                             icon: const Icon(Icons.add, size: 18),
-                            label: const Text(
-                              'Add Medicine',
-                              style: TextStyle(
+                            label: Text(
+                              context.tr('add_medicine_btn'),
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -10527,9 +10839,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               Icons.medical_services_outlined,
                               size: 18,
                             ),
-                            label: const Text(
-                              'Add Procedure Item',
-                              style: TextStyle(
+                            label: Text(
+                              context.tr('add_procedure_item_btn'),
+                              style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -10560,9 +10872,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ElevatedButton.icon(
                           style: AppTheme.dangerButton,
                           icon: const Icon(Icons.add, size: 18),
-                          label: const Text(
-                            'Add Medicine',
-                            style: TextStyle(
+                          label: Text(
+                            context.tr('add_medicine_btn'),
+                            style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
                             ),
@@ -10580,9 +10892,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             Icons.medical_services_outlined,
                             size: 18,
                           ),
-                          label: const Text(
-                            'Add Procedure Item',
-                            style: TextStyle(
+                          label: Text(
+                            context.tr('add_procedure_item_btn'),
+                            style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
                             ),
@@ -10644,7 +10956,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(
-            'Timestamped Photo Evidence Upload & Gallery',
+            context.tr('photo_evidence_upload_gallery', fallback: 'Timestamped Photo Evidence Upload & Gallery'),
             Icons.insert_photo_outlined,
           ),
           const SizedBox(height: 20),
@@ -10661,9 +10973,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Upload Timestamped Photo Evidence',
-                  style: TextStyle(
+                Text(
+                  context.tr('upload_photo_evidence', fallback: 'Upload Timestamped Photo Evidence'),
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryColor,
@@ -10685,16 +10997,27 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     final categoryDropdown = Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Photo Category *'),
+                        _buildLabel('${context.tr('photo_category', fallback: 'Photo Category')} *'),
                         CustomDropdownSearch(
                           label: '',
-                          hint: 'Select Photo Category',
-                          dropdownMap: const {
-                            'Dressing Pre-Procedure':
-                                'Pre-Dressing Wound Photo',
-                            'Dressing Post-Procedure': 'Post-Dressing Photo',
-                            'Care Activity': 'Care Activity Evidence',
-                            'General Care': 'General Visit Photo',
+                          hint: context.tr('select_photo_category', fallback: 'Select Photo Category'),
+                          dropdownMap: {
+                            'Dressing Pre-Procedure': context.tr(
+                              'photo_cat_dressing_pre',
+                              fallback: 'Pre-Dressing Wound Photo',
+                            ),
+                            'Dressing Post-Procedure': context.tr(
+                              'photo_cat_dressing_post',
+                              fallback: 'Post-Dressing Photo',
+                            ),
+                            'Care Activity': context.tr(
+                              'photo_cat_care_activity',
+                              fallback: 'Care Activity Evidence',
+                            ),
+                            'General Care': context.tr(
+                              'photo_cat_general_care',
+                              fallback: 'General Visit Photo',
+                            ),
                           },
                           value: _selectedPhotoCategory,
                           borderColor: categoryHasError
@@ -10738,7 +11061,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     final filePicker = Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Photo Evidence File *'),
+                        _buildLabel('${context.tr('photo_evidence_file', fallback: 'Photo Evidence File')} *'),
                         if (_selectedPhotoBytes != null)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -10908,7 +11231,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      'Click to Browse & Upload Image (JPG, JPEG, PNG - Max 15MB)',
+                                      context.tr('click_to_browse_upload'),
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
@@ -10935,9 +11258,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           : AppTheme.primaryColor,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
-                                    child: const Text(
-                                      'Browse File',
-                                      style: TextStyle(
+                                    child: Text(
+                                      context.tr('browse_file'),
+                                      style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
@@ -11021,7 +11344,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     final captionField = Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildLabel('Photo Notes / Caption (Optional)'),
+                        _buildLabel(context.tr('photo_notes_caption')),
                         TextFormField(
                           controller: _photoCaptionCtrl,
                           maxLength: 100,
@@ -11029,7 +11352,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           inputFormatters: [
                             LengthLimitingTextInputFormatter(100),
                             FilteringTextInputFormatter.allow(
-                              RegExp(r'[a-zA-Z0-9\s]'),
+                              RegExp(r'[a-zA-Z0-9\u0B80-\u0BFF\s]'),
                             ),
                           ],
                           validator: (val) {
@@ -11041,17 +11364,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             if (text.length > 100) {
                               return 'Caption cannot exceed 100 characters';
                             }
-                            if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
-                              return 'Caption must contain letters and cannot consist solely of numbers';
+                            if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(text)) {
+                              return 'Caption must contain letters or Tamil characters and cannot consist solely of numbers';
                             }
-                            if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(text)) {
+                            if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s]+$').hasMatch(text)) {
                               return 'Special characters are not allowed in caption';
                             }
                             return null;
                           },
                           decoration: AppTheme.standardInputDecoration(
-                            hintText:
-                                'e.g. Wound cleaned and dressing applied intact (Max 100 chars)',
+                            hintText: context.tr('photo_notes_hint'),
                           ),
                         ),
                       ],
@@ -11073,8 +11395,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             : const Icon(Icons.add_a_photo),
                         label: Text(
                           _isUploadingPhoto
-                              ? 'Uploading...'
-                              : 'Upload Photo Evidence',
+                              ? context.tr('uploading')
+                              : context.tr('upload_photo_evidence_btn'),
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         onPressed: _isUploadingPhoto
@@ -11139,16 +11461,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     return;
                                   }
                                   if (!RegExp(
-                                    r'[a-zA-Z]',
+                                    r'[a-zA-Z\u0B80-\u0BFF]',
                                   ).hasMatch(captionText)) {
                                     AppNotification.showError(
                                       context,
-                                      'Caption must contain letters and cannot consist solely of numbers',
+                                      'Caption must contain letters or Tamil characters and cannot consist solely of numbers',
                                     );
                                     return;
                                   }
                                   if (!RegExp(
-                                    r'^[a-zA-Z0-9\s]+$',
+                                    r'^[a-zA-Z0-9\u0B80-\u0BFF\s]+$',
                                   ).hasMatch(captionText)) {
                                     AppNotification.showError(
                                       context,
@@ -11588,18 +11910,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             color: Colors.grey.shade300,
                           ),
                           const SizedBox(height: 10),
-                          const Text(
-                            'No records found',
-                            style: TextStyle(
+                          Text(
+                            context.tr('no_records_found'),
+                            style: const TextStyle(
                               color: Color(0xFF64748B),
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            'No photo evidence uploaded yet for this session.',
-                            style: TextStyle(
+                          Text(
+                            context.tr('no_photo_evidence_yet'),
+                            style: const TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: 12,
                             ),
@@ -11636,7 +11958,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(
-            'Patient Attender Verification & Digital Signature',
+            context.tr('patient_attender_verification_title', fallback: 'Patient Attender Verification & Digital Signature'),
             Icons.draw_outlined,
           ),
           const SizedBox(height: 20),
@@ -11672,9 +11994,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Home Visit Completed & Verified',
-                              style: TextStyle(
+                            Text(
+                              context.tr('home_visit_completed_verified', fallback: 'Home Visit Completed & Verified'),
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF14532D),
@@ -11701,9 +12023,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: const Color(0xFF86EFAC)),
                         ),
-                        child: const Text(
-                          'COMPLETED',
-                          style: TextStyle(
+                        child: Text(
+                          context.tr('completed_status', fallback: 'COMPLETED'),
+                          style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFF166534),
@@ -11717,14 +12039,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     children: [
                       Expanded(
                         child: _buildDetailField(
-                          'Verified Attender Name',
+                          context.tr('verified_attender_name', fallback: 'Verified Attender Name'),
                           visit.attenderName ?? 'Attender',
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: _buildDetailField(
-                          'Relationship',
+                          context.tr('relationship_label', fallback: 'Relationship'),
                           visit.attenderRelation ?? 'Attender',
                         ),
                       ),
@@ -11813,9 +12135,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Patient Attender Verification & Digital Signature',
-                    style: TextStyle(
+                  Text(
+                    context.tr('patient_attender_verification_title', fallback: 'Patient Attender Verification & Digital Signature'),
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryColor,
@@ -11828,7 +12150,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildLabel('Attender Full Name *'),
+                            _buildLabel(context.tr('attender_full_name_req')),
                             TextFormField(
                               controller: _attenderNameCtrl,
                               inputFormatters: [
@@ -11855,7 +12177,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildLabel('Attender Relationship *'),
+                            _buildLabel(context.tr('attender_relationship_req')),
                             TextFormField(
                               controller: _attenderRelationCtrl,
                               inputFormatters: [
@@ -11885,7 +12207,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     isModal: false,
                   ),
                   const SizedBox(height: 20),
-                  _buildLabel('Attender Digital Signature Pad *'),
+                  _buildLabel(context.tr('attender_signature_pad_req')),
                   Container(
                     height: 180,
                     width: double.infinity,
@@ -11905,20 +12227,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         fit: StackFit.expand,
                         children: [
                           if (_signaturePoints.isEmpty)
-                            const IgnorePointer(
+                            IgnorePointer(
                               child: Center(
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(
+                                    const Icon(
                                       Icons.draw_outlined,
                                       color: Colors.grey,
                                       size: 20,
                                     ),
-                                    SizedBox(width: 8),
+                                    const SizedBox(width: 8),
                                     Text(
-                                      'Draw attender signature here with mouse or touch...',
-                                      style: TextStyle(
+                                      context.tr('draw_signature_hint', fallback: 'Draw attender signature here with mouse or touch...'),
+                                      style: const TextStyle(
                                         color: Colors.grey,
                                         fontSize: 13,
                                         fontStyle: FontStyle.italic,
@@ -11972,7 +12294,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     children: [
                       TextButton.icon(
                         icon: const Icon(Icons.clear, size: 18),
-                        label: const Text('Clear Signature'),
+                        label: Text(context.tr('clear_signature', fallback: 'Clear Signature')),
                         onPressed: () =>
                             setState(() => _signaturePoints.clear()),
                       ),
@@ -11996,11 +12318,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           : const Icon(
                               Icons.check_circle_outline,
                               color: Colors.white,
+                              size: 18,
                             ),
                       label: Text(
                         _isVerifying
-                            ? 'Generating Auto-Billing Invoice...'
-                            : 'Verify Visit & Generate Billing Invoice',
+                            ? context.tr('generating_invoice', fallback: 'Generating Auto-Billing Invoice...')
+                            : context.tr('verify_visit_generate_invoice', fallback: 'Verify Visit & Generate Billing Invoice'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -12088,8 +12411,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     children: [
                       Expanded(
                         child: Row(
-                          children: const [
-                            Icon(
+                          children: [
+                            const Icon(
                               Icons.draw_outlined,
                               color: AppTheme.primaryColor,
                               size: 22,
@@ -12097,8 +12420,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'End Visit & Attender Verification',
-                                style: TextStyle(
+                                context.tr('end_visit_attender_verification'),
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.primaryColor,
@@ -12117,21 +12440,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ],
                   ),
                   const Divider(height: 24),
-                  const Text(
-                    'Patient Attender Verification & Digital Signature',
-                    style: TextStyle(
+                  Text(
+                    context.tr('patient_attender_verification_title', fallback: 'Patient Attender Verification & Digital Signature'),
+                    style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    'Please record the attender details, care feedback, and obtain their signature to end the visit session and generate the billing invoice.',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  Text(
+                    context.tr('attender_verification_sub', fallback: 'Please record the attender details, care feedback, and obtain their signature to end the visit session and generate the billing invoice.'),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   const SizedBox(height: 16),
-                  _buildLabel('Attender Full Name *'),
+                  _buildLabel(context.tr('attender_full_name_req')),
                   TextFormField(
                     controller: nameCtrl,
                     textCapitalization: TextCapitalization.words,
@@ -12145,7 +12468,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _buildLabel('Attender Relationship *'),
+                  _buildLabel(context.tr('attender_relationship_req')),
                   TextFormField(
                     controller: relCtrl,
                     textCapitalization: TextCapitalization.words,
@@ -12165,7 +12488,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     isModal: true,
                   ),
                   const SizedBox(height: 16),
-                  _buildLabel('Attender Digital Signature Pad *'),
+                  _buildLabel(context.tr('attender_signature_pad_req')),
                   Container(
                     height: 180,
                     width: double.infinity,
@@ -12275,7 +12598,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           height: 48,
                           child: OutlinedButton(
                             style: AppTheme.cancelButton,
-                            child: const Text('Cancel'),
+                            child: Text(context.tr('cancel')),
                             onPressed: isSubmitting
                                 ? null
                                 : () {
@@ -12308,8 +12631,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                             label: Text(
                               isSubmitting
-                                  ? 'Processing...'
-                                  : 'Complete Visit & Create Invoice',
+                                  ? context.tr('processing', fallback: 'Processing...')
+                                  : context.tr('complete_visit_create_invoice', fallback: 'Complete Visit & Create Invoice'),
                               style: const TextStyle(
                                 fontSize: 13.5,
                                 fontWeight: FontWeight.bold,
@@ -12489,9 +12812,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         color: Colors.white,
                         size: 18,
                       ),
-                      label: const Text(
-                        "End Today's Visit",
-                        style: TextStyle(
+                      label: Text(
+                        context.tr('end_todays_visit', fallback: "End Today's Visit"),
+                        style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -12527,22 +12850,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               ),
                             ),
                             const SizedBox(width: 16),
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    "Ready to Complete Today's Visit?",
-                                    style: TextStyle(
+                                    context.tr('ready_to_complete_visit', fallback: "Ready to Complete Today's Visit?"),
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                       color: Color(0xFF14532D),
                                     ),
                                   ),
-                                  SizedBox(height: 2),
+                                  const SizedBox(height: 2),
                                   Text(
-                                    "Click below to capture attender signature, generate the itemized billing invoice, and mark today's home visit as Completed.",
-                                    style: TextStyle(
+                                    context.tr('ready_to_complete_sub', fallback: "Click below to capture attender signature, generate the itemized billing invoice, and mark today's home visit as Completed."),
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       color: Color(0xFF15803D),
                                     ),
@@ -12574,22 +12897,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                       ),
                       const SizedBox(width: 16),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              "Ready to Complete Today's Visit?",
-                              style: TextStyle(
+                              context.tr('ready_to_complete_visit', fallback: "Ready to Complete Today's Visit?"),
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: Color(0xFF14532D),
                               ),
                             ),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             Text(
-                              "Click to capture attender signature, generate the itemized billing invoice, and mark today's home visit as Completed.",
-                              style: TextStyle(
+                              context.tr('ready_to_complete_sub', fallback: "Click to capture attender signature, generate the itemized billing invoice, and mark today's home visit as Completed."),
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF15803D),
                               ),
@@ -12608,7 +12931,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           ],
 
           _buildSectionHeader(
-            'Today\'s Session Summary & Real-Time Tracker',
+            context.tr('session_summary_tracker', fallback: "Today's Session Summary & Real-Time Tracker"),
             Icons.analytics_outlined,
           ),
           const SizedBox(height: 16),
@@ -12646,7 +12969,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Patient: ${visit.patientName ?? "N/A"} (${visit.patientDisplayId ?? "N/A"})',
+                            '${context.tr('patient_label', fallback: 'Patient:')} ${TamilTransliterationHelper.translate(context, visit.patientName ?? "N/A")} (${visit.patientDisplayId ?? "N/A"})',
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -12659,15 +12982,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             TextSpan(
                               children: [
                                 TextSpan(
-                                  text: 'Session: ${visit.scheduledDate} | ',
+                                  text: '${context.tr('session', fallback: 'Session')}: ${visit.scheduledDate} | ',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.grey,
                                   ),
                                 ),
-                                const TextSpan(
-                                  text: 'Nurse: ',
-                                  style: TextStyle(
+                                TextSpan(
+                                  text: '${context.tr('nurse_label', fallback: 'Nurse:')} ',
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color: AppTheme.nurseColor,
                                   ),
@@ -12708,7 +13031,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                       ),
                       child: Text(
-                        visit.status.toUpperCase(),
+                        _getTranslatedHomeVisitStatus(visit.status).toUpperCase(),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -12733,43 +13056,43 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   children: [
                     _liveSummaryChip(
                       Icons.devices,
-                      'Kit Devices',
-                      '${visit.carriedItems.length} Added',
+                      context.tr('kit_devices_stat', fallback: 'Kit Devices'),
+                      '${visit.carriedItems.length} ${context.tr('added_suffix', fallback: 'Added')}',
                       AppTheme.primaryColor,
                     ),
                     _liveSummaryChip(
                       Icons.monitor_heart_outlined,
-                      'Vitals Log',
-                      '${todayVitals.length} Today Entries',
+                      context.tr('vitals_log_stat', fallback: 'Vitals Log'),
+                      '${todayVitals.length} ${context.tr('today_entries_suffix', fallback: 'Today Entries')}',
                       Colors.purple,
                     ),
                     _liveSummaryChip(
                       Icons.edit_note,
-                      'Care Notes',
+                      context.tr('care_notes_stat', fallback: 'Care Notes'),
                       todayCare.isNotEmpty
-                          ? '${todayCare.length} Entry/Entries Recorded'
-                          : 'Pending',
+                          ? '${todayCare.length} ${context.tr('today_entries_suffix', fallback: 'Today Entries')}'
+                          : context.tr('pending_status', fallback: 'Pending'),
                       Colors.orange,
                     ),
                     _liveSummaryChip(
                       Icons.medication_liquid,
-                      'Meds & Procedures',
-                      '${todayMedicines.length} Meds / ${todayProcedures.length} Procedures',
+                      context.tr('meds_procedures_stat', fallback: 'Meds & Procedures'),
+                      '${todayMedicines.length} ${context.tr('meds_short', fallback: 'Meds')} / ${todayProcedures.length} ${context.tr('procedures_short', fallback: 'Procedures')}',
                       AppTheme.secondaryColor,
                     ),
                     _liveSummaryChip(
                       Icons.camera_alt_outlined,
-                      'Photos',
-                      '${todayPhotos.length} Today Photos',
+                      context.tr('photos_stat', fallback: 'Photos'),
+                      '${todayPhotos.length} ${context.tr('today_photos_suffix', fallback: 'Today Photos')}',
                       Colors.teal,
                     ),
                     _liveSummaryChip(
                       Icons.verified_user_outlined,
-                      'Attender Verification',
+                      context.tr('attender_verification_stat', fallback: 'Attender Verification'),
                       visit.attenderName != null &&
                               visit.attenderName!.isNotEmpty
-                          ? 'Verified (${visit.attenderName})'
-                          : 'Pending',
+                          ? '${context.tr('verified', fallback: 'Verified')} (${visit.attenderName})'
+                          : context.tr('pending_status', fallback: 'Pending'),
                       visit.attenderName != null &&
                               visit.attenderName!.isNotEmpty
                           ? Colors.green
@@ -12795,7 +13118,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionHeader(
-                  '1. Carried & Used Kit Devices',
+                  context.tr('carried_used_kit_devices_title', fallback: '1. Carried & Used Kit Devices'),
                   Icons.devices,
                 ),
                 const SizedBox(height: 12),
@@ -12824,7 +13147,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ),
                           ),
                           label: Text(
-                            '${item.itemName} (${item.itemType} • Qty: ${item.quantityCarried})',
+                            '${_getTranslatedKitDevice(item.itemName)} (${_getTranslatedKitType(item.itemType)} • ${context.tr('qty', fallback: 'Qty')}: ${item.quantityCarried})',
                           ),
                           backgroundColor: const Color(0xFFF1F5F9),
                         ),
@@ -12848,14 +13171,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionHeader(
-                  '2. Today\'s Hourly Vitals Log',
+                  context.tr('todays_hourly_vitals_title'),
                   Icons.monitor_heart_outlined,
                 ),
                 const SizedBox(height: 12),
                 if (todayVitals.isEmpty)
-                  const Text(
-                    'No vitals logged today in Vitals tab.',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  Text(
+                    context.tr('no_vitals_logged_today'),
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
                   )
                 else
                   ClipRRect(
@@ -12868,12 +13191,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             color: Color(0xFFF1F5F9),
                           ),
                           children: [
-                            _tableHeader('Recorded At'),
-                            _tableHeader('BP (mmHg)'),
-                            _tableHeader('Pulse (bpm)'),
-                            _tableHeader('SpO2 (%)'),
-                            _tableHeader('Temp (°F)'),
-                            _tableHeader('Sugar (mg/dL)'),
+                            _tableHeader(context.tr('recorded_at')),
+                            _tableHeader(context.tr('blood_pressure')),
+                            _tableHeader(context.tr('pulse_rate_req')),
+                            _tableHeader(context.tr('spo2_req')),
+                            _tableHeader(context.tr('temperature_req')),
+                            _tableHeader(context.tr('blood_sugar_label')),
                           ],
                         ),
                         for (final v in todayVitals)
@@ -12931,14 +13254,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionHeader(
-                  '3. Today\'s Nursing Care & Dressing Records',
+                  context.tr('todays_nursing_care_title'),
                   Icons.edit_note_outlined,
                 ),
                 const SizedBox(height: 12),
                 if (todayCare.isEmpty)
-                  const Text(
-                    'No care activities recorded today in Nursing Care & Dressing tab.',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  Text(
+                    context.tr('no_care_recorded_today'),
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
                   )
                 else ...[
                   for (final care in todayCare) ...[
@@ -12962,7 +13285,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'Recorded on: ${_formatRecordedAt(care.createdAt)}',
+                                '${context.tr('recorded_on', fallback: 'Recorded on')}: ${_formatRecordedAt(care.createdAt)}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
@@ -12974,22 +13297,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           const Divider(height: 16),
                           if (care.nursingNotes != null &&
                               care.nursingNotes!.isNotEmpty)
-                            _detailRow('Nursing Notes', care.nursingNotes!),
+                            _detailRow(context.tr('nurse_notes', fallback: 'Nursing Notes'), care.nursingNotes!),
                           if (care.dressingProcedures != null &&
                               care.dressingProcedures!.isNotEmpty)
                             _detailRow(
-                              'Dressing Procedure',
+                              context.tr('dressing_procedure', fallback: 'Dressing Procedure'),
                               care.dressingProcedures!,
                             ),
                           if (care.nailTrimmingDone)
                             _detailRow(
-                              'Nail Trimming / Hygiene Care',
-                              'Completed',
+                              context.tr('nail_trimming_hygiene', fallback: 'Nail Trimming / Hygiene Care'),
+                              context.tr('status_completed', fallback: 'Completed'),
                             ),
                           if (care.otherCareActivities != null &&
                               care.otherCareActivities!.isNotEmpty)
                             _detailRow(
-                              'Other Care Activities',
+                              context.tr('other_care_activities', fallback: 'Other Care Activities'),
                               care.otherCareActivities!,
                             ),
                         ],
@@ -13015,22 +13338,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionHeader(
-                  '4. Today\'s Medicines & Recorded Procedures',
+                  context.tr('todays_meds_procedures_title'),
                   Icons.medication_liquid_outlined,
                 ),
                 const SizedBox(height: 12),
                 if (todayMedicines.isEmpty &&
                     todayProcedures.isEmpty &&
                     todayConsumables.isEmpty)
-                  const Text(
-                    'No medicines or procedures logged today in Meds & Consumables tab.',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  Text(
+                    context.tr('no_meds_logged_today'),
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
                   )
                 else ...[
                   if (todayMedicines.isNotEmpty) ...[
-                    const Text(
-                      'Medicines Administered Today (No Billing Fee):',
-                      style: TextStyle(
+                    Text(
+                      context.tr('meds_administered_today_no_fee', fallback: 'Medicines Administered Today (No Billing Fee):'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                         color: AppTheme.primaryColor,
@@ -13041,7 +13364,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4.0),
                         child: Text(
-                          '• ${m.medicineName} (${m.dosage}) - Qty: ${m.quantity}',
+                          '• ${context.translateMedicine(m.medicineName)} (${m.dosage}) - ${context.tr('qty', fallback: 'Qty')}: ${m.quantity}',
                           style: const TextStyle(fontSize: 13),
                           softWrap: true,
                         ),
@@ -13049,9 +13372,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     const SizedBox(height: 12),
                   ],
                   if (todayProcedures.isNotEmpty) ...[
-                    const Text(
-                      'Recorded Procedures & Consumables:',
-                      style: TextStyle(
+                    Text(
+                      context.tr('recorded_procedures_consumables', fallback: 'Recorded Procedures & Consumables:'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                         color: AppTheme.primaryColor,
@@ -13062,7 +13385,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6.0),
                         child: Text(
-                          '• ${p.procedureName} (${p.frequency}) - Charge: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
+                          '• ${context.translateProcedure(p.procedureName)} (${p.frequency}) - ${context.tr('charge', fallback: 'Charge')}: ₹${p.totalProcedureCharge.toStringAsFixed(2)}',
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -13070,9 +13393,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                       ),
                   ] else if (todayConsumables.isNotEmpty) ...[
-                    const Text(
-                      'Consumables Recorded Today:',
-                      style: TextStyle(
+                    Text(
+                      context.tr('consumables_recorded_today', fallback: 'Consumables Recorded Today:'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                         color: AppTheme.primaryColor,
@@ -13083,7 +13406,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4.0),
                         child: Text(
-                          '• ${c.itemName} - Qty: ${c.quantityUsed} | ₹${(c.unitPrice * c.quantityUsed).toStringAsFixed(2)}',
+                          '• ${context.translateConsumable(c.itemName)} - ${context.tr('qty', fallback: 'Qty')}: ${c.quantityUsed} | ₹${(c.unitPrice * c.quantityUsed).toStringAsFixed(2)}',
                           style: const TextStyle(fontSize: 13),
                         ),
                       ),
@@ -13107,14 +13430,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildSectionHeader(
-                  '5. Today\'s Photo Evidence',
+                  context.tr('todays_photo_evidence_title'),
                   Icons.insert_photo_outlined,
                 ),
                 const SizedBox(height: 12),
                 if (todayPhotos.isEmpty)
-                  const Text(
-                    'No photo evidence uploaded today in Photo Evidence tab.',
-                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  Text(
+                    context.tr('no_photos_uploaded_today'),
+                    style: const TextStyle(color: Colors.grey, fontSize: 13),
                   )
                 else
                   LayoutBuilder(
@@ -13436,7 +13759,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            photo.category ?? 'Timestamped Photo Evidence',
+                            _getTranslatedPhotoCategory(photo.category),
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -13446,7 +13769,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
-                            'Captured at $timeStr',
+                            '${context.tr('captured_at_label', fallback: 'Captured at')} $timeStr',
                             style: const TextStyle(
                               fontSize: 11,
                               color: Colors.grey,
@@ -13468,7 +13791,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               color: AppTheme.primaryColor,
                               size: 20,
                             ),
-                            tooltip: 'Open Image in New Tab',
+                            tooltip: context.tr('open_image_new_tab', fallback: 'Open Image in New Tab'),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () => _openPhotoInNewTab(photo.photoUrl),
@@ -13484,7 +13807,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               color: AppTheme.dangerColor,
                               size: 20,
                             ),
-                            tooltip: 'Delete Photo Evidence',
+                            tooltip: context.tr('delete_photo_evidence', fallback: 'Delete Photo Evidence'),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                             onPressed: () {
@@ -13505,7 +13828,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             color: Colors.grey,
                             size: 20,
                           ),
-                          tooltip: 'Close Preview',
+                          tooltip: context.tr('close_preview', fallback: 'Close Preview'),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                           onPressed: () {
@@ -13544,20 +13867,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 );
                               },
                               errorBuilder: (context, error, stackTrace) =>
-                                  const Center(
+                                  Center(
                                     child: Column(
                                       mainAxisAlignment:
                                           MainAxisAlignment.center,
                                       children: [
-                                        Icon(
+                                        const Icon(
                                           Icons.broken_image,
                                           color: Colors.white54,
                                           size: 64,
                                         ),
-                                        SizedBox(height: 12),
+                                        const SizedBox(height: 12),
                                         Text(
-                                          'Full-size image preview unavailable',
-                                          style: TextStyle(
+                                          context.tr('full_image_preview_unavailable', fallback: 'Full-size image preview unavailable'),
+                                          style: const TextStyle(
                                             color: Colors.white70,
                                           ),
                                         ),
@@ -13565,19 +13888,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     ),
                                   ),
                             )
-                          : const Center(
+                          : Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.photo_library,
                                     color: Colors.white54,
                                     size: 64,
                                   ),
-                                  SizedBox(height: 12),
+                                  const SizedBox(height: 12),
                                   Text(
-                                    'Uploaded Evidence File',
-                                    style: TextStyle(color: Colors.white70),
+                                    context.tr('uploaded_evidence_file', fallback: 'Uploaded Evidence File'),
+                                    style: const TextStyle(color: Colors.white70),
                                   ),
                                 ],
                               ),
@@ -13698,17 +14021,28 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Daily Home Nursing Care History - ${currentVisit.patientName ?? "Patient"}',
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.primaryColor,
-                            ),
+                          Builder(
+                            builder: (ctx) {
+                              final isTamil = Provider.of<LanguageProvider>(ctx).isTamil;
+                              final rawPatientName = currentVisit.patientName ?? (isTamil ? 'நோயாளி' : 'Patient');
+                              final formattedPatientName = TamilTransliterationHelper.formatName(
+                                rawPatientName,
+                                isTamil: isTamil,
+                                showBoth: true,
+                              );
+                              return Text(
+                                '${ctx.tr('daily_home_nursing_care_history', fallback: 'Daily Home Nursing Care History')} - $formattedPatientName',
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              );
+                            },
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Patient ID: ${currentVisit.patientDisplayId ?? "N/A"} | Select a Day Session Card below to view full details.',
+                            '${context.tr('patient_id_label', fallback: 'Patient ID')}: ${currentVisit.patientDisplayId ?? "N/A"} | ${context.tr('select_day_session_card_desc', fallback: 'Select a Day Session Card below to view full details.')}',
                             style: const TextStyle(
                               fontSize: 13,
                               color: Colors.grey,
@@ -13736,7 +14070,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           size: 16,
                         ),
                         label: Text(
-                          'Stop Care Plan',
+                          context.tr('stop_care_plan', fallback: 'Stop Care Plan'),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: isNarrowBanner ? 11.5 : 12.5,
@@ -13753,9 +14087,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           ),
           const SizedBox(height: 24),
 
-          const Text(
-            'Recorded Care Sessions Timeline:',
-            style: TextStyle(
+          Text(
+            context.tr('recorded_care_sessions_timeline', fallback: 'Recorded Care Sessions Timeline:'),
+            style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
               color: AppTheme.textPrimaryColor,
@@ -13830,7 +14164,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'DAY',
+                            context.tr('day_caps', fallback: 'DAY'),
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -13863,7 +14197,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       runSpacing: 4,
                       children: [
                         Text(
-                          'Day $dayNumber Care Session (${v.visitNumber})',
+                          '${context.tr('day_label', fallback: 'Day')} $dayNumber ${context.tr('care_session', fallback: 'Care Session')} (${v.visitNumber})',
                           style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -13881,8 +14215,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                           child: Text(
                             v.status == 'Verified'
-                                ? 'COMPLETED'
-                                : v.status.toUpperCase(),
+                                ? context.tr('completed_status', fallback: 'COMPLETED')
+                                : (v.status == 'Completed'
+                                      ? context.tr('completed_status', fallback: 'COMPLETED')
+                                      : (v.status == 'Cancelled'
+                                            ? context.tr('stopped', fallback: 'STOPPED')
+                                            : v.status.toUpperCase())),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
@@ -13907,7 +14245,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Date: ${_formatDateDDMMYYYY(v.scheduledDate)}',
+                              '${context.tr('scheduled_date_label', fallback: 'Date')}: ${_formatDateDDMMYYYY(v.scheduledDate)}',
                               style: const TextStyle(
                                 fontSize: 12.5,
                                 color: Colors.black87,
@@ -13924,25 +14262,35 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               color: Colors.grey.shade600,
                             ),
                             const SizedBox(width: 4),
-                            Text.rich(
-                              TextSpan(
-                                children: [
-                                  const TextSpan(
-                                    text: 'Nurse: ',
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      color: AppTheme.nurseColor,
-                                    ),
-                                  ),
+                            Builder(
+                              builder: (ctx) {
+                                final isTamil = Provider.of<LanguageProvider>(ctx).isTamil;
+                                final nurseFormatted = TamilTransliterationHelper.formatName(
+                                  v.nurseName ?? (isTamil ? 'நர்ஸ்' : 'Nurse'),
+                                  isTamil: isTamil,
+                                  showBoth: true,
+                                );
+                                return Text.rich(
                                   TextSpan(
-                                    text: v.nurseName ?? "N/A",
-                                    style: const TextStyle(
-                                      fontSize: 12.5,
-                                      color: AppTheme.nurseColor,
-                                    ),
+                                    children: [
+                                      TextSpan(
+                                        text: '${ctx.tr('assigned_nurse_label', fallback: 'Nurse')}: ',
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          color: AppTheme.nurseColor,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: nurseFormatted,
+                                        style: const TextStyle(
+                                          fontSize: 12.5,
+                                          color: AppTheme.nurseColor,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -13955,12 +14303,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               color: Colors.grey.shade600,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              'Attender: ${v.attenderName != null && v.attenderName!.isNotEmpty ? "${v.attenderName} (${v.attenderRelation ?? "Attender"})" : "N/A"}',
-                              style: const TextStyle(
-                                fontSize: 12.5,
-                                color: Colors.black87,
-                              ),
+                            Builder(
+                              builder: (ctx) {
+                                final isTamil = Provider.of<LanguageProvider>(ctx).isTamil;
+                                final attenderFormatted = v.attenderName != null && v.attenderName!.isNotEmpty
+                                    ? TamilTransliterationHelper.formatName(v.attenderName!, isTamil: isTamil, showBoth: true)
+                                    : 'N/A';
+                                final relation = v.attenderRelation ?? ctx.tr('attender_relation_label', fallback: 'Attender');
+                                return Text(
+                                  '${ctx.tr('verified_attender_label', fallback: 'Attender')}: $attenderFormatted ${v.attenderName != null && v.attenderName!.isNotEmpty ? "($relation)" : ""}',
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: Colors.black87,
+                                  ),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -13974,7 +14331,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Total Bill: ₹${netAmount.toStringAsFixed(2)}',
+                              '${context.tr('total_bill', fallback: 'Total Bill:')} ₹${netAmount.toStringAsFixed(2)}',
                               style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.bold,
@@ -13989,7 +14346,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     final actionButtons = ElevatedButton.icon(
                       style: AppTheme.primaryButton,
                       icon: const Icon(Icons.visibility_outlined, size: 15),
-                      label: Text('View Day $dayNumber Details'),
+                      label: Text(
+                        context.tr('view_day_details', params: {'day': '$dayNumber'}, fallback: 'View Day $dayNumber Details'),
+                      ),
                       onPressed: () {
                         setState(() {
                           _selectedSummaryVisitId = v.id;
@@ -14164,7 +14523,30 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ? double.tryParse(invoice['total_amount'].toString()) ?? 0.0
               : 0.0);
     final String invoiceNum = invoice['invoice_number'] ?? 'INV-HV-VERIFIED';
-    final String payStatus = invoice['payment_status'] ?? 'Unpaid';
+    final String rawPayStatus = invoice['payment_status'] ?? 'Unpaid';
+    final isTamil = Provider.of<LanguageProvider>(context).isTamil;
+    final String payStatus = rawPayStatus.toLowerCase() == 'paid'
+        ? context.tr('paid', fallback: 'Paid')
+        : (rawPayStatus.toLowerCase() == 'pending'
+            ? context.tr('pending', fallback: 'Pending')
+            : context.tr('unpaid', fallback: 'Unpaid'));
+
+    final patientNameFormatted = TamilTransliterationHelper.formatName(
+      visit.patientName ?? (isTamil ? 'நோயாளி' : 'Patient'),
+      isTamil: isTamil,
+      showBoth: true,
+    );
+    final nurseNameFormatted = TamilTransliterationHelper.formatName(
+      visit.nurseName ?? (isTamil ? 'நர்ஸ்' : 'Nurse'),
+      isTamil: isTamil,
+      showBoth: true,
+    );
+    final attenderNameFormatted = visit.attenderName != null && visit.attenderName!.isNotEmpty
+        ? TamilTransliterationHelper.formatName(visit.attenderName!, isTamil: isTamil, showBoth: true)
+        : 'N/A';
+    final attenderRelation = visit.attenderRelation ?? context.tr('attender_relation_label', fallback: 'Attender');
+    final signedAt = visit.signedAt ?? context.tr('completed_status', fallback: 'Completed');
+    final visitAddress = visit.visitAddress ?? 'N/A';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -14192,18 +14574,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       color: AppTheme.primaryColor.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.arrow_back_rounded,
                           size: 16,
                           color: AppTheme.primaryColor,
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text(
-                          'Back to All Sessions Overview',
-                          style: TextStyle(
+                          context.tr('back_to_all_sessions_overview', fallback: 'Back to All Sessions Overview'),
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                             color: AppTheme.primaryColor,
@@ -14263,8 +14645,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             children: [
                               Text(
                                 visit.status == 'Cancelled'
-                                    ? 'Home Visit Care Discontinued / Stopped'
-                                    : 'Day $dayNumber Care Session Verified & Billed (${_formatDateDDMMYYYY(visit.scheduledDate)})',
+                                    ? context.tr('home_visit_care_discontinued_stopped', fallback: 'Home Visit Care Discontinued / Stopped')
+                                    : '${context.tr('day_label', fallback: 'Day')} $dayNumber ${context.tr('care_session_verified_billed', fallback: 'Care Session Verified & Billed')} (${_formatDateDDMMYYYY(visit.scheduledDate)})',
                                 style: TextStyle(
                                   fontSize: isMobile ? 14 : 16,
                                   fontWeight: FontWeight.bold,
@@ -14286,8 +14668,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ),
                                 child: Text(
                                   visit.status == 'Verified'
-                                      ? 'COMPLETED'
-                                      : visit.status.toUpperCase(),
+                                      ? context.tr('completed_status', fallback: 'COMPLETED')
+                                      : (visit.status == 'Cancelled'
+                                          ? context.tr('stopped', fallback: 'STOPPED')
+                                          : (visit.status == 'Completed'
+                                              ? context.tr('completed_status', fallback: 'COMPLETED')
+                                              : visit.status.toUpperCase())),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
@@ -14303,8 +14689,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ? (visit.notes != null &&
                                           visit.notes!.isNotEmpty
                                       ? visit.notes!
-                                      : 'Care plan stopped/discontinued for this patient.')
-                                : 'All vitals, nursing procedures, medicines, evidence & attender signature are locked & billed for ${_formatDateDDMMYYYY(visit.scheduledDate)}. Execute Visit unlocks at 7:00 AM on the next scheduled date.',
+                                      : context.tr('care_plan_stopped_desc', fallback: 'Care plan stopped/discontinued for this patient.'))
+                                : context.tr(
+                                    'session_locked_billed_msg',
+                                    params: {'date': _formatDateDDMMYYYY(visit.scheduledDate)},
+                                    fallback: 'All vitals, nursing procedures, medicines, evidence & attender signature are locked & billed for ${_formatDateDDMMYYYY(visit.scheduledDate)}. Execute Visit unlocks at 7:00 AM on the next scheduled date.',
+                                  ),
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.black87,
@@ -14355,7 +14745,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Invoice #: $invoiceNum',
+                                        '${context.tr('invoice_num_label', fallback: 'Invoice #:')} $invoiceNum',
                                         style: const TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -14363,7 +14753,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         ),
                                       ),
                                       Text(
-                                        'Status: $payStatus | Total: ₹${netAmount.toStringAsFixed(2)}',
+                                        '${context.tr('payment_status_label', fallback: 'Status:')} $payStatus | ${context.tr('total_amount_label', fallback: 'Total:')} ₹${netAmount.toStringAsFixed(2)}',
                                         style: const TextStyle(
                                           fontSize: 12,
                                           color: Colors.black87,
@@ -14384,9 +14774,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   size: 16,
                                   color: Colors.white,
                                 ),
-                                label: const Text(
-                                  'View Itemized Invoice',
-                                  style: TextStyle(
+                                label: Text(
+                                  context.tr('view_itemized_invoice', fallback: 'View Itemized Invoice'),
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12.5,
@@ -14432,7 +14822,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Invoice #: $invoiceNum',
+                                      '${context.tr('invoice_num_label', fallback: 'Invoice #:')} $invoiceNum',
                                       style: const TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.bold,
@@ -14441,7 +14831,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      'Payment Status: $payStatus | Total Amount: ₹${netAmount.toStringAsFixed(2)}',
+                                      '${context.tr('payment_status_label', fallback: 'Payment Status:')} $payStatus | ${context.tr('total_amount_label', fallback: 'Total Amount:')} ₹${netAmount.toStringAsFixed(2)}',
                                       style: const TextStyle(
                                         fontSize: 13,
                                         color: Colors.black87,
@@ -14458,9 +14848,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 size: 18,
                                 color: Colors.white,
                               ),
-                              label: const Text(
-                                'View Itemized Invoice',
-                                style: TextStyle(
+                              label: Text(
+                                context.tr('view_itemized_invoice', fallback: 'View Itemized Invoice'),
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -14497,7 +14887,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildSectionHeader(
-                      'Patient & Attender Overview',
+                      context.tr('patient_attender_overview', fallback: 'Patient & Attender Overview'),
                       Icons.person_outline,
                     ),
                     const SizedBox(height: 16),
@@ -14507,14 +14897,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         children: [
                           Expanded(
                             child: _summaryTile(
-                              'Patient Name',
-                              visit.patientName ?? 'N/A',
+                              context.tr('patient_name_label', fallback: 'Patient Name'),
+                              patientNameFormatted,
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: _summaryTile(
-                              'Patient ID',
+                              context.tr('patient_id_label', fallback: 'Patient ID'),
                               visit.patientDisplayId ?? 'N/A',
                             ),
                           ),
@@ -14526,15 +14916,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         children: [
                           Expanded(
                             child: _summaryTile(
-                              'Scheduled Date',
+                              context.tr('scheduled_date_label', fallback: 'Scheduled Date'),
                               _formatDateDDMMYYYY(visit.scheduledDate),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: _summaryTile(
-                              'Assigned Nurse',
-                              visit.nurseName ?? 'Nurse',
+                              context.tr('assigned_nurse_label', fallback: 'Assigned Nurse'),
+                              nurseNameFormatted,
                             ),
                           ),
                         ],
@@ -14545,15 +14935,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         children: [
                           Expanded(
                             child: _summaryTile(
-                              'Verified Attender',
-                              visit.attenderName ?? 'N/A',
+                              context.tr('verified_attender_label', fallback: 'Verified Attender'),
+                              attenderNameFormatted,
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: _summaryTile(
-                              'Attender Relation',
-                              visit.attenderRelation ?? 'Attender',
+                              context.tr('attender_relation_label', fallback: 'Attender Relation'),
+                              attenderRelation,
                             ),
                           ),
                         ],
@@ -14564,15 +14954,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         children: [
                           Expanded(
                             child: _summaryTile(
-                              'Signed At',
-                              visit.signedAt ?? 'Completed',
+                              context.tr('signed_at_label', fallback: 'Signed At'),
+                              signedAt,
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: _summaryTile(
-                              'Visit Address',
-                              visit.visitAddress ?? 'N/A',
+                              context.tr('visit_address_label', fallback: 'Visit Address'),
+                              visitAddress,
                             ),
                           ),
                         ],
@@ -14582,26 +14972,26 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         children: [
                           Expanded(
                             child: _summaryTile(
-                              'Patient Name',
-                              visit.patientName ?? 'N/A',
+                              context.tr('patient_name_label', fallback: 'Patient Name'),
+                              patientNameFormatted,
                             ),
                           ),
                           Expanded(
                             child: _summaryTile(
-                              'Patient ID',
+                              context.tr('patient_id_label', fallback: 'Patient ID'),
                               visit.patientDisplayId ?? 'N/A',
                             ),
                           ),
                           Expanded(
                             child: _summaryTile(
-                              'Scheduled Date',
+                              context.tr('scheduled_date_label', fallback: 'Scheduled Date'),
                               _formatDateDDMMYYYY(visit.scheduledDate),
                             ),
                           ),
                           Expanded(
                             child: _summaryTile(
-                              'Assigned Nurse',
-                              visit.nurseName ?? 'Nurse',
+                              context.tr('assigned_nurse_label', fallback: 'Assigned Nurse'),
+                              nurseNameFormatted,
                             ),
                           ),
                         ],
@@ -14611,26 +15001,26 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         children: [
                           Expanded(
                             child: _summaryTile(
-                              'Verified Attender',
-                              visit.attenderName ?? 'N/A',
+                              context.tr('verified_attender_label', fallback: 'Verified Attender'),
+                              attenderNameFormatted,
                             ),
                           ),
                           Expanded(
                             child: _summaryTile(
-                              'Attender Relation',
-                              visit.attenderRelation ?? 'Attender',
+                              context.tr('attender_relation_label', fallback: 'Attender Relation'),
+                              attenderRelation,
                             ),
                           ),
                           Expanded(
                             child: _summaryTile(
-                              'Signed At',
-                              visit.signedAt ?? 'Completed',
+                              context.tr('signed_at_label', fallback: 'Signed At'),
+                              signedAt,
                             ),
                           ),
                           Expanded(
                             child: _summaryTile(
-                              'Visit Address',
-                              visit.visitAddress ?? 'N/A',
+                              context.tr('visit_address_label', fallback: 'Visit Address'),
+                              visitAddress,
                             ),
                           ),
                         ],
@@ -14654,7 +15044,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildSectionHeader(
-                      'Day $dayNumber Recorded Hourly Vitals Log',
+                      '${context.tr('day_label', fallback: 'Day')} $dayNumber ${context.tr('recorded_hourly_vitals_log', fallback: 'Recorded Hourly Vitals Log')}',
                       Icons.monitor_heart_outlined,
                     ),
                     const SizedBox(height: 16),
@@ -14662,7 +15052,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: Text(
-                          'No vitals recorded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
+                          context.tr('no_vitals_recorded_day', params: {'day': '$dayNumber', 'date': _formatDateDDMMYYYY(visit.scheduledDate)}, fallback: 'No vitals recorded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).'),
                           style: const TextStyle(
                             color: Colors.grey,
                             fontSize: 13,
@@ -14686,12 +15076,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     color: Color(0xFFF1F5F9),
                                   ),
                                   children: [
-                                    _tableHeader('Date & Time'),
-                                    _tableHeader('BP (mmHg)'),
-                                    _tableHeader('Pulse (bpm)'),
-                                    _tableHeader('SpO2 (%)'),
-                                    _tableHeader('Temp (°F)'),
-                                    _tableHeader('Sugar (mg/dL)'),
+                                    _tableHeader(context.tr('date_time', fallback: 'Date & Time')),
+                                    _tableHeader(context.tr('bp_unit', fallback: 'BP (mmHg)')),
+                                    _tableHeader(context.tr('pulse_unit', fallback: 'Pulse (bpm)')),
+                                    _tableHeader(context.tr('spo2_unit', fallback: 'SpO2 (%)')),
+                                    _tableHeader(context.tr('temp_unit', fallback: 'Temp (°F)')),
+                                    _tableHeader(context.tr('sugar_unit', fallback: 'Sugar (mg/dL)')),
                                   ],
                                 ),
                                 for (final v in sessionVitals)
@@ -14758,7 +15148,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildSectionHeader(
-                      'Day $dayNumber Nursing Care & Procedure Records',
+                      '${context.tr('day_label', fallback: 'Day')} $dayNumber ${context.tr('nursing_care_procedure_records', fallback: 'Nursing Care & Procedure Records')}',
                       Icons.edit_note_outlined,
                     ),
                     const SizedBox(height: 16),
@@ -14771,7 +15161,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: Text(
-                          'No nursing care notes or dressing procedures recorded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
+                          context.tr('no_nursing_care_recorded_day', params: {'day': '$dayNumber', 'date': _formatDateDDMMYYYY(visit.scheduledDate)}, fallback: 'No nursing care notes or dressing procedures recorded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).'),
                           style: const TextStyle(
                             color: Colors.grey,
                             fontSize: 13,
@@ -14803,7 +15193,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'Recorded on: ${_formatRecordedAt(care.createdAt)}',
+                                    '${context.tr('recorded_on_label', fallback: 'Recorded on:')} ${_formatRecordedAt(care.createdAt)}',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 12,
@@ -14815,22 +15205,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               const Divider(height: 16),
                               if (care.nursingNotes != null &&
                                   care.nursingNotes!.isNotEmpty)
-                                _detailRow('Nursing Notes', care.nursingNotes!),
+                                _detailRow(context.tr('nursing_notes_label', fallback: 'Nursing Notes'), care.nursingNotes!),
                               if (care.dressingProcedures != null &&
                                   care.dressingProcedures!.isNotEmpty)
                                 _detailRow(
-                                  'Dressing Procedure',
-                                  care.dressingProcedures!,
+                                  context.tr('dressing_procedure_label', fallback: 'Dressing Procedure'),
+                                  context.translateProcedure(care.dressingProcedures!),
                                 ),
                               if (care.nailTrimmingDone)
                                 _detailRow(
-                                  'Nail Trimming / Hygiene Care',
-                                  'Completed',
+                                  context.tr('nail_trimming_hygiene_label', fallback: 'Nail Trimming / Hygiene Care'),
+                                  context.tr('completed_status', fallback: 'Completed'),
                                 ),
                               if (care.otherCareActivities != null &&
                                   care.otherCareActivities!.isNotEmpty)
                                 _detailRow(
-                                  'Other Care Activities',
+                                  context.tr('other_care_activities_label', fallback: 'Other Care Activities'),
                                   care.otherCareActivities!,
                                 ),
                             ],
@@ -14855,7 +15245,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildSectionHeader(
-                      'Day $dayNumber Administered Medicines & Consumables',
+                      '${context.tr('day_label', fallback: 'Day')} $dayNumber ${context.tr('administered_medicines_consumables', fallback: 'Administered Medicines & Consumables')}',
                       Icons.medication_liquid_outlined,
                     ),
                     const SizedBox(height: 16),
@@ -14863,7 +15253,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: Text(
-                          'No medicines or consumables administered for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
+                          context.tr('no_meds_consumables_recorded_day', params: {'day': '$dayNumber', 'date': _formatDateDDMMYYYY(visit.scheduledDate)}, fallback: 'No medicines or consumables administered for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).'),
                           style: const TextStyle(
                             color: Colors.grey,
                             fontSize: 13,
@@ -14872,9 +15262,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       )
                     else ...[
                       if (sessionMedicines.isNotEmpty) ...[
-                        const Text(
-                          'Medicines Administered:',
-                          style: TextStyle(
+                        Text(
+                          context.tr('medicines_administered_label', fallback: 'Medicines Administered:'),
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                             color: AppTheme.primaryColor,
@@ -14908,7 +15298,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      m.medicineType,
+                                      m.medicineType == 'Regular' ? context.tr('regular_badge', fallback: 'Regular') : (m.medicineType == 'STAT' ? context.tr('stat_badge', fallback: 'STAT') : m.medicineType),
                                       style: TextStyle(
                                         fontSize: 10,
                                         fontWeight: FontWeight.bold,
@@ -14925,7 +15315,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          '${m.medicineName}${m.dosage != null && m.dosage!.isNotEmpty ? " (${m.dosage})" : ""} - Qty: ${m.quantity}',
+                                          '${context.translateMedicine(m.medicineName)}${m.dosage != null && m.dosage!.isNotEmpty ? " (${m.dosage})" : ""} - ${context.tr('qty_prefix', fallback: 'Qty:')} ${m.quantity}',
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 13,
@@ -14934,7 +15324,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
-                                          'Freq: ${m.frequency ?? "N/A"} | Duration: ${m.duration ?? "N/A"}${m.givenTime != null && m.givenTime!.isNotEmpty ? " | Given Time: ${m.givenTime}" : ""}',
+                                          '${context.tr('freq_prefix', fallback: 'Freq:')} ${m.frequency ?? "N/A"} | ${context.tr('duration_prefix', fallback: 'Duration:')} ${m.duration ?? "N/A"}${m.givenTime != null && m.givenTime!.isNotEmpty ? " | ${context.tr('given_time_prefix', fallback: 'Given Time:')} ${m.givenTime}" : ""}',
                                           style: const TextStyle(
                                             fontSize: 12,
                                             color: Color(0xFF475569),
@@ -14957,9 +15347,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         const SizedBox(height: 12),
                       ],
                       if (sessionConsumables.isNotEmpty) ...[
-                        const Text(
-                          'Consumables Used:',
-                          style: TextStyle(
+                        Text(
+                          context.tr('consumables_used_label', fallback: 'Consumables Used:'),
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                             color: AppTheme.primaryColor,
@@ -14970,7 +15360,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           Padding(
                             padding: const EdgeInsets.only(bottom: 6.0),
                             child: Text(
-                              '• ${c.itemName} - Qty: ${c.quantityUsed} | ₹${(c.unitPrice * c.quantityUsed).toStringAsFixed(2)}${(c.createdAt != null && c.createdAt!.isNotEmpty) ? " (${c.createdAt!.split("T")[0]})" : ""}',
+                              '• ${context.translateConsumable(c.itemName)} - ${context.tr('qty_prefix', fallback: 'Qty:')} ${c.quantityUsed} | ₹${(c.unitPrice * c.quantityUsed).toStringAsFixed(2)}${(c.createdAt != null && c.createdAt!.isNotEmpty) ? " (${c.createdAt!.split("T")[0]})" : ""}',
                               style: const TextStyle(fontSize: 13),
                             ),
                           ),
@@ -14994,7 +15384,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildSectionHeader(
-                      'Day $dayNumber Timestamped Photo Evidence Gallery',
+                      '${context.tr('day_label', fallback: 'Day')} $dayNumber ${context.tr('timestamped_photo_evidence_gallery', fallback: 'Timestamped Photo Evidence Gallery')}',
                       Icons.insert_photo_outlined,
                     ),
                     const SizedBox(height: 16),
@@ -15002,7 +15392,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
                         child: Text(
-                          'No timestamped photo evidence uploaded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).',
+                          context.tr('no_photos_uploaded_day', params: {'day': '$dayNumber', 'date': _formatDateDDMMYYYY(visit.scheduledDate)}, fallback: 'No timestamped photo evidence uploaded for Day $dayNumber (${_formatDateDDMMYYYY(visit.scheduledDate)}).'),
                           style: const TextStyle(
                             color: Colors.grey,
                             fontSize: 13,
@@ -15061,7 +15451,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   Padding(
                                     padding: const EdgeInsets.all(8.0),
                                     child: Text(
-                                      p.category ?? 'Evidence',
+                                      p.category != null ? context.tr('evidence_label', fallback: p.category!) : context.tr('evidence_label', fallback: 'Evidence'),
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 11,
@@ -15220,213 +15610,227 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.dangerColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+        builder: (context, setDialogState) {
+          final isTamil = Localizations.localeOf(context).languageCode == 'ta';
+          final patientDisplayName = TamilTransliterationHelper.formatName(
+            visit.patientName ?? '',
+            isTamil: isTamil,
+          );
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.do_not_disturb_on_outlined,
+                    color: AppTheme.dangerColor,
+                    size: 24,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.do_not_disturb_on_outlined,
-                  color: AppTheme.dangerColor,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Stop Home Visit Care',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
-                        color: AppTheme.textPrimaryColor,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('stop_home_visit_care_title', fallback: 'Stop Home Visit Care'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 17,
+                          color: AppTheme.textPrimaryColor,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Terminate & Cancel Care Plan',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFF1F2),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFFECDD3)),
+                      Text(
+                        context.tr('terminate_cancel_care_plan', fallback: 'Terminate & Cancel Care Plan'),
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
                       ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.info_outline_rounded,
-                            color: AppTheme.dangerColor,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Filling this form will stop all further home visit care for ${visit.patientName ?? "Patient #${visit.patientId}"} and cancel the active care plan.',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF9F1239),
-                                height: 1.4,
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 500,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF1F2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFECDD3)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.info_outline_rounded,
+                              color: AppTheme.dangerColor,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                context.tr(
+                                  'stop_care_plan_warning',
+                                  fallback: 'Filling this form will stop all further home visit care for {patient} and cancel the active care plan.',
+                                  params: {'patient': patientDisplayName.isNotEmpty ? patientDisplayName : "Patient #${visit.patientId}"},
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF9F1239),
+                                  height: 1.4,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Select Reason to Stop Care *',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    CustomDropdownSearch(
-                      label: '',
-                      hint: 'Select Reason',
-                      dropdownMap: const {
-                        'Patient Cured / Fully Recovered':
-                            'Patient Cured / Fully Recovered',
-                        'Patient / Attender Requested Discontinuation':
-                            'Patient / Attender Requested Discontinuation',
-                        'Admitted to Hospital / IPD Care':
-                            'Admitted to Hospital / IPD Care',
-                        'Doctor Advice / Care Plan Completed':
-                            'Doctor Advice / Care Plan Completed',
-                        'Patient Relocated / Not Reachable':
-                            'Patient Relocated / Not Reachable',
-                        'Financial / Billing Constraints':
-                            'Financial / Billing Constraints',
-                        'Other Reason': 'Other Reason',
-                      },
-                      value: selectedReason,
-                      onChanged: (val) {
-                        if (val != null) {
-                          setDialogState(() => selectedReason = val);
-                        }
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    const Text(
-                      'Remarks / Nurse Handover Notes (Optional):',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: notesCtrl,
-                      maxLines: 3,
-                      maxLength: 250,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;%+]'),
+                          ],
                         ),
-                        LengthLimitingTextInputFormatter(250),
-                      ],
-                      decoration: AppTheme.standardInputDecoration(
-                        hintText:
-                            'Enter details (e.g., patient recovered after 5 days of care and attender requested stop)...',
                       ),
-                      validator: (val) {
-                        if (val != null && val.trim().isNotEmpty) {
-                          final clean = val.trim();
-                          if (clean.length > 250) {
-                            return 'Notes cannot exceed 250 characters';
+                      const SizedBox(height: 16),
+                      Text(
+                        context.tr('select_reason_to_stop', fallback: 'Select Reason to Stop Care *'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: context.tr('select_reason_hint', fallback: 'Select Reason'),
+                        dropdownMap: {
+                          'Patient Cured / Fully Recovered':
+                              context.tr('reason_cured', fallback: 'Patient Cured / Fully Recovered'),
+                          'Patient / Attender Requested Discontinuation':
+                              context.tr('reason_patient_requested', fallback: 'Patient / Attender Requested Discontinuation'),
+                          'Admitted to Hospital / IPD Care':
+                              context.tr('reason_admitted_hospital', fallback: 'Admitted to Hospital / IPD Care'),
+                          'Doctor Advice / Care Plan Completed':
+                              context.tr('reason_doctor_advice', fallback: 'Doctor Advice / Care Plan Completed'),
+                          'Patient Relocated / Not Reachable':
+                              context.tr('reason_relocated', fallback: 'Patient Relocated / Not Reachable'),
+                          'Financial / Billing Constraints':
+                              context.tr('reason_financial', fallback: 'Financial / Billing Constraints'),
+                          'Other Reason':
+                              context.tr('reason_other', fallback: 'Other Reason'),
+                        },
+                        value: selectedReason,
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDialogState(() => selectedReason = val);
                           }
-                          if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
-                            return 'Notes must contain alphabetical characters if provided';
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        context.tr('remarks_nurse_handover_notes', fallback: 'Remarks / Nurse Handover Notes (Optional):'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: notesCtrl,
+                        maxLines: 3,
+                        maxLength: 250,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;%+]'),
+                          ),
+                          LengthLimitingTextInputFormatter(250),
+                        ],
+                        decoration: AppTheme.standardInputDecoration(
+                          hintText: context.tr('stop_notes_hint', fallback: 'Enter details (e.g., patient recovered after 5 days of care and attender requested stop)...'),
+                        ),
+                        validator: (val) {
+                          if (val != null && val.trim().isNotEmpty) {
+                            final clean = val.trim();
+                            if (clean.length > 250) {
+                              return 'Notes cannot exceed 250 characters';
+                            }
+                            if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
+                              return 'Notes must contain alphabetical characters if provided';
+                            }
                           }
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogCtx).pop(),
-              child: const Text(
-                'Go Back',
-                style: TextStyle(color: Colors.grey),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogCtx).pop(),
+                child: Text(
+                  context.tr('go_back', fallback: 'Go Back'),
+                  style: const TextStyle(color: Colors.grey),
+                ),
               ),
-            ),
-            ElevatedButton.icon(
-              style: AppTheme.dangerButton,
-              icon: isSubmitting
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(Icons.check_circle_outline, size: 18),
-              label: Text(
-                isSubmitting ? 'Stopping Care...' : 'Confirm Stop Care',
-              ),
-              onPressed: isSubmitting
-                  ? null
-                  : () async {
-                      if (formKey.currentState != null &&
-                          !formKey.currentState!.validate()) {
-                        return;
-                      }
-                      setDialogState(() => isSubmitting = true);
-                      final homeVisitCtrl = Provider.of<HomeVisitController>(
-                        context,
-                        listen: false,
-                      );
-                      final success = await homeVisitCtrl.cancelVisit(
-                        visit.id,
-                        selectedReason,
-                        notesCtrl.text.trim(),
-                      );
-                      setDialogState(() => isSubmitting = false);
-                      if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
-
-                      if (success && context.mounted) {
-                        AppNotification.showSuccess(
+              ElevatedButton.icon(
+                style: AppTheme.dangerButton,
+                icon: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.check_circle_outline, size: 18),
+                label: Text(
+                  isSubmitting
+                      ? context.tr('stopping_care', fallback: 'Stopping Care...')
+                      : context.tr('confirm_stop_care', fallback: 'Confirm Stop Care'),
+                ),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        if (formKey.currentState != null &&
+                            !formKey.currentState!.validate()) {
+                          return;
+                        }
+                        setDialogState(() => isSubmitting = true);
+                        final homeVisitCtrl = Provider.of<HomeVisitController>(
                           context,
-                          'Home visit care plan (${visit.visitNumber}) for ${visit.patientName ?? "Patient"} stopped and cancelled successfully.',
+                          listen: false,
                         );
-                        _handleLeave();
-                      }
-                    },
-            ),
-          ],
-        ),
+                        final success = await homeVisitCtrl.cancelVisit(
+                          visit.id,
+                          selectedReason,
+                          notesCtrl.text.trim(),
+                        );
+                        setDialogState(() => isSubmitting = false);
+                        if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+
+                        if (success && context.mounted) {
+                          AppNotification.showSuccess(
+                            context,
+                            'Home visit care plan (${visit.visitNumber}) for ${patientDisplayName.isNotEmpty ? patientDisplayName : "Patient"} stopped and cancelled successfully.',
+                          );
+                          _handleLeave();
+                        }
+                      },
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -15487,7 +15891,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       }
 
       if (dtPrevious == null) {
-        return 'Initial Entry';
+        return context.tr('initial_entry', fallback: 'Initial Entry');
       }
 
       final diff = dtCurrent.difference(dtPrevious);
@@ -15495,15 +15899,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
       final hours = diff.inHours;
       final minutes = diff.inMinutes % 60;
+      final isTamil = AppLocalizations.of(context).locale.languageCode == 'ta';
 
       if (hours > 0 && minutes > 0) {
-        return '+$hours hr ${minutes} mins';
+        return isTamil ? '+$hours மணி ${minutes} நிமி' : '+$hours hr ${minutes} mins';
       } else if (hours > 0) {
-        return '+$hours hr${hours > 1 ? "s" : ""}';
+        return isTamil ? '+$hours மணி' : '+$hours hr${hours > 1 ? "s" : ""}';
       } else if (minutes > 0) {
-        return '+$minutes min${minutes > 1 ? "s" : ""}';
+        return isTamil ? '+$minutes நிமி' : '+$minutes min${minutes > 1 ? "s" : ""}';
       } else {
-        return '< 1 min';
+        return isTamil ? '< 1 நிமிடம்' : '< 1 min';
       }
     } catch (_) {
       return '--';

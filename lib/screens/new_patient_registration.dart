@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
+import '../providers/language_provider.dart';
 import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../models/patient_model.dart';
@@ -649,10 +651,10 @@ class _NewPatientRegistrationViewState
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Discard Unsaved Changes?',
-                      style: TextStyle(
+                      ctx.tr('discard_unsaved_changes', fallback: 'Discard Unsaved Changes?'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                         color: AppTheme.textPrimaryColor,
@@ -663,9 +665,9 @@ class _NewPatientRegistrationViewState
                 ],
               ),
               const SizedBox(height: 14),
-              const Text(
-                'You have unsaved form entries. Are you sure you want to discard changes and go back?',
-                style: TextStyle(
+              Text(
+                ctx.tr('discard_unsaved_body', fallback: 'You have unsaved form entries. Are you sure you want to discard changes and go back?'),
+                style: const TextStyle(
                   fontSize: 13.5,
                   color: Color(0xFF64748B),
                   height: 1.4,
@@ -686,10 +688,10 @@ class _NewPatientRegistrationViewState
                         ),
                       ),
                       onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text(
-                        'Stay on Form',
+                      child: Text(
+                        ctx.tr('stay_on_form', fallback: 'Stay on Form'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: 13),
                       ),
                     ),
                   ),
@@ -711,10 +713,10 @@ class _NewPatientRegistrationViewState
                           widget.onBack();
                         });
                       },
-                      child: const Text(
-                        'Discard & Leave',
+                      child: Text(
+                        ctx.tr('discard_and_leave', fallback: 'Discard & Leave'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: 13),
                       ),
                     ),
                   ),
@@ -742,7 +744,7 @@ class _NewPatientRegistrationViewState
         children: [
           // Fixed Top Section: Header & Stepper
           Container(
-            color: AppTheme.backgroundColor,
+            color: AppTheme.getBackgroundColor(context),
             padding: EdgeInsets.only(
               left: isMobile ? 16.0 : 48.0,
               right: isMobile ? 16.0 : 48.0,
@@ -755,18 +757,18 @@ class _NewPatientRegistrationViewState
                 // Back Button & Header
                 InkWell(
                   onTap: _showDiscardDialog,
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.arrow_back_rounded,
                         size: 18,
                         color: AppTheme.primaryColor,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        'Back to Patients',
-                        style: TextStyle(
+                        context.tr('back_to_patients', fallback: 'Back to Patients'),
+                        style: const TextStyle(
                           color: AppTheme.primaryColor,
                           fontWeight: FontWeight.bold,
                         ),
@@ -789,24 +791,30 @@ class _NewPatientRegistrationViewState
                                           _matchedExistingPatient
                                               ?.isQuickRegister ??
                                           false))
-                                      ? 'Complete Patient Profile'
-                                      : 'Edit Patient Profile')
-                                : 'New Patient Registration',
-                            style: Theme.of(context).textTheme.displayLarge
-                                ?.copyWith(fontSize: isMobile ? 20 : 28),
+                                      ? context.tr('complete_patient_profile', fallback: 'Complete Patient Profile')
+                                      : context.tr('edit_patient_profile', fallback: 'Edit Patient Profile'))
+                                : context.tr('new_patient_registration', fallback: 'New Patient Registration'),
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: isMobile ? 20 : 28,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.getTextPrimaryColor(context),
+                              letterSpacing: -0.5,
+                            ),
                           ),
                           if (!isMobile) ...[
                             const SizedBox(height: 4),
                             Text(
                               (widget.existingPatient != null ||
                                       _matchedExistingPatient != null)
-                                  ? 'Update patient information and medical history'
-                                  : 'Fill in patient information and medical history',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 12,
-                                  ),
+                                  ? context.tr('update_patient_info_history', fallback: 'Update patient information and medical history')
+                                  : context.tr('fill_patient_info_history', fallback: 'Fill in patient information and medical history'),
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: AppTheme.getTextSecondaryColor(context),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ],
                         ],
@@ -859,12 +867,16 @@ class _NewPatientRegistrationViewState
         vertical: isMobile ? 6 : 8,
         horizontal: isMobile ? 12 : 32,
       ),
-      decoration: AppTheme.cardDecoration,
+      decoration: BoxDecoration(
+        color: AppTheme.getCardColor(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
+      ),
       child: Row(
         children: [
           _buildStepItem(
             1,
-            'Basic Details',
+            context.tr('basic_details', fallback: 'Basic Details'),
             _currentStep >= 1,
             isCompleted: _currentStep > 1,
             isMobile: isMobile,
@@ -872,7 +884,7 @@ class _NewPatientRegistrationViewState
           _buildStepDivider(_currentStep > 1),
           _buildStepItem(
             2,
-            'Medical Intake',
+            context.tr('medical_intake', fallback: 'Medical Intake'),
             _currentStep >= 2,
             isCompleted: _currentStep > 2,
             isMobile: isMobile,
@@ -880,7 +892,7 @@ class _NewPatientRegistrationViewState
           _buildStepDivider(_currentStep > 2),
           _buildStepItem(
             3,
-            'Lifestyle Data',
+            context.tr('lifestyle_data', fallback: 'Lifestyle Data'),
             _currentStep >= 3,
             isCompleted: _currentStep > 3,
             isMobile: isMobile,
@@ -888,7 +900,7 @@ class _NewPatientRegistrationViewState
           _buildStepDivider(_currentStep > 3),
           _buildStepItem(
             4,
-            'Review',
+            context.tr('review', fallback: 'Review'),
             _currentStep >= 4,
             isCompleted: _currentStep > 4,
             isMobile: isMobile,
@@ -914,7 +926,7 @@ class _NewPatientRegistrationViewState
             decoration: BoxDecoration(
               color: (isActive || isCompleted)
                   ? AppTheme.infoColor
-                  : const Color(0xFFEDF2F7),
+                  : (AppTheme.isDark(context) ? const Color(0xFF334155) : const Color(0xFFEDF2F7)),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -929,7 +941,7 @@ class _NewPatientRegistrationViewState
                       style: TextStyle(
                         color: isActive
                             ? Colors.white
-                            : const Color(0xFF718096),
+                            : AppTheme.getTextSecondaryColor(context),
                         fontWeight: FontWeight.bold,
                         fontSize: isMobile ? 8 : 10,
                       ),
@@ -945,8 +957,8 @@ class _NewPatientRegistrationViewState
                   ? FontWeight.bold
                   : FontWeight.normal,
               color: (isActive || isCompleted)
-                  ? AppTheme.textPrimaryColor
-                  : const Color(0xFF718096),
+                  ? AppTheme.getTextPrimaryColor(context)
+                  : AppTheme.getTextSecondaryColor(context),
             ),
             textAlign: TextAlign.center,
             maxLines: 2,
@@ -961,7 +973,7 @@ class _NewPatientRegistrationViewState
     return Expanded(
       child: Container(
         height: 2,
-        color: isActive ? AppTheme.infoColor : const Color(0xFFE2E8F0),
+        color: isActive ? AppTheme.infoColor : AppTheme.getBorderColor(context),
         margin: const EdgeInsets.only(bottom: 16),
       ),
     );
@@ -973,9 +985,9 @@ class _NewPatientRegistrationViewState
       child: Container(
         padding: EdgeInsets.all(isMobile ? 16 : 32),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.getCardColor(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+          border: Border.all(color: AppTheme.getBorderColor(context)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -987,9 +999,9 @@ class _NewPatientRegistrationViewState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Basic Details',
-              style: TextStyle(
+            Text(
+              context.tr('basic_details', fallback: 'Basic Details'),
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.primaryColor,
@@ -1777,15 +1789,15 @@ class _NewPatientRegistrationViewState
                   style: AppTheme.logoRedButton.copyWith(
                     minimumSize: MaterialStateProperty.all(const Size(0, 52)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Next',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        context.tr('next', fallback: 'Next'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(width: 12),
-                      Icon(Icons.arrow_forward_rounded, size: 18),
+                      const SizedBox(width: 12),
+                      const Icon(Icons.arrow_forward_rounded, size: 18),
                     ],
                   ),
                 ),
@@ -1809,15 +1821,15 @@ class _NewPatientRegistrationViewState
                         ),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Next',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          context.tr('next', fallback: 'Next'),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        SizedBox(width: 12),
-                        Icon(Icons.arrow_forward_rounded, size: 18),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.arrow_forward_rounded, size: 18),
                       ],
                     ),
                   ),
@@ -1835,9 +1847,9 @@ class _NewPatientRegistrationViewState
       child: Container(
         padding: EdgeInsets.all(isMobile ? 20 : 32),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.getCardColor(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+          border: Border.all(color: AppTheme.getBorderColor(context)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -1849,9 +1861,9 @@ class _NewPatientRegistrationViewState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Medical Intake',
-              style: TextStyle(
+            Text(
+              context.tr('medical_intake', fallback: 'Medical Intake'),
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.primaryColor,
@@ -2495,15 +2507,15 @@ class _NewPatientRegistrationViewState
                         ),
                         minimumSize: const Size(0, 52),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Next',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                            context.tr('next', fallback: 'Next'),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          SizedBox(width: 12),
-                          Icon(Icons.arrow_forward_rounded, size: 18),
+                          const SizedBox(width: 12),
+                          const Icon(Icons.arrow_forward_rounded, size: 18),
                         ],
                       ),
                     ),
@@ -2516,10 +2528,10 @@ class _NewPatientRegistrationViewState
                   OutlinedButton.icon(
                     onPressed: () => setState(() => _currentStep = 1),
                     icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                    label: const Text('Back'),
+                    label: Text(context.tr('prev', fallback: 'Back')),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF4A5568),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      foregroundColor: AppTheme.getTextSecondaryColor(context),
+                      side: BorderSide(color: AppTheme.getBorderColor(context)),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 20,
@@ -2549,14 +2561,14 @@ class _NewPatientRegistrationViewState
                       ),
                       minimumSize: const Size(0, 52),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.arrow_forward_rounded, size: 18),
-                        SizedBox(width: 12),
+                        const Icon(Icons.arrow_forward_rounded, size: 18),
+                        const SizedBox(width: 12),
                         Text(
-                          'Next',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          context.tr('next', fallback: 'Next'),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -2575,9 +2587,9 @@ class _NewPatientRegistrationViewState
       child: Container(
         padding: EdgeInsets.all(isMobile ? 20 : 32),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.getCardColor(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+          border: Border.all(color: AppTheme.getBorderColor(context)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -2589,9 +2601,9 @@ class _NewPatientRegistrationViewState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Lifestyle & Behavioral Data',
-              style: TextStyle(
+            Text(
+              context.tr('lifestyle_data', fallback: 'Lifestyle & Behavioral Data'),
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.primaryColor,
@@ -2862,9 +2874,9 @@ class _NewPatientRegistrationViewState
                         }
                       },
                       icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                      label: const Text(
-                        'Next',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      label: Text(
+                        context.tr('next', fallback: 'Next'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.logoRed,
@@ -2885,10 +2897,10 @@ class _NewPatientRegistrationViewState
                   OutlinedButton.icon(
                     onPressed: () => setState(() => _currentStep = 2),
                     icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                    label: const Text('Back'),
+                    label: Text(context.tr('prev', fallback: 'Back')),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF4A5568),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      foregroundColor: AppTheme.getTextSecondaryColor(context),
+                      side: BorderSide(color: AppTheme.getBorderColor(context)),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 20,
@@ -2907,9 +2919,9 @@ class _NewPatientRegistrationViewState
                       }
                     },
                     icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                    label: const Text(
-                      'Next',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    label: Text(
+                      context.tr('next', fallback: 'Next'),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.logoRed,
@@ -2937,16 +2949,23 @@ class _NewPatientRegistrationViewState
     return Container(
       padding: EdgeInsets.all(isMobile ? 20 : 32),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Review & Confirmation',
-            style: TextStyle(
+          Text(
+            context.tr('review', fallback: 'Review & Confirmation'),
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: AppTheme.primaryColor,
@@ -3354,9 +3373,9 @@ class _NewPatientRegistrationViewState
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text(
-                            'Confirm & Complete',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                        : Text(
+                            context.tr('confirm', fallback: 'Confirm & Complete'),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                   ),
                 ),
@@ -3368,10 +3387,10 @@ class _NewPatientRegistrationViewState
                 OutlinedButton.icon(
                   onPressed: () => setState(() => _currentStep = 3),
                   icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                  label: const Text('Back'),
+                  label: Text(context.tr('prev', fallback: 'Back')),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF4A5568),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    foregroundColor: AppTheme.getTextSecondaryColor(context),
+                    side: BorderSide(color: AppTheme.getBorderColor(context)),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 20,
@@ -3406,9 +3425,9 @@ class _NewPatientRegistrationViewState
                             strokeWidth: 2,
                           ),
                         )
-                      : const Text(
-                          'Confirm & Complete',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                      : Text(
+                          context.tr('confirm', fallback: 'Confirm & Complete'),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                 ),
               ],
@@ -3429,9 +3448,11 @@ class _NewPatientRegistrationViewState
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color,
+        color: AppTheme.isDark(context) ? const Color(0xFF1E293B) : color,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: borderColor),
+        border: Border.all(
+          color: AppTheme.isDark(context) ? AppTheme.darkBorderColor : borderColor,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3441,17 +3462,17 @@ class _NewPatientRegistrationViewState
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
-                  color: Color(0xFF2D3748),
+                  color: AppTheme.getTextPrimaryColor(context),
                 ),
               ),
               GestureDetector(
                 onTap: onEdit,
-                child: const Text(
-                  'Edit',
-                  style: TextStyle(
+                child: Text(
+                  context.tr('edit', fallback: 'Edit'),
+                  style: const TextStyle(
                     color: AppTheme.primaryColor,
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
@@ -3469,12 +3490,12 @@ class _NewPatientRegistrationViewState
 
   Widget _buildReviewField(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            _translateLabel(label),
             textAlign: TextAlign.left,
             style: const TextStyle(
               fontSize: 12,
@@ -3486,36 +3507,125 @@ class _NewPatientRegistrationViewState
           Text(
             value,
             textAlign: TextAlign.left,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF2D3748)),
+            style: TextStyle(
+              fontSize: 14,
+              color: AppTheme.getTextPrimaryColor(context),
+            ),
           ),
         ],
       ),
     );
   }
 
+  String _translateLabel(String rawLabel) {
+    final bool hasStar = rawLabel.endsWith(' *') || rawLabel.endsWith('*');
+    final String clean = rawLabel.replaceAll('*', '').trim();
+    final lower = clean.toLowerCase();
+
+    String translated = clean;
+    if (lower == 'full name') {
+      translated = context.tr('full_name', fallback: clean);
+    } else if (lower == 'email address') {
+      translated = context.tr('email_address', fallback: clean);
+    } else if (lower == 'date of birth') {
+      translated = context.tr('date_of_birth', fallback: clean);
+    } else if (lower == 'gender') {
+      translated = context.tr('gender', fallback: clean);
+    } else if (lower == 'mobile number') {
+      translated = context.tr('mobile_number', fallback: clean);
+    } else if (lower == 'emergency contact name') {
+      translated = context.tr('emergency_contact_name', fallback: clean);
+    } else if (lower == 'relation' || lower == 'relationship') {
+      translated = context.tr('relation', fallback: clean);
+    } else if (lower == 'emergency mobile number') {
+      translated = context.tr('emergency_mobile_number', fallback: clean);
+    } else if (lower == 'address line 1') {
+      translated = context.tr('address_line_1', fallback: clean);
+    } else if (lower == 'address line 2') {
+      translated = context.tr('address_line_2', fallback: clean);
+    } else if (lower == 'district') {
+      translated = context.tr('district', fallback: clean);
+    } else if (lower == 'pincode') {
+      translated = context.tr('pincode', fallback: clean);
+    } else if (lower.contains('height')) {
+      translated = context.tr('height_cm', fallback: clean);
+    } else if (lower.contains('weight')) {
+      translated = context.tr('weight_kg', fallback: clean);
+    } else if (lower.contains('systolic')) {
+      translated = context.tr('bp_systolic', fallback: clean);
+    } else if (lower.contains('diastolic')) {
+      translated = context.tr('bp_diastolic', fallback: clean);
+    } else if (lower.contains('sugar')) {
+      translated = context.tr('sugar_level', fallback: clean);
+    } else if (lower.contains('temp')) {
+      translated = context.tr('temperature_f', fallback: clean);
+    } else if (lower.contains('blood group')) {
+      translated = context.tr('blood_group', fallback: clean);
+    } else if (lower.contains('allerg')) {
+      translated = context.tr('allergies', fallback: clean);
+    } else if (lower.contains('chronic')) {
+      translated = context.tr('chronic_conditions', fallback: clean);
+    } else if (lower.contains('reason') || lower.contains('complaint')) {
+      translated = context.tr('reason_for_visit', fallback: clean);
+    } else if (lower.contains('history')) {
+      translated = context.tr('past_medical_history', fallback: clean);
+    } else if (lower.contains('smoking')) {
+      translated = context.tr('smoking_status', fallback: clean);
+    } else if (lower.contains('alcohol')) {
+      translated = context.tr('alcohol_status', fallback: clean);
+    } else if (lower.contains('occupat')) {
+      translated = context.tr('occupation', fallback: clean);
+    } else if (lower.contains('hobb')) {
+      translated = context.tr('hobbies', fallback: clean);
+    } else if (lower.contains('food')) {
+      translated = context.tr('food_habits', fallback: clean);
+    } else if (lower.contains('physical') || lower.contains('activity')) {
+      translated = context.tr('physical_activity', fallback: clean);
+    }
+
+    return hasStar ? '$translated *' : translated;
+  }
+
+  String _translateHint(String rawHint) {
+    final lower = rawHint.toLowerCase().trim();
+    if (lower.contains('full name')) return context.tr('enter_patient_full_name', fallback: rawHint);
+    if (lower.contains('email')) return context.tr('enter_email_address', fallback: rawHint);
+    if (lower.contains('mobile')) return context.tr('enter_mobile_number', fallback: rawHint);
+    if (lower == 'enter name') return context.tr('enter_name', fallback: rawHint);
+    if (lower.contains('relation')) return context.tr('enter_relation', fallback: rawHint);
+    if (lower.contains('address line 1')) return context.tr('enter_address_line_1', fallback: rawHint);
+    if (lower.contains('address line 2')) return context.tr('enter_address_line_2', fallback: rawHint);
+    if (lower.contains('district')) return context.tr('select_district', fallback: rawHint);
+    if (lower.contains('pincode')) return context.tr('enter_pincode', fallback: rawHint);
+    if (lower.contains('gender')) return context.tr('select_gender', fallback: rawHint);
+    if (lower.contains('blood')) return context.tr('select_blood_group', fallback: rawHint);
+    return rawHint;
+  }
+
   Widget _buildLabel(String label) {
-    final bool hasStar = label.endsWith(' *');
+    final String translatedText = _translateLabel(label);
+    final bool hasStar = translatedText.endsWith(' *') || translatedText.endsWith('*');
     final String baseText = hasStar
-        ? label.substring(0, label.length - 2)
-        : label;
+        ? translatedText.replaceAll('*', '').trim()
+        : translatedText;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: RichText(
         text: TextSpan(
           text: baseText,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Colors.black,
-            fontFamily: 'Inter', // Ensuring consistency with theme
+            color: AppTheme.getTextPrimaryColor(context),
+            fontFamily: 'Inter',
           ),
           children: [
             if (hasStar)
               const TextSpan(
                 text: ' *',
                 style: TextStyle(
-                  color: Colors.red,
+                  color: AppTheme.dangerColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -3527,13 +3637,14 @@ class _NewPatientRegistrationViewState
 
   Widget _buildLabelAccent(String label) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Text(
-        label,
+        _translateLabel(label),
         style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: AppTheme.primaryColor,
+          fontFamily: 'Inter',
         ),
       ),
     );
@@ -3564,36 +3675,46 @@ class _NewPatientRegistrationViewState
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
       inputFormatters: inputFormatters,
+      style: TextStyle(
+        color: AppTheme.getTextPrimaryColor(context),
+        fontSize: 14,
+        fontFamily: 'Inter',
+      ),
       decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 13),
+        hintText: _translateHint(hint),
+        hintStyle: TextStyle(
+          color: AppTheme.getTextSecondaryColor(context).withOpacity(0.6),
+          fontSize: 13,
+        ),
         suffixIcon:
             suffixIcon ??
             (icon != null
-                ? Icon(icon, color: const Color(0xFFCBD5E0), size: 18)
+                ? Icon(icon, color: AppTheme.getTextSecondaryColor(context), size: 18)
                 : null),
         filled: true,
-        fillColor: AppTheme.backgroundColor,
+        fillColor: AppTheme.isDark(context)
+            ? AppTheme.darkInputFillColor
+            : const Color(0xFFF1F5F9),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+          borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+          borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5),
         ),
         errorMaxLines: 2,
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1),
+        errorBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderSide: BorderSide(color: AppTheme.dangerColor, width: 1),
         ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+        focusedErrorBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderSide: BorderSide(color: AppTheme.dangerColor, width: 1.5),
         ),
         errorStyle: const TextStyle(
           fontSize: 11,
@@ -3601,7 +3722,7 @@ class _NewPatientRegistrationViewState
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 16,
+          vertical: 14,
         ),
       ),
     );
@@ -3618,13 +3739,16 @@ class _NewPatientRegistrationViewState
 
     return CustomDropdownSearch(
       label: '', // Label is handled externally in this form via _buildLabel
-      hint: hint,
+      hint: _translateHint(hint),
       dropdownItems: safeItems,
       value: (value != null && safeItems.contains(value)) ? value : null,
       onChanged: onChanged,
       validator: validator,
       height: 52, // Match the height of text fields in the form
-      borderColor: const Color(0xFFE2E8F0),
+      fillColor: AppTheme.isDark(context)
+          ? AppTheme.darkInputFillColor
+          : const Color(0xFFF1F5F9),
+      borderColor: AppTheme.getBorderColor(context),
       focusedBorderColor: AppTheme.primaryColor,
     );
   }
