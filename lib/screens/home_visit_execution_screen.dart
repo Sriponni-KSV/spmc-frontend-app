@@ -879,12 +879,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       _loadData();
       // Periodically refresh visit details every 10 seconds to auto-unlock form when scheduled time is reached
       _vitalsTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-        if (mounted) {
+        if (!mounted) return;
+        try {
+          if (!context.mounted) return;
           final ctrl = Provider.of<HomeVisitController>(context, listen: false);
           if (ctrl.selectedVisit != null) {
             ctrl.fetchVisitDetails(ctrl.selectedVisit!.id);
           }
+        } catch (_) {
+          // Guard against deactivated element access
         }
+
+
       });
     });
   }
@@ -4893,6 +4899,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
   void _showActiveVisitRestrictionDialog(HomeVisitModel activeVisit) {
     final rawPatientName = activeVisit.patientName ?? 'Patient';
+    final isTamil = Localizations.localeOf(context).languageCode == 'ta';
+    final formattedPatientName = TamilTransliterationHelper.formatName(
+      rawPatientName,
+      isTamil: isTamil,
+    );
     final patientDisplayId =
         (activeVisit.patientDisplayId != null &&
             activeVisit.patientDisplayId!.trim().isNotEmpty)
@@ -4920,10 +4931,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Active Visit In-Progress',
-                style: TextStyle(
+                context.tr(
+                  'active_visit_in_progress',
+                  fallback: 'Active Visit In-Progress',
+                ),
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 17,
                   color: AppTheme.textPrimaryColor,
@@ -4936,9 +4950,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'You currently have an active home visit in progress. Nurses cannot execute multiple active visits simultaneously.',
-              style: TextStyle(
+            Text(
+              context.tr(
+                'active_visit_desc',
+                fallback:
+                    'You currently have an active home visit in progress. Nurses cannot execute multiple active visits simultaneously.',
+              ),
+              style: const TextStyle(
                 fontSize: 13.5,
                 color: Color(0xFF64748B),
                 height: 1.4,
@@ -4966,7 +4984,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'Patient: $rawPatientName ($patientDisplayId)',
+                          '${context.tr('patient_label', fallback: 'Patient:')} $formattedPatientName ($patientDisplayId)',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -4986,7 +5004,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        'Visit Number: $visitNumber',
+                        '${context.tr('visit_number', fallback: 'Visit Number')}: $visitNumber',
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -5007,7 +5025,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          'Started At: ${activeVisit.startTime}',
+                          '${context.tr('started_at', fallback: 'Started At')}: ${activeVisit.startTime}',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -5021,9 +5039,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Please complete or resume your ongoing visit before starting another session.',
-              style: TextStyle(
+            Text(
+              context.tr(
+                'active_visit_note',
+                fallback:
+                    'Please complete or resume your ongoing visit before starting another session.',
+              ),
+              style: const TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w500,
                 color: AppTheme.textSecondaryColor,
@@ -5039,7 +5061,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               Navigator.of(ctx).pop();
               _handleLeave();
             },
-            child: const Text('Exit to Visits List'),
+            child: Text(
+              context.tr('exit_to_visits_list', fallback: 'Exit to Visits List'),
+            ),
           ),
           const SizedBox(width: 8),
           ElevatedButton(
@@ -5049,7 +5073,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               Navigator.of(ctx).pop();
               context.go('/nurse/home-visits/execute/${activeVisit.id}');
             },
-            child: const Text('Resume Active Visit'),
+            child: Text(
+              context.tr('resume_active_visit', fallback: 'Resume Active Visit'),
+            ),
           ),
         ],
       ),
@@ -5495,6 +5521,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         ),
       ),
     );
+  }
+
+  @override
+  void deactivate() {
+    _vitalsTimer?.cancel();
+    super.deactivate();
   }
 
   @override
@@ -7544,6 +7576,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     _vitalsPage = 1;
                   });
                 },
+                constraints: const BoxConstraints(minWidth: 200, maxWidth: 320),
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     value: 'All',
@@ -7555,7 +7588,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           color: AppTheme.primaryColor,
                         ),
                         const SizedBox(width: 8),
-                        Text(context.tr('all_entries', fallback: 'All Entries')),
+                        Expanded(
+                          child: Text(
+                            context.tr('all_entries', fallback: 'All Entries'),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -7569,7 +7607,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           color: AppTheme.secondaryColor,
                         ),
                         const SizedBox(width: 8),
-                        Text(context.tr('todays_entries', fallback: "Today's Entries")),
+                        Expanded(
+                          child: Text(
+                            context.tr('todays_entries', fallback: "Today's Entries"),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -7583,7 +7626,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           color: AppTheme.dangerColor,
                         ),
                         const SizedBox(width: 8),
-                        Text(context.tr('abnormal_vitals', fallback: 'Abnormal Vitals')),
+                        Expanded(
+                          child: Text(
+                            context.tr('abnormal_vitals', fallback: 'Abnormal Vitals'),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -8168,9 +8216,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        AppLocalizations.of(context).locale.languageCode == 'ta'
-                            ? 'மொத்தம் $totalVitals பதிவுகளில் ${totalVitals == 0 ? 0 : vitalsStartIdx + 1} முதல் $vitalsEndIdx வரை காட்டப்படுகிறது'
-                            : 'Showing ${totalVitals == 0 ? 0 : vitalsStartIdx + 1} to $vitalsEndIdx of $totalVitals entries',
+                        context.showingEntries(
+                          start: totalVitals == 0 ? 0 : vitalsStartIdx + 1,
+                          end: vitalsEndIdx,
+                          total: totalVitals,
+                        ),
                         style: const TextStyle(
                           fontSize: 13,
                           color: Color(0xFF64748B),
@@ -8221,7 +8271,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          AppLocalizations.of(context).locale.languageCode == 'ta' ? '$currentVitalsPage / $totalVitalsPages' : '$currentVitalsPage of $totalVitalsPages',
+                          context.pageOfTotal(currentVitalsPage, totalVitalsPages),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -9097,10 +9147,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               validator: (val) {
                 if (val != null && val.trim().isNotEmpty) {
                   if (val.trim().length > 500) {
-                    return 'Nursing notes cannot exceed 500 characters';
+                    return context.tr('nursing_notes_max_500');
                   }
                   if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(val)) {
-                    return 'Notes must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols';
+                    return context.tr('notes_must_contain_letters');
                   }
                 }
                 return null;
@@ -9118,10 +9168,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               validator: (val) {
                 if (val != null && val.trim().isNotEmpty) {
                   if (val.trim().length > 500) {
-                    return 'Dressing details cannot exceed 500 characters';
+                    return context.tr('dressing_max_500');
                   }
                   if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(val)) {
-                    return 'Dressing details must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols';
+                    return context.tr('dressing_must_contain_letters');
                   }
                 }
                 return null;
@@ -9163,10 +9213,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               validator: (val) {
                 if (val != null && val.trim().isNotEmpty) {
                   if (val.trim().length > 500) {
-                    return 'Personal care details cannot exceed 500 characters';
+                    return context.tr('personal_care_max_500');
                   }
                   if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(val)) {
-                    return 'Personal care details must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols';
+                    return context.tr('personal_care_must_contain_letters');
                   }
                 }
                 return null;
@@ -9195,7 +9245,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             !_nailTrimmingDone) {
                           AppNotification.showError(
                             context,
-                            'Please enter at least one nursing note, dressing procedure, or personal care activity',
+                            context.tr('enter_at_least_one_care_activity'),
                           );
                           return;
                         }
@@ -9213,13 +9263,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           _clearCareForm();
                           AppNotification.showSuccess(
                             context,
-                            'Nursing care details saved successfully! Form cleared for new entries.',
+                            context.tr('nursing_care_saved_success'),
                           );
                         } else if (mounted) {
                           AppNotification.showError(
                             context,
                             controller.errorMessage ??
-                                'Failed to save nursing care details',
+                                context.tr('failed_to_save_nursing_care'),
                           );
                         }
                       },
@@ -9560,7 +9610,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               runSpacing: 8,
               children: [
                 Text(
-                  'Showing ${totalCare == 0 ? 0 : careStartIdx + 1}-$careEndIdx of $totalCare entries',
+                  context.showingEntries(
+                    start: careStartIdx + 1,
+                    end: careEndIdx,
+                    total: totalCare,
+                    itemType: 'entries',
+                  ),
                   style: const TextStyle(
                     fontSize: 12,
                     color: Colors.grey,
@@ -9586,9 +9641,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ? () => setState(() => _carePage--)
                           : null,
                       icon: const Icon(Icons.chevron_left, size: 16),
-                      label: const Text(
-                        'Previous',
-                        style: TextStyle(fontSize: 12),
+                      label: Text(
+                        context.tr('previous', fallback: 'Previous'),
+                        style: const TextStyle(fontSize: 12),
                       ),
                     ),
                     const SizedBox(width: 6),
@@ -9602,7 +9657,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'Page $currentCarePage of $totalCarePages',
+                        context.pageOfTotal(currentCarePage, totalCarePages),
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
@@ -9627,7 +9682,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ? () => setState(() => _carePage++)
                           : null,
                       icon: const Icon(Icons.chevron_right, size: 16),
-                      label: const Text('Next', style: TextStyle(fontSize: 12)),
+                      label: Text(
+                        context.tr('next', fallback: 'Next'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
@@ -10168,7 +10226,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             runSpacing: 8,
             children: [
               Text(
-                AppLocalizations.of(context).locale.languageCode == 'ta' ? 'மொத்தம் $totalMeds பதிவுகளில் ${totalMeds == 0 ? 0 : medsStartIdx + 1}-$medsEndIdx காட்டப்படுகிறது' : 'Showing ${totalMeds == 0 ? 0 : medsStartIdx + 1}-$medsEndIdx of $totalMeds entries',
+                context.showingEntries(
+                  start: totalMeds == 0 ? 0 : medsStartIdx + 1,
+                  end: medsEndIdx,
+                  total: totalMeds,
+                ),
                 style: const TextStyle(
                   fontSize: 11.5,
                   color: Colors.grey,
@@ -10196,7 +10258,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ? () => setState(() => _medsPage--)
                         : null,
                     icon: const Icon(Icons.chevron_left, size: 14),
-                    label: const Text('Prev', style: TextStyle(fontSize: 11)),
+                    label: Text(
+                      context.tr('prev', fallback: 'Prev'),
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -10232,7 +10297,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ? () => setState(() => _medsPage++)
                         : null,
                     icon: const Icon(Icons.chevron_right, size: 14),
-                    label: const Text('Next', style: TextStyle(fontSize: 11)),
+                    label: Text(
+                      context.tr('next', fallback: 'Next'),
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ),
                 ],
               ),
@@ -10762,7 +10830,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             runSpacing: 8,
             children: [
               Text(
-                'Showing ${totalProcedures == 0 ? 0 : procStartIdx + 1}-$procEndIdx of $totalProcedures entries',
+                context.showingEntries(
+                  start: procStartIdx + 1,
+                  end: procEndIdx,
+                  total: totalProcedures,
+                  itemType: 'entries',
+                ),
                 style: const TextStyle(
                   fontSize: 11.5,
                   color: Colors.grey,
@@ -10790,7 +10863,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ? () => setState(() => _procPage--)
                         : null,
                     icon: const Icon(Icons.chevron_left, size: 14),
-                    label: const Text('Prev', style: TextStyle(fontSize: 11)),
+                    label: Text(
+                      context.tr('prev', fallback: 'Prev'),
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -10826,7 +10902,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ? () => setState(() => _procPage++)
                         : null,
                     icon: const Icon(Icons.chevron_right, size: 14),
-                    label: const Text('Next', style: TextStyle(fontSize: 11)),
+                    label: Text(
+                      context.tr('next', fallback: 'Next'),
+                      style: const TextStyle(fontSize: 11),
+                    ),
                   ),
                 ],
               ),
@@ -12206,11 +12285,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ),
                               ],
                               decoration: AppTheme.standardInputDecoration(
-                                hintText: 'Full Name (Min 3, Max 30 chars)',
+                                hintText: context.tr('attender_name_hint'),
                               ),
                               validator: (val) {
                                 if (val == null || val.trim().length < 3) {
-                                  return 'Attender name must be at least 3 characters';
+                                  return context.tr('attender_name_min_chars');
                                 }
                                 return null;
                               },
@@ -12237,7 +12316,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               ),
                               validator: (val) {
                                 if (val == null || val.trim().isEmpty) {
-                                  return 'Attender relationship is required';
+                                  return context.tr('attender_relationship_required');
                                 }
                                 return null;
                               },
@@ -12381,7 +12460,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               if (_attenderNameCtrl.text.trim().length < 3) {
                                 AppNotification.showError(
                                   context,
-                                  'Please enter valid attender name (min 3 chars).',
+                                  context.tr('attender_name_min_valid'),
                                 );
                                 return;
                               }
@@ -12690,21 +12769,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     if (nameCtrl.text.trim().length < 3) {
                                       AppNotification.showError(
                                         dialogCtx,
-                                        'Please enter attender full name (min 3 chars).',
+                                        dialogCtx.tr('attender_name_full_min_valid'),
                                       );
                                       return;
                                     }
                                     if (relCtrl.text.trim().isEmpty) {
                                       AppNotification.showError(
                                         dialogCtx,
-                                        'Please specify attender relationship.',
+                                        dialogCtx.tr('attender_relationship_specify'),
                                       );
                                       return;
                                     }
                                     if (sigPoints.isEmpty) {
                                       AppNotification.showError(
                                         dialogCtx,
-                                        'Attender signature is required to complete the home visit.',
+                                        dialogCtx.tr('attender_signature_required'),
                                       );
                                       return;
                                     }
@@ -15806,10 +15885,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           if (val != null && val.trim().isNotEmpty) {
                             final clean = val.trim();
                             if (clean.length > 250) {
-                              return 'Notes cannot exceed 250 characters';
+                              return context.tr('notes_max_250_chars');
                             }
                             if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
-                              return 'Notes must contain alphabetical characters if provided';
+                              return context.tr('notes_must_contain_alphabetical');
                             }
                           }
                           return null;

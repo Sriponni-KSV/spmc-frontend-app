@@ -4319,7 +4319,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Text(
-            'Page ${_currentPage + 1} of $totalPages',
+            context.pageOfTotal(_currentPage + 1, totalPages),
             style: const TextStyle(
               fontSize: 13,
               color: AppTheme.textSecondaryColor,
@@ -4345,9 +4345,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.chevron_left, size: 18),
-                Text('Prev'),
+              children: [
+                const Icon(Icons.chevron_left, size: 18),
+                Text(context.tr('prev', fallback: 'Prev')),
               ],
             ),
           ),
@@ -4370,9 +4370,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text('Next'),
-                Icon(Icons.chevron_right, size: 18),
+              children: [
+                Text(context.tr('next', fallback: 'Next')),
+                const Icon(Icons.chevron_right, size: 18),
               ],
             ),
           ),

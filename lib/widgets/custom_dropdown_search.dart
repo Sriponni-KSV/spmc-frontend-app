@@ -196,14 +196,27 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     }
   }
 
+  void _safeMarkOverlayNeedsBuild() {
+    if (_overlayEntry == null || !_overlayEntry!.mounted) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _overlayEntry != null && _overlayEntry!.mounted) {
+          _overlayEntry!.markNeedsBuild();
+        }
+      });
+    } else {
+      _overlayEntry!.markNeedsBuild();
+    }
+  }
+
   /// Called by the framework when window metrics change (e.g. keyboard
   /// opens or closes). Rebuilds the overlay so it can reposition.
   @override
   void didChangeMetrics() {
     // Rebuild overlay so it can reposition when keyboard opens/closes.
-    if (_overlayEntry != null && _overlayEntry!.mounted) {
-      _overlayEntry!.markNeedsBuild();
-    }
+    _safeMarkOverlayNeedsBuild();
   }
 
   KeyEventResult _handleKey(KeyEvent event) {
@@ -214,18 +227,14 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         if (_highlightedIndex < _filteredItems.length - 1) {
           _highlightedIndex++;
           _scrollToHighlight();
-          if (_overlayEntry != null && _overlayEntry!.mounted) {
-            _overlayEntry!.markNeedsBuild();
-          }
+          _safeMarkOverlayNeedsBuild();
         }
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
         if (_highlightedIndex > 0) {
           _highlightedIndex--;
           _scrollToHighlight();
-          if (_overlayEntry != null && _overlayEntry!.mounted) {
-            _overlayEntry!.markNeedsBuild();
-          }
+          _safeMarkOverlayNeedsBuild();
         }
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.enter) {
@@ -330,7 +339,11 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         }
       }
       if (_overlayEntry != null && _overlayEntry!.mounted) {
-        _overlayEntry!.markNeedsBuild();
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _overlayEntry != null && _overlayEntry!.mounted) {
+            _overlayEntry!.markNeedsBuild();
+          }
+        });
       }
     }
   }
@@ -349,7 +362,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
             .toList();
       }
     });
-    _overlayEntry?.markNeedsBuild();
+    _safeMarkOverlayNeedsBuild();
   }
 
   void _toggleDropdown(FormFieldState<String> field) {
@@ -643,7 +656,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     }
   }
 
-  void _hideDropdown() {
+  /// Removes the overlay and resets tracking state WITHOUT calling setState.
+  /// Safe to call from deactivate() and dispose().
+  void _removeOverlaySilently() {
     if (_overlayEntry != null) {
       if (_overlayEntry!.mounted) {
         _overlayEntry!.remove();
@@ -654,7 +669,21 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       _closeActiveDropdown = null;
     }
     _highlightedIndex = 0;
+  }
+
+  void _hideDropdown() {
+    _removeOverlaySilently();
     if (mounted) setState(() {});
+  }
+
+  @override
+  void deactivate() {
+    // Must NOT call setState here — deactivate is called during the build
+    // phase when the widget is being removed from the tree (e.g. TabBarView
+    // scrolling). Calling setState at this point causes the
+    // "setState() called during build" assertion.
+    _removeOverlaySilently();
+    super.deactivate();
   }
 
   @override
@@ -662,15 +691,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     WidgetsBinding.instance.removeObserver(this);
     _searchFocusNode.removeListener(_onFocusChange);
     _mainFocusNode.removeListener(_onFocusChange);
-    if (_overlayEntry != null) {
-      if (_overlayEntry!.mounted) {
-        _overlayEntry!.remove();
-      }
-      _overlayEntry = null;
-    }
-    if (_closeActiveDropdown == _hideDropdown) {
-      _closeActiveDropdown = null;
-    }
+    _removeOverlaySilently();
     _textEditingController.dispose();
     _searchFocusNode.dispose();
     _mainFocusNode.dispose();

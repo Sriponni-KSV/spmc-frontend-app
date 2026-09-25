@@ -414,7 +414,8 @@ class AppLocalizations {
       'pincode': 'Pincode',
       'enter_pincode': 'Enter Pincode',
       'next': 'Next',
-      'prev': 'Previous',
+      'prev': 'Prev',
+      'previous': 'Previous',
       'height_cm': 'Height (cm)',
       'weight_kg': 'Weight (kg)',
       'bp_systolic': 'BP Systolic (mmHg)',
@@ -1271,9 +1272,16 @@ class AppLocalizations {
       'attender_relationship_required': 'Attender relationship is required',
       'attender_signature_required':
           'Attender signature is required to complete the home visit.',
+      'attender_name_hint': 'Full Name (Min 3, Max 30 chars)',
       'notes_max_250_chars': 'Notes cannot exceed 250 characters',
       'notes_must_contain_alphabetical':
           'Notes must contain alphabetical characters if provided',
+      'nursing_care_saved_success':
+          'Nursing care details saved successfully! Form cleared for new entries.',
+      'failed_to_save_nursing_care': 'Failed to save nursing care details',
+      'attender_name_min_valid': 'Please enter valid attender name (min 3 chars).',
+      'attender_name_full_min_valid': 'Please enter attender full name (min 3 chars).',
+      'attender_relationship_specify': 'Please specify attender relationship.',
 
       // Nurse Module Localization
       'invalid_file_format_cert':
@@ -1432,6 +1440,25 @@ class AppLocalizations {
       'describe_daily_physical_activities_hint':
           'Describe daily physical activities...',
       'dob_hint': 'dd/mm/yyyy',
+
+      // Pagination & Active Visit Modal
+      'rows_per_page': 'Rows per page:',
+      'rows': 'Rows:',
+      'showing': 'Showing',
+      'page': 'Page',
+      'of': 'of',
+      'entries': 'entries',
+      'visits': 'visits',
+      'active_visit_in_progress': 'Active Visit In-Progress',
+      'active_visit_desc':
+          'You currently have an active home visit in progress. Nurses cannot execute multiple active visits simultaneously.',
+      'visit_number': 'Visit Number',
+      'started_at': 'Started At',
+      'active_visit_note':
+          'Please complete or resume your ongoing visit before starting another session.',
+      'dismiss': 'Dismiss',
+      'resume_active_visit': 'Resume Active Visit',
+      'exit_to_visits_list': 'Exit to Visits List',
     },
     'ta': {
       // Navigation
@@ -1845,7 +1872,8 @@ class AppLocalizations {
       'pincode': 'அஞ்சல் குறியீடு',
       'enter_pincode': 'அஞ்சல் குறியீட்டை உள்ளிடவும்',
       'next': 'அடுத்து',
-      'prev': 'முந்தையது',
+      'prev': 'முந்தைய',
+      'previous': 'முந்தைய',
       'height_cm': 'உயரம் (செ.மீ)',
       'weight_kg': 'எடை (கிலோ)',
       'bp_systolic': 'இரத்த அழுத்தம் சிஸ்டாலிக் (mmHg)',
@@ -2727,10 +2755,21 @@ class AppLocalizations {
       'attender_relationship_required': 'பராமரிப்பாளர் உறவுமுறை கட்டாயமாகும்',
       'attender_signature_required':
           'வருகையை முடிக்க பராமரிப்பாளர் கையொப்பம் கட்டாயமாகும்.',
+      'attender_name_hint': 'முழு பெயர் (குறைந்தது 3, அதிகபட்சம் 30 எழுத்துகள்)',
       'notes_max_250_chars':
           'குறிப்புகள் 250 எழுத்துகளுக்கு மிகாமல் இருக்க வேண்டும்',
       'notes_must_contain_alphabetical':
           'குறிப்புகளில் எழுத்துகள் இருக்க வேண்டும்',
+      'nursing_care_saved_success':
+          'செவிலியர் பராமரிப்பு விவரங்கள் வெற்றிகரமாக சேமிக்கப்பட்டது! படிவம் அழிக்கப்பட்டது.',
+      'failed_to_save_nursing_care':
+          'செவிலியர் பராமரிப்பு விவரங்களை சேமிக்க முடியவில்லை',
+      'attender_name_min_valid':
+          'சரியான பராமரிப்பாளர் பெயரை உள்ளிடவும் (குறைந்தது 3 எழுத்துகள்).',
+      'attender_name_full_min_valid':
+          'பராமரிப்பாளர் முழு பெயரை உள்ளிடவும் (குறைந்தது 3 எழுத்துகள்).',
+      'attender_relationship_specify':
+          'பராமரிப்பாளரின் உறவுமுறையை குறிப்பிடவும்.',
 
       // Nurse Module Localization
       'invalid_file_format_cert':
@@ -2941,6 +2980,25 @@ class AppLocalizations {
       'nurse_label_prefix': 'செவிலியர்:',
       'start_time_label': 'தொடக்க நேரம்:',
       'end_time_label': 'முடிவு நேரம்:',
+
+      // Pagination & Active Visit Modal
+      'rows_per_page': 'பக்கத்திற்கு வரிகள்:',
+      'rows': 'வரிகள்:',
+      'showing': 'காட்டப்படுகிறது',
+      'page': 'பக்கம்',
+      'of': '/',
+      'entries': 'பதிவுகள்',
+      'visits': 'வருகைகள்',
+      'active_visit_in_progress': 'செயலில் உள்ள வீட்டு வருகை',
+      'active_visit_desc':
+          'தற்போது உங்களிடம் ஒரு செயலில் உள்ள வீட்டு வருகை உள்ளது. ஒரே நேரத்தில் பல வருகைகளைச் செயல்படுத்த முடியாது.',
+      'visit_number': 'வருகை எண்',
+      'started_at': 'தொடங்கிய நேரம்',
+      'active_visit_note':
+          'மற்றொரு அமர்வைத் தொடங்குவதற்கு முன், உங்கள் தற்போதைய வருகையை முடிக்கவும் அல்லது மீண்டும் தொடரவும்.',
+      'dismiss': 'விலக்கு',
+      'resume_active_visit': 'செயலில் உள்ள வருகையைத் தொடரவும்',
+      'exit_to_visits_list': 'வருகைகள் பட்டியலுக்குச் செல்லவும்',
     },
   };
 
@@ -3201,6 +3259,29 @@ extension AppLocalizationExtension on BuildContext {
 
   String translateProcedure(String name) {
     return AppLocalizations.of(this).translateProcedure(name);
+  }
+
+  bool get isTamil => Localizations.localeOf(this).languageCode == 'ta';
+
+  String pageOfTotal(int current, int total) {
+    if (isTamil) {
+      return 'பக்கம் $current / $total';
+    }
+    return 'Page $current of $total';
+  }
+
+  String showingEntries({
+    required int start,
+    required int end,
+    required int total,
+    String? itemType,
+  }) {
+    if (isTamil) {
+      final type = itemType == 'visits' ? 'வருகைகளில்' : 'பதிவுகளில்';
+      return 'மொத்தம் $total $type ${total == 0 ? 0 : start} முதல் $end வரை காட்டப்படுகிறது';
+    }
+    final type = itemType == 'visits' ? 'visits' : 'entries';
+    return 'Showing ${total == 0 ? 0 : start} to $end of $total $type';
   }
 
   String translateConsumable(String name) {

@@ -565,7 +565,12 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             return Column(
               children: [
                 Text(
-                  'Showing ${startIndex + 1} to $endIndex of $totalVisits visits',
+                  context.showingEntries(
+                    start: startIndex + 1,
+                    end: endIndex,
+                    total: totalVisits,
+                    itemType: 'visits',
+                  ),
                   style: const TextStyle(
                     fontSize: 12,
                     color: AppTheme.textSecondaryColor,
@@ -580,9 +585,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     children: [
                       Row(
                         children: [
-                          const Text(
-                            'Rows: ',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          Text(
+                            context.tr('rows', fallback: 'Rows: '),
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                           DropdownButton<int>(
                             value: _itemsPerPage,
@@ -652,7 +657,12 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Showing ${startIndex + 1} to $endIndex of $totalVisits visits',
+                context.showingEntries(
+                  start: startIndex + 1,
+                  end: endIndex,
+                  total: totalVisits,
+                  itemType: 'visits',
+                ),
                 style: const TextStyle(
                   fontSize: 12,
                   color: AppTheme.textSecondaryColor,
@@ -663,9 +673,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 padding: const EdgeInsets.only(right: 70.0),
                 child: Row(
                   children: [
-                    const Text(
-                      'Rows per page: ',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    Text(
+                      context.tr('rows_per_page', fallback: 'Rows per page: '),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                     DropdownButton<int>(
                       value: _itemsPerPage,
@@ -693,12 +703,13 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     const SizedBox(width: 16),
                     IconButton(
                       icon: const Icon(Icons.chevron_left),
+                      tooltip: context.tr('previous', fallback: 'Previous'),
                       onPressed: _currentPage > 1
                           ? () => setState(() => _currentPage--)
                           : null,
                     ),
                     Text(
-                      'Page $_currentPage of $totalPages',
+                      context.pageOfTotal(_currentPage, totalPages),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -706,6 +717,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.chevron_right),
+                      tooltip: context.tr('next', fallback: 'Next'),
                       onPressed: _currentPage < totalPages
                           ? () => setState(() => _currentPage++)
                           : null,
@@ -2494,6 +2506,11 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     HomeVisitModel activeVisit,
   ) {
     final rawPatientName = activeVisit.patientName ?? 'Patient';
+    final isTamil = Localizations.localeOf(context).languageCode == 'ta';
+    final formattedPatientName = TamilTransliterationHelper.formatName(
+      rawPatientName,
+      isTamil: isTamil,
+    );
     final patientDisplayId =
         (activeVisit.patientDisplayId != null &&
             activeVisit.patientDisplayId!.trim().isNotEmpty)
@@ -2520,10 +2537,13 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Active Visit In-Progress',
-                style: TextStyle(
+                context.tr(
+                  'active_visit_in_progress',
+                  fallback: 'Active Visit In-Progress',
+                ),
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 17,
                   color: AppTheme.textPrimaryColor,
@@ -2538,9 +2558,13 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'You currently have an active home visit in progress. Nurses cannot execute multiple active visits simultaneously.',
-                style: TextStyle(
+              Text(
+                context.tr(
+                  'active_visit_desc',
+                  fallback:
+                      'You currently have an active home visit in progress. Nurses cannot execute multiple active visits simultaneously.',
+                ),
+                style: const TextStyle(
                   fontSize: 13.5,
                   color: Color(0xFF64748B),
                   height: 1.4,
@@ -2569,7 +2593,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Patient: $rawPatientName ($patientDisplayId)',
+                            '${context.tr('patient_label', fallback: 'Patient:')} $formattedPatientName ($patientDisplayId)',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -2589,7 +2613,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          'Visit Number: $visitNumber',
+                          '${context.tr('visit_number', fallback: 'Visit Number')}: $visitNumber',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -2610,7 +2634,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            'Started At: ${activeVisit.startTime}',
+                            '${context.tr('started_at', fallback: 'Started At')}: ${activeVisit.startTime}',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -2624,9 +2648,13 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Please complete or resume your ongoing visit before starting another session.',
-                style: TextStyle(
+              Text(
+                context.tr(
+                  'active_visit_note',
+                  fallback:
+                      'Please complete or resume your ongoing visit before starting another session.',
+                ),
+                style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w500,
                   color: AppTheme.textSecondaryColor,
@@ -2639,7 +2667,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
           OutlinedButton(
             style: AppTheme.cancelButton,
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Dismiss'),
+            child: Text(context.tr('dismiss', fallback: 'Dismiss')),
           ),
           const SizedBox(width: 8),
           ElevatedButton(
@@ -2649,7 +2677,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               Navigator.of(ctx).pop();
               _navigateToExecuteScreen(context, activeVisit.id);
             },
-            child: const Text('Resume Active Visit'),
+            child: Text(
+              context.tr('resume_active_visit', fallback: 'Resume Active Visit'),
+            ),
           ),
         ],
       ),

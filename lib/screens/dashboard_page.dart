@@ -5022,7 +5022,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Showing ${startIndex + 1} to $endIndex of $totalItems entries',
+                                context.showingEntries(start: startIndex + 1, end: endIndex, total: totalItems),
                                 style: const TextStyle(
                                   color: AppTheme.textSecondaryColor,
                                   fontSize: 13,
@@ -5037,7 +5037,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         : null,
                                   ),
                                   Text(
-                                    'Page ${_appointmentsCurrentPage + 1} of $totalPages',
+                                    context.pageOfTotal(_appointmentsCurrentPage + 1, totalPages),
                                     style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
