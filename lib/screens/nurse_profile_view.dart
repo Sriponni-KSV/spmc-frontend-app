@@ -55,8 +55,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
         const allowedExts = ['pdf', 'jpg', 'jpeg', 'png'];
         if (!allowedExts.contains(ext)) {
           messenger.showSnackBar(
-            const SnackBar(
-              content: Text('Invalid file format. Only PDF, JPG, JPEG, and PNG files are allowed.'),
+            SnackBar(
+              content: Text(context.tr('invalid_file_format_cert', fallback: 'Invalid file format. Only PDF, JPG, JPEG, and PNG files are allowed.')),
               backgroundColor: AppTheme.dangerColor,
             ),
           );
@@ -74,8 +74,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
           final bytesCount = fileBytes.length;
           if (bytesCount > 5 * 1024 * 1024) {
             messenger.showSnackBar(
-              const SnackBar(
-                content: Text('File exceeds 5MB limit. Please choose a smaller file.'),
+              SnackBar(
+                content: Text(context.tr('file_exceeds_5mb', fallback: 'File exceeds 5MB limit. Please choose a smaller file.')),
                 backgroundColor: AppTheme.dangerColor,
               ),
             );
@@ -219,8 +219,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     if (bioText.isNotEmpty) {
       if (!RegExp(r'[a-zA-Z]').hasMatch(bioText)) {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Bio / Professional Summary must contain letters and cannot consist only of special characters or numbers.'),
+          SnackBar(
+            content: Text(context.tr('bio_must_contain_letters', fallback: 'Bio / Professional Summary must contain letters and cannot consist only of special characters or numbers.')),
             backgroundColor: AppTheme.dangerColor,
           ),
         );
@@ -228,8 +228,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
       }
       if (!RegExp(r'^[a-zA-Z0-9\s.,\-]+$').hasMatch(bioText)) {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Special characters are not allowed in Bio / Professional Summary.'),
+          SnackBar(
+            content: Text(context.tr('special_chars_not_allowed_bio', fallback: 'Special characters are not allowed in Bio / Professional Summary.')),
             backgroundColor: AppTheme.dangerColor,
           ),
         );
@@ -237,8 +237,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
       }
       if (bioText.length > 255) {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Bio / Professional Summary cannot exceed 255 characters.'),
+          SnackBar(
+            content: Text(context.tr('bio_max_chars', fallback: 'Bio / Professional Summary cannot exceed 255 characters.')),
             backgroundColor: AppTheme.dangerColor,
           ),
         );
@@ -250,8 +250,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
     if (qualText.isNotEmpty) {
       if (qualText.length > 30) {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Qualification cannot exceed 30 characters.'),
+          SnackBar(
+            content: Text(context.tr('qualification_max_chars', fallback: 'Qualification cannot exceed 30 characters.')),
             backgroundColor: AppTheme.dangerColor,
           ),
         );
@@ -259,8 +259,8 @@ class _NurseProfileViewState extends State<NurseProfileView> {
       }
       if (!RegExp(r'[a-zA-Z]').hasMatch(qualText)) {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Qualification must contain valid letters.'),
+          SnackBar(
+            content: Text(context.tr('qualification_must_contain_letters', fallback: 'Qualification must contain valid letters.')),
             backgroundColor: AppTheme.dangerColor,
           ),
         );
@@ -282,7 +282,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
         final ext = fileName.contains('.') ? fileName.split('.').last : '';
         const allowedExts = ['pdf', 'jpg', 'jpeg', 'png'];
         if (!allowedExts.contains(ext)) {
-          throw Exception('Invalid file format. Only PDF, JPG, JPEG, and PNG files are allowed.');
+          throw Exception(context.tr('invalid_file_format_cert', fallback: 'Invalid file format. Only PDF, JPG, JPEG, and PNG files are allowed.'));
         }
 
         final secureUrl = await MediaService.uploadToCloudinary(
@@ -745,10 +745,10 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user?.rawFullname ?? 'Nurse', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
+                          Text(user?.rawFullname ?? context.translateRole('Nurse'), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
                           const SizedBox(height: 8),
                           Text(
-                            user?.role ?? 'Nurse',
+                            context.translateRole(user?.role ?? 'Nurse'),
                             style: const TextStyle(
                               color: Color(0xFFC53030),
                               fontSize: 13,
@@ -915,7 +915,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user?.rawFullname ?? 'Nurse',
+                            user?.rawFullname ?? context.translateRole('Nurse'),
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
@@ -935,7 +935,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                           ],
                           const SizedBox(height: 2),
                           Text(
-                            user?.role ?? 'Nurse',
+                            context.translateRole(user?.role ?? 'Nurse'),
                             style: const TextStyle(
                               color: Color(0xFFC53030),
                               fontSize: 12,
@@ -975,7 +975,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                        Text(
-                         context.tr('bio_summary', fallback: 'Bio / Professional Summary'),
+                         context.tr('profile_summary', fallback: context.tr('bio_summary', fallback: 'Profile Summary')),
                          style: const TextStyle(
                            fontSize: 14,
                            fontWeight: FontWeight.bold,
@@ -994,13 +994,13 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                         validator: (value) {
                           if (value != null && value.trim().isNotEmpty) {
                             if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
-                              return 'Bio must contain letters and cannot consist only of special characters or numbers';
+                              return context.tr('bio_must_contain_letters', fallback: 'Bio must contain letters and cannot consist only of special characters or numbers');
                             }
                             if (!RegExp(r'^[a-zA-Z0-9\s.,\-]+$').hasMatch(value)) {
-                              return 'Special characters are not allowed';
+                              return context.tr('special_chars_not_allowed', fallback: 'Special characters are not allowed');
                             }
                             if (value.length > 255) {
-                              return 'Bio cannot exceed 255 characters';
+                              return context.tr('bio_max_chars', fallback: 'Bio cannot exceed 255 characters');
                             }
                           }
                           return null;
@@ -1011,7 +1011,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
                         ),
                         decoration: InputDecoration(
                           counterText: '',
-                          hintText: 'Share a brief summary of your expertise...',
+                          hintText: context.tr('profile_summary_hint', fallback: context.tr('bio_summary_hint', fallback: 'Share a brief summary of your expertise...')),
                           hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
                           fillColor: AppTheme.backgroundColor,
                           filled: true,

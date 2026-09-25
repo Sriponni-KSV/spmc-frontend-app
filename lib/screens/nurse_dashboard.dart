@@ -224,8 +224,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       await _shiftCtrl.acknowledgeHandover(handoverId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Handover acknowledged successfully'),
+          SnackBar(
+            content: Text(context.tr('handover_acknowledged_success', fallback: 'Handover acknowledged successfully')),
             backgroundColor: Colors.green,
           ),
         );
@@ -235,7 +235,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error acknowledging handover: $e'),
+            content: Text('${context.tr('error_acknowledging_handover', fallback: 'Error acknowledging handover')}: $e'),
             backgroundColor: Colors.red,
           ),
         );

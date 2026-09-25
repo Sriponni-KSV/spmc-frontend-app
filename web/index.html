@@ -190,13 +190,50 @@
     // ─── Global Unsaved Form Data Reload Protection ──────────────────────────
     window.unsavedChanges = {
       hasUnsavedData: false,
+      onBackPressedCallback: null,
+
       setHasUnsavedData: function(flag) {
         this.hasUnsavedData = !!flag;
+        if (flag) {
+          // Push a sentinel state so the very next browser-Back can be caught
+          if (!history.state || !history.state.__flutterFormGuard) {
+            history.pushState({ __flutterFormGuard: true }, '');
+          }
+        }
       },
+
+      setOnBackPressed: function(callback) {
+        this.onBackPressedCallback = callback;
+      },
+
+      clearOnBackPressed: function() {
+        this.onBackPressedCallback = null;
+      },
+
       reset: function() {
         this.hasUnsavedData = false;
+        this.onBackPressedCallback = null;
       }
     };
+
+    // ─── Browser Back Button Guard ───────────────────────────────────────────
+    // When the user presses Back and unsaved data exists, cancel the navigation
+    // by re-pushing a guard state, then call Flutter's registered callback so
+    // the app can show its own confirmation dialog.
+    window.addEventListener('popstate', function(e) {
+      if (window.unsavedChanges && window.unsavedChanges.hasUnsavedData) {
+        // Re-push the sentinel so subsequent Back presses are also caught
+        history.pushState({ __flutterFormGuard: true }, '');
+        // Invoke Flutter's Dart callback if registered
+        if (typeof window.unsavedChanges.onBackPressedCallback === 'function') {
+          try {
+            window.unsavedChanges.onBackPressedCallback();
+          } catch(err) {
+            console.warn('[SPMC] onBackPressedCallback error:', err);
+          }
+        }
+      }
+    });
 
     // Automatically detect user typing in ANY form input/textarea/editable field across the app
     document.addEventListener('input', function (e) {

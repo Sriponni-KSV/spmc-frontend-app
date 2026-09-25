@@ -3,6 +3,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:provider/provider.dart';
+import 'package:go_router/go_router.dart';
 import 'utils/app_theme.dart';
 import 'providers/auth_provider.dart';
 import 'providers/language_provider.dart';
@@ -41,17 +42,40 @@ Future<void> main() async {
           create: (_) => HomeVisitController(),
         ),
       ],
-      child: const MyApp(),
+      child: MyApp(authProvider: authProvider),
     ),
   );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MyApp extends StatefulWidget {
+  final AuthProvider? authProvider;
+  const MyApp({super.key, this.authProvider});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    AuthProvider? auth;
+    if (widget.authProvider != null) {
+      auth = widget.authProvider;
+    } else {
+      try {
+        auth = Provider.of<AuthProvider>(context, listen: false);
+      } catch (_) {
+        auth = AuthProvider();
+      }
+    }
+    _router = AppRouter.getRouter(auth!);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final router = AppRouter.createRouter(context);
     final languageProvider = Provider.of<LanguageProvider>(context);
 
     return MaterialApp.router(
@@ -68,7 +92,7 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      routerConfig: router,
+      routerConfig: _router,
       builder: (context, child) => OfflineAwareWrapper(
         child: child ?? const SizedBox.shrink(),
       ),

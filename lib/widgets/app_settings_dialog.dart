@@ -5,15 +5,21 @@ import '../providers/theme_provider.dart';
 import '../utils/app_theme.dart';
 import '../utils/app_localizations.dart';
 
+/// Application & Language Settings dialog.
+///
+/// Allows configuring:
+/// 1. Language (English ↔ Tamil)
+/// 2. Appearance & Theme (Light, Dark, System Default)
+/// 3. Exit button labelled 'வெளியேறு' (veliyeru) in Tamil / 'Exit' in English.
 class AppSettingsDialog extends StatelessWidget {
   final bool showThemeSelection;
 
   const AppSettingsDialog({
     super.key,
-    this.showThemeSelection = false,
+    this.showThemeSelection = true,
   });
 
-  static void show(BuildContext context, {bool showThemeSelection = false}) {
+  static void show(BuildContext context, {bool showThemeSelection = true}) {
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -28,14 +34,15 @@ class AppSettingsDialog extends StatelessWidget {
     final isDark = AppTheme.isDark(context);
 
     final cardBg = isDark ? AppTheme.darkCardColor : Colors.white;
-    final borderColor = isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
-    final textPrimary = isDark ? AppTheme.darkTextPrimaryColor : AppTheme.textPrimaryColor;
-    final textSecondary = isDark ? AppTheme.darkTextSecondaryColor : AppTheme.textSecondaryColor;
+    final borderColor =
+        isDark ? AppTheme.darkBorderColor : AppTheme.borderColor;
+    final textPrimary =
+        isDark ? AppTheme.darkTextPrimaryColor : AppTheme.textPrimaryColor;
+    final textSecondary =
+        isDark ? AppTheme.darkTextSecondaryColor : AppTheme.textSecondaryColor;
 
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 16,
       backgroundColor: cardBg,
       child: Container(
@@ -45,7 +52,7 @@ class AppSettingsDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Dialog Header
+            // ── Dialog Header ─────────────────────────────────────────────────
             Row(
               children: [
                 Container(
@@ -66,7 +73,7 @@ class AppSettingsDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        context.tr('app_settings'),
+                        context.tr('app_settings', fallback: 'Application Settings'),
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -78,10 +85,7 @@ class AppSettingsDialog extends StatelessWidget {
                         languageProvider.isTamil
                             ? 'மொழி மற்றும் தோற்ற அமைப்புகள்'
                             : 'Language and appearance settings',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: textSecondary,
-                        ),
+                        style: TextStyle(fontSize: 12, color: textSecondary),
                       ),
                     ],
                   ),
@@ -89,7 +93,7 @@ class AppSettingsDialog extends StatelessWidget {
                 IconButton(
                   icon: Icon(Icons.close, color: textSecondary, size: 20),
                   onPressed: () => Navigator.of(context).pop(),
-                  tooltip: context.tr('close'),
+                  tooltip: context.tr('close', fallback: 'Close'),
                 ),
               ],
             ),
@@ -98,13 +102,17 @@ class AppSettingsDialog extends StatelessWidget {
             Divider(height: 1, thickness: 1, color: borderColor),
             const SizedBox(height: 20),
 
-            // Section 1: Language Selection
+            // ── Section 1: Language Selection ─────────────────────────────────
             Row(
               children: [
-                const Icon(Icons.translate_rounded, size: 20, color: AppTheme.primaryColor),
+                const Icon(
+                  Icons.translate_rounded,
+                  size: 20,
+                  color: AppTheme.primaryColor,
+                ),
                 const SizedBox(width: 8),
                 Text(
-                  context.tr('language'),
+                  context.tr('language', fallback: 'Language'),
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -115,7 +123,10 @@ class AppSettingsDialog extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              context.tr('language_subtitle'),
+              context.tr(
+                'language_subtitle',
+                fallback: 'Select application display language',
+              ),
               style: TextStyle(fontSize: 12, color: textSecondary),
             ),
             const SizedBox(height: 12),
@@ -143,7 +154,7 @@ class AppSettingsDialog extends StatelessWidget {
                     context: context,
                     code: 'ta',
                     title: 'தமிழ்',
-                    subtitle: 'Tamil language',
+                    subtitle: 'தமிழ் மொழி',
                     badge: 'தமிழ்',
                     isSelected: languageProvider.isTamil,
                     onTap: () => languageProvider.setLanguageCode('ta'),
@@ -155,18 +166,22 @@ class AppSettingsDialog extends StatelessWidget {
               ],
             ),
 
+            // ── Section 2: Theme Mode Selection ───────────────────────────────
             if (showThemeSelection) ...[
               const SizedBox(height: 24),
               Divider(height: 1, thickness: 1, color: borderColor),
               const SizedBox(height: 20),
 
-              // Section 2: Theme Mode Selection
               Row(
                 children: [
-                  const Icon(Icons.palette_outlined, size: 20, color: AppTheme.secondaryColor),
+                  const Icon(
+                    Icons.palette_outlined,
+                    size: 20,
+                    color: AppTheme.secondaryColor,
+                  ),
                   const SizedBox(width: 8),
                   Text(
-                    context.tr('theme'),
+                    context.tr('theme', fallback: 'Theme'),
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
@@ -177,20 +192,24 @@ class AppSettingsDialog extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                context.tr('theme_subtitle'),
+                context.tr(
+                  'theme_subtitle',
+                  fallback: 'Adjust appearance according to your preference',
+                ),
                 style: TextStyle(fontSize: 12, color: textSecondary),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
 
-              // Theme Mode Options (Light, Dark, System)
+              // Theme Options
               Row(
                 children: [
                   Expanded(
                     child: _buildThemeCard(
                       context: context,
                       mode: ThemeMode.light,
-                      icon: Icons.light_mode_outlined,
-                      label: context.tr('light_mode'),
+                      icon: Icons.wb_sunny_rounded,
+                      iconColor: const Color(0xFFF59E0B),
+                      label: context.tr('light_mode', fallback: 'Light Mode'),
                       isSelected: themeProvider.themeMode == ThemeMode.light,
                       onTap: () => themeProvider.setThemeMode(ThemeMode.light),
                       borderColor: borderColor,
@@ -203,8 +222,9 @@ class AppSettingsDialog extends StatelessWidget {
                     child: _buildThemeCard(
                       context: context,
                       mode: ThemeMode.dark,
-                      icon: Icons.dark_mode_outlined,
-                      label: context.tr('dark_mode'),
+                      icon: Icons.nightlight_round,
+                      iconColor: const Color(0xFF818CF8),
+                      label: context.tr('dark_mode', fallback: 'Dark Mode'),
                       isSelected: themeProvider.themeMode == ThemeMode.dark,
                       onTap: () => themeProvider.setThemeMode(ThemeMode.dark),
                       borderColor: borderColor,
@@ -217,8 +237,11 @@ class AppSettingsDialog extends StatelessWidget {
                     child: _buildThemeCard(
                       context: context,
                       mode: ThemeMode.system,
-                      icon: Icons.brightness_auto_outlined,
-                      label: context.tr('system_default'),
+                      icon: Icons.brightness_auto_rounded,
+                      iconColor: isDark
+                          ? const Color(0xFF94A3B8)
+                          : const Color(0xFF4A5568),
+                      label: context.tr('system_default', fallback: 'System Default'),
                       isSelected: themeProvider.themeMode == ThemeMode.system,
                       onTap: () => themeProvider.setThemeMode(ThemeMode.system),
                       borderColor: borderColor,
@@ -232,7 +255,7 @@ class AppSettingsDialog extends StatelessWidget {
 
             const SizedBox(height: 28),
 
-            // Done Button
+            // ── Exit / Veliyeru Button ─────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               height: 48,
@@ -247,7 +270,7 @@ class AppSettingsDialog extends StatelessWidget {
                   elevation: 0,
                 ),
                 child: Text(
-                  context.tr('close'),
+                  context.tr('exit', fallback: languageProvider.isTamil ? 'வெளியேறு' : 'Exit'),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -350,6 +373,7 @@ class AppSettingsDialog extends StatelessWidget {
     required BuildContext context,
     required ThemeMode mode,
     required IconData icon,
+    required Color iconColor,
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
@@ -362,7 +386,7 @@ class AppSettingsDialog extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.primaryColor.withValues(alpha: 0.08)
@@ -374,13 +398,10 @@ class AppSettingsDialog extends StatelessWidget {
           ),
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              icon,
-              size: 22,
-              color: isSelected ? AppTheme.primaryColor : textSecondary,
-            ),
-            const SizedBox(height: 6),
+            Icon(icon, size: 26, color: isSelected ? AppTheme.primaryColor : iconColor),
+            const SizedBox(height: 8),
             Text(
               label,
               style: TextStyle(
@@ -392,6 +413,14 @@ class AppSettingsDialog extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            if (isSelected) ...[
+              const SizedBox(height: 6),
+              const Icon(
+                Icons.check_circle_rounded,
+                color: AppTheme.primaryColor,
+                size: 16,
+              ),
+            ],
           ],
         ),
       ),

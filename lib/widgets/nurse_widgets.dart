@@ -955,8 +955,14 @@ class PatientInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasQuickTag = tags.any((t) => t.toLowerCase() == 'quick');
-    final List<String> otherTags = tags.where((t) => t.toLowerCase() != 'quick').toList();
+    final bool hasQuickTag = tags.any((t) {
+      final l = t.trim().toLowerCase();
+      return l == 'quick' || l == 'விரைவு';
+    });
+    final List<String> otherTags = tags.where((t) {
+      final l = t.trim().toLowerCase();
+      return l != 'quick' && l != 'விரைவு';
+    }).toList();
 
     final avatarColors = AppTheme.getAvatarColors(name);
 
@@ -1021,7 +1027,7 @@ class PatientInfoCard extends StatelessWidget {
                 ),
               ),
               if (hasQuickTag) 
-                const HealthTag(label: 'Quick'),
+                HealthTag(label: context.tr('quick_tag', fallback: 'Quick')),
             ],
           ),
           const SizedBox(height: 16),
@@ -1110,22 +1116,45 @@ class HealthTag extends StatelessWidget {
     Color color;
     Color bgColor;
 
-    switch (label.toLowerCase()) {
+    final lower = label.trim().toLowerCase();
+    String displayLabel = label;
+
+    switch (lower) {
       case 'diabetic':
+      case 'நீரிழிவு':
         color = AppTheme.dangerColor;
         bgColor = AppTheme.dangerBg;
+        displayLabel = context.tr('diabetic_tag', fallback: 'Diabetic');
         break;
       case 'high risk':
+      case 'அதிக ஆபத்து':
         color = AppTheme.dangerColor;
         bgColor = AppTheme.dangerBg;
+        displayLabel = context.tr('high_risk', fallback: 'High Risk');
         break;
       case 'hypertension':
+      case 'உயர் இரத்த அழுத்தம்':
         color = AppTheme.dangerColor;
         bgColor = AppTheme.dangerBg;
+        displayLabel = context.tr('hypertension', fallback: 'Hypertension');
         break;
       case 'quick':
+      case 'விரைவு':
         color = const Color(0xFF805AD5);
         bgColor = const Color(0xFFFAF5FF);
+        displayLabel = context.tr('quick_tag', fallback: 'Quick');
+        break;
+      case 'male':
+      case 'ஆண்':
+        color = AppTheme.primaryColor;
+        bgColor = AppTheme.primaryColor.withOpacity(0.1);
+        displayLabel = context.tr('male', fallback: 'Male');
+        break;
+      case 'female':
+      case 'பெண்':
+        color = const Color(0xFFD53F8C);
+        bgColor = const Color(0xFFFFF5F7);
+        displayLabel = context.tr('female', fallback: 'Female');
         break;
       default:
         color = AppTheme.primaryColor;
@@ -1139,7 +1168,7 @@ class HealthTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        label,
+        displayLabel,
         style: TextStyle(
           color: color,
           fontSize: 11,

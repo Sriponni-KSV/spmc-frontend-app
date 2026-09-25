@@ -2696,7 +2696,12 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             visit.patientDisplayId!.trim().isNotEmpty)
         ? visit.patientDisplayId!
         : 'ID: ${visit.patientId}';
-    final String patientDisplayWithId = '$rawPatientName ($patientDisplayId)';
+    final isTamil = Localizations.localeOf(context).languageCode == 'ta';
+    final String formattedPatientName = TamilTransliterationHelper.formatName(
+      rawPatientName,
+      isTamil: isTamil,
+    );
+    final String patientDisplayWithId = '$formattedPatientName ($patientDisplayId)';
 
     final nurseCtrl = TextEditingController(text: rawNurseName);
     final timeCtrl = TextEditingController(text: defaultTime);
@@ -2704,8 +2709,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
 
     final bool isInProgress = visit.status.toLowerCase() == 'in-progress';
     final String dialogTitle = isInProgress
-        ? 'Resume Home Visit Session'
-        : 'Start Home Visit Session';
+        ? context.tr('resume_home_visit_session', fallback: 'Resume Home Visit Session')
+        : context.tr('start_home_visit_session', fallback: 'Start Home Visit Session');
 
     Future<bool> confirmCloseVisitSession() async {
       final bool? result = await showDialog<bool>(
@@ -2729,9 +2734,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Close Visit Session?',
+                  context.tr('close_visit_session_title', fallback: 'Close Visit Session?'),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -2741,10 +2746,13 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ),
             ],
           ),
-          content: const SizedBox(
+          content: SizedBox(
             width: 440,
             child: Text(
-              'Are you sure you want to close this visit session? Any unsubmitted start time will not be recorded.',
+              context.tr(
+                'close_visit_session_desc',
+                fallback: 'Are you sure you want to close this visit session? Any unsubmitted start time will not be recorded.',
+              ),
               style: TextStyle(
                 fontSize: 13.5,
                 color: Color(0xFF64748B),
@@ -2757,12 +2765,12 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             OutlinedButton(
               style: AppTheme.cancelButton,
               onPressed: () => Navigator.of(confirmCtx).pop(false),
-              child: const Text('Stay in Session'),
+              child: Text(context.tr('stay_in_session', fallback: 'Stay in Session')),
             ),
             ElevatedButton(
               style: AppTheme.dangerButton,
               onPressed: () => Navigator.of(confirmCtx).pop(true),
-              child: const Text('Close Session'),
+              child: Text(context.tr('close_session', fallback: 'Close Session')),
             ),
           ],
         ),
@@ -2819,8 +2827,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     children: [
                       Text(
                         isInProgress
-                            ? 'Confirm visit resume time before managing patient vitals & care.'
-                            : 'Record visit start time before accessing patient vitals.',
+                            ? context.tr('confirm_visit_resume_time_desc', fallback: 'Confirm visit resume time before managing patient vitals & care.')
+                            : context.tr('record_visit_start_time_desc', fallback: 'Record visit start time before accessing patient vitals.'),
                         style: const TextStyle(
                           fontSize: 13,
                           color: Colors.grey,
@@ -2851,7 +2859,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    'Patient: $patientDisplayWithId',
+                                    '${context.tr('session_patient_label', fallback: 'Patient')}: $patientDisplayWithId',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -2891,8 +2899,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                     child: Text.rich(
                                       TextSpan(
                                         children: [
-                                          const TextSpan(
-                                            text: 'Executing Nurse: ',
+                                          TextSpan(
+                                            text: '${context.tr('executing_nurse_label', fallback: 'Executing Nurse')}: ',
                                             style: TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
@@ -2929,7 +2937,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
 
                       // ONLY EDITABLE FIELD: Visit Start Time
                       _buildLabel(
-                        isInProgress ? 'Visit Resume Time' : 'Visit Start Time',
+                        isInProgress
+                            ? context.tr('visit_resume_time', fallback: 'Visit Resume Time')
+                            : context.tr('visit_start_time', fallback: 'Visit Start Time'),
                       ),
                       TextFormField(
                         controller: timeCtrl,
@@ -2945,7 +2955,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                           final TimeOfDay? picked = await showTimePicker(
                             context: context,
                             initialTime: initialPickerTime,
-                            helpText: 'Select Visit Start Time',
+                            helpText: context.tr('select_visit_start_time', fallback: 'Select Visit Start Time'),
                           );
                           if (picked != null) {
                             final now = DateTime.now();
@@ -2962,7 +2972,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                           }
                         },
                         decoration: AppTheme.standardInputDecoration(
-                          hintText: 'Select Start Time',
+                          hintText: context.tr('select_start_time_hint', fallback: 'Select Start Time'),
                           prefixIcon: Icons.access_time,
                           suffixIcon: const Icon(
                             Icons.arrow_drop_down,
@@ -2971,24 +2981,28 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
-                            return 'Start time is required';
+                            return context.tr('start_time_required', fallback: 'Start time is required');
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 6),
-                      const Row(
+                      Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.info_outline,
                             size: 13,
                             color: AppTheme.primaryColor,
                           ),
-                          SizedBox(width: 5),
+                          const SizedBox(width: 5),
                           Expanded(
                             child: Text(
-                              'Tap to adjust session start time if needed.',
-                              style: TextStyle(
+                              context.tr(
+                                'tap_adjust_start_time_hint',
+                                fallback:
+                                    'Tap to adjust session start time if needed.',
+                              ),
+                              style: const TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF64748B),
                                 fontWeight: FontWeight.w500,
@@ -3015,7 +3029,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                             Navigator.of(dialogCtx).pop();
                           }
                         },
-                  child: const Text('Cancel'),
+                  child: Text(context.tr('cancel', fallback: 'Cancel')),
                 ),
               ),
               SizedBox(
@@ -3034,10 +3048,10 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                       : const Icon(Icons.arrow_forward, size: 16),
                   label: Text(
                     isSubmitting
-                        ? 'Saving...'
+                        ? context.tr('saving', fallback: 'Saving...')
                         : (isInProgress
-                              ? 'Submit & Resume Visit'
-                              : 'Submit & Start Visit'),
+                              ? context.tr('submit_resume_visit', fallback: 'Submit & Resume Visit')
+                              : context.tr('submit_start_visit', fallback: 'Submit & Start Visit')),
                   ),
                   onPressed: isSubmitting
                       ? null

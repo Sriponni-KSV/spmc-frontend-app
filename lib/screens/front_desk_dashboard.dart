@@ -1928,8 +1928,8 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Bio Summary',
+                      Text(
+                        context.tr('bio_summary', fallback: 'Bio Summary'),
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -1965,7 +1965,7 @@ class _FrontDeskProfileViewState extends State<FrontDeskProfileView> {
                         ),
                         decoration: InputDecoration(
                           counterText: '',
-                          hintText: 'Share a brief summary of your expertise...',
+                          hintText: context.tr('bio_summary_hint', fallback: 'Share a brief summary of your expertise...'),
                           hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
                           fillColor: AppTheme.backgroundColor,
                           filled: true,

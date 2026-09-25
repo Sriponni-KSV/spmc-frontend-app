@@ -90,6 +90,28 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     return {};
   }
 
+  /// Resolves the localized display string for [val], supporting exact match,
+  /// case-insensitive match, and prefix matching (e.g. 'Once Daily' -> 'Once Daily (1x/day)').
+  String _getDisplayValue(String? val) {
+    if (val == null || val.isEmpty) return '';
+    if (_allEntries.containsKey(val)) {
+      return _allEntries[val]!;
+    }
+    final lower = val.trim().toLowerCase();
+    for (final entry in _allEntries.entries) {
+      if (entry.key.trim().toLowerCase() == lower) {
+        return entry.value;
+      }
+    }
+    for (final entry in _allEntries.entries) {
+      final keyLower = entry.key.trim().toLowerCase();
+      if (keyLower.startsWith(lower) || lower.startsWith(keyLower)) {
+        return entry.value;
+      }
+    }
+    return val;
+  }
+
   /// Returns the effective placeholder text.
   /// Priority: explicit hint → auto-derived from label → generic fallback.
   String get _effectiveHint {
@@ -97,7 +119,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     if (widget.label.isNotEmpty) {
       final lower = widget.label.toLowerCase();
       // If the label already starts with 'select', use it directly
-      if (lower.startsWith('select')) return 'Select ${widget.label.substring(6).trim()}';
+      if (lower.startsWith('select')) {
+        return '${context.tr('select', fallback: 'Select')} ${widget.label.substring(6).trim()}';
+      }
       return '${context.tr('select', fallback: 'Select')} ${widget.label}';
     }
     return '${context.tr('select', fallback: 'Select')}...';
@@ -110,7 +134,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
 
     _filteredItems = _allEntries.entries.toList();
 
-    final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
+    final displayValue = _getDisplayValue(widget.value);
     _textEditingController = TextEditingController(text: displayValue);
 
     _searchFocusNode.onKeyEvent = (node, event) => _handleKey(event);
@@ -285,7 +309,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     if (widget.value != oldWidget.value) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_searchFocusNode.hasFocus) {
-          final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
+          final displayValue = _getDisplayValue(widget.value);
           if (displayValue != _textEditingController.text) {
             _textEditingController.text = displayValue;
           }
@@ -300,7 +324,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         widget.dropdownMap != oldWidget.dropdownMap) {
       if (!_searchFocusNode.hasFocus) {
         _filteredItems = _allEntries.entries.toList();
-        final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
+        final displayValue = _getDisplayValue(widget.value);
         if (displayValue != _textEditingController.text) {
           _textEditingController.text = displayValue;
         }
@@ -356,7 +380,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     _closeActiveDropdown = _hideDropdown;
 
     final currentText = _textEditingController.text.trim();
-    final selectedDisplay = _allEntries[widget.value] ?? widget.value ?? '';
+    final selectedDisplay = _getDisplayValue(widget.value);
     if (currentText.isEmpty || currentText == selectedDisplay) {
       _filteredItems = _allEntries.entries.toList();
     }
@@ -476,7 +500,13 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: Text(
-                                                  'Add "${_textEditingController.text.trim()}"',
+                                                  context.tr(
+                                                    'add_item',
+                                                    fallback: 'Add "{item}"',
+                                                    params: {
+                                                      'item': _textEditingController.text.trim(),
+                                                    },
+                                                  ),
                                                   style: const TextStyle(
                                                     fontFamily: 'Inter',
                                                     fontSize: 13,
@@ -494,7 +524,10 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                       padding: const EdgeInsets.all(16),
                                       alignment: Alignment.center,
                                       child: Text(
-                                        'No matching items found',
+                                        context.tr(
+                                          'no_matching_items_found',
+                                          fallback: 'No matching items found',
+                                        ),
                                         style: TextStyle(
                                           fontFamily: 'Inter',
                                           color: AppTheme.isDark(context) ? AppTheme.darkTextSecondaryColor : Colors.grey.shade500,
@@ -647,6 +680,22 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
 
   @override
   Widget build(BuildContext context) {
+    if (!_searchFocusNode.hasFocus) {
+      final expectedDisplay = _getDisplayValue(widget.value);
+      if (expectedDisplay.isNotEmpty &&
+          _textEditingController.text != expectedDisplay &&
+          (widget.value == null ||
+              widget.value!.isEmpty ||
+              _textEditingController.text.isEmpty ||
+              _textEditingController.text == widget.value ||
+              _allEntries.values.contains(_textEditingController.text) ||
+              _allEntries.keys.any((k) =>
+                  k.toLowerCase() ==
+                  _textEditingController.text.toLowerCase()))) {
+        _textEditingController.text = expectedDisplay;
+      }
+    }
+
     return Focus(
       focusNode: _mainFocusNode,
       child: Column(

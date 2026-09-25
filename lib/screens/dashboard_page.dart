@@ -3125,7 +3125,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return 'Please enter your bio / professional summary';
+                              return context.tr('enter_bio_summary', fallback: 'Please enter your bio / professional summary');
                             }
                             if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
                               return 'Bio must contain letters and cannot consist only of special characters or numbers';
@@ -3140,8 +3140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           },
                           decoration: InputDecoration(
                             counterText: '',
-                            hintText:
-                                'Share a brief summary of your expertise...',
+                            hintText: context.tr('bio_summary_hint', fallback: 'Share a brief summary of your expertise...'),
                             hintStyle: const TextStyle(
                               color: Colors.grey,
                               fontSize: 14,

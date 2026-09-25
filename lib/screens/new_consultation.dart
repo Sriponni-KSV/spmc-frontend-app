@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
 import '../models/appointment_model.dart';
 import '../models/user_model.dart';
 import '../controllers/patient_controller.dart';
@@ -2135,7 +2136,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                                 label: Text(
                                   _selectedFileName != null
                                       ? _selectedFileName!
-                                      : 'Choose File (PDF/Image)',
+                                      : context.tr('choose_file_pdf_image', fallback: 'Choose File (PDF/Image)'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: _selectedFileName != null

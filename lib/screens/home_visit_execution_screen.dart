@@ -454,6 +454,23 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     }
   }
 
+  String _getTranslatedFrequency(String freq) {
+    final lower = freq.toLowerCase().trim();
+    if (lower.contains('once daily') || lower.contains('1x') || lower == 'od' || lower == '1 time daily') {
+      return context.tr('freq_once_daily', fallback: 'Once Daily (1x/day)');
+    }
+    if (lower.contains('2 times') || lower.contains('twice') || lower.contains('2x') || lower == 'bd') {
+      return context.tr('freq_twice_daily', fallback: '2 Times/Day (2x/day)');
+    }
+    if (lower.contains('3 times') || lower.contains('thrice') || lower.contains('3x') || lower == 'tds') {
+      return context.tr('freq_thrice_daily', fallback: '3 Times/Day (3x/day)');
+    }
+    if (lower.contains('every 4 hours') || lower.contains('6x') || lower == 'qid') {
+      return context.tr('freq_every_4_hours', fallback: 'Every 4 Hours (6x/day)');
+    }
+    return freq;
+  }
+
   void _clearKitForm() {
     setState(() {
       _selectedKitDropdown = null;
@@ -1839,9 +1856,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               OutlinedButton(
                 style: AppTheme.cancelButton,
                 onPressed: () => Navigator.pop(dCtx, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
+                child: Text(context.tr('cancel', fallback: 'Cancel')),
+                ),
+                ElevatedButton(
                 style: AppTheme.dangerButton,
                 onPressed: () => Navigator.pop(dCtx, true),
                 child: const Text('Delete'),
@@ -2046,10 +2063,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         },
                       ),
                       if (submitAttempted && nameCtrl.text.trim().isEmpty)
-                        const Padding(
+                        Padding(
                           padding: EdgeInsets.only(top: 4, left: 4),
                           child: Text(
-                            'Please select or enter medicine name',
+                            context.tr('please_enter_medicine_name', fallback: 'Please select or enter medicine name'),
                             style: TextStyle(
                               color: AppTheme.dangerColor,
                               fontSize: 12,
@@ -2071,7 +2088,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           isExpanded: true,
                           value: selectedFoodTiming,
                           decoration: AppTheme.standardInputDecoration(
-                            hintText: 'Select Food Relation',
+                            hintText: context.tr('select_food_relation', fallback: 'Select Food Relation'),
                           ),
                           items: [
                             DropdownMenuItem(
@@ -2289,7 +2306,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     value: selectedFoodTiming,
                                     decoration:
                                         AppTheme.standardInputDecoration(
-                                          hintText: 'Select Food Relation',
+                                          hintText: context.tr('select_food_relation', fallback: 'Select Food Relation'),
                                         ),
                                     items: [
                                       DropdownMenuItem(
@@ -2617,7 +2634,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             if (givenTimeText.isEmpty) {
                               AppNotification.showError(
                                 dCtx,
-                                'Please select Given Time for STAT medicine',
+                                context.tr('please_select_given_time_stat', fallback: 'Please select Given Time for STAT medicine'),
                               );
                               return;
                             }
@@ -2716,16 +2733,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               title: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.inventory_2_outlined,
                         color: AppTheme.primaryColor,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        'Record Consumable Item',
-                        style: TextStyle(
+                        context.tr('record_consumable_item', fallback: 'Record Consumable Item'),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.primaryColor,
@@ -2745,13 +2762,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLabel('Consumable Item Name *'),
+                    _buildLabel('${context.tr('consumable_name', fallback: 'Consumable Item Name')} *'),
                     CustomDropdownSearch(
                       label: '',
-                      hint: 'Select consumable item (e.g. Sterile Bandage)',
+                      hint: context.tr('select_or_type_consumable_hint', fallback: 'Select consumable item (e.g. Sterile Bandage)'),
                       dropdownItems: _dbConsumables.isNotEmpty
                           ? _dbConsumables
                           : _defaultConsumables,
+                      dropdownMap: {
+                        for (var c in (_dbConsumables.isNotEmpty ? _dbConsumables : _defaultConsumables))
+                          c: context.translateConsumable(c),
+                      },
                       value: nameCtrl.text.isNotEmpty ? nameCtrl.text : null,
                       allowFreeText: true,
                       maxLength: 60,
@@ -2769,10 +2790,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       },
                     ),
                     if (submitAttempted && nameCtrl.text.trim().isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4, left: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, left: 4),
                         child: Text(
-                          'Please select or enter consumable name',
+                          context.tr('please_enter_consumable_name', fallback: 'Please select or enter consumable name'),
                           style: TextStyle(
                             color: AppTheme.dangerColor,
                             fontSize: 12,
@@ -2780,7 +2801,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                       ),
                     const SizedBox(height: 14),
-                    _buildLabel('Quantity Used *'),
+                    _buildLabel('${context.tr('quantity_used', fallback: 'Quantity Used')} *'),
                     _buildQtyStepperField(
                       controller: qtyCtrl,
                       min: 1,
@@ -2794,7 +2815,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 OutlinedButton(
                   style: AppTheme.cancelButton,
                   onPressed: isSubmitting ? null : () => Navigator.pop(dCtx),
-                  child: const Text('Cancel'),
+                  child: Text(context.tr('cancel', fallback: 'Cancel')),
                 ),
                 ElevatedButton.icon(
                   style: AppTheme.dangerButton,
@@ -2809,7 +2830,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         )
                       : const Icon(Icons.check_circle_outline, size: 18),
                   label: Text(
-                    isSubmitting ? 'Saving...' : 'Save Consumable Item',
+                    isSubmitting ? context.tr('saving', fallback: 'Saving...') : context.tr('save_consumable_item', fallback: 'Save Consumable Item'),
                   ),
                   onPressed: isSubmitting
                       ? null
@@ -2819,21 +2840,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             setModalState(() => submitAttempted = true);
                             AppNotification.showError(
                               dialogCtx,
-                              'Consumable name must be between 3 and 60 characters',
+                              context.tr('consumable_name_min_chars', fallback: 'Consumable name must be between 3 and 60 characters'),
                             );
                             return;
                           }
                           if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(cName)) {
                             AppNotification.showError(
                               dialogCtx,
-                              'Consumable name must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols',
+                              context.tr('consumable_name_alphabet_mandatory', fallback: 'Consumable name must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols'),
                             );
                             return;
                           }
                           if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s]+$').hasMatch(cName)) {
                             AppNotification.showError(
                               dialogCtx,
-                              'Special characters are not allowed in consumable item name',
+                              context.tr('consumable_name_no_special_chars', fallback: 'Special characters are not allowed in consumable item name'),
                             );
                             return;
                           }
@@ -2939,8 +2960,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              title: const Text(
-                'Add Consumable Item',
+              title: Text(
+                context.tr('add_consumable_item', fallback: 'Add Consumable Item'),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -2953,17 +2974,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildLabel('Consumable Name *'),
+                    _buildLabel('${context.tr('consumable_name', fallback: 'Consumable Name')} *'),
                     CustomDropdownSearch(
                       label: '',
-                      hint: 'Select or type consumable name',
+                      hint: context.tr('select_or_type_consumable_hint', fallback: 'Select or type consumable name'),
                       dropdownItems: availableConsumables,
+                      dropdownMap: {
+                        for (var c in availableConsumables)
+                          c: context.translateConsumable(c),
+                      },
                       allowFreeText: true,
                       maxLength: 60,
                       inputFormatters: [
                         LengthLimitingTextInputFormatter(60),
                         FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z0-9\s]'),
+                          RegExp(r'[a-zA-Z0-9\u0B80-\u0BFF\s]'),
                         ),
                       ],
                       onChanged: (val) {
@@ -2988,10 +3013,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       },
                     ),
                     if (submitAttempted && nameCtrl.text.trim().isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 4, left: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, left: 4),
                         child: Text(
-                          'Please select or enter consumable name',
+                          context.tr('please_enter_consumable_name', fallback: 'Please select or enter consumable name'),
                           style: TextStyle(
                             color: AppTheme.dangerColor,
                             fontSize: 12,
@@ -3008,7 +3033,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             children: [
                               Row(
                                 children: [
-                                  _buildLabel('Unit Price (₹)'),
+                                  _buildLabel('${context.tr('unit_price', fallback: 'Unit Price')} (₹)'),
                                   if (isPriceLocked) ...[
                                     const SizedBox(width: 4),
                                     const Icon(
@@ -3034,12 +3059,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ],
                                 decoration: AppTheme.standardInputDecoration(
                                   hintText: isPriceLocked
-                                      ? 'Locked by catalog'
-                                      : 'Price (Max ₹50,000)',
+                                      ? context.tr('locked_by_catalog', fallback: 'Locked by catalog')
+                                      : context.tr('price_max_50000', fallback: 'Price (Max ₹50,000)'),
                                   suffixIcon: isPriceLocked
-                                      ? const Tooltip(
-                                          message:
-                                              'Price is locked for existing catalog items',
+                                      ? Tooltip(
+                                          message: context.tr('price_locked_catalog_tooltip', fallback: 'Price is locked for existing catalog items'),
                                           child: Icon(
                                             Icons.lock_outline,
                                             size: 16,
@@ -3057,7 +3081,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _buildLabel('Quantity *'),
+                              _buildLabel('${context.tr('quantity', fallback: 'Quantity')} *'),
                               _buildQtyStepperField(
                                 controller: qtyCtrl,
                                 min: 1,
@@ -3079,7 +3103,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ModalHistoryHelper.skipNextHistoryBack();
                     Navigator.pop(dCtx);
                   },
-                  child: const Text('Cancel'),
+                  child: Text(context.tr('cancel', fallback: 'Cancel')),
                 ),
                 ElevatedButton(
                   style: AppTheme.dangerButton,
@@ -3089,21 +3113,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       setDlgState(() => submitAttempted = true);
                       AppNotification.showError(
                         ctx,
-                        'Consumable name must be at least 3 characters',
+                        context.tr('consumable_name_min_chars', fallback: 'Consumable name must be at least 3 characters'),
                       );
                       return;
                     }
                     if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(cName)) {
                       AppNotification.showError(
                         ctx,
-                        'Consumable name must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols',
+                        context.tr('consumable_name_alphabet_mandatory', fallback: 'Consumable name must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols'),
                       );
                       return;
                     }
                     if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s]+$').hasMatch(cName)) {
                       AppNotification.showError(
                         ctx,
-                        'Special characters are not allowed in consumable item name',
+                        context.tr('consumable_name_no_special_chars', fallback: 'Special characters are not allowed in consumable item name'),
                       );
                       return;
                     }
@@ -3111,7 +3135,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     if (rawPrice == null || rawPrice < 0 || rawPrice > 50000) {
                       AppNotification.showError(
                         ctx,
-                        'Unit price must be between ₹0 and ₹50,000',
+                        context.tr('unit_price_bounds_error', fallback: 'Unit price must be between ₹0 and ₹50,000'),
                       );
                       return;
                     }
@@ -3135,7 +3159,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ModalHistoryHelper.skipNextHistoryBack();
                     Navigator.pop(dCtx);
                   },
-                  child: const Text('Add Consumable'),
+                  child: Text(context.tr('add_consumable', fallback: 'Add Consumable')),
                 ),
               ],
             );
@@ -3162,7 +3186,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           ? existingProcedure.chargePerProcedure.toStringAsFixed(0)
           : '0',
     );
-    String selectedFreq = existingProcedure?.frequency ?? 'Once Daily';
+    String selectedFreq = existingProcedure?.frequency ?? 'Once Daily (1x/day)';
+    if (selectedFreq == 'Once Daily') selectedFreq = 'Once Daily (1x/day)';
+    if (selectedFreq == '2 Times/Day') selectedFreq = '2 Times/Day (2x/day)';
+    if (selectedFreq == '3 Times/Day') selectedFreq = '3 Times/Day (3x/day)';
+    if (selectedFreq == 'Every 4 Hours') selectedFreq = 'Every 4 Hours (6x/day)';
     int freqMultiplier = existingProcedure?.frequencyMultiplier ?? 1;
     bool isSubmitting = false;
     final List<ProcedureConsumableMappingModel> manualConsumables = [];
@@ -3344,7 +3372,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 CustomDropdownSearch(
                                   label: '',
                                   hint:
-                                      'Select or enter frequency (e.g. 1-999)',
+                                      context.tr('select_frequency', fallback: 'Select or enter frequency (e.g. 1-999)'),
                                   dropdownMap: {
                                     'Once Daily (1x/day)': context.tr(
                                       'freq_once_daily',
@@ -3450,8 +3478,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Procedure Charge Breakdown:',
-                                      style: TextStyle(
+                                      context.tr('procedure_charge_breakdown', fallback: 'Procedure Charge Breakdown:'),
+                                      style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                         color: AppTheme.primaryColor,
@@ -3459,7 +3487,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      '₹${chargePerProc.toStringAsFixed(0)} per procedure × $selectedFreq',
+                                      '₹${chargePerProc.toStringAsFixed(0)} ${context.tr('per_procedure', fallback: 'per procedure')} × ${_getTranslatedFrequency(selectedFreq)}',
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: AppTheme.primaryColor
@@ -3473,8 +3501,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  const Text(
-                                    'Total Procedure Charge',
+                                  Text(
+                                    context.tr('total_procedure_charge', fallback: 'Total Procedure Charge'),
                                     style: TextStyle(
                                       fontSize: 10,
                                       color: Color(0xFF64748B),
@@ -3498,7 +3526,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Expanded(
-                              child: _buildLabel('Procedure Consumables'),
+                              child: _buildLabel(context.tr('procedure_consumables', fallback: 'Procedure Consumables')),
                             ),
                             TextButton.icon(
                               style: TextButton.styleFrom(
@@ -3513,8 +3541,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 Icons.add_circle_outline,
                                 size: 15,
                               ),
-                              label: const Text(
-                                'Add Manually',
+                              label: Text(
+                                context.tr('add_manually', fallback: 'Add Manually'),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -3641,7 +3669,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   color: const Color(0xFFE2E8F0),
                                 ),
                               ),
-                              child: const Row(
+                              child: Row(
                                 children: [
                                   Icon(
                                     Icons.info_outline,
@@ -3651,7 +3679,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'No pre-mapped consumables for this procedure. Click "+ Add Consumable Manually" above to add items.',
+                                      context.tr('no_mapped_consumables_hint', fallback: 'No pre-mapped consumables for this procedure. Click "+ Add Consumable Manually" above to add items.'),
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFF64748B),
@@ -3685,11 +3713,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     color: Color(0xFFF8FAFC),
                                   ),
                                   children: [
-                                    _buildTableHeader('Consumable Item'),
-                                    _buildTableHeader('Qty / Proc'),
-                                    _buildTableHeader('Unit Price'),
-                                    _buildTableHeader('Required Qty'),
-                                    _buildTableHeader('Total (₹)'),
+                                    _buildTableHeader(context.tr('consumable_item', fallback: 'Consumable Item')),
+                                    _buildTableHeader(context.tr('qty_per_proc', fallback: 'Qty / Proc')),
+                                    _buildTableHeader(context.tr('unit_price', fallback: 'Unit Price')),
+                                    _buildTableHeader(context.tr('required_qty', fallback: 'Required Qty')),
+                                    _buildTableHeader('${context.tr('total', fallback: 'Total')} (₹)'),
                                     _buildTableHeader(''),
                                   ],
                                 ),
@@ -3751,7 +3779,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                               vertical: 8,
                                             ),
                                             child: Text(
-                                              m.consumableName,
+                                              context.translateConsumable(m.consumableName),
                                               style: const TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
@@ -3768,7 +3796,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                               vertical: 8,
                                             ),
                                             child: Text(
-                                              '${m.qtyPerProcedure} ${m.unit}',
+                                              '${m.qtyPerProcedure} ${context.tr(m.unit.toLowerCase(), fallback: m.unit)}',
                                               style: const TextStyle(
                                                 fontSize: 11,
                                               ),
@@ -3819,7 +3847,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                                 ),
                                                 decoration:
                                                     AppTheme.standardInputDecoration(
-                                                      hintText: 'Qty',
+                                                      hintText: context.tr('qty_label', fallback: 'Qty'),
                                                     ).copyWith(
                                                       contentPadding:
                                                           const EdgeInsets.symmetric(
@@ -3941,8 +3969,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
-                                      'Procedure Base Charge:',
+                                    Text(
+                                      context.tr('procedure_base_charge', fallback: 'Procedure Base Charge:'),
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFF64748B),
@@ -3963,8 +3991,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
-                                      'Total Consumables Cost:',
+                                    Text(
+                                      context.tr('total_consumables_cost', fallback: 'Total Consumables Cost:'),
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: Color(0xFF64748B),
@@ -3991,8 +4019,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
-                                      'Grand Total Price:',
+                                    Text(
+                                      context.tr('grand_total_price', fallback: 'Grand Total Price:'),
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.bold,
@@ -4052,14 +4080,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           if (procName.length < 3 || procName.length > 60) {
                             AppNotification.showError(
                               dialogCtx,
-                              'Procedure name must be between 3 and 60 characters',
+                              context.tr('procedure_name_min_chars', fallback: 'Procedure name must be between 3 and 60 characters'),
                             );
                             return;
                           }
                           if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(procName)) {
                             AppNotification.showError(
                               dialogCtx,
-                              'Procedure name must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols',
+                              context.tr('procedure_name_alphabet_mandatory', fallback: 'Procedure name must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols'),
                             );
                             return;
                           }
@@ -4068,7 +4096,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ).hasMatch(procName)) {
                             AppNotification.showError(
                               dialogCtx,
-                              'Procedure name contains invalid special characters',
+                              context.tr('procedure_name_invalid_chars', fallback: 'Procedure name contains invalid special characters'),
                             );
                             return;
                           }
@@ -4081,7 +4109,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               parsedCharge > 100000) {
                             AppNotification.showError(
                               dialogCtx,
-                              'Procedure charge must be a valid amount between ₹0 and ₹1,00,000',
+                              context.tr('procedure_charge_bounds_error', fallback: 'Procedure charge must be a valid amount between ₹0 and ₹1,00,000'),
                             );
                             return;
                           }
@@ -4100,7 +4128,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             if (qVal == null || qVal < 1 || qVal > 999) {
                               AppNotification.showError(
                                 dialogCtx,
-                                'Required quantity for "${m.consumableName}" must be between 1 and 999',
+                                context.tr('required_qty_bounds_error', fallback: 'Required quantity must be between 1 and 999'),
                               );
                               return;
                             }
@@ -4237,9 +4265,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     color: AppTheme.primaryColor,
                   ),
                   const SizedBox(width: 8),
-                  const Text(
-                    'Selected Photo Preview',
-                    style: TextStyle(
+                  Text(
+                    context.tr('selected_photo_preview', fallback: 'Selected Photo Preview'),
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryColor,
@@ -4323,7 +4351,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          _selectedPhotoName ?? 'Selected Image',
+                          _selectedPhotoName ?? context.tr('selected_image', fallback: 'Selected Image'),
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -4344,7 +4372,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            _selectedPhotoCategory!,
+                            _getTranslatedPhotoCategory(_selectedPhotoCategory),
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -4362,7 +4390,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             OutlinedButton.icon(
               style: AppTheme.dangerButton,
               icon: const Icon(Icons.delete_outline, size: 16),
-              label: const Text('Remove Image'),
+              label: Text(context.tr('remove_image', fallback: 'Remove Image')),
               onPressed: () {
                 Navigator.pop(dCtx);
                 setState(() {
@@ -4376,7 +4404,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             ElevatedButton.icon(
               style: AppTheme.primaryButton,
               icon: const Icon(Icons.check, size: 16),
-              label: const Text('Done'),
+              label: Text(context.tr('done', fallback: 'Done')),
               onPressed: () => Navigator.pop(dCtx),
             ),
           ],
@@ -4431,10 +4459,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
             ),
             const SizedBox(width: 10),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Delete Photo Evidence?',
-                style: TextStyle(
+                context.tr('delete_photo_evidence_confirm_title', fallback: 'Delete Photo Evidence?'),
+                style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
                   color: AppTheme.textPrimaryColor,
@@ -4447,9 +4475,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Are you sure you want to delete this captured photo evidence? This action cannot be undone.',
-              style: TextStyle(
+            Text(
+              context.tr('delete_photo_evidence_confirm_msg', fallback: 'Are you sure you want to delete this captured photo evidence? This action cannot be undone.'),
+              style: const TextStyle(
                 fontSize: 13.5,
                 color: Color(0xFF64748B),
                 height: 1.4,
@@ -4468,7 +4496,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Category: ${photo.category ?? "General Care"}',
+                    '${context.tr('category_label', fallback: 'Category')}: ${_getTranslatedPhotoCategory(photo.category)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
@@ -4478,7 +4506,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   if (photo.caption != null && photo.caption!.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
-                      'Caption: "${photo.caption}"',
+                      '${context.tr('caption_label', fallback: 'Caption')}: "${photo.caption}"',
                       style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFF475569),
@@ -4498,12 +4526,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ModalHistoryHelper.skipNextHistoryBack();
               Navigator.of(dialogCtx).pop();
             },
-            child: const Text('Cancel'),
+            child: Text(context.tr('cancel', fallback: 'Cancel')),
           ),
           ElevatedButton.icon(
             style: AppTheme.dangerButton,
             icon: const Icon(Icons.delete_outline, size: 16),
-            label: const Text('Delete Photo'),
+            label: Text(context.tr('delete_photo_evidence', fallback: 'Delete Photo')),
             onPressed: () async {
               ModalHistoryHelper.skipNextHistoryBack();
               Navigator.of(dialogCtx).pop();
@@ -4519,12 +4547,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 if (success) {
                   AppNotification.showSuccess(
                     context,
-                    'Photo evidence deleted successfully',
+                    context.tr('photo_evidence_deleted_successfully', fallback: 'Photo evidence deleted successfully'),
                   );
                 } else {
                   AppNotification.showError(
                     context,
-                    ctrl.errorMessage ?? 'Failed to delete photo evidence',
+                    ctrl.errorMessage ?? context.tr('failed_to_delete_photo_evidence', fallback: 'Failed to delete photo evidence'),
                   );
                 }
               }
@@ -4553,13 +4581,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             _selectedPhotoName = null;
             _selectedPhotoBytes = null;
             _selectedPhotoSize = null;
-            _photoFormatError =
-                'Invalid File Format! "${file.name}" is not a supported image format. Allowed formats: JPG, JPEG, PNG.';
+            _photoFormatError = context.tr(
+              'invalid_file_format_with_name',
+              params: {'name': file.name},
+              fallback:
+                  'Invalid File Format! "${file.name}" is not a supported image format. Allowed formats: JPG, JPEG, PNG.',
+            );
           });
           if (mounted) {
             AppNotification.showError(
               context,
-              'Invalid File Format! "${file.name}" is not supported. Allowed formats: JPG, JPEG, PNG.',
+              context.tr(
+                'invalid_file_format_not_supported',
+                params: {'name': file.name},
+                fallback:
+                    'Invalid File Format! "${file.name}" is not supported. Allowed formats: JPG, JPEG, PNG.',
+              ),
             );
           }
           return;
@@ -4571,13 +4608,22 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             _selectedPhotoName = null;
             _selectedPhotoBytes = null;
             _selectedPhotoSize = null;
-            _photoFormatError =
-                'File size exceeds the 15 MB limit ($sizeStr). Please select an image under 15 MB.';
+            _photoFormatError = context.tr(
+              'file_size_exceeds_15mb',
+              params: {'size': sizeStr},
+              fallback:
+                  'File size exceeds the 15 MB limit ($sizeStr). Please select an image under 15 MB.',
+            );
           });
           if (mounted) {
             AppNotification.showError(
               context,
-              'File size exceeds the 15 MB limit ($sizeStr). Please select an image under 15 MB.',
+              context.tr(
+                'file_size_exceeds_15mb',
+                params: {'size': sizeStr},
+                fallback:
+                    'File size exceeds the 15 MB limit ($sizeStr). Please select an image under 15 MB.',
+              ),
             );
           }
           return;
@@ -5035,8 +5081,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
     final bool isInProgress = visit.status.toLowerCase() == 'in-progress';
     final String dialogTitle = isInProgress
-        ? 'Resume Home Visit Session'
-        : 'Start Home Visit Session';
+        ? context.tr('resume_home_visit_session', fallback: 'Resume Home Visit Session')
+        : context.tr('start_home_visit_session', fallback: 'Start Home Visit Session');
 
     Future<bool> confirmCloseVisitSession() async {
       final bool? result = await showDialog<bool>(
@@ -5060,9 +5106,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  'Close Visit Session?',
+                  context.tr('close_visit_session_title', fallback: 'Close Visit Session?'),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -5072,8 +5118,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
             ],
           ),
-          content: const Text(
-            'Are you sure you want to close this visit session and return to the visits list? Any unsubmitted start time will not be recorded.',
+          content: Text(
+            context.tr('close_visit_session_return_desc', fallback: 'Are you sure you want to close this visit session and return to the visits list? Any unsubmitted start time will not be recorded.'),
             style: TextStyle(
               fontSize: 13.5,
               color: Color(0xFF64748B),
@@ -5084,12 +5130,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             OutlinedButton(
               style: AppTheme.cancelButton,
               onPressed: () => Navigator.of(confirmCtx).pop(false),
-              child: const Text('Stay in Session'),
+              child: Text(context.tr('stay_in_session', fallback: 'Stay in Session')),
             ),
             ElevatedButton(
               style: AppTheme.dangerButton,
               onPressed: () => Navigator.of(confirmCtx).pop(true),
-              child: const Text('Close Session'),
+              child: Text(context.tr('close_session', fallback: 'Close Session')),
             ),
           ],
         ),
@@ -5147,8 +5193,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     children: [
                       Text(
                         isInProgress
-                            ? 'Confirm visit resume time before managing patient vitals & care.'
-                            : 'Record visit start time before accessing patient vitals.',
+                            ? context.tr('confirm_visit_resume_time_desc', fallback: 'Confirm visit resume time before managing patient vitals & care.')
+                            : context.tr('record_visit_start_time_desc', fallback: 'Record visit start time before accessing patient vitals.'),
                         style: const TextStyle(
                           fontSize: 13,
                           color: Colors.grey,
@@ -5177,7 +5223,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    'Patient: $patientDisplayWithId',
+                                    '${context.tr('session_patient_label', fallback: 'Patient')}: $patientDisplayWithId',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -5217,7 +5263,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       TextSpan(
                                         children: [
                                           TextSpan(
-                                            text: 'Executing Nurse: ',
+                                            text: '${context.tr('executing_nurse_label', fallback: 'Executing Nurse')}: ',
                                             style: const TextStyle(
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
@@ -5257,8 +5303,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         padding: const EdgeInsets.only(bottom: 6.0),
                         child: Text(
                           isInProgress
-                              ? 'Visit Resume Time'
-                              : 'Visit Start Time',
+                              ? context.tr('visit_resume_time', fallback: 'Visit Resume Time')
+                              : context.tr('visit_start_time', fallback: 'Visit Start Time'),
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
@@ -5280,7 +5326,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           final TimeOfDay? picked = await showTimePicker(
                             context: context,
                             initialTime: initialPickerTime,
-                            helpText: 'Select Visit Start Time',
+                            helpText: context.tr('select_visit_start_time', fallback: 'Select Visit Start Time'),
                           );
                           if (picked != null) {
                             final now = DateTime.now();
@@ -5297,7 +5343,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           }
                         },
                         decoration: AppTheme.standardInputDecoration(
-                          hintText: 'Select Start Time',
+                          hintText: context.tr('select_start_time_hint', fallback: 'Select Start Time'),
                           prefixIcon: Icons.access_time,
                           suffixIcon: const Icon(
                             Icons.arrow_drop_down,
@@ -5306,23 +5352,23 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                         validator: (val) {
                           if (val == null || val.trim().isEmpty) {
-                            return 'Start time is required';
+                            return context.tr('start_time_required', fallback: 'Start time is required');
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 6),
-                      const Row(
+                      Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.info_outline,
                             size: 13,
                             color: AppTheme.primaryColor,
                           ),
-                          SizedBox(width: 5),
+                          const SizedBox(width: 5),
                           Expanded(
                             child: Text(
-                              'Tap to adjust session start time if needed.',
+                              context.tr('tap_adjust_start_time_hint', fallback: 'Tap to adjust session start time if needed.'),
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Color(0xFF64748B),
@@ -5352,7 +5398,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             _handleLeave();
                           }
                         },
-                  child: const Text('Exit Session'),
+                  child: Text(context.tr('exit_session', fallback: 'Exit Session')),
                 ),
               ),
               const SizedBox(width: 8),
@@ -5372,10 +5418,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       : const Icon(Icons.arrow_forward, size: 16),
                   label: Text(
                     isSubmitting
-                        ? 'Starting...'
+                        ? context.tr('starting', fallback: 'Starting...')
                         : (isInProgress
-                              ? 'Submit & Resume Visit'
-                              : 'Submit & Start Visit'),
+                              ? context.tr('submit_resume_visit', fallback: 'Submit & Resume Visit')
+                              : context.tr('submit_start_visit', fallback: 'Submit & Start Visit')),
                   ),
                   onPressed: isSubmitting
                       ? null
@@ -5712,10 +5758,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
               actions: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 16.0, right: 12.0),
-                  child: AppTopBarActions(showClock: false),
-                ),
+                // Removed duplicate top bar actions
+                  // padding: EdgeInsets.only(top: 16.0, right: 12.0),
+                  // child: const SizedBox.shrink(),
+                // ),
                 if (visit.status != 'Cancelled' &&
                     visit.status != 'Completed' &&
                     visit.status != 'Verified')
@@ -5926,21 +5972,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         if (customName.isEmpty) {
                           AppNotification.showError(
                             context,
-                            'Please enter a custom kit item name',
+                            context.tr('enter_custom_kit_name', fallback: 'Please enter a custom kit item name'),
                           );
                           return;
                         }
                         if (customName.length < 3 || customName.length > 60) {
                           AppNotification.showError(
                             context,
-                            'Custom kit item name must be between 3 and 60 characters',
+                            context.tr('custom_kit_name_length', fallback: 'Custom kit item name must be between 3 and 60 characters'),
                           );
                           return;
                         }
                         if (!RegExp(r'[a-zA-Z]').hasMatch(customName)) {
                           AppNotification.showError(
                             context,
-                            'Custom kit item name must contain at least one letter',
+                            context.tr('custom_kit_name_must_contain_letter', fallback: 'Custom kit item name must contain at least one letter'),
                           );
                           return;
                         }
@@ -5952,7 +5998,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         )) {
                           AppNotification.showError(
                             context,
-                            'Please select a valid kit device/item from the list',
+                            context.tr('select_valid_kit_device', fallback: 'Please select a valid kit device/item from the list'),
                           );
                           return;
                         }
@@ -5960,7 +6006,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       } else {
                         AppNotification.showError(
                           context,
-                          'Please select a valid kit device/item from the dropdown',
+                          context.tr('select_valid_kit_device', fallback: 'Please select a valid kit device/item from the dropdown'),
                         );
                         return;
                       }
@@ -5968,7 +6014,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       if (!_kitItemTypes.contains(_kitItemType)) {
                         AppNotification.showError(
                           context,
-                          'Please select a valid category',
+                          context.tr('select_valid_category', fallback: 'Please select a valid category'),
                         );
                         return;
                       }
@@ -5978,7 +6024,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       if (qty <= 0 || qty > 999) {
                         AppNotification.showError(
                           context,
-                          'Quantity must be between 1 and 999',
+                          context.tr('quantity_bounds_error', fallback: 'Quantity must be between 1 and 999'),
                         );
                         return;
                       }
@@ -5991,7 +6037,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       if (isDuplicate) {
                         AppNotification.showWarning(
                           context,
-                          '"$name" is already added to this visit. Edit or remove the existing item below.',
+                          context.tr('kit_item_already_added', params: {'name': name!}, fallback: '"$name" is already added to this visit. Edit or remove the existing item below.'),
                         );
                         return;
                       }
@@ -6435,9 +6481,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       onPressed: () =>
                                           Navigator.pop(ctx, false),
                                       style: AppTheme.cancelButton,
-                                      child: const Text('Cancel'),
-                                    ),
-                                    ElevatedButton(
+                                      child: Text(context.tr('cancel', fallback: 'Cancel')),
+                ),
+                ElevatedButton(
                                       style: AppTheme.dangerButton,
                                       onPressed: () => Navigator.pop(ctx, true),
                                       child: const Text('Remove'),
@@ -6598,11 +6644,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                   validator: (val) {
                                     if (val == null || val.trim().isEmpty) {
-                                      return 'Please enter Systolic BP';
+                                      return context.tr('enter_bp_systolic_error', fallback: 'Please enter Systolic BP');
                                     }
                                     final n = int.tryParse(val.trim());
                                     if (n == null || n < 70 || n > 250) {
-                                      return 'Please enter Systolic BP between 70-250 mmHg';
+                                      return context.tr('systolic_bp_range_error', fallback: 'Please enter Systolic BP between 70-250 mmHg');
                                     }
                                     return null;
                                   },
@@ -6633,11 +6679,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                   validator: (val) {
                                     if (val == null || val.trim().isEmpty) {
-                                      return 'Please enter Diastolic BP';
+                                      return context.tr('enter_bp_diastolic_error', fallback: 'Please enter Diastolic BP');
                                     }
                                     final n = int.tryParse(val.trim());
                                     if (n == null || n < 40 || n > 150) {
-                                      return 'Please enter Diastolic BP between 40-150 mmHg';
+                                      return context.tr('diastolic_bp_range_error', fallback: 'Please enter Diastolic BP between 40-150 mmHg');
                                     }
                                     return null;
                                   },
@@ -6674,11 +6720,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                   validator: (val) {
                                     if (val == null || val.trim().isEmpty) {
-                                      return 'Please enter Pulse Rate';
+                                      return context.tr('enter_pulse_rate_error', fallback: 'Please enter Pulse Rate');
                                     }
                                     final n = int.tryParse(val.trim());
                                     if (n == null || n < 30 || n > 250) {
-                                      return 'Please enter Pulse Rate between 30-250 bpm';
+                                      return context.tr('pulse_rate_range_error', fallback: 'Please enter Pulse Rate between 30-250 bpm');
                                     }
                                     return null;
                                   },
@@ -6714,11 +6760,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                   validator: (val) {
                                     if (val == null || val.trim().isEmpty) {
-                                      return 'Please enter Temperature';
+                                      return context.tr('enter_temperature_error', fallback: 'Please enter Temperature');
                                     }
                                     final n = double.tryParse(val.trim());
                                     if (n == null || n < 90.0 || n > 115.0) {
-                                      return 'Please enter Temperature between 90-115 °F';
+                                      return context.tr('temperature_range_error', fallback: 'Please enter Temperature between 90-115 °F');
                                     }
                                     return null;
                                   },
@@ -6755,11 +6801,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                   validator: (val) {
                                     if (val == null || val.trim().isEmpty) {
-                                      return 'Please enter SpO2';
+                                      return context.tr('enter_spo2_error', fallback: 'Please enter SpO2');
                                     }
                                     final n = int.tryParse(val.trim());
                                     if (n == null || n < 50 || n > 100) {
-                                      return 'Please enter SpO2 between 50-100%';
+                                      return context.tr('spo2_range_error', fallback: 'Please enter SpO2 between 50-100%');
                                     }
                                     return null;
                                   },
@@ -6792,7 +6838,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     if (val != null && val.trim().isNotEmpty) {
                                       final n = int.tryParse(val.trim());
                                       if (n == null || n < 30 || n > 600) {
-                                        return 'Please enter Blood Sugar between 30-600 mg/dL';
+                                        return context.tr('blood_sugar_range_error', fallback: 'Please enter Blood Sugar between 30-600 mg/dL');
                                       }
                                     }
                                     return null;
@@ -6837,7 +6883,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     if (val != null && val.trim().isNotEmpty) {
                                       final n = double.tryParse(val.trim());
                                       if (n == null || n < 1.0 || n > 300.0) {
-                                        return 'Please enter Weight between 1 to 300 kg';
+                                        return context.tr('weight_range_error', fallback: 'Please enter Weight between 1 to 300 kg');
                                       }
                                     }
                                     return null;
@@ -6876,7 +6922,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     if (val != null && val.trim().isNotEmpty) {
                                       final n = double.tryParse(val.trim());
                                       if (n == null || n < 30.0 || n > 250.0) {
-                                        return 'Please enter Height between 30 to 250 cm';
+                                        return context.tr('height_range_error', fallback: 'Please enter Height between 30 to 250 cm');
                                       }
                                     }
                                     return null;
@@ -8019,9 +8065,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                                 onPressed: () =>
                                                     Navigator.pop(ctx, false),
                                                 style: AppTheme.cancelButton,
-                                                child: const Text('Cancel'),
-                                              ),
-                                              ElevatedButton(
+                                                child: Text(context.tr('cancel', fallback: 'Cancel')),
+                ),
+                ElevatedButton(
                                                 style: AppTheme.dangerButton,
                                                 onPressed: () =>
                                                     Navigator.pop(ctx, true),
@@ -11035,18 +11081,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                         if (categoryHasError) ...[
                           const SizedBox(height: 4),
-                          const Row(
+                          Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.error_outline,
                                 size: 14,
                                 color: AppTheme.dangerColor,
                               ),
-                              SizedBox(width: 4),
+                              const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
-                                  'Photo category is mandatory. Please select a category.',
-                                  style: TextStyle(
+                                  context.tr('photo_category_mandatory', fallback: 'Photo category is mandatory. Please select a category.'),
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color: AppTheme.dangerColor,
                                     fontWeight: FontWeight.w500,
@@ -11091,7 +11137,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        _selectedPhotoName ?? 'Selected Image',
+                                        _selectedPhotoName ?? context.tr('selected_image', fallback: 'Selected Image'),
                                         style: const TextStyle(
                                           fontSize: 13,
                                           fontWeight: FontWeight.bold,
@@ -11101,7 +11147,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       ),
                                       if (_selectedPhotoSize != null)
                                         Text(
-                                          'Size: ${_formatFileSize(_selectedPhotoSize!)}',
+                                          '${context.tr('size_label', fallback: 'Size')}: ${_formatFileSize(_selectedPhotoSize!)}',
                                           style: const TextStyle(
                                             fontSize: 11,
                                             color: Color(0xFF475569),
@@ -11130,9 +11176,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     Icons.visibility_outlined,
                                     size: 15,
                                   ),
-                                  label: const Text(
-                                    'Preview',
-                                    style: TextStyle(
+                                  label: Text(
+                                    context.tr('preview', fallback: 'Preview'),
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -11157,9 +11203,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     ),
                                   ),
                                   onPressed: _pickPhoto,
-                                  child: const Text(
-                                    'Change',
-                                    style: TextStyle(fontSize: 12),
+                                  child: Text(
+                                    context.tr('change', fallback: 'Change'),
+                                    style: const TextStyle(fontSize: 12),
                                   ),
                                 ),
                                 const SizedBox(width: 4),
@@ -11169,7 +11215,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     size: 18,
                                     color: AppTheme.dangerColor,
                                   ),
-                                  tooltip: 'Remove',
+                                  tooltip: context.tr('remove', fallback: 'Remove'),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(
                                     minWidth: 28,
@@ -11259,7 +11305,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      context.tr('browse_file'),
+                                      context.tr('choose_file', fallback: 'Choose File'),
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 12,
@@ -11295,9 +11341,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         ] else if (fileHasError) ...[
                           const SizedBox(height: 6),
-                          const Row(
+                          Row(
                             children: [
-                              Icon(
+                              const Icon(
                                 Icons.error_outline,
                                 size: 14,
                                 color: AppTheme.dangerColor,
@@ -11305,8 +11351,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
-                                  'Photo evidence image file is mandatory. Please choose a file.',
-                                  style: TextStyle(
+                                  context.tr('photo_file_mandatory', fallback: 'Photo evidence image file is mandatory. Please choose a file.'),
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color: AppTheme.dangerColor,
                                     fontWeight: FontWeight.w600,
@@ -11359,16 +11405,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             final text = val?.trim() ?? '';
                             if (text.isEmpty) return null;
                             if (text.length < 3) {
-                              return 'Caption must be at least 3 characters if provided';
+                              return context.tr('caption_min_length', fallback: 'Caption must be at least 3 characters if provided');
                             }
                             if (text.length > 100) {
-                              return 'Caption cannot exceed 100 characters';
+                              return context.tr('caption_max_length', fallback: 'Caption cannot exceed 100 characters');
                             }
                             if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(text)) {
-                              return 'Caption must contain letters or Tamil characters and cannot consist solely of numbers';
+                              return context.tr('caption_must_contain_letters', fallback: 'Caption must contain letters or Tamil characters and cannot consist solely of numbers');
                             }
                             if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s]+$').hasMatch(text)) {
-                              return 'Special characters are not allowed in caption';
+                              return context.tr('caption_no_special_chars', fallback: 'Special characters are not allowed in caption');
                             }
                             return null;
                           },
@@ -11408,7 +11454,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     _selectedPhotoCategory!.trim().isEmpty) {
                                   AppNotification.showError(
                                     context,
-                                    'Please select a Photo Category.',
+                                    context.tr('photo_category_required', fallback: 'Please select a Photo Category.'),
                                   );
                                   return;
                                 }
@@ -11417,7 +11463,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     _selectedPhotoBytes == null) {
                                   AppNotification.showError(
                                     context,
-                                    'Please select an image file to upload (JPG, JPEG, PNG).',
+                                    context.tr('photo_file_required', fallback: 'Please select an image file to upload (JPG, JPEG, PNG).'),
                                   );
                                   return;
                                 }
@@ -11429,7 +11475,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         ))) {
                                   AppNotification.showError(
                                     context,
-                                    'Invalid image format! Only JPG, JPEG, and PNG files are supported.',
+                                    context.tr('invalid_image_format_allowed_only', fallback: 'Invalid image format! Only JPG, JPEG, and PNG files are supported.'),
                                   );
                                   return;
                                 }
@@ -11438,7 +11484,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     _selectedPhotoSize! > 15 * 1024 * 1024) {
                                   AppNotification.showError(
                                     context,
-                                    'File size exceeds the 15 MB limit. Please select an image under 15 MB.',
+                                    context.tr('file_size_exceeds_15mb_general', fallback: 'File size exceeds the 15 MB limit. Please select an image under 15 MB.'),
                                   );
                                   return;
                                 }
@@ -11449,14 +11495,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   if (captionText.length < 3) {
                                     AppNotification.showError(
                                       context,
-                                      'Caption must be at least 3 characters if provided',
+                                      context.tr('caption_min_length', fallback: 'Caption must be at least 3 characters if provided'),
                                     );
                                     return;
                                   }
                                   if (captionText.length > 100) {
                                     AppNotification.showError(
                                       context,
-                                      'Caption cannot exceed 100 characters',
+                                      context.tr('caption_max_length', fallback: 'Caption cannot exceed 100 characters'),
                                     );
                                     return;
                                   }
@@ -11465,7 +11511,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ).hasMatch(captionText)) {
                                     AppNotification.showError(
                                       context,
-                                      'Caption must contain letters or Tamil characters and cannot consist solely of numbers',
+                                      context.tr('caption_must_contain_letters', fallback: 'Caption must contain letters or Tamil characters and cannot consist solely of numbers'),
                                     );
                                     return;
                                   }
@@ -11474,7 +11520,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ).hasMatch(captionText)) {
                                     AppNotification.showError(
                                       context,
-                                      'Special characters are not allowed in caption',
+                                      context.tr('caption_no_special_chars', fallback: 'Special characters are not allowed in caption'),
                                     );
                                     return;
                                   }
@@ -11515,7 +11561,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   _clearPhotoForm();
                                   AppNotification.showSuccess(
                                     context,
-                                    'Photo evidence uploaded successfully!',
+                                    context.tr('photo_evidence_uploaded_success', fallback: 'Photo evidence uploaded successfully!'),
                                   );
                                 }
                               },
@@ -11545,9 +11591,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 const SizedBox(height: 20),
 
                 if (activePhotos.isNotEmpty) ...[
-                  const Text(
-                    'Captured Timestamped Photo Evidence Gallery',
-                    style: TextStyle(
+                  Text(
+                    context.tr('captured_photo_gallery_title', fallback: 'Captured Timestamped Photo Evidence Gallery'),
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                       color: AppTheme.primaryColor,
@@ -11573,7 +11619,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         itemCount: activePhotos.length,
                         itemBuilder: (context, idx) {
                           final p = activePhotos[idx];
-                          String timeStr = 'Just now';
+                          String timeStr = context.tr('just_now', fallback: 'Just now');
                           if (p.capturedAt != null) {
                             try {
                               final dt = DateTime.parse(
@@ -11637,21 +11683,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                                     color: const Color(
                                                       0xFFF1F5F9,
                                                     ),
-                                                    child: const Column(
+                                                    child: Column(
                                                       mainAxisAlignment:
                                                           MainAxisAlignment
                                                               .center,
                                                       children: [
-                                                        Icon(
+                                                        const Icon(
                                                           Icons
                                                               .broken_image_outlined,
                                                           color: Colors.grey,
                                                           size: 36,
                                                         ),
-                                                        SizedBox(height: 4),
+                                                        const SizedBox(height: 4),
                                                         Text(
-                                                          'Image unavailable',
-                                                          style: TextStyle(
+                                                          context.tr('image_unavailable', fallback: 'Image unavailable'),
+                                                          style: const TextStyle(
                                                             fontSize: 10,
                                                             color: Colors.grey,
                                                           ),
@@ -11689,21 +11735,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           else
                                             Container(
                                               color: const Color(0xFFF1F5F9),
-                                              child: const Column(
+                                              child: Column(
                                                 mainAxisAlignment:
                                                     MainAxisAlignment.center,
                                                 children: [
-                                                  Icon(
+                                                  const Icon(
                                                     Icons
                                                         .photo_library_outlined,
                                                     color:
                                                         AppTheme.primaryColor,
                                                     size: 36,
                                                   ),
-                                                  SizedBox(height: 4),
+                                                  const SizedBox(height: 4),
                                                   Text(
-                                                    'Uploaded Evidence',
-                                                    style: TextStyle(
+                                                    context.tr('uploaded_evidence', fallback: 'Uploaded Evidence'),
+                                                    style: const TextStyle(
                                                       fontSize: 11,
                                                       fontWeight:
                                                           FontWeight.bold,
@@ -11849,7 +11895,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          p.category ?? 'Photo Evidence',
+                                          _getTranslatedPhotoCategory(p.category),
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 12,
@@ -13604,7 +13650,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          p.category ?? 'Photo Evidence',
+                                          _getTranslatedPhotoCategory(p.category),
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 11,
@@ -13696,7 +13742,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     HomeVisitPhotoEvidence photo, {
     int? visitId,
   }) {
-    String timeStr = 'Just now';
+    String timeStr = context.tr('just_now', fallback: 'Just now');
     if (photo.capturedAt != null) {
       try {
         final dt = DateTime.parse(photo.capturedAt!).toLocal();
@@ -15902,7 +15948,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       final isTamil = AppLocalizations.of(context).locale.languageCode == 'ta';
 
       if (hours > 0 && minutes > 0) {
-        return isTamil ? '+$hours மணி ${minutes} நிமி' : '+$hours hr ${minutes} mins';
+        return isTamil ? '+$hours மணி $minutes நிமி' : '+$hours hr $minutes mins';
       } else if (hours > 0) {
         return isTamil ? '+$hours மணி' : '+$hours hr${hours > 1 ? "s" : ""}';
       } else if (minutes > 0) {
