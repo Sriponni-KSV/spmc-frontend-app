@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
 import '../models/appointment_model.dart';
 import '../models/patient_model.dart';
 import '../models/user_model.dart';
@@ -787,7 +788,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${app.patientName} marked as Waiting ✓'),
+            content: Text('${app.patientName} ${context.tr('patient_marked_waiting', fallback: 'marked as Waiting ✓')}'),
             backgroundColor: Colors.green,
           ),
         );
@@ -826,9 +827,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               ),
             ),
             const SizedBox(width: 10),
-            const Text(
-              'Cancel Appointment',
-              style: TextStyle(
+            Text(
+              context.tr('cancel_appointment', fallback: 'Cancel Appointment'),
+              style: const TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 18,
               ),
@@ -845,16 +846,16 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Are you sure you want to cancel the appointment for ${app.patientName}?',
+                  '${context.tr('cancel_appointment_confirm', fallback: 'Are you sure you want to cancel the appointment for')} ${app.patientName}?',
                   style: const TextStyle(
                     color: AppTheme.textSecondaryColor,
                     fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: 16),
-                const Text(
-                  'Reason for Cancellation *',
-                  style: TextStyle(
+                Text(
+                  context.tr('reason_for_cancellation', fallback: 'Reason for Cancellation *'),
+                  style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                     color: AppTheme.textPrimaryColor,
@@ -874,21 +875,21 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                   validator: (val) {
                     final v = val?.trim() ?? '';
                     if (v.isEmpty) {
-                      return 'Please enter a cancellation reason';
+                      return context.tr('enter_cancellation_reason', fallback: 'Please enter a cancellation reason');
                     }
                     if (v.length < 3) {
-                      return 'Reason must be at least 3 characters';
+                      return context.tr('reason_min_3_chars', fallback: 'Reason must be at least 3 characters');
                     }
                     if (v.length > 200) {
-                      return 'Reason cannot exceed 200 characters';
+                      return context.tr('reason_max_200_chars', fallback: 'Reason cannot exceed 200 characters');
                     }
                     if (!RegExp(r'[a-zA-Z]').hasMatch(v)) {
-                      return 'Reason must contain alphabetic characters';
+                      return context.tr('reason_must_contain_letters', fallback: 'Reason must contain alphabetic characters');
                     }
                     return null;
                   },
                   decoration: InputDecoration(
-                    hintText: 'e.g. Patient requested cancellation due to personal emergency',
+                    hintText: context.tr('cancel_reason_hint', fallback: 'e.g. Patient requested cancellation due to personal emergency'),
                     hintStyle: const TextStyle(
                       fontSize: 13,
                       color: AppTheme.textSecondaryColor,
@@ -935,7 +936,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Keep Appointment'),
+            child: Text(context.tr('keep_appointment', fallback: 'Keep Appointment')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -954,7 +955,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('${app.patientName} cancelled ✓'),
+                      content: Text('${app.patientName} ${context.tr('appointment_cancelled_success', fallback: 'cancelled ✓')}'),
                       backgroundColor: AppTheme.dangerColor,
                     ),
                   );
@@ -977,7 +978,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text('Cancel Appointment'),
+            child: Text(context.tr('cancel_appointment', fallback: 'Cancel Appointment')),
           ),
         ],
       ),
@@ -985,6 +986,22 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
   }
 
   void _showTriageDialog(AppointmentModel app) {
+    final apptDt = DateFormatter.toDateTime(app.appointmentDate);
+    if (apptDt != null) {
+      final now = DateTime.now();
+      final todayMidnight = DateTime(now.year, now.month, now.day);
+      final apptMidnight = DateTime(apptDt.year, apptDt.month, apptDt.day);
+      if (apptMidnight.isAfter(todayMidnight)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr('vitals_future_disabled', fallback: 'Vitals collection is disabled for future-dated appointments.')),
+            backgroundColor: const Color(0xFFB45309),
+          ),
+        );
+        return;
+      }
+    }
+
     final sysCtrl = TextEditingController(
       text: app.bloodPressureSystolic?.toString() ?? '',
     );
@@ -1031,9 +1048,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Capture Vitals',
-                      style: TextStyle(
+                    Text(
+                      context.tr('capture_vitals', fallback: 'Capture Vitals'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -1062,9 +1079,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                     const SizedBox(height: 16),
 
                     // Blood Pressure
-                    const Text(
-                      'Blood Pressure (mmHg)',
-                      style: TextStyle(
+                    Text(
+                      context.tr('blood_pressure_label', fallback: 'Blood Pressure (mmHg)'),
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF1E40AF),
@@ -1079,8 +1096,8 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             keyboardType: TextInputType.number,
                             maxLength: 3,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: const InputDecoration(
-                              labelText: 'Systolic',
+                            decoration: InputDecoration(
+                              labelText: context.tr('systolic', fallback: 'Systolic'),
                               hintText: '120',
                               isDense: true,
                               counterText: '',
@@ -1089,12 +1106,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             validator: (val) {
                               final text = val?.trim() ?? '';
                               if (text.isEmpty) {
-                                return 'Please enter BP systolic';
+                                return context.tr('enter_bp_systolic', fallback: 'Please enter BP systolic');
                               }
                               final num = int.tryParse(text);
-                              if (num == null) return 'Enter a number';
-                              if (num == 0) return 'Cannot be 0';
-                              if (num < 90 || num > 300) return 'BP Systolic must be between 90 and 300 mmHg';
+                              if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                              if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                              if (num < 90 || num > 300) return context.tr('bp_systolic_range', fallback: 'BP Systolic must be between 90 and 300 mmHg');
                               return null;
                             },
                           ),
@@ -1116,8 +1133,8 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             keyboardType: TextInputType.number,
                             maxLength: 3,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: const InputDecoration(
-                              labelText: 'Diastolic',
+                            decoration: InputDecoration(
+                              labelText: context.tr('diastolic', fallback: 'Diastolic'),
                               hintText: '80',
                               isDense: true,
                               counterText: '',
@@ -1126,12 +1143,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             validator: (val) {
                               final text = val?.trim() ?? '';
                               if (text.isEmpty) {
-                                return 'Please enter BP diastolic';
+                                return context.tr('enter_bp_diastolic', fallback: 'Please enter BP diastolic');
                               }
                               final num = int.tryParse(text);
-                              if (num == null) return 'Enter a number';
-                              if (num == 0) return 'Cannot be 0';
-                              if (num < 50 || num > 180) return 'BP Diastolic must be between 50 and 180 mmHg';
+                              if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                              if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                              if (num < 50 || num > 180) return context.tr('bp_diastolic_range', fallback: 'BP Diastolic must be between 50 and 180 mmHg');
                               return null;
                             },
                           ),
@@ -1147,9 +1164,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Sugar Level (mg/dL)',
-                                style: TextStyle(
+                              Text(
+                                context.tr('sugar_level_label', fallback: 'Sugar Level (mg/dL)'),
+                                style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF991B1B),
@@ -1175,12 +1192,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                 validator: (val) {
                                   final text = val?.trim() ?? '';
                                   if (text.isEmpty) {
-                                    return 'Please enter sugar level';
+                                    return context.tr('enter_sugar_level', fallback: 'Please enter sugar level');
                                   }
                                   final num = double.tryParse(text);
-                                  if (num == null) return 'Enter a number';
-                                  if (num == 0) return 'Cannot be 0';
-                                  if (num < 30 || num > 600) return 'Sugar Level must be between 30 and 600 mg/dL';
+                                  if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                  if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                  if (num < 30 || num > 600) return context.tr('sugar_range', fallback: 'Sugar Level must be between 30 and 600 mg/dL');
                                   return null;
                                 },
                               ),
@@ -1192,9 +1209,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Temperature (°F)',
-                                style: TextStyle(
+                              Text(
+                                context.tr('temperature_label', fallback: 'Temperature (°F)'),
+                                style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF92400E),
@@ -1220,12 +1237,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                 validator: (val) {
                                   final text = val?.trim() ?? '';
                                   if (text.isEmpty) {
-                                    return 'Please enter temperature';
+                                    return context.tr('enter_temperature', fallback: 'Please enter temperature');
                                   }
                                   final num = double.tryParse(text);
-                                  if (num == null) return 'Enter a number';
-                                  if (num == 0) return 'Cannot be 0';
-                                  if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
+                                  if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                  if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                  if (num < 90 || num > 115) return context.tr('temperature_range', fallback: 'Temperature must be between 90 and 115 °F');
                                   return null;
                                 },
                               ),
@@ -1244,9 +1261,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
                         LengthLimitingTextInputFormatter(100),
                       ],
-                      decoration: const InputDecoration(
-                        labelText: 'Chief Complaint',
-                        hintText: 'Describe symptoms or reason for visit...',
+                      decoration: InputDecoration(
+                        labelText: context.tr('chief_complaint', fallback: 'Chief Complaint'),
+                        hintText: context.tr('chief_complaint_hint', fallback: 'Describe symptoms or reason for visit...'),
                       ),
                     ),
                   ],
@@ -1258,7 +1275,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
             OutlinedButton(
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
               style: AppTheme.cancelButton,
-              child: const Text('Cancel'),
+              child: Text(context.tr('cancel', fallback: 'Cancel')),
             ),
             ElevatedButton.icon(
               onPressed: isSaving
@@ -1294,9 +1311,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         _tabController.animateTo(1);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Vitals saved & patient triaged ✓'),
-                              backgroundColor: Color(0xFF0D9488),
+                            SnackBar(
+                              content: Text(context.tr('vitals_saved_triaged', fallback: 'Vitals saved & patient triaged ✓')),
+                              backgroundColor: const Color(0xFF0D9488),
                             ),
                           );
                         }
@@ -1498,13 +1515,13 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             }
                           },
                           validator: (val) => val == null || val.isEmpty
-                              ? 'Please select patient'
+                              ? context.tr('please_select_patient', fallback: 'Please select patient')
                               : null,
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Assign Doctor',
-                          style: TextStyle(
+                        Text(
+                          context.tr('assign_doctor_label', fallback: 'Assign Doctor'),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.textSecondaryColor,
@@ -1513,7 +1530,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         const SizedBox(height: 6),
                         CustomDropdownSearch(
                           label: '',
-                          hint: 'Select doctor...',
+                          hint: context.tr('select_doctor_hint', fallback: 'Select doctor...'),
                           value: selectedDoctor?.id.toString(),
                           dropdownMap: {
                             for (var d in allDoctors)
@@ -1600,14 +1617,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             }
                           },
                           validator: (val) => val == null || val.isEmpty
-                              ? 'Please select doctor'
+                              ? context.tr('please_select_doctor', fallback: 'Please select doctor')
                               : null,
                         ),
                         const SizedBox(height: 16),
                         if (selectedDoctor != null) ...[
-                          const Text(
-                            'Available Time Slots (Today)',
-                            style: TextStyle(
+                          Text(
+                            context.tr('available_time_slots_today', fallback: 'Available Time Slots (Today)'),
+                            style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.textSecondaryColor,
@@ -1615,9 +1632,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           ),
                           const SizedBox(height: 8),
                           if (availableSlots.isEmpty)
-                            const Text(
-                              'No slots available for this doctor today.',
-                              style: TextStyle(color: Colors.red, fontSize: 12),
+                            Text(
+                              context.tr('no_slots_available_today', fallback: 'No slots available for this doctor today.'),
+                              style: const TextStyle(color: Colors.red, fontSize: 12),
                             )
                           else
                             GridView.builder(
@@ -1668,11 +1685,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                               },
                             ),
                           if (selectedTime == null && availableSlots.isNotEmpty)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 8.0),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
                               child: Text(
-                                'Please select a time slot',
-                                style: TextStyle(
+                                context.tr('please_select_time_slot', fallback: 'Please select a time slot'),
+                                style: const TextStyle(
                                   color: Colors.red,
                                   fontSize: 11,
                                 ),
@@ -1680,9 +1697,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             ),
                         ],
                         const SizedBox(height: 18),
-                        const Text(
-                          'Patient Intake Vitals',
-                          style: TextStyle(
+                        Text(
+                          context.tr('patient_intake_vitals', fallback: 'Patient Intake Vitals'),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.textSecondaryColor,
@@ -1726,12 +1743,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     validator: (val) {
                                       final text = val?.trim() ?? '';
                                       if (text.isEmpty) {
-                                        return 'Please enter BP systolic';
+                                        return context.tr('enter_bp_systolic', fallback: 'Please enter BP systolic');
                                       }
                                       final num = int.tryParse(text);
-                                      if (num == null) return 'Enter a number';
-                                      if (num == 0) return 'Cannot be 0';
-                                      if (num < 90 || num > 300) return 'Must be 90 to 300';
+                                      if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                      if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                      if (num < 90 || num > 300) return context.tr('bp_systolic_range', fallback: 'BP Systolic must be between 90 and 300 mmHg');
                                       return null;
                                     },
                                   ),
@@ -1774,12 +1791,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     validator: (val) {
                                       final text = val?.trim() ?? '';
                                       if (text.isEmpty) {
-                                        return 'Please enter BP diastolic';
+                                        return context.tr('enter_bp_diastolic', fallback: 'Please enter BP diastolic');
                                       }
                                       final num = int.tryParse(text);
-                                      if (num == null) return 'Enter a number';
-                                      if (num == 0) return 'Cannot be 0';
-                                      if (num < 50 || num > 180) return 'Must be 50 to 180';
+                                      if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                      if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                      if (num < 50 || num > 180) return context.tr('bp_diastolic_range', fallback: 'BP Diastolic must be between 50 and 180 mmHg');
                                       return null;
                                     },
                                   ),
@@ -1831,12 +1848,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     validator: (val) {
                                       final text = val?.trim() ?? '';
                                       if (text.isEmpty) {
-                                        return 'Please enter sugar level';
+                                        return context.tr('enter_sugar_level', fallback: 'Please enter sugar level');
                                       }
                                       final num = double.tryParse(text);
-                                      if (num == null) return 'Enter a number';
-                                      if (num == 0) return 'Cannot be 0';
-                                      if (num < 30 || num > 600) return 'Must be 30 to 600';
+                                      if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                      if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                      if (num < 30 || num > 600) return context.tr('sugar_range', fallback: 'Sugar Level must be between 30 and 600 mg/dL');
                                       return null;
                                     },
                                   ),
@@ -1884,12 +1901,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     validator: (val) {
                                       final text = val?.trim() ?? '';
                                       if (text.isEmpty) {
-                                        return 'Please enter temperature';
+                                        return context.tr('enter_temperature', fallback: 'Please enter temperature');
                                       }
                                       final num = double.tryParse(text);
-                                      if (num == null) return 'Enter a number';
-                                      if (num == 0) return 'Cannot be 0';
-                                      if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
+                                      if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                      if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                      if (num < 90 || num > 115) return context.tr('temperature_range', fallback: 'Temperature must be between 90 and 115 °F');
                                       return null;
                                     },
                                   ),
@@ -1899,9 +1916,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           ],
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Reason',
-                          style: TextStyle(
+                        Text(
+                          context.tr('chief_complaint', fallback: 'Chief Complaint'),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1914,9 +1931,8 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
                             LengthLimitingTextInputFormatter(100),
                           ],
-                          decoration: const InputDecoration(
-                            hintText:
-                                'Describe symptoms or reason for visit...',
+                          decoration: InputDecoration(
+                            hintText: context.tr('chief_complaint_hint', fallback: 'Describe symptoms or reason for visit...'),
                           ),
                         ),
                       ],
@@ -1929,7 +1945,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               OutlinedButton(
                 onPressed: isSaving ? null : () => Navigator.pop(ctx),
                 style: AppTheme.cancelButton,
-                child: const Text('Cancel'),
+                child: Text(context.tr('cancel', fallback: 'Cancel')),
               ),
               ElevatedButton(
                 onPressed:
@@ -1976,23 +1992,25 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           await _ctrl.updateStatus(created.id!, 'Waiting');
                           Navigator.pop(ctx);
                           _load();
-                          if (mounted)
+                          if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
-                                  'Walk-in registered and added to waiting!',
+                                  context.tr('walk_in_registered_waiting', fallback: 'Walk-in registered and added to waiting!'),
                                 ),
                                 backgroundColor: Colors.green,
                               ),
                             );
+                          }
                         } catch (e) {
-                          if (mounted)
+                          if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(e.toString()),
                                 backgroundColor: Colors.red,
                               ),
                             );
+                          }
                         } finally {
                           if (mounted) setDialogState(() => isSaving = false);
                         }
@@ -2018,7 +2036,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Register Walk-in'),
+                    : Text(context.tr('register_walk_in', fallback: 'Register Walk-in')),
               ),
             ],
           );

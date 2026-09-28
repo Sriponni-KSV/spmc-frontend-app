@@ -34,7 +34,7 @@ class AdminCatalogSubItem {
 }
 
 /// Centralized Navigation Configuration for Admin Dashboard.
-/// 
+///
 /// To show or hide any section/menu in the Admin Dashboard, simply toggle its boolean flag
 /// below (`true` to show, `false` to hide).
 class AdminNavConfig {
@@ -64,20 +64,20 @@ class AdminNavConfig {
   /// Access Control / RBAC (Hidden - Change to true to display)
   static const bool showAccessControl = false;
 
-  /// Appointments (Visible)
-  static const bool showAppointments = true;
+  /// Appointments (Hidden)
+  static const bool showAppointments = false;
 
-  /// OPD Management (Visible)
-  static const bool showOpdManagement = true;
+  /// OPD Management (Hidden)
+  static const bool showOpdManagement = false;
 
-  /// IPD Management (Hidden - Change to true to display)
+  /// IPD Management (Hidden)
   static const bool showIpdManagement = false;
 
-  /// OT Management (Hidden - Change to true to display)
+  /// OT Management (Hidden)
   static const bool showOtManagement = false;
 
   /// Shift Allocation (Visible)
-  static const bool showShiftAllocation = true;
+  static const bool showShiftAllocation = false;
 
   /// ICU & Emergency (Hidden - Change to true to display)
   static const bool showIcuEmergency = false;

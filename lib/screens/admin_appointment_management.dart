@@ -3,6 +3,7 @@ import '../widgets/custom_dropdown_search.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
+import '../utils/date_formatter.dart';
 import '../models/appointment_model.dart';
 import '../models/user_model.dart';
 import '../controllers/appointment_controller.dart';
@@ -10,6 +11,7 @@ import '../controllers/admin_controller.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/appointment_details_dialog.dart';
 import '../utils/unsaved_changes_helper.dart';
+import '../utils/app_localizations.dart';
 
 class AdminAppointmentManagement extends StatefulWidget {
   const AdminAppointmentManagement({Key? key}) : super(key: key);
@@ -54,51 +56,175 @@ class _AdminAppointmentManagementState
   final ScrollController _vScroll = ScrollController();
   final ScrollController _hScroll = ScrollController();
 
-  List<String> _generateSlotsForSession(
-    int startHour,
-    int startMin,
-    int endHour,
-    int endMin,
-  ) {
-    List<String> sessionSlots = [];
-    DateTime start = DateTime(2026, 1, 1, startHour, startMin);
-    DateTime end = DateTime(2026, 1, 1, endHour, endMin);
-    while (start.isBefore(end)) {
-      sessionSlots.add(DateFormat('hh:mm a').format(start));
-      start = start.add(const Duration(minutes: 30));
-    }
-    return sessionSlots;
-  }
-
-  List<String> _getAllSlots() {
-    List<String> slots = [];
-    slots.addAll(_generateSlotsForSession(9, 0, 13, 0));
-    slots.addAll(_generateSlotsForSession(14, 0, 17, 0));
-    return slots;
-  }
-
-  List<String> _getFilteredTimeSlots(DateTime? date, [String? currentSelectedTime]) {
-    if (date == null) return [];
-    List<String> slots = _getAllSlots();
-    DateTime now = DateTime.now();
-    bool isToday =
-        date.year == now.year && date.month == now.month && date.day == now.day;
-    if (!isToday) return slots;
-    return slots.where((slot) {
-      if (currentSelectedTime != null && slot == currentSelectedTime) return true;
-      try {
-        DateTime slotTime = DateFormat('hh:mm a').parse(slot);
-        DateTime fullSlotTime = DateTime(
-          date.year,
-          date.month,
-          date.day,
-          slotTime.hour,
-          slotTime.minute,
-        );
-        return fullSlotTime.isAfter(now);
-      } catch (e) {
-        return true;
+  DateTime _parseTime(String timeStr) {
+    try {
+      final clean = timeStr.trim();
+      final timeParts = clean.split(' ');
+      final hms = timeParts[0].split(':');
+      int hour = int.parse(hms[0]);
+      int minute = hms.length > 1 ? int.parse(hms[1]) : 0;
+      if (timeParts.length > 1) {
+        if (timeParts[1].toUpperCase() == 'PM' && hour < 12) hour += 12;
+        if (timeParts[1].toUpperCase() == 'AM' && hour == 12) hour = 0;
       }
+      return DateTime(2026, 1, 1, hour, minute);
+    } catch (_) {
+      return DateTime(2026, 1, 1, 9, 0);
+    }
+  }
+
+  String _cleanDoctorName(String? name) {
+    if (name == null) return '';
+    return name.trim().toLowerCase().replaceAll(RegExp(r'^dr\.?\s*'), '');
+  }
+
+  String _normalizeTime(String timeStr) {
+    String clean = timeStr.trim();
+    if (clean.isEmpty) return '';
+    clean = clean.replaceAll(RegExp(r'\s+'), ' ');
+    final matchAmPm = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (matchAmPm != null) {
+      int hour = int.parse(matchAmPm.group(1)!);
+      String min = matchAmPm.group(2)!;
+      String period = matchAmPm.group(3)!.toUpperCase();
+      return '${hour.toString().padLeft(2, '0')}:$min $period';
+    }
+    final match24 = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(clean);
+    if (match24 != null) {
+      int hour = int.parse(match24.group(1)!);
+      String min = match24.group(2)!;
+      String period = hour >= 12 ? 'PM' : 'AM';
+      int h12 = hour % 12;
+      if (h12 == 0) h12 = 12;
+      return '${h12.toString().padLeft(2, '0')}:$min $period';
+    }
+    try {
+      if (clean.toUpperCase().contains('AM') ||
+          clean.toUpperCase().contains('PM')) {
+        DateTime dt = DateFormat('h:mm a').parse(clean);
+        return DateFormat('hh:mm a').format(dt);
+      } else {
+        DateTime dt = DateFormat('HH:mm').parse(clean);
+        return DateFormat('hh:mm a').format(dt);
+      }
+    } catch (_) {
+      return clean;
+    }
+  }
+
+  List<String> _generateSlotsForDoctor(UserModel? doctor) {
+    if (doctor == null ||
+        doctor.slotStartTime == null ||
+        doctor.slotStartTime!.trim().isEmpty ||
+        doctor.slotEndTime == null ||
+        doctor.slotEndTime!.trim().isEmpty) {
+      // Default fallback slots matching nurse login
+      List<String> slots = [];
+      DateTime start = DateTime(2026, 1, 1, 9, 0); // 9 AM
+      DateTime end = DateTime(2026, 1, 1, 13, 0); // 1 PM
+      while (start.isBefore(end)) {
+        slots.add(DateFormat('hh:mm a').format(start));
+        start = start.add(const Duration(minutes: 30));
+      }
+      return slots;
+    }
+
+    int duration = 30;
+    if (doctor.slotDuration != null && doctor.slotDuration!.trim().isNotEmpty) {
+      final digits = RegExp(r'\d+').firstMatch(doctor.slotDuration!)?.group(0);
+      if (digits != null) {
+        duration = int.tryParse(digits) ?? 30;
+      }
+    }
+    if (duration <= 0) duration = 30;
+
+    try {
+      DateTime start = _parseTime(doctor.slotStartTime!);
+      DateTime end = _parseTime(doctor.slotEndTime!);
+
+      List<String> slots = [];
+      DateTime current = start;
+      while (current.isBefore(end)) {
+        slots.add(DateFormat('hh:mm a').format(current));
+        current = current.add(Duration(minutes: duration));
+      }
+      return slots;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  List<String> _getFilteredTimeSlots({
+    required DateTime? date,
+    required String? doctorName,
+    required Set<String> occupiedSlots,
+    String? currentSelectedTime,
+  }) {
+    if (date == null) return [];
+    UserModel? doctor;
+    if (doctorName != null && doctorName.trim().isNotEmpty) {
+      try {
+        doctor = _doctors.firstWhere(
+          (d) =>
+              _cleanDoctorName(d.fullname) ==
+              _cleanDoctorName(doctorName),
+        );
+      } catch (_) {}
+    }
+    if (doctor == null) return [];
+
+    final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final dayName = weekDays[date.weekday - 1];
+    final dateStr = DateFormat('dd/MM/yyyy').format(date);
+
+    bool isAvailable = false;
+    if (doctor.availableDays == null ||
+        doctor.availableDays!.isEmpty ||
+        doctor.availableDays!.contains(dayName)) {
+      isAvailable = true;
+    }
+
+    if (doctor.weeklyOffDays != null &&
+        doctor.weeklyOffDays!.contains(dayName)) {
+      isAvailable = false;
+    }
+
+    if (doctor.specificLeaveDates != null &&
+        doctor.specificLeaveDates!.contains(dateStr)) {
+      isAvailable = false;
+    }
+
+    if (!isAvailable) {
+      return [];
+    }
+
+    final baseSlots = _generateSlotsForDoctor(doctor);
+    DateTime now = DateTime.now();
+    bool isToday = date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+
+    return baseSlots.where((slot) {
+      // If today, filter out past slots (unless currently selected)
+      if (isToday && slot != currentSelectedTime) {
+        try {
+          DateTime slotTime = DateFormat('hh:mm a').parse(slot);
+          DateTime fullSlotTime = DateTime(
+            now.year,
+            now.month,
+            now.day,
+            slotTime.hour,
+            slotTime.minute,
+          );
+          return fullSlotTime.isAfter(now);
+        } catch (e) {
+          return true;
+        }
+      }
+      return true;
     }).toList();
   }
 
@@ -190,20 +316,82 @@ class _AdminAppointmentManagementState
       return;
     }
     // mode: 'edit' | 'cancel' | 'reschedule' | 'view' | 'reopen'
+    final bool isCompleted = appt.status == 'Completed';
+    if (isCompleted && mode == 'reschedule') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Completed appointments cannot be rescheduled.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final reasonCtrl = TextEditingController();
     String? selectedStatus = appt.status;
     String? selectedDoctor = appt.doctorName;
     DateTime? newDate;
     try {
-      newDate = DateFormat('dd/MM/yyyy').parse(appt.appointmentDate);
-    } catch (e) {}
+      newDate = DateFormatter.toDateTime(appt.appointmentDate);
+    } catch (e) {
+      newDate = DateTime.now();
+    }
     String? newTime = appt.appointmentTime;
     String? patientName = appt.patientName;
     String? department = appt.department;
     String? appointmentType = appt.appointmentType;
     bool isSaving = false;
     String? reasonError;
+    Set<String> occupiedSlots = {};
+    bool isLoadingSlots = false;
+    String? slotConflictError;
+    bool hasInitializedSlots = false;
+
+    Future<void> loadOccupiedSlots(
+      DateTime? date,
+      String? doctor,
+      void Function(void Function()) updateState,
+    ) async {
+      if (date == null) {
+        updateState(() {
+          occupiedSlots = {};
+          isLoadingSlots = false;
+        });
+        return;
+      }
+      updateState(() {
+        isLoadingSlots = true;
+        slotConflictError = null;
+      });
+      try {
+        final dateDb = DateFormat('yyyy-MM-dd').format(date);
+        final appts = await _apptCtrl.fetchAdminAppointments(date: dateDb);
+        final Set<String> occupied = {};
+        for (final a in appts) {
+          if (a.id != null && a.id == appt.id) continue;
+          if (a.status.toLowerCase() == 'cancelled') continue;
+          if (doctor != null && doctor.trim().isNotEmpty) {
+            if (_cleanDoctorName(a.doctorName) != _cleanDoctorName(doctor)) {
+              continue;
+            }
+          }
+          occupied.add(_normalizeTime(a.appointmentTime));
+        }
+        updateState(() {
+          occupiedSlots = occupied;
+          isLoadingSlots = false;
+          if (newTime != null &&
+              occupiedSlots.contains(_normalizeTime(newTime!))) {
+            newTime = null;
+          }
+        });
+      } catch (e) {
+        updateState(() {
+          isLoadingSlots = false;
+        });
+      }
+    }
 
     List<String> availableStatuses = [
       'Confirmed',
@@ -242,6 +430,14 @@ class _AdminAppointmentManagementState
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) {
+          if (!hasInitializedSlots &&
+              (mode == 'edit' || mode == 'reschedule')) {
+            hasInitializedSlots = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              loadOccupiedSlots(newDate, selectedDoctor, setS);
+            });
+          }
+
           Widget buildField(String label, Widget child) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -452,13 +648,54 @@ class _AdminAppointmentManagementState
                                 ? selectedDoctor
                                 : null,
                             dropdownItems: filteredDoctors,
-                            onChanged: (v) => setS(() => selectedDoctor = v),
+                            onChanged: (v) {
+                              setS(() {
+                                selectedDoctor = v;
+                                newTime = null;
+                              });
+                              loadOccupiedSlots(newDate, v, setS);
+                            },
                           ),
                         ),
                       ],
 
                       // Date/time (edit/reschedule)
-                      if (mode == 'edit' || mode == 'reschedule') ...[
+                      if (isCompleted) ...[
+                        buildField(
+                          'Appointment Schedule',
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.borderColor),
+                            ),
+                            child: Row(
+                              children: const [
+                                Icon(
+                                  Icons.lock_outline,
+                                  size: 16,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Completed appointments cannot be rescheduled.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ] else if (mode == 'edit' || mode == 'reschedule') ...[
                         buildField(
                           'New Date',
                           InkWell(
@@ -480,7 +717,13 @@ class _AdminAppointmentManagementState
                                   const Duration(days: 365),
                                 ),
                               );
-                              if (d != null) setS(() => newDate = d);
+                              if (d != null) {
+                                setS(() {
+                                  newDate = d;
+                                  newTime = null;
+                                });
+                                loadOccupiedSlots(d, selectedDoctor, setS);
+                              }
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -519,43 +762,213 @@ class _AdminAppointmentManagementState
                         ),
                         buildField(
                           'New Time Slot',
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _getFilteredTimeSlots(newDate, newTime).map((
-                              slot,
-                            ) {
-                              final isSelected = newTime == slot;
-                              return InkWell(
-                                onTap: () => setS(() => newTime = slot),
-                                child: Container(
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (isLoadingSlots) ...[
+                                Padding(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
+                                    vertical: 6,
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? AppTheme.primaryColor
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? AppTheme.primaryColor
-                                          : AppTheme.borderColor,
+                                  child: Row(
+                                    children: const [
+                                      SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Checking doctor schedule & booked slots...',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              Builder(
+                                builder: (context) {
+                                  final availableSlots = _getFilteredTimeSlots(
+                                    date: newDate,
+                                    doctorName: selectedDoctor,
+                                    occupiedSlots: occupiedSlots,
+                                    currentSelectedTime: newTime,
+                                  );
+
+                                  if (availableSlots.isEmpty) {
+                                    return const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 8.0,
+                                      ),
+                                      child: Text(
+                                        'No slots available for this doctor on this date.',
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    );
+                                  }
+
+                                  return GridView.builder(
+                                    shrinkWrap: true,
+                                    physics:
+                                        const NeverScrollableScrollPhysics(),
+                                    gridDelegate:
+                                        const SliverGridDelegateWithFixedCrossAxisCount(
+                                      crossAxisCount: 3,
+                                      childAspectRatio: 2.3,
+                                      crossAxisSpacing: 8,
+                                      mainAxisSpacing: 8,
                                     ),
-                                  ),
+                                    itemCount: availableSlots.length,
+                                    itemBuilder: (context, index) {
+                                      final time = availableSlots[index];
+                                      final isOccupied = occupiedSlots
+                                          .contains(_normalizeTime(time));
+                                      final isSelected = newTime == time;
+
+                                      return InkWell(
+                                        onTap: () {
+                                          if (isOccupied) {
+                                            setS(() {
+                                              slotConflictError =
+                                                  'Time slot $time is already occupied by another appointment. Selection is prevented.';
+                                            });
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Time slot $time is already booked for Dr. ${selectedDoctor ?? "this doctor"}. The system prevents selecting occupied slots.',
+                                                ),
+                                                backgroundColor: Colors.red,
+                                                duration:
+                                                    const Duration(seconds: 2),
+                                              ),
+                                            );
+                                            return;
+                                          }
+                                          setS(() {
+                                            newTime = time;
+                                            slotConflictError = null;
+                                          });
+                                        },
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Container(
+                                          alignment: Alignment.center,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isOccupied
+                                                ? const Color(0xFFF1F5F9)
+                                                : isSelected
+                                                    ? AppTheme.primaryColor
+                                                    : Colors.white,
+                                            border: Border.all(
+                                              color: isOccupied
+                                                  ? Colors.red.shade200
+                                                  : isSelected
+                                                      ? AppTheme.primaryColor
+                                                      : AppTheme.borderColor,
+                                              width: isSelected ? 1.5 : 1.0,
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                time,
+                                                style: TextStyle(
+                                                  color: isOccupied
+                                                      ? Colors.grey.shade600
+                                                      : isSelected
+                                                          ? Colors.white
+                                                          : AppTheme
+                                                              .textPrimaryColor,
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.bold
+                                                      : FontWeight.w500,
+                                                  fontSize: 11,
+                                                  decoration: isOccupied
+                                                      ? TextDecoration
+                                                          .lineThrough
+                                                      : null,
+                                                ),
+                                              ),
+                                              if (isOccupied) ...[
+                                                const SizedBox(height: 2),
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 4,
+                                                    vertical: 1,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red.shade50,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                      4,
+                                                    ),
+                                                    border: Border.all(
+                                                      color:
+                                                          Colors.red.shade200,
+                                                      width: 0.5,
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    'Booked',
+                                                    style: TextStyle(
+                                                      color:
+                                                          Colors.red.shade700,
+                                                      fontSize: 8.5,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                              if (newTime == null)
+                                const Padding(
+                                  padding: EdgeInsets.only(top: 8.0),
                                   child: Text(
-                                    slot,
+                                    'Please select a time slot',
                                     style: TextStyle(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : AppTheme.textPrimaryColor,
-                                      fontSize: 13,
+                                      color: Colors.red,
+                                      fontSize: 11,
                                     ),
                                   ),
                                 ),
-                              );
-                            }).toList(),
+                              if (slotConflictError != null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  slotConflictError!,
+                                  style: const TextStyle(
+                                    color: AppTheme.dangerColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],
@@ -665,6 +1078,61 @@ class _AdminAppointmentManagementState
                             });
                             return;
                           }
+                          if (isCompleted && mode == 'reschedule') {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Completed appointments cannot be rescheduled.',
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+                          if (!isCompleted &&
+                              (mode == 'edit' || mode == 'reschedule')) {
+                            if (newDate == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please select a date.'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+                            if (newTime == null || newTime!.trim().isEmpty) {
+                              setS(() {
+                                slotConflictError =
+                                    'Please select an available time slot.';
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Please select an available time slot.',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+                            if (occupiedSlots.contains(
+                              _normalizeTime(newTime!),
+                            )) {
+                              setS(() {
+                                slotConflictError =
+                                    'The selected time slot ($newTime) is already booked. Selection is prevented.';
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Time slot $newTime is already booked for Dr. ${selectedDoctor ?? "this doctor"}. The system prevents selecting occupied slots.',
+                                  ),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+                          }
                           setS(() => isSaving = true);
                           try {
                             await _apptCtrl.adminOverrideAppointment(
@@ -677,14 +1145,18 @@ class _AdminAppointmentManagementState
                                   ? selectedDoctor
                                   : null,
                               appointmentDate:
-                                  (mode == 'reschedule' || mode == 'edit') &&
-                                      newDate != null
-                                  ? DateFormat('dd/MM/yyyy').format(newDate!)
-                                  : null,
+                                  !isCompleted &&
+                                          (mode == 'reschedule' ||
+                                              mode == 'edit') &&
+                                          newDate != null
+                                      ? DateFormat('yyyy-MM-dd').format(newDate!)
+                                      : null,
                               appointmentTime:
-                                  (mode == 'reschedule' || mode == 'edit')
-                                  ? newTime
-                                  : null,
+                                  !isCompleted &&
+                                          (mode == 'reschedule' ||
+                                              mode == 'edit')
+                                      ? newTime
+                                      : null,
                               patientName: mode == 'edit' ? patientName : null,
                               department: mode == 'edit' ? department : null,
                               appointmentType: mode == 'edit'
@@ -1745,7 +2217,7 @@ class _AdminAppointmentManagementState
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Text(
-            'Page ${_currentPage + 1} of $totalPages',
+            context.pageOfTotal(_currentPage + 1, totalPages),
             style: const TextStyle(
               fontSize: 13,
               color: AppTheme.textSecondaryColor,
@@ -1771,9 +2243,9 @@ class _AdminAppointmentManagementState
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.chevron_left, size: 18),
-                Text('Prev'),
+              children: [
+                const Icon(Icons.chevron_left, size: 18),
+                Text(context.tr('prev', fallback: 'Prev')),
               ],
             ),
           ),
@@ -1796,9 +2268,9 @@ class _AdminAppointmentManagementState
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text('Next'),
-                Icon(Icons.chevron_right, size: 18),
+              children: [
+                Text(context.tr('next', fallback: 'Next')),
+                const Icon(Icons.chevron_right, size: 18),
               ],
             ),
           ),

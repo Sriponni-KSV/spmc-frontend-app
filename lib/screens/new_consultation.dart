@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
 import '../models/appointment_model.dart';
 import '../models/user_model.dart';
 import '../controllers/patient_controller.dart';
@@ -598,7 +599,21 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   // ─── Full Admit to IPD card — shown in consultation left panel ──────────
   Widget _buildAdmitToIPDCard() {
-    return const SizedBox.shrink();
+    // Don't show for completed/cancelled/discharged appointments
+    final status = _currentAppointment.status;
+    if (status == 'Completed' ||
+        status == 'Cancelled' ||
+        status == 'Discharged') {
+      return const SizedBox.shrink();
+    }
+
+    // If already admitted and no bed assigned yet → show orange allocation banner
+    if (status == 'Admitted') {
+      return _buildPendingAllocationBanner();
+    }
+
+    // Otherwise → show the Admit to IPD action card
+    return _buildRecommendAdmitCard();
   }
 
   Widget _buildPendingAllocationBanner() {
@@ -2121,7 +2136,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                                 label: Text(
                                   _selectedFileName != null
                                       ? _selectedFileName!
-                                      : 'Choose File (PDF/Image)',
+                                      : context.tr('choose_file_pdf_image', fallback: 'Choose File (PDF/Image)'),
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: _selectedFileName != null

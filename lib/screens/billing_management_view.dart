@@ -13,6 +13,7 @@ import '../services/api_service.dart';
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
+import '../utils/app_localizations.dart';
 
 class BillingManagementView extends StatefulWidget {
   const BillingManagementView({Key? key}) : super(key: key);
@@ -286,14 +287,14 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Billing & Invoices',
+                  context.tr('billing_invoices', fallback: 'Billing & Invoices'),
                   style: Theme.of(context).textTheme.displayLarge ??
                       const TextStyle(fontWeight: FontWeight.bold, fontSize: 24, color: AppTheme.primaryColor),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  subtitle,
-                  style: TextStyle(
+                  context.tr('manage_billing_subtitle', fallback: subtitle),
+                  style: const TextStyle(
                     color: AppTheme.textSecondaryColor,
                     fontSize: 13,
                   ),
@@ -419,109 +420,219 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                     ),
                     const SizedBox(height: 8),
                     _buildLabel(_isCustomPharmacyItem ? 'Item Name *' : 'Medicine *'),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: _isCustomPharmacyItem
-                              ? TextFormField(
-                                  controller: _customPharmacyItemCtrl,
-                                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                                  decoration: InputDecoration(
-                                    hintText: 'Enter Item Name',
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                    fillColor: const Color(0xFFF1F5F9),
-                                    filled: true,
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                                  ),
-                                )
-                              : CustomDropdownSearch(
-                                  label: '',
-                                  hint: 'Select Medicine',
-                                  value: _selectedPharmacyMedId,
-                                  dropdownMap: {
-                                    for (var med in _medicineInventory)
-                                      med['id'].toString(): '${med['name']} (${med['quantity']} in stock)'
-                                  },
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      final medObj = _medicineInventory.firstWhere((x) => x['id'].toString() == val);
-                                      setState(() {
-                                        _selectedPharmacyMedId = val;
-                                        _pharmacyMedName = medObj['name'];
-                                      });
-                                    }
-                                  },
-                                ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 90,
-                          child: TextFormField(
-                            controller: _pharmacyPriceCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            autovalidateMode: AutovalidateMode.onUserInteraction,
-                            decoration: InputDecoration(
-                              hintText: 'Price',
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                              fillColor: const Color(0xFFF1F5F9),
-                              filled: true,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                    if (isMobile) ...[
+                      _isCustomPharmacyItem
+                          ? TextFormField(
+                              controller: _customPharmacyItemCtrl,
+                              autovalidateMode: AutovalidateMode.onUserInteraction,
+                              decoration: InputDecoration(
+                                hintText: 'Enter Item Name',
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                fillColor: const Color(0xFFF1F5F9),
+                                filled: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                              ),
+                            )
+                          : CustomDropdownSearch(
+                              label: '',
+                              hint: 'Select Medicine',
+                              value: _selectedPharmacyMedId,
+                              dropdownMap: {
+                                for (var med in _medicineInventory)
+                                  med['id'].toString(): '${med['name']} (${med['quantity']} in stock)'
+                              },
+                              onChanged: (val) {
+                                if (val != null) {
+                                  final medObj = _medicineInventory.firstWhere((x) => x['id'].toString() == val);
+                                  setState(() {
+                                    _selectedPharmacyMedId = val;
+                                    _pharmacyMedName = medObj['name'];
+                                  });
+                                }
+                              },
+                            ),
+                      const SizedBox(height: 10),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextFormField(
+                              controller: _pharmacyPriceCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              autovalidateMode: AutovalidateMode.onUserInteraction,
+                              decoration: InputDecoration(
+                                hintText: 'Price (₹)',
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                fillColor: const Color(0xFFF1F5F9),
+                                filled: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 70,
-                          child: TextFormField(
-                            controller: _pharmacyQtyCtrl,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            autovalidateMode: AutovalidateMode.onUserInteraction,
-                            decoration: InputDecoration(
-                              hintText: 'Qty',
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                              fillColor: const Color(0xFFF1F5F9),
-                              filled: true,
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              controller: _pharmacyQtyCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              autovalidateMode: AutovalidateMode.onUserInteraction,
+                              decoration: InputDecoration(
+                                hintText: 'Qty',
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                fillColor: const Color(0xFFF1F5F9),
+                                filled: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.add_circle, color: AppTheme.secondaryColor, size: 36),
-                          onPressed: () {
-                            final String name = _isCustomPharmacyItem ? _customPharmacyItemCtrl.text.trim() : (_pharmacyMedName ?? '');
-                            if (name.isEmpty || _pharmacyPriceCtrl.text.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select/enter item name and price'), backgroundColor: Colors.red));
-                              return;
-                            }
-                            final double pr = double.tryParse(_pharmacyPriceCtrl.text) ?? 0.0;
-                            final int qt = int.tryParse(_pharmacyQtyCtrl.text) ?? 1;
-                            
-                            setState(() {
-                              final idx = _qbSelectedItems.indexWhere((x) => x['item_name'] == name);
-                              if (idx >= 0) {
-                                _qbSelectedItems[idx]['quantity'] = (_qbSelectedItems[idx]['quantity'] as int) + qt;
-                              } else {
-                                _qbSelectedItems.add({
-                                  'service_id': null,
-                                  'item_name': name,
-                                  'quantity': qt,
-                                  'unit_price': pr,
-                                });
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.secondaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () {
+                              final String name = _isCustomPharmacyItem ? _customPharmacyItemCtrl.text.trim() : (_pharmacyMedName ?? '');
+                              if (name.isEmpty || _pharmacyPriceCtrl.text.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select/enter item name and price'), backgroundColor: Colors.red));
+                                return;
                               }
-                              _selectedPharmacyMedId = null;
-                              _pharmacyMedName = null;
-                              _customPharmacyItemCtrl.clear();
-                              _pharmacyPriceCtrl.clear();
-                              _pharmacyQtyCtrl.text = '1';
-                            });
-                          },
-                        )
-                      ],
-                    ),
+                              final double pr = double.tryParse(_pharmacyPriceCtrl.text) ?? 0.0;
+                              final int qt = int.tryParse(_pharmacyQtyCtrl.text) ?? 1;
+                              
+                              setState(() {
+                                final idx = _qbSelectedItems.indexWhere((x) => x['item_name'] == name);
+                                if (idx >= 0) {
+                                  _qbSelectedItems[idx]['quantity'] = (_qbSelectedItems[idx]['quantity'] as int) + qt;
+                                } else {
+                                  _qbSelectedItems.add({
+                                    'service_id': null,
+                                    'item_name': name,
+                                    'quantity': qt,
+                                    'unit_price': pr,
+                                  });
+                                }
+                                _selectedPharmacyMedId = null;
+                                _pharmacyMedName = null;
+                                _customPharmacyItemCtrl.clear();
+                                _pharmacyPriceCtrl.clear();
+                                _pharmacyQtyCtrl.text = '1';
+                              });
+                            },
+                            icon: const Icon(Icons.add, size: 18),
+                            label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: _isCustomPharmacyItem
+                                ? TextFormField(
+                                    controller: _customPharmacyItemCtrl,
+                                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                                    decoration: InputDecoration(
+                                      hintText: 'Enter Item Name',
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                      fillColor: const Color(0xFFF1F5F9),
+                                      filled: true,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                                    ),
+                                  )
+                                : CustomDropdownSearch(
+                                    label: '',
+                                    hint: 'Select Medicine',
+                                    value: _selectedPharmacyMedId,
+                                    dropdownMap: {
+                                      for (var med in _medicineInventory)
+                                        med['id'].toString(): '${med['name']} (${med['quantity']} in stock)'
+                                    },
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        final medObj = _medicineInventory.firstWhere((x) => x['id'].toString() == val);
+                                        setState(() {
+                                          _selectedPharmacyMedId = val;
+                                          _pharmacyMedName = medObj['name'];
+                                        });
+                                      }
+                                    },
+                                  ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 90,
+                            child: TextFormField(
+                              controller: _pharmacyPriceCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              autovalidateMode: AutovalidateMode.onUserInteraction,
+                              decoration: InputDecoration(
+                                hintText: 'Price',
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                fillColor: const Color(0xFFF1F5F9),
+                                filled: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 70,
+                            child: TextFormField(
+                              controller: _pharmacyQtyCtrl,
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              autovalidateMode: AutovalidateMode.onUserInteraction,
+                              decoration: InputDecoration(
+                                hintText: 'Qty',
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                fillColor: const Color(0xFFF1F5F9),
+                                filled: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle, color: AppTheme.secondaryColor, size: 36),
+                            onPressed: () {
+                              final String name = _isCustomPharmacyItem ? _customPharmacyItemCtrl.text.trim() : (_pharmacyMedName ?? '');
+                              if (name.isEmpty || _pharmacyPriceCtrl.text.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select/enter item name and price'), backgroundColor: Colors.red));
+                                return;
+                              }
+                              final double pr = double.tryParse(_pharmacyPriceCtrl.text) ?? 0.0;
+                              final int qt = int.tryParse(_pharmacyQtyCtrl.text) ?? 1;
+                              
+                              setState(() {
+                                final idx = _qbSelectedItems.indexWhere((x) => x['item_name'] == name);
+                                if (idx >= 0) {
+                                  _qbSelectedItems[idx]['quantity'] = (_qbSelectedItems[idx]['quantity'] as int) + qt;
+                                } else {
+                                  _qbSelectedItems.add({
+                                    'service_id': null,
+                                    'item_name': name,
+                                    'quantity': qt,
+                                    'unit_price': pr,
+                                  });
+                                }
+                                _selectedPharmacyMedId = null;
+                                _pharmacyMedName = null;
+                                _customPharmacyItemCtrl.clear();
+                                _pharmacyPriceCtrl.clear();
+                                _pharmacyQtyCtrl.text = '1';
+                              });
+                            },
+                          )
+                        ],
+                      ),
+                    ],
                   ] else ...[
                     _buildLabel('Add Service to Bill'),
                     Row(
@@ -841,13 +952,25 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               Expanded(
                 child: TextFormField(
                   onChanged: (val) => setState(() => _invoiceSearch = val),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Search by Invoice Number, Patient Name, or ID...',
-                    prefixIcon: Icon(Icons.search),
+                    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                    prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondaryColor, size: 20),
+                    filled: true,
+                    fillColor: AppTheme.getCardColor(context),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               IconButton(
                 icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
                 onPressed: _loadInvoices,
@@ -1078,31 +1201,85 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
       padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
+          if (isMobile)
+            Column(
+              children: [
+                TextFormField(
                   onChanged: (val) => setState(() => _catalogSearch = val),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Search catalog by Service Name or Category...',
-                    prefixIcon: Icon(Icons.search),
+                    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                    prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondaryColor, size: 20),
+                    filled: true,
+                    fillColor: AppTheme.getCardColor(context),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              ElevatedButton.icon(
-                onPressed: () => _showAddServiceDialog(null),
-                icon: const Icon(Icons.add),
-                label: const Text('Add Service'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.secondaryColor,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(120, 52),
-                  elevation: 0,
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showAddServiceDialog(null),
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Service'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.secondaryColor,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(120, 48),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    onChanged: (val) => setState(() => _catalogSearch = val),
+                    decoration: InputDecoration(
+                      hintText: 'Search catalog by Service Name or Category...',
+                      hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                      prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondaryColor, size: 20),
+                      filled: true,
+                      fillColor: AppTheme.getCardColor(context),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                ElevatedButton.icon(
+                  onPressed: () => _showAddServiceDialog(null),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Service'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.secondaryColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(120, 52),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ],
+            ),
           const SizedBox(height: 20),
           Expanded(
             child: _isLoadingCatalog
@@ -1911,35 +2088,58 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
             final patientDisplayId = inv['patient_display_id'] ?? 'N/A';
             final date = DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.parse(inv['created_at']).toLocal());
 
+            final dIsMobile = MediaQuery.of(context).size.width < 600;
+
             return AlertDialog(
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: dIsMobile ? 12 : 24,
+                vertical: 24,
+              ),
+              titlePadding: const EdgeInsets.fromLTRB(20, 18, 12, 10),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              actionsPadding: const EdgeInsets.fromLTRB(20, 8, 20, 18),
               title: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Invoice & Receipt Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryColor)),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(dCtx)),
+                  const Expanded(
+                    child: Text(
+                      'Invoice & Receipt Details',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(dCtx),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
                 ],
               ),
               content: SingleChildScrollView(
                 child: SizedBox(
-                  width: 500,
+                  width: dIsMobile ? double.maxFinite : 500,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Print layout details
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
-                          Text('Receipt No: ${inv['invoice_number']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          Text('Date: $date', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                          Text('Receipt No: ${inv['invoice_number']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text('Date: $date', style: TextStyle(color: Colors.grey.shade600, fontSize: 11.5)),
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text('Patient: $patientName ($patientDisplayId)', style: const TextStyle(fontWeight: FontWeight.w600)),
-                      Text('Visit Type: ${inv['admission_type']}', style: const TextStyle(fontWeight: FontWeight.w500)),
-                      const Divider(height: 24, thickness: 1.2),
+                      Text('Patient: $patientName ($patientDisplayId)', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      const SizedBox(height: 2),
+                      Text('Visit Type: ${inv['admission_type']}', style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12.5)),
+                      const Divider(height: 20, thickness: 1.2),
                       
                       const Text('Items Billed:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor)),
                       const SizedBox(height: 8),
@@ -1950,12 +2150,12 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         return Padding(
                            padding: const EdgeInsets.symmetric(vertical: 4.0),
                            child: Row(
-                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                              children: [
-                               Expanded(child: Text(item['item_name'], style: const TextStyle(fontSize: 13))),
-                               Text('$qty x ₹${price.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                               const SizedBox(width: 24),
-                               Text('₹${sub.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                               Expanded(child: Text(item['item_name'], style: const TextStyle(fontSize: 12.5))),
+                               const SizedBox(width: 8),
+                               Text('$qty x ₹${price.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 11.5)),
+                               const SizedBox(width: 12),
+                               Text('₹${sub.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                              ],
                            ),
                         );
@@ -1992,27 +2192,8 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                             ),
                       
                       if (inv['payment_status'] != 'Paid') ...[
-                        const Divider(height: 24),
-                        if (!showPaymentForm)
-                          Center(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                final net = double.parse(inv['net_amount'].toString());
-                                final paid = double.parse(inv['paid_amount'].toString());
-                                final due = net - paid;
-                                collectAmtCtrl.text = due.toStringAsFixed(0);
-                                setDState(() => showPaymentForm = true);
-                              },
-                              icon: const Icon(Icons.payment),
-                              label: const Text('Collect Pending Payment'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppTheme.secondaryColor,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size(200, 44),
-                              ),
-                            ),
-                          )
-                        else
+                        if (showPaymentForm) ...[
+                          const Divider(height: 24),
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -2138,20 +2319,54 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                               ],
                             ),
                           )
+                        ]
                       ]
                     ],
                   ),
                 ),
               ),
               actions: [
-                ElevatedButton.icon(
-                  onPressed: () {
-                    // Trigger native print helper or dialog
-                    ScaffoldMessenger.of(dCtx).showSnackBar(const SnackBar(content: Text('Print job sent to default printer.')));
-                  },
-                  icon: const Icon(Icons.print),
-                  label: const Text('Print Receipt'),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    if (inv['payment_status'] != 'Paid' && !showPaymentForm)
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          final net = double.parse(inv['net_amount'].toString());
+                          final paid = double.parse(inv['paid_amount'].toString());
+                          final due = net - paid;
+                          collectAmtCtrl.text = due.toStringAsFixed(0);
+                          setDState(() => showPaymentForm = true);
+                        },
+                        icon: const Icon(Icons.payment, size: 17),
+                        label: const Text('Collect Payment'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.secondaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        // Trigger native print helper or dialog
+                        ScaffoldMessenger.of(dCtx).showSnackBar(const SnackBar(content: Text('Print job sent to default printer.')));
+                      },
+                      icon: const Icon(Icons.print, size: 17),
+                      label: const Text('Print Receipt'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             );
@@ -2314,9 +2529,9 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.getCardColor(context),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.borderColor),
+                  border: Border.all(color: AppTheme.getBorderColor(context)),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(

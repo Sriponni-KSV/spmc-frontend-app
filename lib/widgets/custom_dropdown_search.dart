@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
 
 class CustomDropdownSearch extends StatefulWidget {
   final String label;
@@ -89,6 +90,28 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     return {};
   }
 
+  /// Resolves the localized display string for [val], supporting exact match,
+  /// case-insensitive match, and prefix matching (e.g. 'Once Daily' -> 'Once Daily (1x/day)').
+  String _getDisplayValue(String? val) {
+    if (val == null || val.isEmpty) return '';
+    if (_allEntries.containsKey(val)) {
+      return _allEntries[val]!;
+    }
+    final lower = val.trim().toLowerCase();
+    for (final entry in _allEntries.entries) {
+      if (entry.key.trim().toLowerCase() == lower) {
+        return entry.value;
+      }
+    }
+    for (final entry in _allEntries.entries) {
+      final keyLower = entry.key.trim().toLowerCase();
+      if (keyLower.startsWith(lower) || lower.startsWith(keyLower)) {
+        return entry.value;
+      }
+    }
+    return val;
+  }
+
   /// Returns the effective placeholder text.
   /// Priority: explicit hint → auto-derived from label → generic fallback.
   String get _effectiveHint {
@@ -96,10 +119,12 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     if (widget.label.isNotEmpty) {
       final lower = widget.label.toLowerCase();
       // If the label already starts with 'select', use it directly
-      if (lower.startsWith('select')) return 'Select ${widget.label.substring(6).trim()}';
-      return 'Select ${widget.label}';
+      if (lower.startsWith('select')) {
+        return '${context.tr('select', fallback: 'Select')} ${widget.label.substring(6).trim()}';
+      }
+      return '${context.tr('select', fallback: 'Select')} ${widget.label}';
     }
-    return 'Select...';
+    return '${context.tr('select', fallback: 'Select')}...';
   }
 
   @override
@@ -109,7 +134,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
 
     _filteredItems = _allEntries.entries.toList();
 
-    final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
+    final displayValue = _getDisplayValue(widget.value);
     _textEditingController = TextEditingController(text: displayValue);
 
     _searchFocusNode.onKeyEvent = (node, event) => _handleKey(event);
@@ -171,14 +196,27 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     }
   }
 
+  void _safeMarkOverlayNeedsBuild() {
+    if (_overlayEntry == null || !_overlayEntry!.mounted) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _overlayEntry != null && _overlayEntry!.mounted) {
+          _overlayEntry!.markNeedsBuild();
+        }
+      });
+    } else {
+      _overlayEntry!.markNeedsBuild();
+    }
+  }
+
   /// Called by the framework when window metrics change (e.g. keyboard
   /// opens or closes). Rebuilds the overlay so it can reposition.
   @override
   void didChangeMetrics() {
     // Rebuild overlay so it can reposition when keyboard opens/closes.
-    if (_overlayEntry != null && _overlayEntry!.mounted) {
-      _overlayEntry!.markNeedsBuild();
-    }
+    _safeMarkOverlayNeedsBuild();
   }
 
   KeyEventResult _handleKey(KeyEvent event) {
@@ -189,18 +227,14 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         if (_highlightedIndex < _filteredItems.length - 1) {
           _highlightedIndex++;
           _scrollToHighlight();
-          if (_overlayEntry != null && _overlayEntry!.mounted) {
-            _overlayEntry!.markNeedsBuild();
-          }
+          _safeMarkOverlayNeedsBuild();
         }
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
         if (_highlightedIndex > 0) {
           _highlightedIndex--;
           _scrollToHighlight();
-          if (_overlayEntry != null && _overlayEntry!.mounted) {
-            _overlayEntry!.markNeedsBuild();
-          }
+          _safeMarkOverlayNeedsBuild();
         }
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.enter) {
@@ -284,7 +318,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     if (widget.value != oldWidget.value) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_searchFocusNode.hasFocus) {
-          final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
+          final displayValue = _getDisplayValue(widget.value);
           if (displayValue != _textEditingController.text) {
             _textEditingController.text = displayValue;
           }
@@ -299,6 +333,17 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         widget.dropdownMap != oldWidget.dropdownMap) {
       if (!_searchFocusNode.hasFocus) {
         _filteredItems = _allEntries.entries.toList();
+        final displayValue = _getDisplayValue(widget.value);
+        if (displayValue != _textEditingController.text) {
+          _textEditingController.text = displayValue;
+        }
+      }
+      if (_overlayEntry != null && _overlayEntry!.mounted) {
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _overlayEntry != null && _overlayEntry!.mounted) {
+            _overlayEntry!.markNeedsBuild();
+          }
+        });
       }
     }
   }
@@ -309,13 +354,15 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       if (query.isEmpty) {
         _filteredItems = _allEntries.entries.toList();
       } else {
+        final q = query.toLowerCase();
         _filteredItems = _allEntries.entries
             .where((entry) =>
-                entry.value.toLowerCase().contains(query.toLowerCase()))
+                entry.value.toLowerCase().contains(q) ||
+                entry.key.toLowerCase().contains(q))
             .toList();
       }
     });
-    _overlayEntry?.markNeedsBuild();
+    _safeMarkOverlayNeedsBuild();
   }
 
   void _toggleDropdown(FormFieldState<String> field) {
@@ -346,7 +393,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     _closeActiveDropdown = _hideDropdown;
 
     final currentText = _textEditingController.text.trim();
-    final selectedDisplay = _allEntries[widget.value] ?? widget.value ?? '';
+    final selectedDisplay = _getDisplayValue(widget.value);
     if (currentText.isEmpty || currentText == selectedDisplay) {
       _filteredItems = _allEntries.entries.toList();
     }
@@ -416,22 +463,23 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                 type: MaterialType.card,
                 elevation: 6,
                 borderRadius: BorderRadius.circular(12),
-                color: widget.popupBgColor ?? Colors.white,
+                color: widget.popupBgColor ?? (AppTheme.isDark(context) ? AppTheme.darkCardColor : Colors.white),
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onTap: () {}, // absorb taps inside overlay
                   child: Container(
                     decoration: BoxDecoration(
-                      color: widget.popupBgColor ?? Colors.white,
+                      color: widget.popupBgColor ?? (AppTheme.isDark(context) ? AppTheme.darkCardColor : Colors.white),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         width: 1,
-                        color: const Color(0xFF302861).withValues(alpha: 0.1),
+                        color: AppTheme.isDark(context) ? AppTheme.darkBorderColor : const Color(0xFF302861).withValues(alpha: 0.1),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color:
-                              const Color(0xFF302861).withValues(alpha: 0.08),
+                          color: AppTheme.isDark(context)
+                              ? Colors.black.withOpacity(0.3)
+                              : const Color(0xFF302861).withValues(alpha: 0.08),
                           blurRadius: 16,
                           offset: const Offset(0, 4),
                         ),
@@ -465,7 +513,13 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: Text(
-                                                  'Add "${_textEditingController.text.trim()}"',
+                                                  context.tr(
+                                                    'add_item',
+                                                    fallback: 'Add "{item}"',
+                                                    params: {
+                                                      'item': _textEditingController.text.trim(),
+                                                    },
+                                                  ),
                                                   style: const TextStyle(
                                                     fontFamily: 'Inter',
                                                     fontSize: 13,
@@ -483,10 +537,13 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                       padding: const EdgeInsets.all(16),
                                       alignment: Alignment.center,
                                       child: Text(
-                                        'No matching items found',
+                                        context.tr(
+                                          'no_matching_items_found',
+                                          fallback: 'No matching items found',
+                                        ),
                                         style: TextStyle(
                                           fontFamily: 'Inter',
-                                          color: Colors.grey.shade500,
+                                          color: AppTheme.isDark(context) ? AppTheme.darkTextSecondaryColor : Colors.grey.shade500,
                                           fontSize: 13,
                                         ),
                                       ),
@@ -541,11 +598,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                                 borderRadius:
                                                     BorderRadius.circular(6),
                                                 color: isSelected
-                                                    ? const Color(0xFF302861)
-                                                        .withValues(
-                                                            alpha: 0.06)
+                                                    ? AppTheme.primaryColor.withOpacity(0.12)
                                                     : (isHighlighted
-                                                        ? Colors.grey.shade100
+                                                        ? (AppTheme.isDark(context) ? Colors.white.withOpacity(0.06) : Colors.grey.shade100)
                                                         : Colors.transparent),
                                               ),
                                               child: Row(
@@ -557,9 +612,8 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                                           TextStyle(
                                                         fontFamily: 'Inter',
                                                         color: isSelected
-                                                            ? const Color(
-                                                                0xFF302861)
-                                                            : Colors.black87,
+                                                            ? AppTheme.primaryColor
+                                                            : (AppTheme.isDark(context) ? AppTheme.darkTextPrimaryColor : Colors.black87),
                                                         fontSize: 14,
                                                         fontWeight: isSelected
                                                             ? FontWeight.w600
@@ -572,7 +626,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                                       Icons.check,
                                                       size: 16,
                                                       color:
-                                                          Color(0xFF302861),
+                                                          AppTheme.primaryColor,
                                                     ),
                                                 ],
                                               ),
@@ -602,7 +656,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     }
   }
 
-  void _hideDropdown() {
+  /// Removes the overlay and resets tracking state WITHOUT calling setState.
+  /// Safe to call from deactivate() and dispose().
+  void _removeOverlaySilently() {
     if (_overlayEntry != null) {
       if (_overlayEntry!.mounted) {
         _overlayEntry!.remove();
@@ -613,7 +669,21 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       _closeActiveDropdown = null;
     }
     _highlightedIndex = 0;
+  }
+
+  void _hideDropdown() {
+    _removeOverlaySilently();
     if (mounted) setState(() {});
+  }
+
+  @override
+  void deactivate() {
+    // Must NOT call setState here — deactivate is called during the build
+    // phase when the widget is being removed from the tree (e.g. TabBarView
+    // scrolling). Calling setState at this point causes the
+    // "setState() called during build" assertion.
+    _removeOverlaySilently();
+    super.deactivate();
   }
 
   @override
@@ -621,15 +691,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     WidgetsBinding.instance.removeObserver(this);
     _searchFocusNode.removeListener(_onFocusChange);
     _mainFocusNode.removeListener(_onFocusChange);
-    if (_overlayEntry != null) {
-      if (_overlayEntry!.mounted) {
-        _overlayEntry!.remove();
-      }
-      _overlayEntry = null;
-    }
-    if (_closeActiveDropdown == _hideDropdown) {
-      _closeActiveDropdown = null;
-    }
+    _removeOverlaySilently();
     _textEditingController.dispose();
     _searchFocusNode.dispose();
     _mainFocusNode.dispose();
@@ -639,6 +701,22 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
 
   @override
   Widget build(BuildContext context) {
+    if (!_searchFocusNode.hasFocus) {
+      final expectedDisplay = _getDisplayValue(widget.value);
+      if (expectedDisplay.isNotEmpty &&
+          _textEditingController.text != expectedDisplay &&
+          (widget.value == null ||
+              widget.value!.isEmpty ||
+              _textEditingController.text.isEmpty ||
+              _textEditingController.text == widget.value ||
+              _allEntries.values.contains(_textEditingController.text) ||
+              _allEntries.keys.any((k) =>
+                  k.toLowerCase() ==
+                  _textEditingController.text.toLowerCase()))) {
+        _textEditingController.text = expectedDisplay;
+      }
+    }
+
     return Focus(
       focusNode: _mainFocusNode,
       child: Column(
@@ -653,7 +731,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                     text: widget.label,
                     style: TextStyle(
                       fontFamily: 'Manrope',
-                      color: Colors.grey.shade700,
+                      color: AppTheme.isDark(context)
+                          ? AppTheme.darkTextPrimaryColor
+                          : Colors.grey.shade700,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -686,14 +766,14 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                         e.key.toLowerCase() == rawText.toLowerCase() ||
                         e.value.toLowerCase() == rawText.toLowerCase());
                     if (!isKnown) {
-                      return 'Please select a valid option from the list';
+                      return context.tr('select_valid_option');
                     }
                   }
                   if (val != null && val.trim().isNotEmpty) {
                     final isValid = _allEntries.containsKey(val) ||
                         _allEntries.containsValue(val);
                     if (!isValid) {
-                      return 'Please select a valid option from the list';
+                      return context.tr('select_valid_option');
                     }
                   }
                 }
@@ -723,24 +803,33 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                         clipBehavior: Clip.none,
                         decoration: BoxDecoration(
                           color: widget.isEnabled
-                              ? (widget.fillColor ?? const Color(0xFFF1F5F9))
-                              : const Color(0xFFF9FAFB),
+                              ? (widget.fillColor ??
+                                  (AppTheme.isDark(context)
+                                      ? AppTheme.darkInputFillColor
+                                      : const Color(0xFFF1F5F9)))
+                              : (AppTheme.isDark(context)
+                                  ? const Color(0xFF1E293B)
+                                  : const Color(0xFFF9FAFB)),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                             width: field.hasError
                                 ? 1.5
                                 : _searchFocusNode.hasFocus
                                     ? (widget.focusedBorderWidth ?? 1.4)
-                                    : (widget.borderWidth ?? 0),
+                                    : (widget.borderWidth ?? (AppTheme.isDark(context) ? 1.0 : 0)),
                             color: field.hasError
                                 ? Colors.red
                                 : _searchFocusNode.hasFocus
                                     ? (widget.focusedBorderColor ??
-                                        const Color(0xFF302861))
+                                        AppTheme.primaryColor)
                                     : widget.isEnabled
                                         ? (widget.borderColor ??
-                                            Colors.transparent)
-                                        : const Color(0xFFE5E7EB),
+                                            (AppTheme.isDark(context)
+                                                ? AppTheme.darkBorderColor
+                                                : Colors.transparent))
+                                        : (AppTheme.isDark(context)
+                                            ? AppTheme.darkBorderColor
+                                            : const Color(0xFFE5E7EB)),
                           ),
                         ),
                         child: Row(
@@ -782,7 +871,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                   counterText: '',
                                   hintStyle: TextStyle(
                                     fontFamily: 'Inter',
-                                    color: const Color(0xFF9CA3AF),
+                                    color: AppTheme.isDark(context)
+                                        ? AppTheme.darkTextSecondaryColor.withOpacity(0.7)
+                                        : const Color(0xFF9CA3AF),
                                     fontSize: widget.hintFontSize ?? 14,
                                   ),
                                   border: InputBorder.none,
@@ -799,8 +890,12 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                 style: TextStyle(
                                   fontFamily: 'Inter',
                                   color: widget.isEnabled
-                                      ? const Color(0xFF1E293B)
-                                      : Colors.grey.shade500,
+                                      ? (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextPrimaryColor
+                                          : const Color(0xFF1E293B))
+                                      : (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextSecondaryColor
+                                          : Colors.grey.shade500),
                                   fontSize: 14,
                                   fontWeight: FontWeight.w400,
                                 ),
@@ -855,8 +950,12 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                       : Icons.keyboard_arrow_down_rounded,
                                   size: 22,
                                   color: widget.isEnabled
-                                      ? const Color(0xFF302861)
-                                      : Colors.grey.shade400,
+                                      ? (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextSecondaryColor
+                                          : const Color(0xFF302861))
+                                      : (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextSecondaryColor.withOpacity(0.5)
+                                          : Colors.grey.shade400),
                                 ),
                               ),
                             ),

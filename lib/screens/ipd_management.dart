@@ -14,6 +14,7 @@ import 'ipd_patient_detail_page.dart';
 import '../controllers/nurse_shift_controller.dart';
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
+import '../utils/app_localizations.dart';
 
 class IPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -224,12 +225,12 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   }
 
   Widget _buildHeader(String userRole) {
-    const headerTitle = 'IPD Management';
+    final headerTitle = context.tr('ipd_management', fallback: 'IPD Management');
     final headerSubtitle = userRole == 'Nurse'
-        ? 'Record vitals, administer medications, and manage nursing updates'
+        ? context.tr('ipd_nurse_subtitle', fallback: 'Record vitals, administer medications, and manage nursing updates')
         : userRole == 'Admin'
-        ? 'Monitor admissions, bed occupancy, and discharge workflows'
-        : 'Admit patients, review progress, and manage discharge decisions';
+        ? context.tr('ipd_admin_subtitle', fallback: 'Monitor admissions, bed occupancy, and discharge workflows')
+        : context.tr('ipd_doctor_subtitle', fallback: 'Admit patients, review progress, and manage discharge decisions');
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -351,9 +352,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
             SizedBox(
               width: 195,
               child: _buildStatCard(
-                'Currently Admitted',
+                context.tr('currently_admitted', fallback: 'Currently Admitted'),
                 _admittedCount.toString(),
-                'Patients in Wards',
+                context.tr('patients_in_wards', fallback: 'Patients in Wards'),
                 Icons.bedroom_child_outlined,
                 Colors.blue,
               ),
@@ -362,9 +363,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
             SizedBox(
               width: 195,
               child: _buildStatCard(
-                'Available Beds',
+                context.tr('available_beds', fallback: 'Available Beds'),
                 '$_availableBedsCount/${_beds.length}',
-                'Ready for intake',
+                context.tr('ready_for_intake', fallback: 'Ready for intake'),
                 Icons.hotel_outlined,
                 Colors.green,
               ),
@@ -373,9 +374,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
             SizedBox(
               width: 195,
               child: _buildStatCard(
-                'ICU Occupancy',
+                context.tr('icu_occupancy', fallback: 'ICU Occupancy'),
                 _icuOccupancy.toString(),
-                'Critical cases',
+                context.tr('critical_cases', fallback: 'Critical cases'),
                 Icons.local_hospital_outlined,
                 Colors.red,
               ),
@@ -391,9 +392,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         children: [
           Expanded(
             child: _buildStatCard(
-              'Currently Admitted',
+              context.tr('currently_admitted', fallback: 'Currently Admitted'),
               _admittedCount.toString(),
-              'Patients in Wards',
+              context.tr('patients_in_wards', fallback: 'Patients in Wards'),
               Icons.bedroom_child_outlined,
               Colors.blue,
             ),
@@ -401,9 +402,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
           const SizedBox(width: 16),
           Expanded(
             child: _buildStatCard(
-              'Available Beds',
+              context.tr('available_beds', fallback: 'Available Beds'),
               '$_availableBedsCount/${_beds.length}',
-              'Ready for intake',
+              context.tr('ready_for_intake', fallback: 'Ready for intake'),
               Icons.hotel_outlined,
               Colors.green,
             ),
@@ -411,9 +412,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
           const SizedBox(width: 16),
           Expanded(
             child: _buildStatCard(
-              'ICU Occupancy',
+              context.tr('icu_occupancy', fallback: 'ICU Occupancy'),
               _icuOccupancy.toString(),
-              'Critical cases',
+              context.tr('critical_cases', fallback: 'Critical cases'),
               Icons.local_hospital_outlined,
               Colors.red,
             ),
@@ -538,13 +539,13 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         isScrollable: widget.isMobile,
         tabAlignment: widget.isMobile ? TabAlignment.start : null,
         tabs: [
-          Tab(text: 'Active Wards ($activeCount)'),
-          Tab(text: 'Bed Availability ($availableBeds/$totalBeds)'),
-          Tab(text: 'Discharge History ($dischargeCount)'),
-          if (isDoctor) Tab(text: 'ICU Dashboard ($icuCount)'),
+          Tab(text: '${context.tr('tab_active_wards', fallback: 'Active Wards')} ($activeCount)'),
+          Tab(text: '${context.tr('tab_bed_availability', fallback: 'Bed Availability')} ($availableBeds/$totalBeds)'),
+          Tab(text: '${context.tr('tab_discharge_history', fallback: 'Discharge History')} ($dischargeCount)'),
+          if (isDoctor) Tab(text: '${context.tr('tab_icu_dashboard', fallback: 'ICU Dashboard')} ($icuCount)'),
           if (isNurse) ...[
-            Tab(text: 'Shift Handovers (${_handoversList.length})'),
-            Tab(text: 'Audit Trail (${_auditTrailList.length})'),
+            Tab(text: '${context.tr('tab_shift_handovers', fallback: 'Shift Handovers')} (${_handoversList.length})'),
+            Tab(text: '${context.tr('tab_audit_trail', fallback: 'Audit Trail')} (${_auditTrailList.length})'),
           ],
         ],
       ),
@@ -857,9 +858,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
           );
         },
         icon: const Icon(Icons.edit_note, size: 16, color: Colors.white),
-        label: const Text(
-          'Nursing Station',
-          style: TextStyle(color: Colors.white, fontSize: 12),
+        label: Text(
+          context.tr('nursing_station', fallback: 'Nursing Station'),
+          style: const TextStyle(color: Colors.white, fontSize: 12),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF0F5A8E),
@@ -868,9 +869,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       OutlinedButton.icon(
         onPressed: () => _showDischargeDialog(adm),
         icon: const Icon(Icons.logout, size: 16, color: Colors.red),
-        label: const Text(
-          'Discharge',
-          style: TextStyle(color: Colors.red, fontSize: 12),
+        label: Text(
+          context.tr('discharge_btn', fallback: 'Discharge'),
+          style: const TextStyle(color: Colors.red, fontSize: 12),
         ),
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: Colors.red),
@@ -1071,7 +1072,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
             trailing: TextButton.icon(
               onPressed: () => _showDischargeSummaryView(adm),
               icon: const Icon(Icons.description_outlined, size: 16),
-              label: const Text('View Summary'),
+              label: Text(context.tr('view_summary', fallback: 'View Summary')),
             ),
           ),
         );
@@ -3110,13 +3111,13 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.receipt_long, color: AppTheme.primaryColor),
-              SizedBox(width: 8),
+              const Icon(Icons.receipt_long, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
               Text(
-                'Discharge Summary Card',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                context.tr('discharge_summary_card', fallback: 'Discharge Summary Card'),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -3126,25 +3127,25 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildSummaryLabel('Patient Name', admission['patient_name']),
+                  _buildSummaryLabel(context.tr('patient_name_label', fallback: 'Patient Name'), admission['patient_name'] ?? 'N/A'),
                   _buildSummaryLabel(
-                    'Gender / Age',
-                    '${admission['patient_gender'] ?? '--'} / ${admission['patient_age'] ?? '--'} yrs',
+                    context.tr('gender_age_label', fallback: 'Gender / Age'),
+                    '${admission['patient_gender'] ?? '--'} / ${admission['patient_age'] ?? '--'} ${context.tr('years_abbr', fallback: 'yrs')}',
                   ),
                   _buildSummaryLabel(
-                    'Treating Doctor',
-                    admission['doctor_name'],
+                    context.tr('treating_doctor_label', fallback: 'Treating Doctor'),
+                    admission['doctor_name'] ?? 'N/A',
                   ),
                   _buildSummaryLabel(
-                    'Bed Number',
+                    context.tr('bed_number_label', fallback: 'Bed Number'),
                     '${admission['bed_number']} (${admission['ward_type']})',
                   ),
-                  _buildSummaryLabel('Admission Date', admitDate),
-                  _buildSummaryLabel('Discharge Date', dischargeDate),
+                  _buildSummaryLabel(context.tr('admission_date_label', fallback: 'Admission Date'), admitDate),
+                  _buildSummaryLabel(context.tr('discharge_date_label', fallback: 'Discharge Date'), dischargeDate),
                   const Divider(height: 24),
-                  const Text(
-                    'Discharge Advice & Summary:',
-                    style: TextStyle(
+                  Text(
+                    context.tr('discharge_advice_summary_label', fallback: 'Discharge Advice & Summary:'),
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                       color: AppTheme.primaryColor,
@@ -3160,7 +3161,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                       border: Border.all(color: Colors.grey.shade200),
                     ),
                     child: Text(
-                      admission['discharge_summary'] ?? 'No summary recorded.',
+                      admission['discharge_summary'] ?? context.tr('no_summary_recorded', fallback: 'No summary recorded.'),
                       style: const TextStyle(fontSize: 13, height: 1.4),
                     ),
                   ),
@@ -3171,7 +3172,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              child: Text(context.tr('close', fallback: 'Close')),
             ),
           ],
         );
