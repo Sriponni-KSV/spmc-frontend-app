@@ -170,10 +170,21 @@ class _NewPatientRegistrationViewState
   void initState() {
     super.initState();
     UnsavedChangesHelper.setUnsavedChanges(true);
+    // Register the browser Back-button guard so that pressing the browser
+    // Back button shows the Flutter confirmation dialog instead of silently
+    // navigating away and discarding unsaved data.
+    UnsavedChangesHelper.registerBackPressedHandler(_handleBrowserBack);
     if (widget.existingPatient != null) {
       _preFillForm();
     }
     _phoneController.addListener(_onPhoneChanged);
+  }
+
+  /// Called by the JS popstate guard when the user presses the browser Back
+  /// button while the form is open and contains unsaved data.
+  void _handleBrowserBack() {
+    if (!mounted) return;
+    _showDiscardDialog();
   }
 
   void _onPhoneChanged() {
@@ -502,7 +513,8 @@ class _NewPatientRegistrationViewState
 
   @override
   void dispose() {
-    UnsavedChangesHelper.setUnsavedChanges(false);
+    UnsavedChangesHelper.clear(); // clears both beforeunload + popstate guard
+    UnsavedChangesHelper.unregisterBackPressedHandler();
     _nameController.dispose();
     _dobController.dispose();
     _ageController.dispose();
@@ -3599,7 +3611,228 @@ class _NewPatientRegistrationViewState
     if (lower.contains('pincode')) return context.tr('enter_pincode', fallback: rawHint);
     if (lower.contains('gender')) return context.tr('select_gender', fallback: rawHint);
     if (lower.contains('blood')) return context.tr('select_blood_group', fallback: rawHint);
+    if (lower.contains('height')) return context.tr('enter_height_cm', fallback: rawHint);
+    if (lower.contains('weight')) return context.tr('enter_weight_kg', fallback: rawHint);
+    if (lower.contains('systolic')) return context.tr('enter_systolic_hint', fallback: rawHint);
+    if (lower.contains('diastolic')) return context.tr('enter_diastolic_hint', fallback: rawHint);
+    if (lower.contains('sugar')) return context.tr('enter_sugar_level_hint', fallback: rawHint);
+    if (lower.contains('temp')) return context.tr('enter_temperature_hint', fallback: rawHint);
+    if (lower.contains('allerg')) return context.tr('enter_allergies', fallback: rawHint);
+    if (lower.contains('pre-existing') || lower.contains('chronic')) {
+      return context.tr('enter_pre_existing_conditions', fallback: rawHint);
+    }
+    if (lower.contains('complaint') || lower.contains('describe current')) {
+      return context.tr('describe_health_complaints_hint', fallback: rawHint);
+    }
+    if (lower.contains('previous condition') ||
+        lower.contains('surgeries') ||
+        lower.contains('medication')) {
+      return context.tr('previous_medical_history_hint', fallback: rawHint);
+    }
+    if (lower.contains('occupat')) return context.tr('enter_occupation', fallback: rawHint);
+    if (lower.contains('physical activit')) return context.tr('enter_physical_activities', fallback: rawHint);
+    if (lower.contains('dietary') || lower.contains('eating pattern')) {
+      return context.tr('dietary_preferences_hint', fallback: rawHint);
+    }
+    if (lower == 'select status' || lower.contains('status')) {
+      return context.tr('select_status', fallback: rawHint);
+    }
+    if (lower == 'select frequency' || lower.contains('frequency')) {
+      return context.tr('select_frequency', fallback: rawHint);
+    }
+    if (lower.contains('describe daily')) {
+      return context.tr('describe_daily_physical_activities_hint', fallback: rawHint);
+    }
+    if (lower.contains('dd/mm/yyyy')) return context.tr('dob_hint', fallback: rawHint);
     return rawHint;
+  }
+
+  String _translateError(String rawError) {
+    final clean = rawError.trim();
+
+    // Full Name
+    if (clean == 'Please enter Full Name') {
+      return context.tr('please_enter_full_name', fallback: clean);
+    }
+    if (clean == 'Name must be at least 3 characters') {
+      return context.tr('name_min_chars', fallback: clean);
+    }
+    if (clean == 'Full Name cannot exceed 60 characters') {
+      return context.tr('name_max_chars', fallback: clean);
+    }
+
+    // Email
+    if (clean == 'Please enter Email Address') {
+      return context.tr('please_enter_email', fallback: clean);
+    }
+    if (clean == 'Email address cannot exceed 100 characters') {
+      return context.tr('email_max_chars', fallback: clean);
+    }
+    if (clean == 'Please enter a valid email address') {
+      return context.tr('valid_email', fallback: clean);
+    }
+
+    // Date of Birth & Gender
+    if (clean == 'Please enter Date of Birth') {
+      return context.tr('please_enter_dob', fallback: clean);
+    }
+    if (clean == 'Please select gender') {
+      return context.tr('please_select_gender', fallback: clean);
+    }
+
+    // Mobile Number
+    if (clean == 'Please enter Mobile Number') {
+      return context.tr('please_enter_mobile', fallback: clean);
+    }
+    if (clean == 'Mobile number must start with 6, 7, 8, or 9') {
+      return context.tr('mobile_start_digit', fallback: clean);
+    }
+    if (clean == 'Mobile number must be exactly 10 digits') {
+      return context.tr('mobile_exact_10_digits', fallback: clean);
+    }
+
+    // Emergency Contact
+    if (clean == 'Please enter Emergency Contact Name') {
+      return context.tr('please_enter_emergency_contact_name', fallback: clean);
+    }
+    if (clean == 'Emergency Contact Name cannot exceed 60 characters') {
+      return context.tr('emergency_contact_name_max_chars', fallback: clean);
+    }
+    if (clean == 'Please enter Relation') {
+      return context.tr('please_enter_relation', fallback: clean);
+    }
+    if (clean == 'Relation cannot exceed 20 characters') {
+      return context.tr('relation_max_chars', fallback: clean);
+    }
+    if (clean == 'Please enter Emergency Mobile Number') {
+      return context.tr('please_enter_emergency_mobile', fallback: clean);
+    }
+    if (clean == 'Emergency mobile number must start with 6, 7, 8, or 9') {
+      return context.tr('emergency_mobile_start_digit', fallback: clean);
+    }
+    if (clean == 'Emergency mobile number must be exactly 10 digits') {
+      return context.tr('emergency_mobile_exact_10_digits', fallback: clean);
+    }
+
+    // Address Line 1 & Line 2
+    if (clean == 'Please enter Address Line 1') {
+      return context.tr('please_enter_address_1', fallback: clean);
+    }
+    if (clean == 'Address Line 1 contains invalid special characters') {
+      return context.tr('address_1_invalid_chars', fallback: clean);
+    }
+    if (clean == 'Address Line 1 cannot exceed 150 characters') {
+      return context.tr('address_1_max_chars', fallback: clean);
+    }
+    if (clean == 'Address Line 2 contains invalid special characters') {
+      return context.tr('address_2_invalid_chars', fallback: clean);
+    }
+    if (clean == 'Address Line 2 cannot exceed 120 characters') {
+      return context.tr('address_2_max_chars', fallback: clean);
+    }
+
+    // District & Pincode
+    if (clean == 'Please select a valid District') {
+      return context.tr('please_select_district', fallback: clean);
+    }
+    if (clean == 'Please enter Pincode') {
+      return context.tr('please_enter_pincode', fallback: clean);
+    }
+    if (clean == 'Pincode must be exactly 6 digits') {
+      return context.tr('pincode_exact_6_digits', fallback: clean);
+    }
+    if (clean == 'Please enter a valid Tamil Nadu Pincode (starts with 6)') {
+      return context.tr('pincode_valid_tamilnadu_6', fallback: clean);
+    }
+    if (clean == 'Please enter a valid Tamil Nadu Pincode (starts with 60-64)') {
+      return context.tr('pincode_valid_tamilnadu_60_64', fallback: clean);
+    }
+
+    // Vitals
+    if (clean == 'Height must be a valid number') {
+      return context.tr('height_valid_number', fallback: clean);
+    }
+    if (clean == 'Height must be greater than 0') {
+      return context.tr('height_greater_than_0', fallback: clean);
+    }
+    if (clean == 'Height must be between 30 and 300 cm') {
+      return context.tr('height_between_30_300', fallback: clean);
+    }
+    if (clean == 'Weight must be a valid number') {
+      return context.tr('weight_valid_number', fallback: clean);
+    }
+    if (clean == 'Weight must be greater than 0') {
+      return context.tr('weight_greater_than_0', fallback: clean);
+    }
+    if (clean == 'Weight must be between 0.5 and 500 kg') {
+      return context.tr('weight_between_05_500', fallback: clean);
+    }
+
+    // Blood Pressure
+    if (clean == 'Systolic BP must be an integer') {
+      return context.tr('systolic_integer', fallback: clean);
+    }
+    if (clean == 'Systolic BP cannot be 0') {
+      return context.tr('systolic_cannot_be_zero', fallback: clean);
+    }
+    if (clean == 'Systolic BP must be between 90 and 300 mmHg' ||
+        clean == 'BP Systolic must be between 90 and 300 mmHg') {
+      return context.tr('bp_systolic_range', fallback: clean);
+    }
+    if (clean == 'Diastolic BP must be an integer') {
+      return context.tr('diastolic_integer', fallback: clean);
+    }
+    if (clean == 'Diastolic BP cannot be 0') {
+      return context.tr('diastolic_cannot_be_zero', fallback: clean);
+    }
+    if (clean == 'Diastolic BP must be between 50 and 180 mmHg' ||
+        clean == 'BP Diastolic must be between 50 and 180 mmHg') {
+      return context.tr('bp_diastolic_range', fallback: clean);
+    }
+
+    // Sugar & Temperature
+    if (clean == 'Sugar Level must be a number') {
+      return context.tr('sugar_number', fallback: clean);
+    }
+    if (clean == 'Sugar Level cannot be 0') {
+      return context.tr('sugar_cannot_be_zero', fallback: clean);
+    }
+    if (clean == 'Sugar Level must be between 30 and 600 mg/dL') {
+      return context.tr('sugar_range', fallback: clean);
+    }
+    if (clean == 'Temperature must be a number') {
+      return context.tr('temp_number', fallback: clean);
+    }
+    if (clean == 'Temperature cannot be 0') {
+      return context.tr('temp_cannot_be_zero', fallback: clean);
+    }
+    if (clean == 'Temperature must be between 90 and 115 °F') {
+      return context.tr('temperature_range', fallback: clean);
+    }
+
+    // Blood Group
+    if (clean == 'Please select a valid Blood Group') {
+      return context.tr('please_select_blood_group', fallback: clean);
+    }
+
+    // Medical Intake / Lifestyle
+    if (clean == 'Must contain alphabetic characters') {
+      return context.tr('must_contain_alphabetic', fallback: clean);
+    }
+    if (clean == 'Contains invalid special characters') {
+      return context.tr('contains_invalid_special_chars', fallback: clean);
+    }
+    if (clean == 'Only letters, spaces, and hyphens (-) are allowed') {
+      return context.tr('only_letters_spaces_hyphens', fallback: clean);
+    }
+    if (clean == 'Please select a valid smoking status from the list') {
+      return context.tr('please_select_smoking_status', fallback: clean);
+    }
+    if (clean == 'Please select a valid alcohol status from the list') {
+      return context.tr('please_select_alcohol_status', fallback: clean);
+    }
+
+    return clean;
   }
 
   Widget _buildLabel(String label) {
@@ -3666,7 +3899,12 @@ class _NewPatientRegistrationViewState
   }) {
     return TextFormField(
       controller: controller,
-      validator: validator,
+      validator: validator != null
+          ? (val) {
+              final err = validator(val);
+              return err != null ? _translateError(err) : null;
+            }
+          : null,
       onChanged: onChanged,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       maxLines: maxLines,
@@ -3743,7 +3981,12 @@ class _NewPatientRegistrationViewState
       dropdownItems: safeItems,
       value: (value != null && safeItems.contains(value)) ? value : null,
       onChanged: onChanged,
-      validator: validator,
+      validator: validator != null
+          ? (val) {
+              final err = validator(val);
+              return err != null ? _translateError(err) : null;
+            }
+          : null,
       height: 52, // Match the height of text fields in the form
       fillColor: AppTheme.isDark(context)
           ? AppTheme.darkInputFillColor

@@ -98,6 +98,9 @@ class PatientModel {
     return {
       'id': id,
       'patientId': patientId,
+      'patient_id': patientId,
+      'patient_display_id': patientId,
+      'display_id': patientId,
       'name': name,
       'dob': DateFormatter.toDb(dob),
       'age': age,

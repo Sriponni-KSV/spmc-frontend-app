@@ -3,6 +3,7 @@ import '../widgets/custom_dropdown_search.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
+import '../utils/date_formatter.dart';
 import '../models/appointment_model.dart';
 import '../models/user_model.dart';
 import '../controllers/appointment_controller.dart';
@@ -10,6 +11,7 @@ import '../controllers/admin_controller.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/appointment_details_dialog.dart';
 import '../utils/unsaved_changes_helper.dart';
+import '../utils/app_localizations.dart';
 
 class AdminAppointmentManagement extends StatefulWidget {
   const AdminAppointmentManagement({Key? key}) : super(key: key);
@@ -55,21 +57,51 @@ class _AdminAppointmentManagementState
   final ScrollController _hScroll = ScrollController();
 
   DateTime _parseTime(String timeStr) {
-    final clean = timeStr.trim();
-    final timeParts = clean.split(' ');
-    final hms = timeParts[0].split(':');
-    int hour = int.parse(hms[0]);
-    int minute = hms.length > 1 ? int.parse(hms[1]) : 0;
-    if (timeParts.length > 1) {
-      if (timeParts[1].toUpperCase() == 'PM' && hour < 12) hour += 12;
-      if (timeParts[1].toUpperCase() == 'AM' && hour == 12) hour = 0;
+    try {
+      final clean = timeStr.trim();
+      final timeParts = clean.split(' ');
+      final hms = timeParts[0].split(':');
+      int hour = int.parse(hms[0]);
+      int minute = hms.length > 1 ? int.parse(hms[1]) : 0;
+      if (timeParts.length > 1) {
+        if (timeParts[1].toUpperCase() == 'PM' && hour < 12) hour += 12;
+        if (timeParts[1].toUpperCase() == 'AM' && hour == 12) hour = 0;
+      }
+      return DateTime(2026, 1, 1, hour, minute);
+    } catch (_) {
+      return DateTime(2026, 1, 1, 9, 0);
     }
-    return DateTime(2026, 1, 1, hour, minute);
+  }
+
+  String _cleanDoctorName(String? name) {
+    if (name == null) return '';
+    return name.trim().toLowerCase().replaceAll(RegExp(r'^dr\.?\s*'), '');
   }
 
   String _normalizeTime(String timeStr) {
+    String clean = timeStr.trim();
+    if (clean.isEmpty) return '';
+    clean = clean.replaceAll(RegExp(r'\s+'), ' ');
+    final matchAmPm = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (matchAmPm != null) {
+      int hour = int.parse(matchAmPm.group(1)!);
+      String min = matchAmPm.group(2)!;
+      String period = matchAmPm.group(3)!.toUpperCase();
+      return '${hour.toString().padLeft(2, '0')}:$min $period';
+    }
+    final match24 = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(clean);
+    if (match24 != null) {
+      int hour = int.parse(match24.group(1)!);
+      String min = match24.group(2)!;
+      String period = hour >= 12 ? 'PM' : 'AM';
+      int h12 = hour % 12;
+      if (h12 == 0) h12 = 12;
+      return '${h12.toString().padLeft(2, '0')}:$min $period';
+    }
     try {
-      String clean = timeStr.trim();
       if (clean.toUpperCase().contains('AM') ||
           clean.toUpperCase().contains('PM')) {
         DateTime dt = DateFormat('h:mm a').parse(clean);
@@ -79,7 +111,7 @@ class _AdminAppointmentManagementState
         return DateFormat('hh:mm a').format(dt);
       }
     } catch (_) {
-      return timeStr.trim();
+      return clean;
     }
   }
 
@@ -137,8 +169,8 @@ class _AdminAppointmentManagementState
       try {
         doctor = _doctors.firstWhere(
           (d) =>
-              d.fullname.toLowerCase().trim() ==
-              doctorName.toLowerCase().trim(),
+              _cleanDoctorName(d.fullname) ==
+              _cleanDoctorName(doctorName),
         );
       } catch (_) {}
     }
@@ -176,11 +208,7 @@ class _AdminAppointmentManagementState
         date.day == now.day;
 
     return baseSlots.where((slot) {
-      final norm = _normalizeTime(slot);
-      // 1. Check if booked
-      if (occupiedSlots.contains(norm)) return false;
-
-      // 2. Check if past time for today (unless currently selected)
+      // If today, filter out past slots (unless currently selected)
       if (isToday && slot != currentSelectedTime) {
         try {
           DateTime slotTime = DateFormat('hh:mm a').parse(slot);
@@ -288,14 +316,27 @@ class _AdminAppointmentManagementState
       return;
     }
     // mode: 'edit' | 'cancel' | 'reschedule' | 'view' | 'reopen'
+    final bool isCompleted = appt.status == 'Completed';
+    if (isCompleted && mode == 'reschedule') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Completed appointments cannot be rescheduled.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final reasonCtrl = TextEditingController();
     String? selectedStatus = appt.status;
     String? selectedDoctor = appt.doctorName;
     DateTime? newDate;
     try {
-      newDate = DateFormat('dd/MM/yyyy').parse(appt.appointmentDate);
-    } catch (e) {}
+      newDate = DateFormatter.toDateTime(appt.appointmentDate);
+    } catch (e) {
+      newDate = DateTime.now();
+    }
     String? newTime = appt.appointmentTime;
     String? patientName = appt.patientName;
     String? department = appt.department;
@@ -331,8 +372,7 @@ class _AdminAppointmentManagementState
           if (a.id != null && a.id == appt.id) continue;
           if (a.status.toLowerCase() == 'cancelled') continue;
           if (doctor != null && doctor.trim().isNotEmpty) {
-            if (a.doctorName.toLowerCase().trim() !=
-                doctor.toLowerCase().trim()) {
+            if (_cleanDoctorName(a.doctorName) != _cleanDoctorName(doctor)) {
               continue;
             }
           }
@@ -620,7 +660,42 @@ class _AdminAppointmentManagementState
                       ],
 
                       // Date/time (edit/reschedule)
-                      if (mode == 'edit' || mode == 'reschedule') ...[
+                      if (isCompleted) ...[
+                        buildField(
+                          'Appointment Schedule',
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.borderColor),
+                            ),
+                            child: Row(
+                              children: const [
+                                Icon(
+                                  Icons.lock_outline,
+                                  size: 16,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Completed appointments cannot be rescheduled.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ] else if (mode == 'edit' || mode == 'reschedule') ...[
                         buildField(
                           'New Date',
                           InkWell(
@@ -748,16 +823,37 @@ class _AdminAppointmentManagementState
                                     gridDelegate:
                                         const SliverGridDelegateWithFixedCrossAxisCount(
                                       crossAxisCount: 3,
-                                      childAspectRatio: 2.5,
+                                      childAspectRatio: 2.3,
                                       crossAxisSpacing: 8,
                                       mainAxisSpacing: 8,
                                     ),
                                     itemCount: availableSlots.length,
                                     itemBuilder: (context, index) {
                                       final time = availableSlots[index];
+                                      final isOccupied = occupiedSlots
+                                          .contains(_normalizeTime(time));
                                       final isSelected = newTime == time;
+
                                       return InkWell(
                                         onTap: () {
+                                          if (isOccupied) {
+                                            setS(() {
+                                              slotConflictError =
+                                                  'Time slot $time is already occupied by another appointment. Selection is prevented.';
+                                            });
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Time slot $time is already booked for Dr. ${selectedDoctor ?? "this doctor"}. The system prevents selecting occupied slots.',
+                                                ),
+                                                backgroundColor: Colors.red,
+                                                duration:
+                                                    const Duration(seconds: 2),
+                                              ),
+                                            );
+                                            return;
+                                          }
                                           setS(() {
                                             newTime = time;
                                             slotConflictError = null;
@@ -766,30 +862,83 @@ class _AdminAppointmentManagementState
                                         borderRadius: BorderRadius.circular(8),
                                         child: Container(
                                           alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: isSelected
-                                                ? AppTheme.primaryColor
-                                                : Colors.white,
-                                            border: Border.all(
-                                              color: isSelected
-                                                  ? AppTheme.primaryColor
-                                                  : AppTheme.borderColor,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                            vertical: 4,
                                           ),
-                                          child: Text(
-                                            time,
-                                            style: TextStyle(
-                                              color: isSelected
-                                                  ? Colors.white
-                                                  : AppTheme.textPrimaryColor,
-                                              fontWeight: isSelected
-                                                  ? FontWeight.bold
-                                                  : FontWeight.normal,
-                                              fontSize: 12,
+                                          decoration: BoxDecoration(
+                                            color: isOccupied
+                                                ? const Color(0xFFF1F5F9)
+                                                : isSelected
+                                                    ? AppTheme.primaryColor
+                                                    : Colors.white,
+                                            border: Border.all(
+                                              color: isOccupied
+                                                  ? Colors.red.shade200
+                                                  : isSelected
+                                                      ? AppTheme.primaryColor
+                                                      : AppTheme.borderColor,
+                                              width: isSelected ? 1.5 : 1.0,
                                             ),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                time,
+                                                style: TextStyle(
+                                                  color: isOccupied
+                                                      ? Colors.grey.shade600
+                                                      : isSelected
+                                                          ? Colors.white
+                                                          : AppTheme
+                                                              .textPrimaryColor,
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.bold
+                                                      : FontWeight.w500,
+                                                  fontSize: 11,
+                                                  decoration: isOccupied
+                                                      ? TextDecoration
+                                                          .lineThrough
+                                                      : null,
+                                                ),
+                                              ),
+                                              if (isOccupied) ...[
+                                                const SizedBox(height: 2),
+                                                Container(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(
+                                                    horizontal: 4,
+                                                    vertical: 1,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red.shade50,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                      4,
+                                                    ),
+                                                    border: Border.all(
+                                                      color:
+                                                          Colors.red.shade200,
+                                                      width: 0.5,
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    'Booked',
+                                                    style: TextStyle(
+                                                      color:
+                                                          Colors.red.shade700,
+                                                      fontSize: 8.5,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
                                           ),
                                         ),
                                       );
@@ -929,7 +1078,19 @@ class _AdminAppointmentManagementState
                             });
                             return;
                           }
-                          if (mode == 'edit' || mode == 'reschedule') {
+                          if (isCompleted && mode == 'reschedule') {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Completed appointments cannot be rescheduled.',
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+                          if (!isCompleted &&
+                              (mode == 'edit' || mode == 'reschedule')) {
                             if (newDate == null) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
@@ -959,12 +1120,12 @@ class _AdminAppointmentManagementState
                             )) {
                               setS(() {
                                 slotConflictError =
-                                    'The selected time slot ($newTime) is already booked. Please choose an available slot.';
+                                    'The selected time slot ($newTime) is already booked. Selection is prevented.';
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    'Time slot $newTime is already booked for Dr. ${selectedDoctor ?? "this doctor"}. Please select another slot.',
+                                    'Time slot $newTime is already booked for Dr. ${selectedDoctor ?? "this doctor"}. The system prevents selecting occupied slots.',
                                   ),
                                   backgroundColor: Colors.red,
                                 ),
@@ -984,14 +1145,18 @@ class _AdminAppointmentManagementState
                                   ? selectedDoctor
                                   : null,
                               appointmentDate:
-                                  (mode == 'reschedule' || mode == 'edit') &&
-                                      newDate != null
-                                  ? DateFormat('yyyy-MM-dd').format(newDate!)
-                                  : null,
+                                  !isCompleted &&
+                                          (mode == 'reschedule' ||
+                                              mode == 'edit') &&
+                                          newDate != null
+                                      ? DateFormat('yyyy-MM-dd').format(newDate!)
+                                      : null,
                               appointmentTime:
-                                  (mode == 'reschedule' || mode == 'edit')
-                                  ? newTime
-                                  : null,
+                                  !isCompleted &&
+                                          (mode == 'reschedule' ||
+                                              mode == 'edit')
+                                      ? newTime
+                                      : null,
                               patientName: mode == 'edit' ? patientName : null,
                               department: mode == 'edit' ? department : null,
                               appointmentType: mode == 'edit'
@@ -2052,7 +2217,7 @@ class _AdminAppointmentManagementState
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Text(
-            'Page ${_currentPage + 1} of $totalPages',
+            context.pageOfTotal(_currentPage + 1, totalPages),
             style: const TextStyle(
               fontSize: 13,
               color: AppTheme.textSecondaryColor,
@@ -2078,9 +2243,9 @@ class _AdminAppointmentManagementState
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.chevron_left, size: 18),
-                Text('Prev'),
+              children: [
+                const Icon(Icons.chevron_left, size: 18),
+                Text(context.tr('prev', fallback: 'Prev')),
               ],
             ),
           ),
@@ -2103,9 +2268,9 @@ class _AdminAppointmentManagementState
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text('Next'),
-                Icon(Icons.chevron_right, size: 18),
+              children: [
+                Text(context.tr('next', fallback: 'Next')),
+                const Icon(Icons.chevron_right, size: 18),
               ],
             ),
           ),

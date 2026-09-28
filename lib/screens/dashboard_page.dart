@@ -3125,7 +3125,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return 'Please enter your bio / professional summary';
+                              return context.tr('enter_bio_summary', fallback: 'Please enter your bio / professional summary');
                             }
                             if (!RegExp(r'[a-zA-Z]').hasMatch(value)) {
                               return 'Bio must contain letters and cannot consist only of special characters or numbers';
@@ -3140,8 +3140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           },
                           decoration: InputDecoration(
                             counterText: '',
-                            hintText:
-                                'Share a brief summary of your expertise...',
+                            hintText: context.tr('bio_summary_hint', fallback: 'Share a brief summary of your expertise...'),
                             hintStyle: const TextStyle(
                               color: Colors.grey,
                               fontSize: 14,
@@ -5023,7 +5022,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Showing ${startIndex + 1} to $endIndex of $totalItems entries',
+                                context.showingEntries(start: startIndex + 1, end: endIndex, total: totalItems),
                                 style: const TextStyle(
                                   color: AppTheme.textSecondaryColor,
                                   fontSize: 13,
@@ -5038,7 +5037,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         : null,
                                   ),
                                   Text(
-                                    'Page ${_appointmentsCurrentPage + 1} of $totalPages',
+                                    context.pageOfTotal(_appointmentsCurrentPage + 1, totalPages),
                                     style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,

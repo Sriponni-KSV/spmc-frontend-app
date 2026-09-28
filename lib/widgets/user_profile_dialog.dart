@@ -133,7 +133,7 @@ class UserProfileDialog extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      user.role,
+                      context.translateRole(user.role),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

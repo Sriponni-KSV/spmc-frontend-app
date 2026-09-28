@@ -1714,7 +1714,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         children: [
           Expanded(
             child: Text(
-              'Page ${_staffCurrentPage + 1} of $totalPages',
+              context.pageOfTotal(_staffCurrentPage + 1, totalPages),
               style: const TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondaryColor,
@@ -1745,9 +1745,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.chevron_left, size: 16),
-                    Text('Prev', style: TextStyle(fontSize: 12)),
+                  children: [
+                    const Icon(Icons.chevron_left, size: 16),
+                    Text(context.tr('previous'), style: const TextStyle(fontSize: 12)),
                   ],
                 ),
               ),
@@ -1770,9 +1770,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Text('Next', style: TextStyle(fontSize: 12)),
-                    Icon(Icons.chevron_right, size: 16),
+                  children: [
+                    Text(context.tr('next'), style: const TextStyle(fontSize: 12)),
+                    const Icon(Icons.chevron_right, size: 16),
                   ],
                 ),
               ),
@@ -5547,6 +5547,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildAdminHomeVisitCare(bool isMobile) {
     if (_selectedHomeVisitId != null) {
       return HomeVisitExecutionScreen(
+        key: ValueKey('admin_home_visit_${_selectedHomeVisitId}'),
         visitId: _selectedHomeVisitId!,
         isReadOnlyView: true,
         onBack: () {
@@ -8189,7 +8190,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         children: [
           Expanded(
             child: Text(
-              'Page ${_medCatalogCurrentPage + 1} of $totalPages',
+              context.pageOfTotal(_medCatalogCurrentPage + 1, totalPages),
               style: const TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondaryColor,
@@ -8220,9 +8221,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.chevron_left, size: 16),
-                    Text('Prev', style: TextStyle(fontSize: 12)),
+                  children: [
+                    const Icon(Icons.chevron_left, size: 16),
+                    Text(context.tr('previous'), style: const TextStyle(fontSize: 12)),
                   ],
                 ),
               ),
@@ -8245,9 +8246,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Text('Next', style: TextStyle(fontSize: 12)),
-                    Icon(Icons.chevron_right, size: 16),
+                  children: [
+                    Text(context.tr('next'), style: const TextStyle(fontSize: 12)),
+                    const Icon(Icons.chevron_right, size: 16),
                   ],
                 ),
               ),

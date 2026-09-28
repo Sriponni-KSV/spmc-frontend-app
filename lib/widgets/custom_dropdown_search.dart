@@ -90,6 +90,28 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     return {};
   }
 
+  /// Resolves the localized display string for [val], supporting exact match,
+  /// case-insensitive match, and prefix matching (e.g. 'Once Daily' -> 'Once Daily (1x/day)').
+  String _getDisplayValue(String? val) {
+    if (val == null || val.isEmpty) return '';
+    if (_allEntries.containsKey(val)) {
+      return _allEntries[val]!;
+    }
+    final lower = val.trim().toLowerCase();
+    for (final entry in _allEntries.entries) {
+      if (entry.key.trim().toLowerCase() == lower) {
+        return entry.value;
+      }
+    }
+    for (final entry in _allEntries.entries) {
+      final keyLower = entry.key.trim().toLowerCase();
+      if (keyLower.startsWith(lower) || lower.startsWith(keyLower)) {
+        return entry.value;
+      }
+    }
+    return val;
+  }
+
   /// Returns the effective placeholder text.
   /// Priority: explicit hint → auto-derived from label → generic fallback.
   String get _effectiveHint {
@@ -97,7 +119,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     if (widget.label.isNotEmpty) {
       final lower = widget.label.toLowerCase();
       // If the label already starts with 'select', use it directly
-      if (lower.startsWith('select')) return 'Select ${widget.label.substring(6).trim()}';
+      if (lower.startsWith('select')) {
+        return '${context.tr('select', fallback: 'Select')} ${widget.label.substring(6).trim()}';
+      }
       return '${context.tr('select', fallback: 'Select')} ${widget.label}';
     }
     return '${context.tr('select', fallback: 'Select')}...';
@@ -110,7 +134,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
 
     _filteredItems = _allEntries.entries.toList();
 
-    final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
+    final displayValue = _getDisplayValue(widget.value);
     _textEditingController = TextEditingController(text: displayValue);
 
     _searchFocusNode.onKeyEvent = (node, event) => _handleKey(event);
@@ -172,14 +196,27 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     }
   }
 
+  void _safeMarkOverlayNeedsBuild() {
+    if (_overlayEntry == null || !_overlayEntry!.mounted) return;
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    if (phase == SchedulerPhase.persistentCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _overlayEntry != null && _overlayEntry!.mounted) {
+          _overlayEntry!.markNeedsBuild();
+        }
+      });
+    } else {
+      _overlayEntry!.markNeedsBuild();
+    }
+  }
+
   /// Called by the framework when window metrics change (e.g. keyboard
   /// opens or closes). Rebuilds the overlay so it can reposition.
   @override
   void didChangeMetrics() {
     // Rebuild overlay so it can reposition when keyboard opens/closes.
-    if (_overlayEntry != null && _overlayEntry!.mounted) {
-      _overlayEntry!.markNeedsBuild();
-    }
+    _safeMarkOverlayNeedsBuild();
   }
 
   KeyEventResult _handleKey(KeyEvent event) {
@@ -190,18 +227,14 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         if (_highlightedIndex < _filteredItems.length - 1) {
           _highlightedIndex++;
           _scrollToHighlight();
-          if (_overlayEntry != null && _overlayEntry!.mounted) {
-            _overlayEntry!.markNeedsBuild();
-          }
+          _safeMarkOverlayNeedsBuild();
         }
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
         if (_highlightedIndex > 0) {
           _highlightedIndex--;
           _scrollToHighlight();
-          if (_overlayEntry != null && _overlayEntry!.mounted) {
-            _overlayEntry!.markNeedsBuild();
-          }
+          _safeMarkOverlayNeedsBuild();
         }
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.enter) {
@@ -285,7 +318,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     if (widget.value != oldWidget.value) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (mounted && !_searchFocusNode.hasFocus) {
-          final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
+          final displayValue = _getDisplayValue(widget.value);
           if (displayValue != _textEditingController.text) {
             _textEditingController.text = displayValue;
           }
@@ -300,13 +333,17 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         widget.dropdownMap != oldWidget.dropdownMap) {
       if (!_searchFocusNode.hasFocus) {
         _filteredItems = _allEntries.entries.toList();
-        final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
+        final displayValue = _getDisplayValue(widget.value);
         if (displayValue != _textEditingController.text) {
           _textEditingController.text = displayValue;
         }
       }
       if (_overlayEntry != null && _overlayEntry!.mounted) {
-        _overlayEntry!.markNeedsBuild();
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _overlayEntry != null && _overlayEntry!.mounted) {
+            _overlayEntry!.markNeedsBuild();
+          }
+        });
       }
     }
   }
@@ -325,7 +362,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
             .toList();
       }
     });
-    _overlayEntry?.markNeedsBuild();
+    _safeMarkOverlayNeedsBuild();
   }
 
   void _toggleDropdown(FormFieldState<String> field) {
@@ -356,7 +393,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     _closeActiveDropdown = _hideDropdown;
 
     final currentText = _textEditingController.text.trim();
-    final selectedDisplay = _allEntries[widget.value] ?? widget.value ?? '';
+    final selectedDisplay = _getDisplayValue(widget.value);
     if (currentText.isEmpty || currentText == selectedDisplay) {
       _filteredItems = _allEntries.entries.toList();
     }
@@ -476,7 +513,13 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                               const SizedBox(width: 8),
                                               Expanded(
                                                 child: Text(
-                                                  'Add "${_textEditingController.text.trim()}"',
+                                                  context.tr(
+                                                    'add_item',
+                                                    fallback: 'Add "{item}"',
+                                                    params: {
+                                                      'item': _textEditingController.text.trim(),
+                                                    },
+                                                  ),
                                                   style: const TextStyle(
                                                     fontFamily: 'Inter',
                                                     fontSize: 13,
@@ -494,7 +537,10 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                       padding: const EdgeInsets.all(16),
                                       alignment: Alignment.center,
                                       child: Text(
-                                        'No matching items found',
+                                        context.tr(
+                                          'no_matching_items_found',
+                                          fallback: 'No matching items found',
+                                        ),
                                         style: TextStyle(
                                           fontFamily: 'Inter',
                                           color: AppTheme.isDark(context) ? AppTheme.darkTextSecondaryColor : Colors.grey.shade500,
@@ -610,7 +656,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     }
   }
 
-  void _hideDropdown() {
+  /// Removes the overlay and resets tracking state WITHOUT calling setState.
+  /// Safe to call from deactivate() and dispose().
+  void _removeOverlaySilently() {
     if (_overlayEntry != null) {
       if (_overlayEntry!.mounted) {
         _overlayEntry!.remove();
@@ -621,7 +669,21 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       _closeActiveDropdown = null;
     }
     _highlightedIndex = 0;
+  }
+
+  void _hideDropdown() {
+    _removeOverlaySilently();
     if (mounted) setState(() {});
+  }
+
+  @override
+  void deactivate() {
+    // Must NOT call setState here — deactivate is called during the build
+    // phase when the widget is being removed from the tree (e.g. TabBarView
+    // scrolling). Calling setState at this point causes the
+    // "setState() called during build" assertion.
+    _removeOverlaySilently();
+    super.deactivate();
   }
 
   @override
@@ -629,15 +691,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     WidgetsBinding.instance.removeObserver(this);
     _searchFocusNode.removeListener(_onFocusChange);
     _mainFocusNode.removeListener(_onFocusChange);
-    if (_overlayEntry != null) {
-      if (_overlayEntry!.mounted) {
-        _overlayEntry!.remove();
-      }
-      _overlayEntry = null;
-    }
-    if (_closeActiveDropdown == _hideDropdown) {
-      _closeActiveDropdown = null;
-    }
+    _removeOverlaySilently();
     _textEditingController.dispose();
     _searchFocusNode.dispose();
     _mainFocusNode.dispose();
@@ -647,6 +701,22 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
 
   @override
   Widget build(BuildContext context) {
+    if (!_searchFocusNode.hasFocus) {
+      final expectedDisplay = _getDisplayValue(widget.value);
+      if (expectedDisplay.isNotEmpty &&
+          _textEditingController.text != expectedDisplay &&
+          (widget.value == null ||
+              widget.value!.isEmpty ||
+              _textEditingController.text.isEmpty ||
+              _textEditingController.text == widget.value ||
+              _allEntries.values.contains(_textEditingController.text) ||
+              _allEntries.keys.any((k) =>
+                  k.toLowerCase() ==
+                  _textEditingController.text.toLowerCase()))) {
+        _textEditingController.text = expectedDisplay;
+      }
+    }
+
     return Focus(
       focusNode: _mainFocusNode,
       child: Column(
@@ -696,14 +766,14 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                         e.key.toLowerCase() == rawText.toLowerCase() ||
                         e.value.toLowerCase() == rawText.toLowerCase());
                     if (!isKnown) {
-                      return 'Please select a valid option from the list';
+                      return context.tr('select_valid_option');
                     }
                   }
                   if (val != null && val.trim().isNotEmpty) {
                     final isValid = _allEntries.containsKey(val) ||
                         _allEntries.containsValue(val);
                     if (!isValid) {
-                      return 'Please select a valid option from the list';
+                      return context.tr('select_valid_option');
                     }
                   }
                 }

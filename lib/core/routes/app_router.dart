@@ -16,7 +16,6 @@ import '../../screens/front_desk_dashboard.dart';
 import '../../screens/lab_dashboard.dart';
 import '../../screens/pharmacy_dashboard.dart';
 import '../../screens/ipd_patient_detail_page.dart';
-import '../../utils/modal_history_helper.dart';
 import '../../utils/modal_history_observer.dart';
 import 'route_constants.dart';
 import 'screens/not_found_screen.dart';
@@ -64,11 +63,13 @@ class AppRouter {
     return null;
   }
 
-  static GoRouter createRouter(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  static GoRouter? _cachedRouter;
+
+  static GoRouter getRouter(AuthProvider authProvider) {
+    if (_cachedRouter != null) return _cachedRouter!;
     ModalHistoryHelper.initialize(parentNavigatorKey);
 
-    return GoRouter(
+    _cachedRouter = GoRouter(
       navigatorKey: parentNavigatorKey,
       initialLocation: AppRoutes.login,
       debugLogDiagnostics: true,
@@ -845,5 +846,12 @@ class AppRouter {
       // 🔍 404 UNKNOWN ROUTE HANDLING
       errorBuilder: (context, state) => const NotFoundScreen(),
     );
+    return _cachedRouter!;
+  }
+
+  static GoRouter createRouter(BuildContext context) {
+    if (_cachedRouter != null) return _cachedRouter!;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    return getRouter(authProvider);
   }
 }

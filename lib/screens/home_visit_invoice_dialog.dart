@@ -3,6 +3,7 @@ import '../utils/app_theme.dart';
 import '../models/home_visit_model.dart';
 import '../utils/app_localizations.dart';
 import '../utils/tamil_transliteration_helper.dart';
+import '../utils/modal_history_helper.dart';
 
 class HomeVisitInvoiceDialog extends StatelessWidget {
   final Map<String, dynamic> invoiceData;
@@ -422,6 +423,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
               child: ElevatedButton(
                 style: AppTheme.dangerButton,
                 onPressed: () {
+                  ModalHistoryHelper.skipNextHistoryBack();
                   Navigator.of(context).pop();
                   if (onCloseAndComplete != null) {
                     onCloseAndComplete!();
