@@ -359,6 +359,12 @@ class AppLocalizations {
       'resume_visit': 'Resume Visit',
       'stop_care_plan': 'Stop Care Plan',
       'patient_label': 'Patient:',
+      'edit_entry': 'Edit Entry',
+      'delete_entry': 'Delete Entry',
+      'save_schedule_config': 'Save Schedule Config',
+      'vitals_schedule_updated': 'Vitals schedule configuration updated successfully!',
+      'home_visit_details': 'Home Visit Details',
+      'visit_not_found': 'Visit not found or failed to load.',
       'tab_kit_devices': 'Kit & Devices',
       'tab_vitals': 'Vitals',
       'tab_nursing_care': 'Nursing Care & Dressing',
@@ -625,6 +631,10 @@ class AppLocalizations {
       'no_matching_patients': 'No matching patients found',
       'book': 'Book',
       'quick_search': 'Quick search...',
+      'search_patients_placeholder': 'Search patients by name, ID, phone, or actions...',
+      'to_close': 'to close',
+      'high_risk': 'High Risk',
+      'hypertension': 'Hypertension',
       'view_details': 'View Details',
       'book_appt': 'Book Appt.',
       'book_pediatric': 'Book Pediatric',
@@ -874,6 +884,10 @@ class AppLocalizations {
       'verify_visit_generate_invoice':
           'Verify Visit & Generate Billing Invoice',
       'home_visit_completed_verified': 'Home Visit Completed & Verified',
+      'visit_completed_invoice_generated':
+          "Today's home visit marked as Completed & invoice generated!",
+      'visit_complete_invoice_failed':
+          'Failed to complete visit and generate invoice. Please try again.',
       'verified_attender_name': 'Verified Attender Name',
       'all_entries': 'All Entries',
       'todays_entries': "Today's Entries",
@@ -1214,6 +1228,41 @@ class AppLocalizations {
       'vitals_height': 'Height (cm)',
       'initial_entry': 'Initial Entry',
 
+      // Home Visit Care History Labels
+      'care_activities_logged': 'Care Activities & Observations Logged',
+      'notes_prefix': 'Notes: ',
+      'dressing_prefix': 'Dressing: ',
+      'nail_trimming_done_badge': '✓ Nail Trimming & Hygiene Done',
+      'other_care_prefix': 'Other Care: ',
+
+      // Home Visit Snackbar Messages
+      'procedure_recorded_success': 'Procedure recorded successfully',
+      'procedure_updated_success': 'Procedure updated successfully',
+      'failed_to_save_procedure': 'Failed to save procedure',
+      'medicine_updated_success': 'Medicine updated successfully',
+      'medicine_recorded_success': 'Medicine recorded successfully',
+      'failed_to_save_medicine': 'Failed to save medicine',
+
+      // Attender Verification Form
+      'visit_care_feedback_label': 'Visit & Care Feedback / Remarks',
+      'feedback_hint': 'Speak or type attender feedback, patient condition, care remarks...',
+      'attender_name_hint_full': 'Full Name (Min 3, Max 30 chars)',
+      'attender_relation_hint': 'e.g. Son, Spouse, Daughter',
+      'recorded_visit_feedback': 'Recorded Visit & Care Feedback',
+      'draw_signature_hint_short': 'Draw attender signature here',
+
+      // Quick Feedback Chips
+      'chip_patient_stable': 'Patient is stable and comfortable',
+      'chip_medication_on_time': 'Medication administered on time',
+      'chip_vitals_normal': 'Vitals checked and normal',
+      'chip_wound_dressing': 'Wound dressing changed cleanly',
+      'chip_attender_satisfied': 'Attender satisfied with home care',
+      'chip_patient_diet': 'Patient advised on diet & hydration',
+      'chip_catheter_care': 'Catheter & hygiene care provided',
+
+      'items_badge': 'Item(s)',
+      'procedures_badge': 'Procedure(s)',
+
       // Home Visit Care Form Validations
       'enter_bp_systolic_error': 'Please enter Systolic BP',
       'systolic_bp_range_error': 'Please enter Systolic BP between 70-250 mmHg',
@@ -1251,10 +1300,16 @@ class AppLocalizations {
       'dressing_max_500': 'Dressing details cannot exceed 500 characters',
       'dressing_must_contain_letters':
           'Dressing details must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols',
+      'dressing_invalid_chars':
+          'Dressing details contains invalid special characters',
+      'nursing_notes_invalid_chars':
+          'Nursing notes contains invalid special characters',
       'personal_care_max_500':
           'Personal care details cannot exceed 500 characters',
       'personal_care_must_contain_letters':
           'Personal care details must contain alphabetical or Tamil characters and cannot consist solely of numbers or symbols',
+      'personal_care_invalid_chars':
+          'Personal care details contains invalid special characters',
       'enter_at_least_one_care_activity':
           'Please enter at least one nursing note, dressing procedure, or personal care activity',
       'enter_custom_kit_name': 'Please enter a custom kit item name',
@@ -1282,6 +1337,19 @@ class AppLocalizations {
       'attender_name_min_valid': 'Please enter valid attender name (min 3 chars).',
       'attender_name_full_min_valid': 'Please enter attender full name (min 3 chars).',
       'attender_relationship_specify': 'Please specify attender relationship.',
+      'kit_device_added_success': 'Kit item / device added successfully',
+      'failed_to_add_kit_item': 'Failed to add kit item',
+      'no_kit_items_added': 'No kit items or medical devices added yet.',
+      'no_kit_items_kit_tab':
+          'No kit items or medical devices added yet in Kit & Devices tab.',
+      'custom_kit_item_label': 'Custom Kit Item Name',
+      'custom_kit_device_hint': 'Enter Custom Kit Item / Device Name *',
+      'custom_kit_name_hint': 'Enter Custom Kit Item Name *',
+      'remove_kit_item': 'Remove Kit Item',
+      'entries_count': '{count} Entry(ies)',
+      'select_valid_option': 'Please select a valid option from the list',
+      'select_add_devices_subtitle': 'Select and add devices using the form above.',
+      'remove_kit_item_confirm': 'Are you sure you want to remove "{name}"?',
 
       // Nurse Module Localization
       'invalid_file_format_cert':
@@ -1814,6 +1882,12 @@ class AppLocalizations {
       'resume_visit': 'வருகையைத் தொடரவும்',
       'stop_care_plan': 'பராமரிப்புத் திட்டத்தை நிறுத்து',
       'patient_label': 'நோயாளி:',
+      'edit_entry': 'பதிவைத் திருத்து',
+      'delete_entry': 'பதிவை நீக்கு',
+      'save_schedule_config': 'அட்டவணை அமைப்பை சேமி',
+      'vitals_schedule_updated': 'உயிரளவுகள் அட்டவணை அமைப்பு வெற்றிகரமாக புதுப்பிக்கப்பட்டது!',
+      'home_visit_details': 'வீட்டுப் பராமரிப்பு விவரங்கள்',
+      'visit_not_found': 'வருகை காணப்படவில்லை அல்லது ஏற்றுவதில் தோல்வி.',
       'tab_kit_devices': 'கிட் மற்றும் உபகரணங்கள்',
       'tab_vitals': 'முக்கிய அளவீடுகள் (Vitals)',
       'tab_nursing_care': 'செவிலியர் பராமரிப்பு மற்றும் டிரஸ்ஸிங்',
@@ -2088,6 +2162,10 @@ class AppLocalizations {
       'no_matching_patients': 'பொருந்தும் நோயாளிகள் யாரும் இல்லை',
       'book': 'முன்பதிவு',
       'quick_search': 'விரைவு தேடல்...',
+      'search_patients_placeholder': 'நோயாளியை பெயர், ID, தொலைபேசி அல்லது செயல்கள் மூலம் தேடவும்...',
+      'to_close': 'மூட',
+      'high_risk': 'அதிக ஆபத்து',
+      'hypertension': 'உயர் இரத்த அழுத்தம்',
       'view_details': 'விவரங்களைக் காண்க',
       'book_appt': 'முன்பதிவு செய்க',
       'book_pediatric': 'குழந்தை முன்பதிவு',
@@ -2321,6 +2399,10 @@ class AppLocalizations {
           'வருகையைச் சரிபார்த்து பில்லிங் ரசீது உருவாக்கவும்',
       'home_visit_completed_verified':
           'வீட்டு வருகை நிறைவடைந்தது & சரிபார்க்கப்பட்டது',
+      'visit_completed_invoice_generated':
+          'இன்றைய வீட்டு வருகை நிறைவு செய்யப்பட்டு விலைப்பட்டியல் உருவாக்கப்பட்டது!',
+      'visit_complete_invoice_failed':
+          'வருகையை நிறைவு செய்து விலைப்பட்டியல் உருவாக்குவதில் தோல்வி ஏற்பட்டது. மீண்டும் முயற்சிக்கவும்.',
       'verified_attender_name': 'சரிபார்க்கப்பட்ட பராமரிப்பாளர் பெயர்',
       'relationship': 'உறவுமுறை',
       'all_entries': 'அனைத்துப் பதிவுகள்',
@@ -2688,6 +2770,41 @@ class AppLocalizations {
       'vitals_height': 'உயரம் (Height cm)',
       'initial_entry': 'ஆரம்ப பதிவு (Initial Entry)',
 
+      // Home Visit Care History Labels
+      'care_activities_logged': 'பராமரிப்பு நடவடிக்கைகள் மற்றும் கவனிப்புகள் பதிவு சேமிக்கப்பட்டது',
+      'notes_prefix': 'குறிப்புகள்: ',
+      'dressing_prefix': 'கட்டுப்போடுதல்: ',
+      'nail_trimming_done_badge': '✓ நகம் வெட்டுதல் மற்றும் சுகாதார பராமரிப்பு செய்யப்பட்டது',
+      'other_care_prefix': 'பிற பராமரிப்பு: ',
+
+      // Home Visit Snackbar Messages
+      'procedure_recorded_success': 'நடைமுறை வெற்றிகரமாக பதிவு சேமிக்கப்பட்டது',
+      'procedure_updated_success': 'நடைமுறை வெற்றிகரமாக புதுப்பிக்கப்பட்டது',
+      'failed_to_save_procedure': 'நடைமுறையை சேமிக்க முடியவில்லை',
+      'medicine_updated_success': 'மருந்து வெற்றிகரமாக புதுப்பிக்கப்பட்டது',
+      'medicine_recorded_success': 'மருந்து வெற்றிகரமாக பதிவு சேமிக்கப்பட்டது',
+      'failed_to_save_medicine': 'மருந்துயை சேமிக்க முடியவில்லை',
+
+      // Attender Verification Form
+      'visit_care_feedback_label': 'வருகை மற்றும் பராமரிப்பு பின்னூட்டம் / குறிப்புகள்',
+      'feedback_hint': 'பராமரிப்பாளர் பின்னூட்டம், நோயாளி நிலை, பராமரிப்பு குறிப்புகளை பேசவும் அல்லது தட்டச்சு செய்யவும்...',
+      'attender_name_hint_full': 'முழுப்பெயர் (குறைந்தது 3, அதிகபட்சம் 30 எழுத்துகள்)',
+      'attender_relation_hint': 'எ.கா. மகன், துணைவர், மகள்',
+      'recorded_visit_feedback': 'பதிவு சேமிக்கப்பட்ட வருகை மற்றும் பராமரிப்பு பின்னூட்டம்',
+      'draw_signature_hint_short': 'பராமரிப்பாளர் கையொப்பத்தை இங்கே வரையவும்',
+
+      // Quick Feedback Chips
+      'chip_patient_stable': 'நோயாளி சீராக மற்றும் ஆறுதலாக உள்ளார்',
+      'chip_medication_on_time': 'மருந்து சரியான நேரத்தில் வழங்கப்பட்டது',
+      'chip_vitals_normal': 'உயிரளவுகள் சரிபார்த்து இயல்பானவை',
+      'chip_wound_dressing': 'கட்டுப்போடுதல் சுத்தமாக மாற்றப்பட்டது',
+      'chip_attender_satisfied': 'பராமரிப்பாளர் வீட்டுப் பராமரிப்பில் திருப்தி பட்டார்',
+      'chip_patient_diet': 'நோயாளிக்கு உணவு மற்றும் நீர்ச்சத்து ஆலோசனை வழங்கப்பட்டது',
+      'chip_catheter_care': 'குழாய் மற்றும் சுகாதார பராமரிப்பு வழங்கப்பட்டது',
+
+      'items_badge': 'உருப்படிகள் (Items)',
+      'procedures_badge': 'செயல்முறைகள் (Procedures)',
+
       // Home Visit Care Form Validations
       'enter_bp_systolic_error':
           'தயவுசெய்து சிஸ்டாலிக் இரத்த அழுத்தத்தை உள்ளிடவும்',
@@ -2733,10 +2850,16 @@ class AppLocalizations {
           'கட்டுப்போடும் விவரங்கள் 500 எழுத்துகளுக்கு மிகாமல் இருக்க வேண்டும்',
       'dressing_must_contain_letters':
           'கட்டுப்போடும் விவரங்களில் எழுத்துகள் இருக்க வேண்டும்; எண்கள் அல்லது குறியீடுகள் மட்டுமே இருக்கக்கூடாது',
+      'dressing_invalid_chars':
+          'கட்டுப்போடும் விவரங்களில் செல்லாத சிறப்பு எழுத்துக்கள் உள்ளன',
+      'nursing_notes_invalid_chars':
+          'செவிலியர் குறிப்புகளில் செல்லாத சிறப்பு எழுத்துக்கள் உள்ளன',
       'personal_care_max_500':
           'பராமரிப்பு விவரங்கள் 500 எழுத்துகளுக்கு மிகாமல் இருக்க வேண்டும்',
       'personal_care_must_contain_letters':
           'பராமரிப்பு விவரங்களில் எழுத்துகள் இருக்க வேண்டும்; எண்கள் அல்லது குறியீடுகள் மட்டுமே இருக்கக்கூடாது',
+      'personal_care_invalid_chars':
+          'தனிநபர் பராமரிப்பு விவரங்களில் செல்லாத சிறப்பு எழுத்துக்கள் உள்ளன',
       'enter_at_least_one_care_activity':
           'தயவுசெய்து ஒரு செவிலியர் குறிப்பு, கட்டுப்போடுதல் அல்லது பராமரிப்புப் பணியை உள்ளிடவும்',
       'enter_custom_kit_name': 'கருவியின் பெயரை உள்ளிடவும்',
@@ -2770,6 +2893,27 @@ class AppLocalizations {
           'பராமரிப்பாளர் முழு பெயரை உள்ளிடவும் (குறைந்தது 3 எழுத்துகள்).',
       'attender_relationship_specify':
           'பராமரிப்பாளரின் உறவுமுறையை குறிப்பிடவும்.',
+      'kit_device_added_success':
+          'கிட் பொருள் / மருத்துவ கருவி வெற்றிகரமாக சேர்க்கப்பட்டது',
+      'failed_to_add_kit_item':
+          'கிட் பொருளை சேர்க்க முடியவில்லை',
+      'no_kit_items_added':
+          'இதுவரை கிட் பொருள் அல்லது மருத்துவ கருவி எதுவும் சேர்க்கப்படவில்லை.',
+      'no_kit_items_kit_tab':
+          'கிட் & கருவிகள் தாவில் எதுவும் சேர்க்கப்படவில்லை.',
+      'custom_kit_item_label': 'தனிப்பயன் கிட் பொருள் பெயர்',
+      'custom_kit_device_hint':
+          'தனிப்பயன் கிட் பொருள் / கருவி பெயரை உள்ளிடவும் *',
+      'custom_kit_name_hint':
+          'தனிப்பயன் கிட் பொருள் பெயரை உள்ளிடவும் *',
+      'remove_kit_item': 'கிட் பொருளை நீக்கு',
+      'entries_count': '{count} பதிவு(கள்)',
+      'select_valid_option':
+          'பட்டியலிலிருந்து சரியான விருப்பத்தைத் தேர்ஂதெடுக்கவும்',
+      'select_add_devices_subtitle':
+          'மேலே உள்ள படிவத்தை பயன்படுத்தி கருவிகளை தேர்ந்தெடுத்து சேர்க்கவும்.',
+      'remove_kit_item_confirm':
+          '"{name}" அழிக்க விரும்புகிறீர்களா?',
 
       // Nurse Module Localization
       'invalid_file_format_cert':

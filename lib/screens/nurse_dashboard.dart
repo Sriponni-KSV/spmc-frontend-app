@@ -802,6 +802,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 9:
         if (_selectedHomeVisitId != null) {
           return HomeVisitExecutionScreen(
+            key: ValueKey('nurse_home_visit_${_selectedHomeVisitId}_$_isReadOnlyHomeVisit'),
             visitId: _selectedHomeVisitId!,
             isReadOnlyView: _isReadOnlyHomeVisit,
             onBack: () {

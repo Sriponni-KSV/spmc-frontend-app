@@ -5547,6 +5547,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildAdminHomeVisitCare(bool isMobile) {
     if (_selectedHomeVisitId != null) {
       return HomeVisitExecutionScreen(
+        key: ValueKey('admin_home_visit_${_selectedHomeVisitId}'),
         visitId: _selectedHomeVisitId!,
         isReadOnlyView: true,
         onBack: () {

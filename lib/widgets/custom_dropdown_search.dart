@@ -766,14 +766,14 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                         e.key.toLowerCase() == rawText.toLowerCase() ||
                         e.value.toLowerCase() == rawText.toLowerCase());
                     if (!isKnown) {
-                      return 'Please select a valid option from the list';
+                      return context.tr('select_valid_option');
                     }
                   }
                   if (val != null && val.trim().isNotEmpty) {
                     final isValid = _allEntries.containsKey(val) ||
                         _allEntries.containsValue(val);
                     if (!isValid) {
-                      return 'Please select a valid option from the list';
+                      return context.tr('select_valid_option');
                     }
                   }
                 }

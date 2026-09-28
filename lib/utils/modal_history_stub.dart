@@ -5,4 +5,5 @@ class ModalHistoryHelper {
   static void onPopupPushed(Route<dynamic> route) {}
   static void onPopupPopped(Route<dynamic> route) {}
   static void skipNextHistoryBack() {}
+  static void reset() {}
 }

@@ -2004,7 +2004,10 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     selectedReason,
                     notesCtrl.text.trim(),
                   );
-                  if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+                  if (dialogCtx.mounted) {
+                    ModalHistoryHelper.skipNextHistoryBack();
+                    Navigator.of(dialogCtx).pop();
+                  }
 
                   if (success && context.mounted) {
                     AppNotification.showSuccess(

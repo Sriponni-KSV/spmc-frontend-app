@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../utils/app_localizations.dart';
+import '../utils/tamil_transliteration_helper.dart';
 
 // --- Models ---
 
@@ -549,11 +550,14 @@ class _SearchOverlayState extends State<SearchOverlay> {
               p['mobile_number']?.toString() ??
               p['phone_number']?.toString() ??
               '-';
-          String patientId = p['patient_id']?.toString() ??
-              p['display_id']?.toString() ??
-              p['patient_display_id']?.toString() ??
-              p['uhid']?.toString() ??
-              (p['id'] != null ? 'P-${p['id']}' : '');
+          final rawPid = p['patient_id'] ??
+              p['patientId'] ??
+              p['patient_display_id'] ??
+              p['display_id'] ??
+              p['uhid'];
+          String patientId = (rawPid != null && rawPid.toString().trim().isNotEmpty)
+              ? rawPid.toString().trim()
+              : '';
           String initials = '?';
           if (name.trim().isNotEmpty) {
             final parts = name
@@ -577,12 +581,17 @@ class _SearchOverlayState extends State<SearchOverlay> {
         })
         .where((p) {
           if (query.isEmpty) return true;
+          final transliteratedName =
+              TamilTransliterationHelper.transliterate(p.name).toLowerCase();
           return p.name.toLowerCase().contains(query) ||
+              transliteratedName.contains(query) ||
               p.phone.toLowerCase().contains(query) ||
               p.patientId.toLowerCase().contains(query) ||
               (p.originalData?['id']?.toString().toLowerCase().contains(query) ?? false) ||
               (p.originalData?['patient_id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['patientId']?.toString().toLowerCase().contains(query) ?? false) ||
               (p.originalData?['display_id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['patient_display_id']?.toString().toLowerCase().contains(query) ?? false) ||
               (p.originalData?['uhid']?.toString().toLowerCase().contains(query) ?? false);
         })
         .toList();
@@ -737,7 +746,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   ),
                   child: Row(
                     children: [
-                      _buildShortcutHint('Esc', 'to close'),
+                      _buildShortcutHint('Esc', context.tr('to_close', fallback: 'to close')),
                     ],
                   ),
                 ),
@@ -798,6 +807,16 @@ class _SearchOverlayState extends State<SearchOverlay> {
   }
 
   Widget _buildPatientItem(PatientModel patient) {
+    final bool isTamil =
+        Localizations.localeOf(context).languageCode == 'ta';
+    final String displayName = TamilTransliterationHelper.formatName(
+      patient.name,
+      isTamil: isTamil,
+      showBoth: true,
+    );
+    final String ageDisplay =
+        isTamil ? patient.age.replaceAll('y', ' வய') : patient.age;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -832,7 +851,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  patient.name,
+                  displayName,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -865,7 +884,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                       const SizedBox(width: 6),
                     ],
                     Text(
-                      '${patient.age} • ${patient.phone}',
+                      '$ageDisplay • ${patient.phone}',
                       style: const TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 13,
@@ -964,6 +983,13 @@ class PatientInfoCard extends StatelessWidget {
       return l != 'quick' && l != 'விரைவு';
     }).toList();
 
+    final bool isTamil =
+        Localizations.localeOf(context).languageCode == 'ta';
+    final String displayName = TamilTransliterationHelper.formatName(
+      name,
+      isTamil: isTamil,
+      showBoth: true,
+    );
     final avatarColors = AppTheme.getAvatarColors(name);
 
     return Container(
@@ -1004,7 +1030,7 @@ class PatientInfoCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      displayName,
                       style: const TextStyle(
                         fontWeight: FontWeight.w500,
                         fontSize: 15,
