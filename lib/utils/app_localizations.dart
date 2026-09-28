@@ -1338,6 +1338,23 @@ class AppLocalizations {
       'nursing_care_saved_success':
           'Nursing care details saved successfully! Form cleared for new entries.',
       'failed_to_save_nursing_care': 'Failed to save nursing care details',
+      'patient_vitals_recorded_success': 'Patient vitals recorded successfully',
+      'patient_vitals_updated_success': 'Patient vitals updated successfully',
+      'patient_record_added_success': 'Patient record added successfully',
+      'patient_vitals_added_success': 'Patient vitals added successfully',
+      'vitals_updated_success': 'Vitals updated successfully',
+      'vitals_entry_deleted_success': 'Vitals entry deleted successfully',
+      'failed_to_save_vitals': 'Failed to save vitals',
+      'failed_to_record_vitals': 'Failed to record vitals',
+      'vitals_slot_updated_success': 'Vitals for {slot} updated successfully!',
+      'vitals_slot_recorded_success': 'Vitals for {slot} recorded successfully!',
+      'delete_vitals_entry_title': 'Delete Vitals Entry',
+      'confirm_delete_vitals_msg': 'Are you sure you want to delete this recorded vitals entry?',
+      'update_slot_vitals_btn': 'Update {slot} Vitals',
+      'save_slot_vitals_btn': 'Save {slot} Vitals',
+      'record_vitals_slot_title': 'Record Vitals — {slot} Slot',
+      'vitals_schedule_settings_title': 'Configure Vitals Schedule Settings',
+      'vitals_schedule_settings_desc': 'Define the monitoring window and minimum interval between vitals submissions:',
       'attender_name_min_valid': 'Please enter valid attender name (min 3 chars).',
       'attender_name_full_min_valid': 'Please enter attender full name (min 3 chars).',
       'attender_relationship_specify': 'Please specify attender relationship.',
@@ -2895,6 +2912,33 @@ class AppLocalizations {
           'செவிலியர் பராமரிப்பு விவரங்கள் வெற்றிகரமாக சேமிக்கப்பட்டது! படிவம் அழிக்கப்பட்டது.',
       'failed_to_save_nursing_care':
           'செவிலியர் பராமரிப்பு விவரங்களை சேமிக்க முடியவில்லை',
+      'patient_vitals_recorded_success':
+          'நோயாளி முக்கிய அளவீடுகள் வெற்றிகரமாக பதிவு செய்யப்பட்டன',
+      'patient_vitals_updated_success':
+          'நோயாளி முக்கிய அளவீடுகள் வெற்றிகரமாக புதுப்பிக்கப்பட்டன',
+      'patient_record_added_success':
+          'நோயாளி முக்கிய அளவீடு பதிவு வெற்றிகரமாக சேர்க்கப்பட்டது',
+      'patient_vitals_added_success':
+          'நோயாளி முக்கிய அளவீடுகள் வெற்றிகரமாக சேர்க்கப்பட்டன',
+      'vitals_updated_success':
+          'முக்கிய அளவீடுகள் வெற்றிகரமாக புதுப்பிக்கப்பட்டன',
+      'vitals_entry_deleted_success':
+          'முக்கிய அளவீடு பதிவு வெற்றிகரமாக நீக்கப்பட்டது',
+      'failed_to_save_vitals':
+          'முக்கிய அளவீடுகளை சேமிக்க முடியவில்லை',
+      'failed_to_record_vitals':
+          'முக்கிய அளவீடுகளை பதிவு செய்ய முடியவில்லை',
+      'vitals_slot_updated_success':
+          '{slot} நேரத்திற்கான முக்கிய அளவீடுகள் வெற்றிகரமாக புதுப்பிக்கப்பட்டன!',
+      'vitals_slot_recorded_success':
+          '{slot} நேரத்திற்கான முக்கிய அளவீடுகள் வெற்றிகரமாக பதிவு செய்யப்பட்டன!',
+      'delete_vitals_entry_title': 'முக்கிய அளவீடு பதிவை நீக்கு',
+      'confirm_delete_vitals_msg': 'பதிவு செய்யப்பட்ட இந்த முக்கிய அளவீடு பதிவை நிச்சயமாக நீக்க விரும்புகிறீர்களா?',
+      'update_slot_vitals_btn': '{slot} முக்கிய அளவீடுகளை புதுப்பி',
+      'save_slot_vitals_btn': '{slot} முக்கிய அளவீடுகளை சேமி',
+      'record_vitals_slot_title': 'முக்கிய அளவீடுகளை பதிவு செய் — {slot} நேரம்',
+      'vitals_schedule_settings_title': 'முக்கிய அளவீடுகள் அட்டவணை அமைப்புகளை உள்ளமைக்கவும்',
+      'vitals_schedule_settings_desc': 'கண்காணிப்பு சாளரம் மற்றும் முக்கிய அளவீடுகள் சமர்ப்பிப்புகளுக்கு இடையிலான குறைந்தபட்ச இடைவெளியை வரையறுக்கவும்:',
       'attender_name_min_valid':
           'சரியான பராமரிப்பாளர் பெயரை உள்ளிடவும் (குறைந்தது 3 எழுத்துகள்).',
       'attender_name_full_min_valid':

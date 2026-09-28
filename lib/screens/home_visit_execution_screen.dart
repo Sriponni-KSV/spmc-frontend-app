@@ -7136,14 +7136,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       AppNotification.showSuccess(
                                         context,
                                         existingVital != null
-                                            ? 'Patient vitals updated successfully'
-                                            : 'Patient vitals recorded successfully',
+                                            ? context.tr('patient_vitals_updated_success', fallback: 'Patient vitals updated successfully')
+                                            : context.tr('patient_vitals_recorded_success', fallback: 'Patient vitals recorded successfully'),
                                       );
                                     } else if (dialogCtx.mounted) {
                                       AppNotification.showError(
                                         dialogCtx,
                                         controller.errorMessage ??
-                                            'Failed to save vitals',
+                                            context.tr('failed_to_save_vitals', fallback: 'Failed to save vitals'),
                                       );
                                     }
                                   },
@@ -7533,13 +7533,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           _clearVitalsForm();
                           AppNotification.showSuccess(
                             context,
-                            'Patient vitals recorded successfully',
+                            context.tr('patient_vitals_recorded_success', fallback: 'Patient vitals recorded successfully'),
                           );
                         } else {
                           AppNotification.showError(
                             context,
                             controller.errorMessage ??
-                                'Failed to record vitals',
+                                context.tr('failed_to_record_vitals', fallback: 'Failed to record vitals'),
                           );
                         }
                       },
@@ -8176,16 +8176,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                               borderRadius:
                                                   BorderRadius.circular(14),
                                             ),
-                                            title: const Text(
-                                              'Delete Vitals Entry',
-                                              style: TextStyle(
+                                            title: Text(
+                                              context.tr('delete_vitals_entry_title', fallback: 'Delete Vitals Entry'),
+                                              style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                            content: const SizedBox(
+                                            content: SizedBox(
                                               width: 440,
                                               child: Text(
-                                                'Are you sure you want to delete this recorded vitals entry?',
+                                                context.tr('confirm_delete_vitals_msg', fallback: 'Are you sure you want to delete this recorded vitals entry?'),
                                                 softWrap: true,
                                               ),
                                             ),
@@ -8214,7 +8214,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           if (success && mounted) {
                                             AppNotification.showSuccess(
                                               context,
-                                              'Vitals entry deleted successfully',
+                                              context.tr('vitals_entry_deleted_success', fallback: 'Vitals entry deleted successfully'),
                                             );
                                           }
                                         }
@@ -8595,7 +8595,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Record Vitals — $slotTime Slot',
+                          context.tr('record_vitals_slot_title', params: {'slot': slotTime}, fallback: 'Record Vitals — $slotTime Slot'),
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -8915,8 +8915,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               AppNotification.showSuccess(
                                 context,
                                 existingVital != null
-                                    ? 'Vitals for $slotTime updated successfully!'
-                                    : 'Vitals for $slotTime recorded successfully!',
+                                    ? context.tr('vitals_slot_updated_success', params: {'slot': slotTime}, fallback: 'Vitals for $slotTime updated successfully!')
+                                    : context.tr('vitals_slot_recorded_success', params: {'slot': slotTime}, fallback: 'Vitals for $slotTime recorded successfully!'),
                               );
                             }
                           }
@@ -8925,8 +8925,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ? const CircularProgressIndicator(color: Colors.white)
                       : Text(
                           existingVital != null
-                              ? 'Update $slotTime Vitals'
-                              : 'Save $slotTime Vitals',
+                              ? context.tr('update_slot_vitals_btn', params: {'slot': slotTime}, fallback: 'Update $slotTime Vitals')
+                              : context.tr('save_slot_vitals_btn', params: {'slot': slotTime}, fallback: 'Save $slotTime Vitals'),
                         ),
                 ),
               ],
@@ -9124,17 +9124,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text(
-          'Configure Vitals Schedule Settings',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        title: Text(
+          context.tr('vitals_schedule_settings_title', fallback: 'Configure Vitals Schedule Settings'),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Define the monitoring window and minimum interval between vitals submissions:',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
+            Text(
+              context.tr('vitals_schedule_settings_desc', fallback: 'Define the monitoring window and minimum interval between vitals submissions:'),
+              style: const TextStyle(fontSize: 13, color: Colors.grey),
             ),
             const SizedBox(height: 16),
             _buildLabel('Monitoring Start Time (24h e.g. 09:00)'),

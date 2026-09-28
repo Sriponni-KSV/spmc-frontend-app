@@ -112,6 +112,36 @@ class AppNotification {
           'செவிலியர் பராமரிப்பு வெற்றிகரமாக சேமிக்கப்பட்டது',
       'Failed to save nursing care':
           'செவிலியர் பராமரிப்பை சேமிக்க முடியவில்லை',
+      'Patient vitals recorded successfully':
+          'நோயாளி முக்கிய அளவீடுகள் வெற்றிகரமாக பதிவு செய்யப்பட்டன',
+      'Patient vitals updated successfully':
+          'நோயாளி முக்கிய அளவீடுகள் வெற்றிகரமாக புதுப்பிக்கப்பட்டன',
+      'Patient vitals added successfully':
+          'நோயாளி முக்கிய அளவீடுகள் வெற்றிகரமாக சேர்க்கப்பட்டன',
+      'Patient record added successfully':
+          'நோயாளி முக்கிய அளவீடு பதிவு வெற்றிகரமாக சேர்க்கப்பட்டது',
+      'Patient record recorded successfully':
+          'நோயாளி பதிவு வெற்றிகரமாக பதிவு செய்யப்பட்டது',
+      'Patient record updated successfully':
+          'நோயாளி பதிவு வெற்றிகரமாக புதுப்பிக்கப்பட்டது',
+      'Vitals recorded successfully':
+          'முக்கிய அளவீடுகள் வெற்றிகரமாக பதிவு செய்யப்பட்டன',
+      'Vitals updated successfully':
+          'முக்கிய அளவீடுகள் வெற்றிகரமாக புதுப்பிக்கப்பட்டன',
+      'Vitals added successfully':
+          'முக்கிய அளவீடுகள் வெற்றிகரமாக சேர்க்கப்பட்டன',
+      'Vitals entry deleted successfully':
+          'முக்கிய அளவீடு பதிவு வெற்றிகரமாக நீக்கப்பட்டது',
+      'Failed to save vitals': 'முக்கிய அளவீடுகளை சேமிக்க முடியவில்லை',
+      'Failed to record vitals': 'முக்கிய அளவீடுகளை பதிவு செய்ய முடியவில்லை',
+      'Failed to delete vitals': 'முக்கிய அளவீடுகளை நீக்க முடியவில்லை',
+      'Vitals schedule configuration updated successfully!':
+          'உயிரளவுகள் அட்டவணை அமைப்பு வெற்றிகரமாக புதுப்பிக்கப்பட்டது!',
+      'Vitals schedule configuration updated successfully':
+          'உயிரளவுகள் அட்டவணை அமைப்பு வெற்றிகரமாக புதுப்பிக்கப்பட்டது',
+      'Kit item / device added successfully':
+          'கிட் பொருள் / கருவி வெற்றிகரமாக சேர்க்கப்பட்டது',
+      'Failed to add kit item': 'கிட் பொருளைச் சேர்க்க முடியவில்லை',
       'Dressing details contains invalid special characters':
           'கட்டுப்போடும் விவரங்களில் செல்லாத சிறப்பு எழுத்துக்கள் உள்ளன',
       'Nursing notes contains invalid special characters':
@@ -147,6 +177,25 @@ class AppNotification {
       final visitNum = cancelMatch.group(1);
       final patient = cancelMatch.group(2);
       return '$patient-க்கான வீட்டு வருகை பராமரிப்புத் திட்டம் ($visitNum) நிறுத்தப்பட்டு வெற்றிகரமாக ரத்து செய்யப்பட்டது.';
+    }
+
+    // Dynamic pattern for slot vitals:
+    final vitalsUpdateMatch = RegExp(
+      r'^Vitals for (.+?) updated successfully!?$',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    if (vitalsUpdateMatch != null) {
+      final slot = vitalsUpdateMatch.group(1);
+      return '$slot நேரத்திற்கான முக்கிய அளவீடுகள் வெற்றிகரமாக புதுப்பிக்கப்பட்டன!';
+    }
+
+    final vitalsRecordMatch = RegExp(
+      r'^Vitals for (.+?) recorded successfully!?$',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    if (vitalsRecordMatch != null) {
+      final slot = vitalsRecordMatch.group(1);
+      return '$slot நேரத்திற்கான முக்கிய அளவீடுகள் வெற்றிகரமாக பதிவு செய்யப்பட்டன!';
     }
 
     // Dynamic pattern: "... contains invalid special characters"
