@@ -2497,7 +2497,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       return;
     }
 
-    if (visit.startTime != null && visit.startTime!.trim().isNotEmpty) {
+    if (visit.hasStartedToday) {
       _navigateToExecuteScreen(context, visit.id);
     } else {
       _showStartHomeVisitDialog(context, visit);
@@ -2741,9 +2741,14 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     bool isSubmitting = false;
 
     final bool isInProgress = visit.status.toLowerCase() == 'in-progress';
-    final String dialogTitle = isInProgress
-        ? context.tr('resume_home_visit_session', fallback: 'Resume Home Visit Session')
-        : context.tr('start_home_visit_session', fallback: 'Start Home Visit Session');
+    final bool isSubsequentDay = (visit.startTime != null && visit.startTime!.trim().isNotEmpty) ||
+        (visit.sessionStartTimes != null && visit.sessionStartTimes!.isNotEmpty);
+
+    final String dialogTitle = isSubsequentDay
+        ? context.tr('start_today_visit_session', fallback: "Start Today's Visit Session")
+        : (isInProgress
+            ? context.tr('resume_home_visit_session', fallback: 'Resume Home Visit Session')
+            : context.tr('start_home_visit_session', fallback: 'Start Home Visit Session'));
 
     Future<bool> confirmCloseVisitSession() async {
       final bool? result = await showDialog<bool>(
@@ -2859,9 +2864,11 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        isInProgress
-                            ? context.tr('confirm_visit_resume_time_desc', fallback: 'Confirm visit resume time before managing patient vitals & care.')
-                            : context.tr('record_visit_start_time_desc', fallback: 'Record visit start time before accessing patient vitals.'),
+                        isSubsequentDay
+                            ? context.tr('record_today_visit_start_time_desc', fallback: 'Record visit start time for today before entering patient vitals & care activities.')
+                            : (isInProgress
+                                ? context.tr('confirm_visit_resume_time_desc', fallback: 'Confirm visit resume time before managing patient vitals & care.')
+                                : context.tr('record_visit_start_time_desc', fallback: 'Record visit start time before accessing patient vitals.')),
                         style: const TextStyle(
                           fontSize: 13,
                           color: Colors.grey,
@@ -3082,9 +3089,11 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   label: Text(
                     isSubmitting
                         ? context.tr('saving', fallback: 'Saving...')
-                        : (isInProgress
-                              ? context.tr('submit_resume_visit', fallback: 'Submit & Resume Visit')
-                              : context.tr('submit_start_visit', fallback: 'Submit & Start Visit')),
+                        : (isSubsequentDay
+                              ? context.tr('submit_start_today_session', fallback: "Submit & Start Today's Session")
+                              : (isInProgress
+                                    ? context.tr('submit_resume_visit', fallback: 'Submit & Resume Visit')
+                                    : context.tr('submit_start_visit', fallback: 'Submit & Start Visit'))),
                   ),
                   onPressed: isSubmitting
                       ? null
@@ -3096,6 +3105,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                               final payload = {
                                 'start_time': timeCtrl.text.trim(),
                                 'nurse_name': nurseCtrl.text.trim(),
+                                'session_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
                               };
                               var res = await ApiService.put(
                                 '$baseUrl/home-visits/${visit.id}/start',

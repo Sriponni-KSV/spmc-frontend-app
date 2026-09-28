@@ -1174,6 +1174,10 @@ class AppLocalizations {
       'start_time_required': 'Start time is required',
       'tap_adjust_start_time_hint':
           'Tap to adjust session start time if needed.',
+      'start_today_visit_session': "Start Today's Visit Session",
+      'record_today_visit_start_time_desc':
+          'Record visit start time for today before entering patient vitals & care activities.',
+      'submit_start_today_session': "Submit & Start Today's Session",
       'submit_start_visit': 'Submit & Start Visit',
       'submit_resume_visit': 'Submit & Resume Visit',
       'close_visit_session_title': 'Close Visit Session?',
@@ -2715,6 +2719,10 @@ class AppLocalizations {
       'start_time_required': 'தொடக்க நேரம் தேவை',
       'tap_adjust_start_time_hint':
           'தேவைப்பட்டால் வருகை தொடக்க நேரத்தை மாற்ற தட்டவும்.',
+      'start_today_visit_session': 'இன்றைய வருகை அமர்வைத் தொடங்கவும்',
+      'record_today_visit_start_time_desc':
+          'இன்றைய நோயாளி உயிரளவுகள் மற்றும் பராமரிப்பு நடவடிக்கைகளை பதிவு செய்வதற்கு முன் இன்றைய வருகை தொடக்க நேரத்தைப் பதிவு செய்யவும்.',
+      'submit_start_today_session': 'சமர்ப்பித்து இன்றைய அமர்வைத் தொடங்கவும்',
       'submit_start_visit': 'சமர்ப்பித்து வருகையைத் தொடங்கவும்',
       'submit_resume_visit': 'சமர்ப்பித்து வருகையைத் தொடரவும்',
       'close_visit_session_title': 'வருகை அமர்வை மூடவா?',

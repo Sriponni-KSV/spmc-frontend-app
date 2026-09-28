@@ -1677,6 +1677,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               );
                               return;
                             }
+                            if (!await _ensureTodaySessionStarted(visit)) return;
                             setLocalChecklistState(() {
                               daysMap[dayKey] = true;
                               medicine.administeredDays[dayKey] = true;
@@ -2717,6 +2718,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 : {"1": true},
                           };
 
+                          if (!await _ensureTodaySessionStarted(visit)) return;
+
                           final bool success;
                           if (existingMedicine != null &&
                               existingMedicine.id != null) {
@@ -2911,6 +2914,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           }
                           final parsedQty = (int.tryParse(qtyCtrl.text) ?? 1)
                               .clamp(1, 999);
+
+                          if (!await _ensureTodaySessionStarted(visit)) return;
 
                           setModalState(() => isSubmitting = true);
                           final success = await controller
@@ -4241,6 +4246,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             'items': itemsPayload,
                           };
 
+                          if (!await _ensureTodaySessionStarted(visit)) return;
+
                           final bool success;
                           if (existingProcedure != null &&
                               existingProcedure.id != null) {
@@ -4883,8 +4890,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     _fetchInventoryCatalogs();
     if (!mounted || widget.isReadOnlyView) return;
     if (ctrl.selectedVisit != null &&
-        (ctrl.selectedVisit!.startTime == null ||
-            ctrl.selectedVisit!.startTime!.trim().isEmpty) &&
+        !ctrl.selectedVisit!.hasStartedToday &&
         ctrl.selectedVisit!.status != 'Cancelled' &&
         ctrl.selectedVisit!.status != 'Completed' &&
         ctrl.selectedVisit!.status != 'Verified') {
@@ -5127,446 +5133,473 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
   }
 
-  void _promptStartVisitDialog(HomeVisitModel visit) {
-    if (!mounted || widget.isReadOnlyView) return;
-    final formKey = GlobalKey<FormState>();
-    final executionClickTime = DateTime.now();
-    final defaultTime = DateFormat('hh:mm a').format(executionClickTime);
-    final minAllowedTime = executionClickTime.subtract(
-      const Duration(hours: 1),
-    );
-    final maxAllowedTime = executionClickTime.add(const Duration(hours: 1));
+  bool _isStartDialogOpen = false;
 
-    final String rawNurseName = visit.startNurseName ?? visit.nurseName ?? '';
-    final String rawPatientName = visit.patientName ?? 'Patient';
-    final String patientDisplayId =
-        (visit.patientDisplayId != null &&
-            visit.patientDisplayId!.trim().isNotEmpty)
-        ? visit.patientDisplayId!
-        : 'ID: ${visit.patientId}';
-    final String patientDisplayWithId = '$rawPatientName ($patientDisplayId)';
+  Future<bool> _ensureTodaySessionStarted(HomeVisitModel visit) async {
+    if (widget.isReadOnlyView) return true;
+    if (visit.hasStartedToday) return true;
+    final success = await _promptStartVisitDialog(visit);
+    if (!success) return false;
+    final currentVisit = Provider.of<HomeVisitController>(context, listen: false).selectedVisit;
+    return currentVisit?.hasStartedToday == true;
+  }
 
-    final nurseCtrl = TextEditingController(text: rawNurseName);
-    final timeCtrl = TextEditingController(text: defaultTime);
-    bool isSubmitting = false;
-
-    final bool isInProgress = visit.status.toLowerCase() == 'in-progress';
-    final String dialogTitle = isInProgress
-        ? context.tr('resume_home_visit_session', fallback: 'Resume Home Visit Session')
-        : context.tr('start_home_visit_session', fallback: 'Start Home Visit Session');
-
-    Future<bool> confirmCloseVisitSession() async {
-      final bool? result = await showDialog<bool>(
-        context: context,
-        builder: (confirmCtx) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: AppTheme.dangerColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.warning_amber_rounded,
-                  color: AppTheme.dangerColor,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  context.tr('close_visit_session_title', fallback: 'Close Visit Session?'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: AppTheme.textPrimaryColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            context.tr('close_visit_session_return_desc', fallback: 'Are you sure you want to close this visit session and return to the visits list? Any unsubmitted start time will not be recorded.'),
-            style: TextStyle(
-              fontSize: 13.5,
-              color: Color(0xFF64748B),
-              height: 1.4,
-            ),
-          ),
-          actions: [
-            OutlinedButton(
-              style: AppTheme.cancelButton,
-              onPressed: () => Navigator.of(confirmCtx).pop(false),
-              child: Text(context.tr('stay_in_session', fallback: 'Stay in Session')),
-            ),
-            ElevatedButton(
-              style: AppTheme.dangerButton,
-              onPressed: () => Navigator.of(confirmCtx).pop(true),
-              child: Text(context.tr('close_session', fallback: 'Close Session')),
-            ),
-          ],
-        ),
+  Future<bool> _promptStartVisitDialog(HomeVisitModel visit) async {
+    if (!mounted || widget.isReadOnlyView || _isStartDialogOpen) return false;
+    _isStartDialogOpen = true;
+    try {
+      final formKey = GlobalKey<FormState>();
+      final executionClickTime = DateTime.now();
+      final defaultTime = DateFormat('hh:mm a').format(executionClickTime);
+      final minAllowedTime = executionClickTime.subtract(
+        const Duration(hours: 1),
       );
-      return result == true;
-    }
+      final maxAllowedTime = executionClickTime.add(const Duration(hours: 1));
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) => PopScope(
-          canPop: false,
-          onPopInvokedWithResult: (didPop, result) async {
-            if (didPop) return;
-            final shouldClose = await confirmCloseVisitSession();
-            if (shouldClose && mounted) {
-              ModalHistoryHelper.skipNextHistoryBack();
-              Navigator.of(dialogCtx).pop();
-              _handleLeave();
-            }
-          },
-          child: AlertDialog(
+      final String rawNurseName = visit.startNurseName ?? visit.nurseName ?? '';
+      final String rawPatientName = visit.patientName ?? 'Patient';
+      final String patientDisplayId =
+          (visit.patientDisplayId != null &&
+              visit.patientDisplayId!.trim().isNotEmpty)
+          ? visit.patientDisplayId!
+          : 'ID: ${visit.patientId}';
+      final String patientDisplayWithId = '$rawPatientName ($patientDisplayId)';
+
+      final nurseCtrl = TextEditingController(text: rawNurseName);
+      final timeCtrl = TextEditingController(text: defaultTime);
+      bool isSubmitting = false;
+
+      final bool isInProgress = visit.status.toLowerCase() == 'in-progress';
+      final bool isSubsequentDay = (visit.startTime != null && visit.startTime!.trim().isNotEmpty) ||
+          (visit.sessionStartTimes != null && visit.sessionStartTimes!.isNotEmpty);
+      final String dialogTitle = isSubsequentDay
+          ? context.tr('start_today_visit_session', fallback: "Start Today's Visit Session")
+          : (isInProgress
+              ? context.tr('resume_home_visit_session', fallback: 'Resume Home Visit Session')
+              : context.tr('start_home_visit_session', fallback: 'Start Home Visit Session'));
+
+      Future<bool> confirmCloseVisitSession() async {
+        final bool? result = await showDialog<bool>(
+          context: context,
+          builder: (confirmCtx) => AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
             title: Row(
               children: [
-                const Icon(
-                  Icons.play_circle_fill_outlined,
-                  color: AppTheme.primaryColor,
-                  size: 26,
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.warning_amber_rounded,
+                    color: AppTheme.dangerColor,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    dialogTitle,
-                    style: const TextStyle(
+                    context.tr('close_visit_session_title', fallback: 'Close Visit Session?'),
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 17,
-                      color: AppTheme.primaryColor,
+                      fontSize: 16,
+                      color: AppTheme.textPrimaryColor,
                     ),
                   ),
                 ),
               ],
             ),
-            content: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                child: SizedBox(
-                  width: 420,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isInProgress
-                            ? context.tr('confirm_visit_resume_time_desc', fallback: 'Confirm visit resume time before managing patient vitals & care.')
-                            : context.tr('record_visit_start_time_desc', fallback: 'Record visit start time before accessing patient vitals.'),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+            content: Text(
+              context.tr('close_visit_session_return_desc', fallback: 'Are you sure you want to close this visit session and return to the visits list? Any unsubmitted start time will not be recorded.'),
+              style: TextStyle(
+                fontSize: 13.5,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
+            ),
+            actions: [
+              OutlinedButton(
+                style: AppTheme.cancelButton,
+                onPressed: () => Navigator.of(confirmCtx).pop(false),
+                child: Text(context.tr('stay_in_session', fallback: 'Stay in Session')),
+              ),
+              ElevatedButton(
+                style: AppTheme.dangerButton,
+                onPressed: () => Navigator.of(confirmCtx).pop(true),
+                child: Text(context.tr('close_session', fallback: 'Close Session')),
+              ),
+            ],
+          ),
+        );
+        return result == true;
+      }
 
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
+      final bool? dialogResult = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogCtx) => StatefulBuilder(
+          builder: (context, setDialogState) => PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) async {
+              if (didPop) return;
+              final shouldClose = await confirmCloseVisitSession();
+              if (shouldClose && mounted) {
+                ModalHistoryHelper.skipNextHistoryBack();
+                Navigator.of(dialogCtx).pop(false);
+                _handleLeave();
+              }
+            },
+            child: AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  const Icon(
+                    Icons.play_circle_fill_outlined,
+                    color: AppTheme.primaryColor,
+                    size: 26,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      dialogTitle,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: SizedBox(
+                    width: 420,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isSubsequentDay
+                              ? context.tr('record_today_visit_start_time_desc', fallback: 'Record visit start time for today before entering patient vitals & care activities.')
+                              : (isInProgress
+                                  ? context.tr('confirm_visit_resume_time_desc', fallback: 'Confirm visit resume time before managing patient vitals & care.')
+                                  : context.tr('record_visit_start_time_desc', fallback: 'Record visit start time before accessing patient vitals.')),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey,
+                          ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.person_outline,
-                                  size: 15,
-                                  color: AppTheme.primaryColor,
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    '${context.tr('session_patient_label', fallback: 'Patient')}: $patientDisplayWithId',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.textPrimaryColor,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryLight,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: AppTheme.primaryColor.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                ),
-                              ),
-                              child: Row(
+                        const SizedBox(height: 16),
+
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
                                   const Icon(
-                                    Icons.badge_outlined,
+                                    Icons.person_outline,
                                     size: 15,
-                                    color: AppTheme.nurseColor,
+                                    color: AppTheme.primaryColor,
                                   ),
                                   const SizedBox(width: 6),
                                   Expanded(
-                                    child: Text.rich(
-                                      TextSpan(
-                                        children: [
-                                          TextSpan(
-                                            text: '${context.tr('executing_nurse_label', fallback: 'Executing Nurse')}: ',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.primaryColor,
-                                            ),
-                                          ),
-                                          TextSpan(
-                                            text: rawNurseName,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme
-                                                  .nurseColor, // Purple for nurse name
-                                            ),
-                                          ),
-                                        ],
+                                    child: Text(
+                                      '${context.tr('session_patient_label', fallback: 'Patient')}: $patientDisplayWithId',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textPrimaryColor,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  Icon(
-                                    Icons.lock_outline,
-                                    size: 13,
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryLight,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
                                     color: AppTheme.primaryColor.withValues(
-                                      alpha: 0.6,
+                                      alpha: 0.3,
                                     ),
                                   ),
-                                ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.badge_outlined,
+                                      size: 15,
+                                      color: AppTheme.nurseColor,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: '${context.tr('executing_nurse_label', fallback: 'Executing Nurse')}: ',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.primaryColor,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: rawNurseName,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme
+                                                    .nurseColor, // Purple for nurse name
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.lock_outline,
+                                      size: 13,
+                                      color: AppTheme.primaryColor.withValues(
+                                        alpha: 0.6,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6.0),
+                          child: Text(
+                            isInProgress
+                                ? context.tr('visit_resume_time', fallback: 'Visit Resume Time')
+                                : context.tr('visit_start_time', fallback: 'Visit Start Time'),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimaryColor,
+                            ),
+                          ),
+                        ),
+                        TextFormField(
+                          controller: timeCtrl,
+                          readOnly: true,
+                          onTap: () async {
+                            TimeOfDay initialPickerTime = TimeOfDay.now();
+                            try {
+                              if (timeCtrl.text.trim().isNotEmpty) {
+                                final parsed = DateFormat('hh:mm a').parse(timeCtrl.text.trim());
+                                initialPickerTime = TimeOfDay(hour: parsed.hour, minute: parsed.minute);
+                              }
+                            } catch (_) {}
+                            final TimeOfDay? picked = await showTimePicker(
+                              context: context,
+                              initialTime: initialPickerTime,
+                              helpText: context.tr('select_visit_start_time', fallback: 'Select Visit Start Time'),
+                            );
+                            if (picked != null) {
+                              final now = DateTime.now();
+                              final dt = DateTime(
+                                now.year,
+                                now.month,
+                                now.day,
+                                picked.hour,
+                                picked.minute,
+                              );
+                              setDialogState(() {
+                                timeCtrl.text = DateFormat('hh:mm a').format(dt);
+                              });
+                            }
+                          },
+                          decoration: AppTheme.standardInputDecoration(
+                            hintText: context.tr('select_start_time_hint', fallback: 'Select Start Time'),
+                            prefixIcon: Icons.access_time,
+                            suffixIcon: const Icon(
+                              Icons.arrow_drop_down,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          validator: (val) {
+                            if (val == null || val.trim().isEmpty) {
+                              return context.tr('start_time_required', fallback: 'Start time is required');
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.info_outline,
+                              size: 13,
+                              color: AppTheme.primaryColor,
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                context.tr('tap_adjust_start_time_hint', fallback: 'Tap to adjust session start time if needed.'),
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF64748B),
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6.0),
-                        child: Text(
-                          isInProgress
-                              ? context.tr('visit_resume_time', fallback: 'Visit Resume Time')
-                              : context.tr('visit_start_time', fallback: 'Visit Start Time'),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.textPrimaryColor,
-                          ),
-                        ),
-                      ),
-                      TextFormField(
-                        controller: timeCtrl,
-                        readOnly: true,
-                        onTap: () async {
-                          TimeOfDay initialPickerTime = TimeOfDay.now();
-                          try {
-                            if (timeCtrl.text.trim().isNotEmpty) {
-                              final parsed = DateFormat('hh:mm a').parse(timeCtrl.text.trim());
-                              initialPickerTime = TimeOfDay(hour: parsed.hour, minute: parsed.minute);
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                SizedBox(
+                  height: 44,
+                  child: OutlinedButton(
+                    style: AppTheme.cancelButton,
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            final shouldClose = await confirmCloseVisitSession();
+                            if (shouldClose && mounted) {
+                              ModalHistoryHelper.skipNextHistoryBack();
+                              Navigator.of(dialogCtx).pop(false);
+                              _handleLeave();
                             }
-                          } catch (_) {}
-                          final TimeOfDay? picked = await showTimePicker(
-                            context: context,
-                            initialTime: initialPickerTime,
-                            helpText: context.tr('select_visit_start_time', fallback: 'Select Visit Start Time'),
-                          );
-                          if (picked != null) {
-                            final now = DateTime.now();
-                            final dt = DateTime(
-                              now.year,
-                              now.month,
-                              now.day,
-                              picked.hour,
-                              picked.minute,
-                            );
-                            setDialogState(() {
-                              timeCtrl.text = DateFormat('hh:mm a').format(dt);
-                            });
-                          }
-                        },
-                        decoration: AppTheme.standardInputDecoration(
-                          hintText: context.tr('select_start_time_hint', fallback: 'Select Start Time'),
-                          prefixIcon: Icons.access_time,
-                          suffixIcon: const Icon(
-                            Icons.arrow_drop_down,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return context.tr('start_time_required', fallback: 'Start time is required');
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline,
-                            size: 13,
-                            color: AppTheme.primaryColor,
-                          ),
-                          const SizedBox(width: 5),
-                          Expanded(
-                            child: Text(
-                              context.tr('tap_adjust_start_time_hint', fallback: 'Tap to adjust session start time if needed.'),
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                                fontWeight: FontWeight.w500,
-                              ),
+                          },
+                    child: Text(context.tr('exit_session', fallback: 'Exit Session')),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 44,
+                  child: ElevatedButton.icon(
+                    style: AppTheme.primaryButton,
+                    icon: isSubmitting
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              SizedBox(
-                height: 44,
-                child: OutlinedButton(
-                  style: AppTheme.cancelButton,
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          final shouldClose = await confirmCloseVisitSession();
-                          if (shouldClose && mounted) {
-                            ModalHistoryHelper.skipNextHistoryBack();
-                            Navigator.of(dialogCtx).pop();
-                            _handleLeave();
-                          }
-                        },
-                  child: Text(context.tr('exit_session', fallback: 'Exit Session')),
-                ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                height: 44,
-                child: ElevatedButton.icon(
-                  style: AppTheme.primaryButton,
-                  icon: isSubmitting
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Icon(Icons.arrow_forward, size: 16),
-                  label: Text(
-                    isSubmitting
-                        ? context.tr('starting', fallback: 'Starting...')
-                        : (isInProgress
-                              ? context.tr('submit_resume_visit', fallback: 'Submit & Resume Visit')
-                              : context.tr('submit_start_visit', fallback: 'Submit & Start Visit')),
-                  ),
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          if (formKey.currentState?.validate() == true) {
-                            setDialogState(() => isSubmitting = true);
-                            try {
-                              final baseUrl = ApiEndpoints.baseUrl;
-                              final payload = {
-                                'start_time': timeCtrl.text.trim(),
-                                'nurse_name': nurseCtrl.text.trim(),
-                              };
-                              var res = await ApiService.put(
-                                '$baseUrl/home-visits/${visit.id}/start',
-                                payload,
-                              );
-                              var body = ApiService.decodeJsonResponse(res);
-                              if (body['success'] != true) {
-                                res = await ApiService.post(
+                          )
+                        : const Icon(Icons.arrow_forward, size: 16),
+                    label: Text(
+                      isSubmitting
+                          ? context.tr('starting', fallback: 'Starting...')
+                          : (isSubsequentDay
+                                ? context.tr('submit_start_today_session', fallback: "Submit & Start Today's Session")
+                                : (isInProgress
+                                      ? context.tr('submit_resume_visit', fallback: 'Submit & Resume Visit')
+                                      : context.tr('submit_start_visit', fallback: 'Submit & Start Visit'))),
+                    ),
+                    onPressed: isSubmitting
+                        ? null
+                        : () async {
+                            if (formKey.currentState?.validate() == true) {
+                              setDialogState(() => isSubmitting = true);
+                              try {
+                                final baseUrl = ApiEndpoints.baseUrl;
+                                final payload = {
+                                  'start_time': timeCtrl.text.trim(),
+                                  'nurse_name': nurseCtrl.text.trim(),
+                                  'session_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                                };
+                                var res = await ApiService.put(
                                   '$baseUrl/home-visits/${visit.id}/start',
                                   payload,
                                 );
-                                body = ApiService.decodeJsonResponse(res);
-                              }
-                              if (body['success'] != true) {
-                                res = await ApiService.post(
-                                  '$baseUrl/home-visits/${visit.id}/vitals',
-                                  {
-                                    'is_start_only': true,
-                                    'start_time': timeCtrl.text.trim(),
-                                    'nurse_name': nurseCtrl.text.trim(),
-                                    'bypass_schedule': true,
-                                  },
-                                );
-                                body = ApiService.decodeJsonResponse(res);
-                              }
-                              if (body['success'] == true) {
-                                if (mounted) {
-                                  Provider.of<HomeVisitController>(
-                                    context,
-                                    listen: false,
-                                  ).fetchVisitDetails(visit.id);
-                                  ModalHistoryHelper.skipNextHistoryBack();
-                                  Navigator.of(dialogCtx).pop();
+                                var body = ApiService.decodeJsonResponse(res);
+                                if (body['success'] != true) {
+                                  res = await ApiService.post(
+                                    '$baseUrl/home-visits/${visit.id}/start',
+                                    payload,
+                                  );
+                                  body = ApiService.decodeJsonResponse(res);
                                 }
-                              } else {
+                                if (body['success'] != true) {
+                                  res = await ApiService.post(
+                                    '$baseUrl/home-visits/${visit.id}/vitals',
+                                    {
+                                      'is_start_only': true,
+                                      'start_time': timeCtrl.text.trim(),
+                                      'nurse_name': nurseCtrl.text.trim(),
+                                      'session_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+                                      'bypass_schedule': true,
+                                    },
+                                  );
+                                  body = ApiService.decodeJsonResponse(res);
+                                }
+                                if (body['success'] == true) {
+                                  if (mounted) {
+                                    await Provider.of<HomeVisitController>(
+                                      context,
+                                      listen: false,
+                                    ).fetchVisitDetails(visit.id);
+                                    ModalHistoryHelper.skipNextHistoryBack();
+                                    Navigator.of(dialogCtx).pop(true);
+                                  }
+                                } else {
+                                  setDialogState(() => isSubmitting = false);
+                                  if (dialogCtx.mounted) {
+                                    AppNotification.showError(
+                                      dialogCtx,
+                                      body['message'] ??
+                                          'Failed to record start time',
+                                    );
+                                  }
+                                }
+                              } catch (e) {
                                 setDialogState(() => isSubmitting = false);
                                 if (dialogCtx.mounted) {
                                   AppNotification.showError(
                                     dialogCtx,
-                                    body['message'] ??
-                                        'Failed to record start time',
+                                    'Error starting visit: $e',
                                   );
                                 }
                               }
-                            } catch (e) {
-                              setDialogState(() => isSubmitting = false);
-                              if (dialogCtx.mounted) {
-                                AppNotification.showError(
-                                  dialogCtx,
-                                  'Error starting visit: $e',
-                                );
-                              }
                             }
-                          }
-                        },
+                          },
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
+      return dialogResult == true;
+    } finally {
+      _isStartDialogOpen = false;
+    }
   }
 
   @override
@@ -7479,6 +7512,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         final weight = double.tryParse(_weightCtrl.text);
                         final height = double.tryParse(_heightCtrl.text);
 
+                        if (!await _ensureTodaySessionStarted(visit)) return;
+
                         setState(() => _isSavingVitals = true);
                         final success = await controller
                             .submitVitals(visit.id, {
@@ -9304,6 +9339,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           );
                           return;
                         }
+
+                        if (!await _ensureTodaySessionStarted(visit)) return;
 
                         setState(() => _isSavingCare = true);
                         final success = await controller
