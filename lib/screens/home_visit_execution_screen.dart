@@ -1127,14 +1127,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(child: _buildLabel(label)),
-            const SizedBox(width: 8),
-            _buildDictationLanguagePill(setModalState: setModalState),
-            const SizedBox(width: 8),
-            InkWell(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final screenWidth = MediaQuery.of(context).size.width;
+            final isNarrow = isModal ||
+                !constraints.maxWidth.isFinite ||
+                constraints.maxWidth < 650 ||
+                screenWidth < 700;
+            final pillWidget = _buildDictationLanguagePill(setModalState: setModalState);
+            final micButton = InkWell(
               onTap: () => _toggleSpeechDictation(
                 targetController: controller,
                 fieldId: fieldId,
@@ -1182,8 +1183,43 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ],
                 ),
               ),
-            ),
-          ],
+            );
+
+            if (isNarrow) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildLabel(label),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      pillWidget,
+                      micButton,
+                    ],
+                  ),
+                ],
+              );
+            }
+
+            return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(child: _buildLabel(label)),
+                const SizedBox(width: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    pillWidget,
+                    const SizedBox(width: 8),
+                    micButton,
+                  ],
+                ),
+              ],
+            );
+          },
         ),
         if (isListening) ...[
           const SizedBox(height: 6),
@@ -1316,20 +1352,29 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFCBD5E1)),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.add, size: 12, color: Color(0xFF475569)),
-                      const SizedBox(width: 3),
-                      Text(
-                        template,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: Color(0xFF475569),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width - 60,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.add, size: 12, color: Color(0xFF475569)),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            template,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF475569),
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -2014,26 +2059,25 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 borderRadius: BorderRadius.circular(16),
               ),
               title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.medication_liquid,
+                  const Icon(
+                    Icons.medication_liquid,
+                    color: AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      existingMedicine != null
+                          ? context.tr('edit_medicine_item')
+                          : context.tr('record_medicine_item'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                         color: AppTheme.primaryColor,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        existingMedicine != null
-                            ? context.tr('edit_medicine_item')
-                            : context.tr('record_medicine_item'),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                    ],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -2785,24 +2829,23 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 borderRadius: BorderRadius.circular(16),
               ),
               title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.inventory_2_outlined,
+                  const Icon(
+                    Icons.inventory_2_outlined,
+                    color: AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.tr('record_consumable_item', fallback: 'Record Consumable Item'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                         color: AppTheme.primaryColor,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        context.tr('record_consumable_item', fallback: 'Record Consumable Item'),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                    ],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -3304,26 +3347,25 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 borderRadius: BorderRadius.circular(16),
               ),
               title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.medical_services_outlined,
+                  const Icon(
+                    Icons.medical_services_outlined,
+                    color: AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      existingProcedure != null
+                          ? context.tr('edit_procedure_item')
+                          : context.tr('record_procedure_item'),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                         color: AppTheme.primaryColor,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        existingProcedure != null
-                            ? context.tr('edit_procedure_item')
-                            : context.tr('record_procedure_item'),
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
-                        ),
-                      ),
-                    ],
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -4022,16 +4064,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               children: [
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      context.tr('procedure_base_charge', fallback: 'Procedure Base Charge:'),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF64748B),
+                                    Expanded(
+                                      child: Text(
+                                        context.tr('procedure_base_charge', fallback: 'Procedure Base Charge:'),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF64748B),
+                                        ),
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Text(
                                       '₹${totalProcCharge.toStringAsFixed(2)}',
                                       style: const TextStyle(
@@ -4044,16 +4087,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ),
                                 const SizedBox(height: 4),
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      context.tr('total_consumables_cost', fallback: 'Total Consumables Cost:'),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Color(0xFF64748B),
+                                    Expanded(
+                                      child: Text(
+                                        context.tr('total_consumables_cost', fallback: 'Total Consumables Cost:'),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF64748B),
+                                        ),
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Text(
                                       '₹${totalConsumablesCost.toStringAsFixed(2)}',
                                       style: const TextStyle(
@@ -4072,17 +4116,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                 ),
                                 Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      context.tr('grand_total_price', fallback: 'Grand Total Price:'),
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.primaryColor,
+                                    Expanded(
+                                      child: Text(
+                                        context.tr('grand_total_price', fallback: 'Grand Total Price:'),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.primaryColor,
+                                        ),
                                       ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Text(
                                       '₹${grandTotal.toStringAsFixed(2)}',
                                       style: const TextStyle(
@@ -8271,19 +8316,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+              child: LayoutBuilder(
+                builder: (context, bc) {
+                  final isCompact = bc.maxWidth < 550;
+                  final entriesText = Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: AppTheme.secondaryColor.withOpacity(0.15),
+                          color: AppTheme.secondaryColor.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -8293,21 +8334,24 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        context.showingEntries(
-                          start: totalVitals == 0 ? 0 : vitalsStartIdx + 1,
-                          end: vitalsEndIdx,
-                          total: totalVitals,
-                        ),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF64748B),
-                          fontFamily: 'Inter',
+                      Expanded(
+                        child: Text(
+                          context.showingEntries(
+                            start: totalVitals == 0 ? 0 : vitalsStartIdx + 1,
+                            end: vitalsEndIdx,
+                            total: totalVitals,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                            fontFamily: 'Inter',
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                  Row(
+                  );
+
+                  final buttons = Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       OutlinedButton.icon(
@@ -8332,7 +8376,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                         label: Text(
                           context.tr('previous', fallback: 'Previous'),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF64748B),
                           ),
@@ -8380,15 +8424,34 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                         label: Text(
                           context.tr('next', fallback: 'Next'),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
                             color: Color(0xFF64748B),
                           ),
                         ),
                       ),
                     ],
-                  ),
-                ],
+                  );
+
+                  if (isCompact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        entriesText,
+                        const SizedBox(height: 10),
+                        Center(child: buttons),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: entriesText),
+                      const SizedBox(width: 12),
+                      buttons,
+                    ],
+                  );
+                },
               ),
             ),
           ],
@@ -12566,15 +12629,20 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
                               if (result != null && mounted) {
                                 _clearSignatureForm();
+                                final _ivLocale = Provider.of<LanguageProvider>(context, listen: false).locale;
                                 showDialog(
                                     context: context,
                                     barrierDismissible: false,
-                                    builder: (_) => HomeVisitInvoiceDialog(
-                                      invoiceData: result,
-                                      visit: visit,
-                                      onCloseAndComplete: () {
-                                        _navigateToSummary(visit.id);
-                                      },
+                                    builder: (dlgCtx) => Localizations.override(
+                                      context: dlgCtx,
+                                      locale: _ivLocale,
+                                      child: HomeVisitInvoiceDialog(
+                                        invoiceData: result,
+                                        visit: visit,
+                                        onCloseAndComplete: () {
+                                          _navigateToSummary(visit.id);
+                                        },
+                                      ),
                                     ),
                                   );
                                   AppNotification.showSuccess(
@@ -12813,57 +12881,40 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ],
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 1,
-                        child: SizedBox(
-                          height: 48,
-                          child: OutlinedButton(
-                            style: AppTheme.cancelButton,
-                            child: Text(context.tr('cancel')),
-                            onPressed: isSubmitting
-                                ? null
-                                : () {
-                                    ModalHistoryHelper.skipNextHistoryBack();
-                                    Navigator.of(dialogCtx).pop();
-                                  },
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: SizedBox(
-                          height: 48,
-                          child: ElevatedButton.icon(
-                            style: AppTheme.dangerButton,
-                            icon: isSubmitting
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.check_circle_outline,
-                                    color: Colors.white,
-                                    size: 18,
-                                  ),
-                            label: Text(
-                              isSubmitting
-                                  ? context.tr('processing', fallback: 'Processing...')
-                                  : context.tr('complete_visit_create_invoice', fallback: 'Complete Visit & Create Invoice'),
-                              style: const TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: FontWeight.bold,
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      style: AppTheme.dangerButton,
+                      icon: isSubmitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
                               ),
+                            )
+                          : const Icon(
+                              Icons.check_circle_outline,
+                              color: Colors.white,
+                              size: 20,
                             ),
-                            onPressed: isSubmitting
-                                ? null
-                                : () async {
+                      label: Text(
+                        isSubmitting
+                            ? context.tr('processing', fallback: 'Processing...')
+                            : context.tr('complete_visit_create_invoice', fallback: 'Complete Visit & Create Invoice'),
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onPressed: isSubmitting
+                          ? null
+                          : () async {
                                     if (nameCtrl.text.trim().length < 3) {
                                       AppNotification.showError(
                                         dialogCtx,
@@ -12905,14 +12956,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     if (result != null && context.mounted) {
                                       ModalHistoryHelper.skipNextHistoryBack();
                                       Navigator.of(dialogCtx).pop();
+                                      final _ivLocale2 = Provider.of<LanguageProvider>(context, listen: false).locale;
                                       showDialog(
                                         context: context,
-                                        builder: (_) => HomeVisitInvoiceDialog(
-                                          invoiceData: result,
-                                          visit: visit,
-                                          onCloseAndComplete: () {
-                                            _navigateToSummary(visit.id);
-                                          },
+                                        builder: (dlgCtx2) => Localizations.override(
+                                          context: dlgCtx2,
+                                          locale: _ivLocale2,
+                                          child: HomeVisitInvoiceDialog(
+                                            invoiceData: result,
+                                            visit: visit,
+                                            onCloseAndComplete: () {
+                                              _navigateToSummary(visit.id);
+                                            },
+                                          ),
                                         ),
                                       );
                                       AppNotification.showSuccess(
@@ -12938,10 +12994,28 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       );
                                     }
                                   },
-                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton(
+                      style: AppTheme.cancelButton,
+                      onPressed: isSubmitting
+                          ? null
+                          : () {
+                              ModalHistoryHelper.skipNextHistoryBack();
+                              Navigator.of(dialogCtx).pop();
+                            },
+                      child: Text(
+                        context.tr('cancel'),
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -13412,60 +13486,95 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     style: const TextStyle(color: Colors.grey, fontSize: 13),
                   )
                 else
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Table(
-                      border: TableBorder.all(color: const Color(0xFFE2E8F0)),
-                      children: [
-                        TableRow(
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF1F5F9),
-                          ),
+                  LayoutBuilder(
+                    builder: (context, vConstraints) {
+                      final isMobile = vConstraints.maxWidth < 650;
+                      if (isMobile) {
+                        return Column(
                           children: [
-                            _tableHeader(context.tr('recorded_at')),
-                            _tableHeader(context.tr('blood_pressure')),
-                            _tableHeader(context.tr('pulse_rate_req')),
-                            _tableHeader(context.tr('spo2_req')),
-                            _tableHeader(context.tr('temperature_req')),
-                            _tableHeader(context.tr('blood_sugar_label')),
+                            for (int i = 0; i < todayVitals.length; i++)
+                              _buildVitalsSummaryCard(todayVitals[i], i),
                           ],
-                        ),
-                        for (final v in todayVitals)
-                          TableRow(
-                            children: [
-                              _tableCell(
-                                v.recordedAt != null
-                                    ? () {
-                                        try {
-                                          final dt = DateTime.parse(
-                                            v.recordedAt!,
-                                          ).toLocal();
-                                          int h = dt.hour % 12;
-                                          if (h == 0) h = 12;
-                                          final ampm = dt.hour >= 12
-                                              ? 'PM'
-                                              : 'AM';
-                                          final m = dt.minute
-                                              .toString()
-                                              .padLeft(2, '0');
-                                          return '$h:$m $ampm';
-                                        } catch (_) {
-                                          return v.recordedAt!;
-                                        }
-                                      }()
-                                    : 'N/A',
-                              ),
-                              _tableCell(
-                                '${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"}',
-                              ),
-                              _tableCell('${v.pulseRate ?? "-"}'),
-                              _tableCell('${v.spo2 ?? "-"}'),
-                              _tableCell('${v.temperature ?? "-"}'),
-                              _tableCell('${v.bloodSugar ?? "-"}'),
-                            ],
+                        );
+                      }
+                      return SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minWidth: vConstraints.maxWidth < 680
+                                ? 680
+                                : vConstraints.maxWidth,
                           ),
-                      ],
-                    ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Table(
+                              border: TableBorder.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
+                              children: [
+                                TableRow(
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFF1F5F9),
+                                  ),
+                                  children: [
+                                    _tableHeader(context.tr('recorded_at')),
+                                    _tableHeader(
+                                      context.tr('bp_unit', fallback: 'BP (mmHg)'),
+                                    ),
+                                    _tableHeader(
+                                      context.tr('pulse_unit', fallback: 'Pulse (bpm)'),
+                                    ),
+                                    _tableHeader(
+                                      context.tr('spo2_unit', fallback: 'SpO2 (%)'),
+                                    ),
+                                    _tableHeader(
+                                      context.tr('temp_unit', fallback: 'Temp (°F)'),
+                                    ),
+                                    _tableHeader(
+                                      context.tr('sugar_unit', fallback: 'Sugar (mg/dL)'),
+                                    ),
+                                  ],
+                                ),
+                                for (final v in todayVitals)
+                                  TableRow(
+                                    children: [
+                                      _tableCell(
+                                        v.recordedAt != null
+                                            ? () {
+                                                try {
+                                                  final dt = DateTime.parse(
+                                                    v.recordedAt!,
+                                                  ).toLocal();
+                                                  int h = dt.hour % 12;
+                                                  if (h == 0) h = 12;
+                                                  final ampm = dt.hour >= 12
+                                                      ? 'PM'
+                                                      : 'AM';
+                                                  final m = dt.minute
+                                                      .toString()
+                                                      .padLeft(2, '0');
+                                                  return '$h:$m $ampm';
+                                                } catch (_) {
+                                                  return v.recordedAt!;
+                                                }
+                                              }()
+                                            : 'N/A',
+                                      ),
+                                      _tableCell(
+                                        '${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"}',
+                                      ),
+                                      _tableCell('${v.pulseRate ?? "-"}'),
+                                      _tableCell('${v.spo2 ?? "-"}'),
+                                      _tableCell('${v.temperature ?? "-"}'),
+                                      _tableCell('${v.bloodSugar ?? "-"}'),
+                                    ],
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
               ],
             ),
@@ -13877,6 +13986,184 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
   }
 
+  Widget _buildVitalsSummaryCard(HomeVisitVitals v, int index) {
+    final recordedTime = v.recordedAt != null
+        ? () {
+            try {
+              final dt = DateTime.parse(v.recordedAt!).toLocal();
+              int h = dt.hour % 12;
+              if (h == 0) h = 12;
+              final ampm = dt.hour >= 12 ? 'PM' : 'AM';
+              final m = dt.minute.toString().padLeft(2, '0');
+              return '$h:$m $ampm';
+            } catch (_) {
+              return v.recordedAt!;
+            }
+          }()
+        : 'N/A';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.access_time_rounded,
+                      size: 14,
+                      color: AppTheme.secondaryColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${context.tr('recorded_at')}: ',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: Color(0xFF64748B),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      recordedTime,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '#${index + 1}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildVitalMetricPill(
+                  icon: Icons.favorite_rounded,
+                  iconColor: const Color(0xFFE53E3E),
+                  label: context.tr('bp_unit', fallback: 'BP (mmHg)'),
+                  value: '${v.systolicBp ?? "-"}/${v.diastolicBp ?? "-"}',
+                ),
+                _buildVitalMetricPill(
+                  icon: Icons.timeline_rounded,
+                  iconColor: const Color(0xFF0284C7),
+                  label: context.tr('pulse_unit', fallback: 'Pulse (bpm)'),
+                  value: '${v.pulseRate ?? "-"}',
+                ),
+                _buildVitalMetricPill(
+                  icon: Icons.air_rounded,
+                  iconColor: const Color(0xFF0D9488),
+                  label: context.tr('spo2_unit', fallback: 'SpO2 (%)'),
+                  value: '${v.spo2 ?? "-"}',
+                ),
+                _buildVitalMetricPill(
+                  icon: Icons.thermostat_rounded,
+                  iconColor: const Color(0xFFEA580C),
+                  label: context.tr('temp_unit', fallback: 'Temp (°F)'),
+                  value: '${v.temperature ?? "-"}',
+                ),
+                _buildVitalMetricPill(
+                  icon: Icons.water_drop_rounded,
+                  iconColor: const Color(0xFF7C3AED),
+                  label: context.tr('sugar_unit', fallback: 'Sugar (mg/dL)'),
+                  value: '${v.bloodSugar ?? "-"}',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVitalMetricPill({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: iconColor),
+          const SizedBox(width: 6),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _liveSummaryChip(
     IconData icon,
     String title,
@@ -13988,24 +14275,30 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             _getTranslatedPhotoCategory(photo.category),
-                            style: const TextStyle(
-                              fontSize: 15,
+                            style: TextStyle(
+                              fontSize: isMobile ? 13.5 : 15,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.primaryColor,
+                              height: 1.25,
                             ),
-                            maxLines: 1,
+                            maxLines: 2,
+                            softWrap: true,
                             overflow: TextOverflow.ellipsis,
                           ),
+                          const SizedBox(height: 2),
                           Text(
                             '${context.tr('captured_at_label', fallback: 'Captured at')} $timeStr',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey,
+                            style: TextStyle(
+                              fontSize: isMobile ? 10.5 : 11.5,
+                              color: const Color(0xFF64748B),
+                              height: 1.2,
                             ),
-                            maxLines: 1,
+                            maxLines: 2,
+                            softWrap: true,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
@@ -14020,14 +14313,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             icon: const Icon(
                               Icons.open_in_new,
                               color: AppTheme.primaryColor,
-                              size: 20,
+                              size: 19,
                             ),
                             tooltip: context.tr('open_image_new_tab', fallback: 'Open Image in New Tab'),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            splashRadius: 18,
                             onPressed: () => _openPhotoInNewTab(photo.photoUrl),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 4),
                         ],
                         if (!widget.isReadOnlyView &&
                             photo.id != null &&
@@ -14036,11 +14330,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             icon: const Icon(
                               Icons.delete_outline,
                               color: AppTheme.dangerColor,
-                              size: 20,
+                              size: 19,
                             ),
                             tooltip: context.tr('delete_photo_evidence', fallback: 'Delete Photo Evidence'),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            splashRadius: 18,
                             onPressed: () {
                               ModalHistoryHelper.skipNextHistoryBack();
                               Navigator.of(dialogCtx).pop();
@@ -14051,17 +14346,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               );
                             },
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 4),
                         ],
                         IconButton(
                           icon: const Icon(
                             Icons.close,
                             color: Colors.grey,
-                            size: 20,
+                            size: 19,
                           ),
                           tooltip: context.tr('close_preview', fallback: 'Close Preview'),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
+                          padding: const EdgeInsets.all(4),
+                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                          splashRadius: 18,
                           onPressed: () {
                             ModalHistoryHelper.skipNextHistoryBack();
                             Navigator.of(dialogCtx).pop();
@@ -14233,6 +14529,98 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       pv.status != 'Verified',
                 );
 
+                if (isNarrowBanner) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.history_outlined,
+                              color: AppTheme.primaryColor,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Builder(
+                                  builder: (ctx) {
+                                    final isTamil = Provider.of<LanguageProvider>(ctx).isTamil;
+                                    final rawPatientName = currentVisit.patientName ?? (isTamil ? 'நோயாளி' : 'Patient');
+                                    final formattedPatientName = TamilTransliterationHelper.formatName(
+                                      rawPatientName,
+                                      isTamil: isTamil,
+                                      showBoth: true,
+                                    );
+                                    return Text(
+                                      '${ctx.tr('daily_home_nursing_care_history', fallback: 'Daily Home Nursing Care History')} - $formattedPatientName',
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryColor,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${context.tr('patient_id_label', fallback: 'Patient ID')}: ${currentVisit.patientDisplayId ?? "N/A"} | ${context.tr('select_day_session_card_desc', fallback: 'Select a Day Session Card below to view full details.')}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (hasActivePlan) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.dangerColor,
+                              side: const BorderSide(color: AppTheme.dangerColor),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 11,
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.do_not_disturb_on_outlined,
+                              size: 18,
+                            ),
+                            label: Text(
+                              context.tr('stop_care_plan', fallback: 'Stop Care Plan'),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            onPressed: () =>
+                                _showDiscontinueDialog(context, currentVisit),
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                }
+
                 return Row(
                   children: [
                     Container(
@@ -14291,8 +14679,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isNarrowBanner ? 10 : 14,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
                             vertical: 10,
                           ),
                         ),
@@ -14302,9 +14690,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                         label: Text(
                           context.tr('stop_care_plan', fallback: 'Stop Care Plan'),
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: isNarrowBanner ? 11.5 : 12.5,
+                            fontSize: 12.5,
                           ),
                         ),
                         onPressed: () =>
@@ -15004,14 +15392,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                 ),
                                 onPressed: () {
+                                  final _locale3 = Provider.of<LanguageProvider>(context, listen: false).locale;
                                   showDialog(
                                     context: context,
-                                    builder: (_) => HomeVisitInvoiceDialog(
-                                      invoiceData: {'invoice': visit.invoice},
-                                      visit: visit,
-                                      onCloseAndComplete: () {
-                                        _handleLeave();
-                                      },
+                                    builder: (dlgCtx3) => Localizations.override(
+                                      context: dlgCtx3,
+                                      locale: _locale3,
+                                      child: HomeVisitInvoiceDialog(
+                                        invoiceData: {'invoice': visit.invoice},
+                                        visit: visit,
+                                        onCloseAndComplete: () {
+                                          _handleLeave();
+                                        },
+                                      ),
                                     ),
                                   );
                                 },
@@ -15077,14 +15470,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ),
                               ),
                               onPressed: () {
+                                final _locale4 = Provider.of<LanguageProvider>(context, listen: false).locale;
                                 showDialog(
                                   context: context,
-                                  builder: (_) => HomeVisitInvoiceDialog(
-                                    invoiceData: {'invoice': visit.invoice},
-                                    visit: visit,
-                                    onCloseAndComplete: () {
-                                      _handleLeave();
-                                    },
+                                  builder: (dlgCtx4) => Localizations.override(
+                                    context: dlgCtx4,
+                                    locale: _locale4,
+                                    child: HomeVisitInvoiceDialog(
+                                      invoiceData: {'invoice': visit.invoice},
+                                      visit: visit,
+                                      onCloseAndComplete: () {
+                                        _handleLeave();
+                                      },
+                                    ),
                                   ),
                                 );
                               },

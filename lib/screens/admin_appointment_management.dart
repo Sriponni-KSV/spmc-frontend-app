@@ -236,8 +236,42 @@ class _AdminAppointmentManagementState
       return [];
     }
 
-    // Display all available time slots configured for the doctor on this date
-    return _generateSlotsForDoctor(doctor);
+    final allSlots = _generateSlotsForDoctor(doctor);
+    final now = DateTime.now();
+    final bool isToday = date.year == now.year &&
+        date.month == now.month &&
+        date.day == now.day;
+
+    if (!isToday) {
+      return allSlots;
+    }
+
+    int duration = 30;
+    if (doctor.slotDuration != null && doctor.slotDuration!.trim().isNotEmpty) {
+      final digits = RegExp(r'\d+').firstMatch(doctor.slotDuration!)?.group(0);
+      if (digits != null) {
+        duration = int.tryParse(digits) ?? 30;
+      }
+    }
+    if (duration <= 0) duration = 30;
+
+    return allSlots.where((slot) {
+      try {
+        final slotDt = _parseTime(slot);
+        final slotEnd = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          slotDt.hour,
+          slotDt.minute,
+        ).add(Duration(minutes: duration));
+
+        if (slotEnd.isBefore(now)) {
+          return false;
+        }
+      } catch (_) {}
+      return true;
+    }).toList();
   }
 
   @override

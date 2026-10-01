@@ -154,56 +154,65 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
       isTamil: isTamil,
     );
 
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+      insetPadding: EdgeInsets.all(isMobile ? 12.0 : 24.0),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 650, maxHeight: 700),
-        padding: const EdgeInsets.all(24.0),
+        constraints: BoxConstraints(
+          maxWidth: 650,
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
+        ),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             // Header
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.receipt_long, color: AppTheme.primaryColor, size: 28),
-                    ),
-                    const SizedBox(width: 14),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.tr('home_visit_billing_invoice', fallback: 'Home Visit Billing Invoice'),
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryColor,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                        Text(
-                          '${context.tr('invoice_num_label', fallback: 'Invoice #:')} $invoiceNumber',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.receipt_long, color: AppTheme.primaryColor, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('home_visit_billing_invoice', fallback: 'Home Visit Billing Invoice'),
+                        style: TextStyle(
+                          fontSize: isMobile ? 15 : 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                          fontFamily: 'Inter',
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${context.tr('invoice_num_label', fallback: 'Invoice #:')} $invoiceNumber',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontFamily: 'Inter',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFEF3C7),
                     borderRadius: BorderRadius.circular(20),
@@ -211,7 +220,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                   child: Text(
                     _getTranslatedStatus(context, status),
                     style: const TextStyle(
-                      fontSize: 12,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF92400E),
                     ),
@@ -219,11 +228,11 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                 ),
               ],
             ),
-            const Divider(height: 32),
+            Divider(height: isMobile ? 24 : 32),
 
             // Patient & Attender Summary Card
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(10),
@@ -310,17 +319,17 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                 child: Column(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: const BoxDecoration(
                         color: Color(0xFFEDF2F7),
                         borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
                       ),
                       child: Row(
                         children: [
-                          Expanded(flex: 3, child: Text(context.tr('service_item_description', fallback: 'Service / Item Description'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                          Expanded(flex: 1, child: Text(context.tr('qty_label', fallback: 'Qty'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                          Expanded(flex: 1, child: Text(context.tr('unit_price', fallback: 'Unit Price'), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
-                          Expanded(flex: 1, child: Text(context.tr('subtotal_header', fallback: 'Subtotal'), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                          Expanded(flex: 5, child: Text(context.tr('service_item_description', fallback: 'Service / Item Description'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                          Expanded(flex: 2, child: Text(context.tr('qty_label', fallback: 'Qty'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                          Expanded(flex: 3, child: Text(context.tr('unit_price', fallback: 'Unit Price'), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                          Expanded(flex: 3, child: Text(context.tr('subtotal_header', fallback: 'Subtotal'), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
                         ],
                       ),
                     ),
@@ -339,38 +348,38 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                               : (qty * unitPrice);
 
                           return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             child: Row(
                               children: [
                                 Expanded(
-                                  flex: 3,
+                                  flex: 5,
                                   child: Text(
                                     _translateItemName(context, item['item_name'] ?? 'Item'),
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
                                   ),
                                 ),
                                 Expanded(
-                                  flex: 1,
+                                  flex: 2,
                                   child: Text(
                                     '$qty',
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(fontSize: 13),
+                                    style: const TextStyle(fontSize: 12),
                                   ),
                                 ),
                                 Expanded(
-                                  flex: 1,
+                                  flex: 3,
                                   child: Text(
                                     '₹${unitPrice.toStringAsFixed(2)}',
                                     textAlign: TextAlign.right,
-                                    style: const TextStyle(fontSize: 13),
+                                    style: const TextStyle(fontSize: 11.5),
                                   ),
                                 ),
                                 Expanded(
-                                  flex: 1,
+                                  flex: 3,
                                   child: Text(
                                     '₹${subtotal.toStringAsFixed(2)}',
                                     textAlign: TextAlign.right,
-                                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
                                   ),
                                 ),
                               ],
@@ -383,30 +392,34 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
             // Total Amount Banner
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: AppTheme.primaryColor.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    context.tr('net_total_bill_amount', fallback: 'Net Total Bill Amount:'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
+                  Expanded(
+                    child: Text(
+                      context.tr('net_total_bill_amount', fallback: 'Net Total Bill Amount:'),
+                      style: TextStyle(
+                        fontSize: isMobile ? 14 : 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Text(
                     '₹${totalAmount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 22,
+                    style: TextStyle(
+                      fontSize: isMobile ? 18 : 22,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.primaryColor,
                     ),
@@ -414,7 +427,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // Dialog Close Button (52px high per Style Guide)
             SizedBox(

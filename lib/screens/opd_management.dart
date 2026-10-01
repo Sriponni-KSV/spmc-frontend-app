@@ -55,7 +55,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   void initState() {
     super.initState();
     UnsavedChangesHelper.setUnsavedChanges(true);
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
     _loadData();
     _loadDoctors();
   }
@@ -167,18 +167,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   List<AppointmentModel> _getTabAppointments(int tabIndex) {
     final baseApps = _filteredAppointments;
     switch (tabIndex) {
-      case 0: // Waiting (Confirmed / Checked-in / Waiting)
+      case 0: // Confirmed (Awaiting arrival / vitals)
+        return baseApps.where((a) => a.status == 'Confirmed').toList();
+      case 1: // Waiting (Checked-in / Waiting queue)
         return baseApps
             .where(
               (a) =>
-                  a.status == 'Confirmed' ||
                   a.status == 'Checked-in' ||
                   a.status == 'Waiting',
             )
             .toList();
-      case 1: // In Consultation
+      case 2: // In Consultation
         return baseApps.where((a) => a.status == 'In Consultation').toList();
-      case 2: // Completed – driven by consultations (all dates, not date-filtered)
+      case 3: // Completed – driven by consultations (all dates, not date-filtered)
         return _consultations.map((c) {
           return AppointmentModel(
             id: c['appointment_id'] is int
@@ -201,7 +202,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             updatedAt: c['updated_at'] as String?,
           );
         }).toList();
-      case 3: // Cancelled & No-Show
+      case 4: // Cancelled & No-Show
         return baseApps
             .where((a) => a.status == 'Cancelled' || a.status == 'No-Show')
             .toList();
@@ -213,20 +214,21 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   int _getCountForTab(int tabIndex) {
     final walkins = _walkInAppointments;
     switch (tabIndex) {
-      case 0:
+      case 0: // Confirmed
+        return walkins.where((a) => a.status == 'Confirmed').length;
+      case 1: // Waiting
         return walkins
             .where(
               (a) =>
-                  a.status == 'Confirmed' ||
                   a.status == 'Checked-in' ||
                   a.status == 'Waiting',
             )
             .length;
-      case 1:
+      case 2: // In Consultation
         return walkins.where((a) => a.status == 'In Consultation').length;
-      case 2:
+      case 3: // Completed
         return _consultations.length;
-      case 3:
+      case 4: // Cancelled & No-Show
         return walkins
             .where((a) => a.status == 'Cancelled' || a.status == 'No-Show')
             .length;
@@ -279,6 +281,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       _buildTabQueueList(1),
                       _buildTabQueueList(2),
                       _buildTabQueueList(3),
+                      _buildTabQueueList(4),
                       _buildPrescriptionsTab(),
                       _buildLabTestsTab(),
                       _buildPharmacyTab(),
@@ -463,53 +466,60 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             onTap: null,
           ),
           _buildStatCard(
-            title: context.tr('waiting_queue', fallback: 'Waiting Queue'),
+            title: context.tr('confirmed', fallback: 'Confirmed'),
             count: _getCountForTab(0),
-            color: const Color(0xFF0D9488),
-            icon: Icons.hourglass_empty,
+            color: AppTheme.primaryColor,
+            icon: Icons.event_available,
             onTap: () => _tabController.animateTo(0),
           ),
           _buildStatCard(
-            title: context.tr('in_consultation', fallback: 'In Consultation'),
+            title: context.tr('waiting_queue', fallback: 'Waiting Queue'),
             count: _getCountForTab(1),
-            color: const Color(0xFFF59E0B),
-            icon: Icons.medical_services_outlined,
+            color: const Color(0xFF0D9488),
+            icon: Icons.hourglass_empty,
             onTap: () => _tabController.animateTo(1),
           ),
           _buildStatCard(
-            title: context.tr('completed', fallback: 'Completed'),
+            title: context.tr('in_consultation', fallback: 'In Consultation'),
             count: _getCountForTab(2),
-            color: const Color(0xFF22C55E),
-            icon: Icons.check_circle_outline,
+            color: const Color(0xFFF59E0B),
+            icon: Icons.medical_services_outlined,
             onTap: () => _tabController.animateTo(2),
           ),
           _buildStatCard(
-            title: context.tr('cancelled', fallback: 'Cancelled'),
+            title: context.tr('completed', fallback: 'Completed'),
             count: _getCountForTab(3),
+            color: const Color(0xFF22C55E),
+            icon: Icons.check_circle_outline,
+            onTap: () => _tabController.animateTo(3),
+          ),
+          _buildStatCard(
+            title: context.tr('cancelled', fallback: 'Cancelled'),
+            count: _getCountForTab(4),
             color: const Color(0xFFEF4444),
             icon: Icons.cancel_outlined,
-            onTap: () => _tabController.animateTo(3),
+            onTap: () => _tabController.animateTo(4),
           ),
           _buildStatCard(
             title: context.tr('prescriptions', fallback: 'Prescriptions'),
             count: _getPrescriptionsCount(),
             color: Colors.indigo,
             icon: Icons.description_outlined,
-            onTap: () => _tabController.animateTo(4),
+            onTap: () => _tabController.animateTo(5),
           ),
           _buildStatCard(
             title: context.tr('lab_orders', fallback: 'Lab Orders'),
             count: _getLabTestsCount(),
             color: Colors.teal.shade700,
             icon: Icons.science_outlined,
-            onTap: () => _tabController.animateTo(5),
+            onTap: () => _tabController.animateTo(6),
           ),
           _buildStatCard(
             title: context.tr('pharmacy_status', fallback: 'Pharmacy Status'),
             count: _getPharmacyCount(),
             color: Colors.purple.shade700,
             icon: Icons.local_pharmacy_outlined,
-            onTap: () => _tabController.animateTo(6),
+            onTap: () => _tabController.animateTo(7),
           ),
         ],
       ),
@@ -838,9 +848,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                const Icon(Icons.event_available, size: 16),
+                const SizedBox(width: 4),
+                Text('${context.tr('tab_confirmed', fallback: 'Confirmed')} (${_getCountForTab(0)})'),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 const Icon(Icons.hourglass_empty, size: 16),
                 const SizedBox(width: 4),
-                Text('${context.tr('tab_waiting', fallback: 'Waiting')} (${_getCountForTab(0)})'),
+                Text('${context.tr('tab_waiting', fallback: 'Waiting')} (${_getCountForTab(1)})'),
               ],
             ),
           ),
@@ -850,7 +870,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.medical_services_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('${context.tr('tab_consulting', fallback: 'Consulting')} (${_getCountForTab(1)})'),
+                Text('${context.tr('tab_consulting', fallback: 'Consulting')} (${_getCountForTab(2)})'),
               ],
             ),
           ),
@@ -860,7 +880,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.check_circle_outline, size: 16),
                 const SizedBox(width: 4),
-                Text('${context.tr('tab_completed', fallback: 'Completed')} (${_getCountForTab(2)})'),
+                Text('${context.tr('tab_completed', fallback: 'Completed')} (${_getCountForTab(3)})'),
               ],
             ),
           ),
@@ -870,7 +890,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.cancel_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('${context.tr('tab_cancelled', fallback: 'Cancelled')} (${_getCountForTab(3)})'),
+                Text('${context.tr('tab_cancelled', fallback: 'Cancelled')} (${_getCountForTab(4)})'),
               ],
             ),
           ),
@@ -953,6 +973,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     // Status colors
     Color statusColor;
     switch (app.status) {
+      case 'Confirmed':
+        statusColor = AppTheme.primaryColor;
+        break;
       case 'Waiting':
       case 'Checked-in':
         statusColor = const Color(0xFF0D9488); // Teal
@@ -1869,7 +1892,26 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         isAvailable = false;
       }
       if (!isAvailable) return [];
-      return _generateSlotsForDoctor(doctor);
+      final allSlots = _generateSlotsForDoctor(doctor);
+      final now = DateTime.now();
+      final bool isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+      if (!isToday) return allSlots;
+
+      int duration = 30;
+      if (doctor.slotDuration != null && doctor.slotDuration!.trim().isNotEmpty) {
+        final digits = RegExp(r'\d+').firstMatch(doctor.slotDuration!)?.group(0);
+        if (digits != null) duration = int.tryParse(digits) ?? 30;
+      }
+      if (duration <= 0) duration = 30;
+
+      return allSlots.where((slot) {
+        try {
+          final slotDt = _parseTime(slot);
+          final slotEnd = DateTime(now.year, now.month, now.day, slotDt.hour, slotDt.minute).add(Duration(minutes: duration));
+          if (slotEnd.isBefore(now)) return false;
+        } catch (_) {}
+        return true;
+      }).toList();
     }
 
     if (_doctors.isEmpty) {
@@ -4416,7 +4458,20 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 availableSlots = _generateSlotsForDoctor(
                                   doctor,
                                 );
+                                int duration = 30;
+                                if (doctor.slotDuration != null && doctor.slotDuration!.trim().isNotEmpty) {
+                                  final digits = RegExp(r'\d+').firstMatch(doctor.slotDuration!)?.group(0);
+                                  if (digits != null) duration = int.tryParse(digits) ?? 30;
+                                }
+                                if (duration <= 0) duration = 30;
+
                                 availableSlots = availableSlots.where((slot) {
+                                  try {
+                                    final slotDt = _parseTime(slot);
+                                    final slotEnd = DateTime(now.year, now.month, now.day, slotDt.hour, slotDt.minute).add(Duration(minutes: duration));
+                                    if (slotEnd.isBefore(now)) return false;
+                                  } catch (_) {}
+
                                   bool isBooked = _appointments.any(
                                     (a) =>
                                         _isSameDoctor(a.doctorName, doctor.fullname) &&

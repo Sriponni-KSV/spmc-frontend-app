@@ -2053,13 +2053,17 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     final timeCtrl = TextEditingController(text: '09:00 AM');
     String selectedShiftKey = 'morning';
 
+    final langProviderForDialog = Provider.of<LanguageProvider>(context, listen: false);
     showDialog(
       context: context,
-      builder: (dialogCtx) => Consumer<LanguageProvider>(
-        builder: (context, langProvider, child) => StatefulBuilder(
-          builder: (context, setDialogState) {
-            final bool isTamil = langProvider.isTamil;
-            final Map<String, String> shiftLabels = {
+      builder: (dialogCtx) => Localizations.override(
+        context: dialogCtx,
+        locale: langProviderForDialog.locale,
+        child: Consumer<LanguageProvider>(
+          builder: (context, langProvider, child) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              final bool isTamil = langProvider.isTamil;
+              final Map<String, String> shiftLabels = {
               'morning': context.tr(
                 'shift_morning',
                 fallback: 'Morning Shift (09:00 AM - 06:00 PM)',
@@ -2087,7 +2091,8 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   ),
                   InkWell(
                     onTap: () {
-                      langProvider.toggleLanguage();
+                      final auth = Provider.of<AuthProvider>(context, listen: false);
+                      langProvider.toggleLanguage(userId: auth.user?.id);
                     },
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
@@ -2418,6 +2423,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ],
             );
           },
+          ),
         ),
       ),
     );
@@ -2525,7 +2531,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
@@ -2544,7 +2550,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                context.tr(
+                dialogCtx.tr(
                   'active_visit_in_progress',
                   fallback: 'Active Visit In-Progress',
                 ),
@@ -2564,7 +2570,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                context.tr(
+                dialogCtx.tr(
                   'active_visit_desc',
                   fallback:
                       'You currently have an active home visit in progress. Nurses cannot execute multiple active visits simultaneously.',
@@ -2598,7 +2604,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            '${context.tr('patient_label', fallback: 'Patient:')} $formattedPatientName ($patientDisplayId)',
+                            '${dialogCtx.tr('patient_label', fallback: 'Patient:')} $formattedPatientName ($patientDisplayId)',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -2618,7 +2624,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '${context.tr('visit_number', fallback: 'Visit Number')}: $visitNumber',
+                          '${dialogCtx.tr('visit_number', fallback: 'Visit Number')}: $visitNumber',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
@@ -2639,7 +2645,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '${context.tr('started_at', fallback: 'Started At')}: ${activeVisit.startTime}',
+                            '${dialogCtx.tr('started_at', fallback: 'Started At')}: ${activeVisit.startTime}',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
@@ -2654,7 +2660,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
               ),
               const SizedBox(height: 16),
               Text(
-                context.tr(
+                dialogCtx.tr(
                   'active_visit_note',
                   fallback:
                       'Please complete or resume your ongoing visit before starting another session.',
@@ -2671,19 +2677,23 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
         actions: [
           OutlinedButton(
             style: AppTheme.cancelButton,
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(context.tr('dismiss', fallback: 'Dismiss')),
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: Text(dialogCtx.tr('dismiss', fallback: 'Dismiss')),
           ),
           const SizedBox(width: 8),
           ElevatedButton(
             style: AppTheme.primaryButton,
             onPressed: () {
               ModalHistoryHelper.skipNextHistoryBack();
-              Navigator.of(ctx).pop();
-              _navigateToExecuteScreen(context, activeVisit.id);
+              Navigator.of(dialogCtx).pop();
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _navigateToExecuteScreen(context, activeVisit.id);
+                }
+              });
             },
             child: Text(
-              context.tr('resume_active_visit', fallback: 'Resume Active Visit'),
+              dialogCtx.tr('resume_active_visit', fallback: 'Resume Active Visit'),
             ),
           ),
         ],

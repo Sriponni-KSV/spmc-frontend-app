@@ -1676,7 +1676,28 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                   availableSlots = [];
                                 } else {
                                   availableSlots = _generateSlotsForDoctor(doc);
+                                  int duration = 30;
+                                  if (doc.slotDuration != null && doc.slotDuration!.trim().isNotEmpty) {
+                                    final digits = RegExp(r'\d+').firstMatch(doc.slotDuration!)?.group(0);
+                                    if (digits != null) {
+                                      duration = int.tryParse(digits) ?? 30;
+                                    }
+                                  }
+                                  if (duration <= 0) duration = 30;
+
                                   availableSlots = availableSlots.where((slot) {
+                                    try {
+                                      final slotDt = _parseTime(slot);
+                                      final slotEnd = DateTime(
+                                        now.year,
+                                        now.month,
+                                        now.day,
+                                        slotDt.hour,
+                                        slotDt.minute,
+                                      ).add(Duration(minutes: duration));
+                                      if (slotEnd.isBefore(now)) return false;
+                                    } catch (_) {}
+
                                     bool isBooked = _appointments.any(
                                       (a) =>
                                           _isSameDoctor(a.doctorName, doc.fullname) &&

@@ -630,6 +630,32 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return isAvailable;
   }
 
+  DateTime? _parseSlotDateTime(String timeStr, DateTime date) {
+    try {
+      final clean = timeStr.trim();
+      if (clean.isEmpty) return null;
+      final matchAmPm = RegExp(
+        r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+        caseSensitive: false,
+      ).firstMatch(clean);
+      if (matchAmPm != null) {
+        int hour = int.parse(matchAmPm.group(1)!);
+        final int minute = int.parse(matchAmPm.group(2)!);
+        final bool isPm = matchAmPm.group(3)!.toUpperCase() == 'PM';
+        if (isPm && hour < 12) hour += 12;
+        if (!isPm && hour == 12) hour = 0;
+        return DateTime(date.year, date.month, date.day, hour, minute);
+      }
+      final match24 = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(clean);
+      if (match24 != null) {
+        final int hour = int.parse(match24.group(1)!);
+        final int minute = int.parse(match24.group(2)!);
+        return DateTime(date.year, date.month, date.day, hour, minute);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   List<String> _getFilteredTimeSlots() {
     if (_bookingDate == null || _selectedDoctor == null) return [];
 
@@ -638,8 +664,35 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       baseSlots = _generateSlotsForDoctor(_selectedDoctor!);
     }
 
+    final now = DateTime.now();
+    final bool isToday = _bookingDate!.year == now.year &&
+        _bookingDate!.month == now.month &&
+        _bookingDate!.day == now.day;
+
+    int duration = _intervalMinutes;
+    if (_selectedDoctor?.slotDuration != null) {
+      final digits =
+          RegExp(r'\d+').firstMatch(_selectedDoctor!.slotDuration!)?.group(0);
+      if (digits != null) {
+        duration = int.tryParse(digits) ?? _intervalMinutes;
+      }
+    }
+    if (duration <= 0) duration = 30;
+
     return baseSlots.where((slot) {
-      // 1. Check if already booked
+      // 1. If booking for today, display only current and upcoming slots (hide past slots)
+      if (isToday) {
+        final slotStart = _parseSlotDateTime(slot, now);
+        if (slotStart != null) {
+          final slotEnd = slotStart.add(Duration(minutes: duration));
+          // If the slot has already concluded, exclude it
+          if (slotEnd.isBefore(now)) {
+            return false;
+          }
+        }
+      }
+
+      // 2. Check if already booked
       bool isBooked = _appointments.any((a) {
         if (a.status.toLowerCase() == 'cancelled') return false;
         if (!_isSameDoctor(a.doctorName, _selectedDoctor!.fullname)) {
@@ -2608,7 +2661,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       {'key': 'Table', 'label': context.tr('table_view', fallback: 'Table View')},
       {'key': 'Hospital', 'label': context.tr('hospital_view', fallback: 'Hospital View')},
       {'key': 'Doctor', 'label': context.tr('doctor_view', fallback: 'Doctor View')},
-      {'key': 'Both', 'label': context.tr('both_view', fallback: 'Both View')},
+      {'key': 'Both', 'label': context.tr('hospital_doctor_view', fallback: 'Hospital & Doctor View')},
     ];
     return Container(
       padding: const EdgeInsets.all(4),

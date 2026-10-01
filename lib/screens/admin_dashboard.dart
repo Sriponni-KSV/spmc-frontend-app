@@ -5545,24 +5545,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // --- Home Visit Care Section (Admin Only Schedule) ---
 
   Widget _buildAdminHomeVisitCare(bool isMobile) {
+    final langProvider = Provider.of<LanguageProvider>(context);
     if (_selectedHomeVisitId != null) {
-      return HomeVisitExecutionScreen(
-        key: ValueKey('admin_home_visit_${_selectedHomeVisitId}'),
-        visitId: _selectedHomeVisitId!,
-        isReadOnlyView: true,
-        onBack: () {
-          setState(() {
-            _selectedHomeVisitId = null;
-          });
-          context.go(AppRoutes.adminHomeVisits);
-        },
+      return Localizations.override(
+        context: context,
+        locale: langProvider.locale,
+        child: HomeVisitExecutionScreen(
+          key: ValueKey('admin_home_visit_${_selectedHomeVisitId}'),
+          visitId: _selectedHomeVisitId!,
+          isReadOnlyView: true,
+          onBack: () {
+            setState(() {
+              _selectedHomeVisitId = null;
+            });
+            context.go(AppRoutes.adminHomeVisits);
+          },
+        ),
       );
     }
 
-    return Consumer<LanguageProvider>(
-      builder: (context, langProvider, child) {
-        return Container(
-          color: AppTheme.backgroundColor,
+    return Localizations.override(
+      context: context,
+      locale: langProvider.locale,
+      child: Consumer<LanguageProvider>(
+        builder: (context, langProvider, child) {
+          return Container(
+            color: AppTheme.backgroundColor,
           child: Column(
             children: [
               Container(
@@ -5737,9 +5745,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ],
           ),
         );
-      },
+        },
+      ),
     );
   }
+
 
   void _showAdminScheduleVisitDialog(BuildContext context) async {
     List<UserModel> availableNurses = _nurses;
@@ -5770,13 +5780,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     String selectedShiftKey = 'morning';
 
+    final _adminDialogLocale = Provider.of<LanguageProvider>(context, listen: false).locale;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogCtx) => Consumer<LanguageProvider>(
-        builder: (context, langProvider, child) => StatefulBuilder(
-          builder: (context, setDialogState) {
-            final bool isTamil = langProvider.isTamil;
+      builder: (dialogCtx) => Localizations.override(
+        context: dialogCtx,
+        locale: _adminDialogLocale,
+        child: Consumer<LanguageProvider>(
+          builder: (context, langProvider, child) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              final bool isTamil = langProvider.isTamil;
             final homeVisitCtrl = Provider.of<HomeVisitController>(
               context,
               listen: false,
@@ -5852,7 +5866,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   InkWell(
                     onTap: () {
-                      langProvider.toggleLanguage();
+                      final auth = Provider.of<AuthProvider>(context, listen: false);
+                      langProvider.toggleLanguage(userId: auth.user?.id);
                     },
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
@@ -6301,10 +6316,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ],
             );
           },
+          ),
         ),
       ),
     );
   }
+
 
   // --- Helpers & Dialogs ---
 

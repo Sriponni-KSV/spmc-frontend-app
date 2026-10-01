@@ -24,11 +24,13 @@ import '../models/appointment_model.dart';
 import '../utils/logout_helper.dart';
 import '../models/user_model.dart';
 import '../controllers/nurse_shift_controller.dart';
+import '../controllers/notification_controller.dart';
 import '../widgets/user_profile_dialog.dart';
 import '../utils/modal_history_helper.dart';
 import '../config/nurse_nav_config.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
+import '../providers/language_provider.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -76,15 +78,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   bool _isLoadingAppointments = false;
 
   final NurseShiftController _shiftCtrl = NurseShiftController();
+  final NotificationController _notificationCtrl = NotificationController();
   Map<String, dynamic>? _activeShiftData;
   Map<String, dynamic>? _todayShiftData;
 
-  String _activeAdmissionsCount = '--';
-  String _patientVisitsCount = '--';
+  String _onDutyDoctorsCount = '--';
+  String _todayHomeVisitsCount = '--';
   bool _isLoadingDashboardStats = false;
   List<Map<String, dynamic>> _allWardsShiftData = [];
   bool _isLoadingShiftStatus = false;
   List<Map<String, dynamic>> _handovers = [];
+  List<Map<String, dynamic>> _liveNotifications = [];
+  final LanguageProvider _englishOnlyProvider = LanguageProvider();
 
   @override
   void initState() {
@@ -128,9 +133,14 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       final stats = await _shiftCtrl.fetchNurseStats();
       if (mounted) {
         setState(() {
-          _activeAdmissionsCount =
-              stats['activeAdmissions']?.toString() ?? '--';
-          _patientVisitsCount = stats['patientVisits']?.toString() ?? '--';
+          _onDutyDoctorsCount =
+              stats['onDutyDoctors']?.toString() ??
+              stats['activeDoctors']?.toString() ??
+              '--';
+          _todayHomeVisitsCount =
+              stats['todayHomeVisits']?.toString() ??
+              stats['homeVisits']?.toString() ??
+              '0';
         });
       }
     } catch (e) {
@@ -142,6 +152,19 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     }
   }
 
+  Future<void> _fetchNotifications() async {
+    try {
+      final list = await _notificationCtrl.fetchNotifications();
+      if (mounted) {
+        setState(() {
+          _liveNotifications = list;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching notifications: $e');
+    }
+  }
+
   Future<void> _fetchData() async {
     await Future.wait([
       _fetchPatients(),
@@ -149,6 +172,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       _fetchShiftStatus(),
       _fetchHandovers(),
       _fetchDashboardStats(),
+      _fetchNotifications(),
     ]);
   }
 
@@ -273,6 +297,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   @override
   void dispose() {
+    _englishOnlyProvider.dispose();
     _mainFocusNode.dispose();
     super.dispose();
   }
@@ -707,6 +732,60 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Widget _buildMainContent(bool isMobile) {
+    if (_selectedIndex == 9 && !_isRegisteringPatient) {
+      final languageProvider = Provider.of<LanguageProvider>(context);
+      return Localizations.override(
+        context: context,
+        locale: languageProvider.locale,
+        child: _buildHomeVisitContent(),
+      );
+    }
+
+    return Localizations.override(
+      context: context,
+      locale: const Locale('en'),
+      child: ChangeNotifierProvider<LanguageProvider>.value(
+        value: _englishOnlyProvider,
+        child: _buildNonHomeVisitContent(isMobile),
+      ),
+    );
+  }
+
+  Widget _buildHomeVisitContent() {
+    if (_selectedHomeVisitId != null) {
+      return HomeVisitExecutionScreen(
+        key: ValueKey('nurse_home_visit_${_selectedHomeVisitId}_$_isReadOnlyHomeVisit'),
+        visitId: _selectedHomeVisitId!,
+        isReadOnlyView: _isReadOnlyHomeVisit,
+        onBack: () {
+          setState(() {
+            _selectedHomeVisitId = null;
+            _isReadOnlyHomeVisit = false;
+          });
+          context.go(AppRoutes.nurseHomeVisits);
+        },
+      );
+    }
+    return HomeVisitListView(
+      showScheduleButton: false,
+      onExecuteVisit: (visitId) {
+        setState(() {
+          _selectedHomeVisitId = visitId;
+          _isReadOnlyHomeVisit = false;
+        });
+        context.go('/nurse/home-visits/execute/$visitId');
+      },
+      onViewSummary: (visitId) {
+        setState(() {
+          _selectedHomeVisitId = visitId;
+          _isReadOnlyHomeVisit = true;
+        });
+        context.go('/nurse/home-visits/summary/$visitId');
+      },
+    );
+  }
+
+  Widget _buildNonHomeVisitContent(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
 
     if (_isRegisteringPatient) {
@@ -803,38 +882,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return OTManagementScreen(isMobile: isMobile);
       case 8:
         return const AppointmentsView(initialViewMode: 'Doctor');
-      case 9:
-        if (_selectedHomeVisitId != null) {
-          return HomeVisitExecutionScreen(
-            key: ValueKey('nurse_home_visit_${_selectedHomeVisitId}_$_isReadOnlyHomeVisit'),
-            visitId: _selectedHomeVisitId!,
-            isReadOnlyView: _isReadOnlyHomeVisit,
-            onBack: () {
-              setState(() {
-                _selectedHomeVisitId = null;
-                _isReadOnlyHomeVisit = false;
-              });
-              context.go(AppRoutes.nurseHomeVisits);
-            },
-          );
-        }
-        return HomeVisitListView(
-          showScheduleButton: false,
-          onExecuteVisit: (visitId) {
-            setState(() {
-              _selectedHomeVisitId = visitId;
-              _isReadOnlyHomeVisit = false;
-            });
-            context.go('/nurse/home-visits/execute/$visitId');
-          },
-          onViewSummary: (visitId) {
-            setState(() {
-              _selectedHomeVisitId = visitId;
-              _isReadOnlyHomeVisit = true;
-            });
-            context.go('/nurse/home-visits/summary/$visitId');
-          },
-        );
       default:
         return _buildDashboardView(isMobile);
     }
@@ -981,15 +1028,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                           (item) {
                             String translatedLabel = item.label;
                             final lower = item.label.toLowerCase();
-                            if (lower == 'dashboard') translatedLabel = context.tr('dashboard', fallback: item.label);
-                            else if (lower == 'patients') translatedLabel = context.tr('patients', fallback: item.label);
-                            else if (lower == 'appointments') translatedLabel = context.tr('appointments', fallback: item.label);
-                            else if (lower == 'doctors') translatedLabel = context.tr('doctors', fallback: item.label);
-                            else if (lower.contains('opd')) translatedLabel = context.tr('opd_management', fallback: item.label);
-                            else if (lower.contains('ipd')) translatedLabel = context.tr('ipd_management', fallback: item.label);
-                            else if (lower.contains('ot')) translatedLabel = context.tr('ot_management', fallback: item.label);
-                            else if (lower.contains('home visit')) translatedLabel = context.tr('home_visit_care', fallback: item.label);
-                            else if (lower == 'profile') translatedLabel = context.tr('profile', fallback: item.label);
+                            if (lower.contains('home visit')) {
+                              translatedLabel = Provider.of<LanguageProvider>(context).isTamil
+                                  ? 'வீட்டுப் பராமரிப்பு வருகை'
+                                  : item.label;
+                            }
 
                             return _buildSidebarItem(
                               item.index,
@@ -1152,15 +1195,19 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Widget _buildHeader(BuildContext context, bool isMobile) {
-    return Container(
-      decoration: const BoxDecoration(color: Colors.transparent),
-      padding: EdgeInsets.only(
-        left: isMobile ? 16 : 24,
-        right: isMobile ? 16 : 24,
-        top: 20,
-        bottom: 0,
+    return Localizations.override(
+      context: context,
+      locale: const Locale('en'),
+      child: Container(
+        decoration: const BoxDecoration(color: Colors.transparent),
+        padding: EdgeInsets.only(
+          left: isMobile ? 16 : 24,
+          right: isMobile ? 16 : 24,
+          top: 20,
+          bottom: 0,
+        ),
+        child: _buildBannerTopBar(isMobile),
       ),
-      child: _buildBannerTopBar(isMobile),
     );
   }
 
@@ -1219,32 +1266,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           ),
         ),
 
-        const SizedBox(width: 12),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Icon(Icons.notifications_none_outlined, color: AppTheme.getTextPrimaryColor(context), size: 22),
-            Positioned(
-              right: -2,
-              top: -2,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(color: Color(0xFFE53E3E), shape: BoxShape.circle),
-                constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                child: const Text(
-                  '3',
-                  style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(width: 16),
+        const SizedBox(width: 8),
         AppTopBarActions(
           showClock: !isMobile,
           liveClockWidget: const LiveClock(isDark: false),
+          showLanguageToggle: false,
+          showSettings: true,
         ),
       ],
     );
@@ -1253,13 +1280,22 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   Widget _buildStatsRow(bool isMobile) {
     final bool isDark = AppTheme.isDark(context);
     final int totalPatients = _dbPatients.length;
-    final String today = DateFormat('dd/MM/yyyy').format(DateTime.now());
+    final DateTime now = DateTime.now();
+    final String todayUi = DateFormat('dd/MM/yyyy').format(now);
+    final String todayDb = DateFormat('yyyy-MM-dd').format(now);
+    final String todayDash = DateFormat('dd-MM-yyyy').format(now);
     final int todaysApptsCount = _dbAppointments
         .where(
-          (a) =>
-              (a.appointmentDate == today ||
-                  a.appointmentDate.startsWith(today)) &&
-              a.status.toLowerCase() != 'cancelled',
+          (a) {
+            final d = a.appointmentDate.trim();
+            final isToday = d == todayUi ||
+                d.startsWith(todayUi) ||
+                d == todayDb ||
+                d.startsWith(todayDb) ||
+                d == todayDash ||
+                d.startsWith(todayDash);
+            return isToday && a.status.toLowerCase() != 'cancelled';
+          },
         )
         .length;
 
@@ -1279,60 +1315,48 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           AppTheme.secondaryColor,
           isCompact: isMobile,
         ),
-      if (NurseNavConfig.showIpdManagement)
-        _buildStatItem(
-          'Active Admissions',
-          _activeAdmissionsCount,
-          Icons.bedroom_child_outlined,
-          const Color(0xFFDD3B3B),
-          isCompact: isMobile,
-        ),
-      if (NurseNavConfig.showOpdAssistance)
-        _buildStatItem(
-          'Patient Visits',
-          _patientVisitsCount,
-          Icons.monitor_heart_outlined,
-          const Color(0xFF7C5CBF),
-          isCompact: isMobile,
-        ),
-      if (!NurseNavConfig.showAppointments &&
-          !NurseNavConfig.showIpdManagement &&
-          !NurseNavConfig.showOpdAssistance)
-        _buildStatItem(
-          'Pending Handovers',
-          _handovers.length.toString(),
-          Icons.assignment_turned_in_outlined,
-          AppTheme.secondaryColor,
-          isCompact: isMobile,
-        ),
+      _buildStatItem(
+        'On-Duty Doctors',
+        _onDutyDoctorsCount,
+        Icons.medical_services_outlined,
+        const Color(0xFF065D96),
+        isCompact: isMobile,
+      ),
+      _buildStatItem(
+        'Today\'s Home Visits',
+        _todayHomeVisitsCount,
+        Icons.home_work_outlined,
+        const Color(0xFF7C5CBF),
+        isCompact: isMobile,
+      ),
     ];
 
     return LayoutBuilder(
       builder: (ctx, bc) {
         final bool useGrid = isMobile || bc.maxWidth < 700;
         if (useGrid) {
-          final bool singleCol = bc.maxWidth < 340;
-          final double itemW = singleCol ? bc.maxWidth : (bc.maxWidth - 12) / 2;
+          final bool singleCol = bc.maxWidth < 320;
           final int step = singleCol ? 1 : 2;
           final List<Widget> rows = [];
           for (int i = 0; i < statItems.length; i += step) {
             if (singleCol) {
-              rows.add(SizedBox(width: itemW, child: statItems[i]));
+              rows.add(statItems[i]);
             } else {
               rows.add(
                 Row(
                   children: [
-                    SizedBox(width: itemW, child: statItems[i]),
-                    const SizedBox(width: 12),
-                    if (i + 1 < statItems.length)
-                      SizedBox(width: itemW, child: statItems[i + 1])
-                    else
-                      SizedBox(width: itemW),
+                    Expanded(child: statItems[i]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: i + 1 < statItems.length
+                          ? statItems[i + 1]
+                          : const SizedBox(),
+                    ),
                   ],
                 ),
               );
             }
-            if (i + step < statItems.length) rows.add(const SizedBox(height: 12));
+            if (i + step < statItems.length) rows.add(const SizedBox(height: 8));
           }
           return Container(
             padding: const EdgeInsets.all(14),
@@ -1409,6 +1433,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       translatedTitle = context.tr('total_patients', fallback: title);
     } else if (title == 'Today\'s Appointments') {
       translatedTitle = context.tr('today_appointments', fallback: title);
+    } else if (title == 'On-Duty Doctors') {
+      translatedTitle = context.tr('on_duty_doctors', fallback: title);
+    } else if (title == 'Today\'s Home Visits') {
+      translatedTitle = context.tr('today_home_visits', fallback: title);
     } else if (title == 'Active Admissions') {
       translatedTitle = context.tr('active_admissions', fallback: title);
     } else if (title == 'Patient Visits') {
@@ -1419,18 +1447,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
     return Padding(
       padding: EdgeInsets.symmetric(
-        horizontal: isCompact ? 10 : 14,
-        vertical: isCompact ? 12 : 14,
+        horizontal: isCompact ? 6 : 14,
+        vertical: isCompact ? 8 : 14,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
-            radius: isCompact ? 20 : 22,
+            radius: isCompact ? 18 : 22,
             backgroundColor: color.withOpacity(0.12),
-            child: Icon(icon, color: color, size: isCompact ? 18 : 20),
+            child: Icon(icon, color: color, size: isCompact ? 16 : 20),
           ),
-          SizedBox(width: isCompact ? 8 : 12),
+          SizedBox(width: isCompact ? 6 : 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1465,8 +1493,91 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     );
   }
 
+  String _formatTimeAgo(String? isoString) {
+    if (isoString == null || isoString.isEmpty) return 'Today';
+    try {
+      final dt = DateTime.tryParse(isoString)?.toLocal();
+      if (dt == null) return 'Today';
+      final diff = DateTime.now().difference(dt);
+      if (diff.inSeconds < 60) return 'Just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays == 1) return 'Yesterday';
+      return '${diff.inDays}d ago';
+    } catch (_) {
+      return 'Today';
+    }
+  }
+
   Widget _buildAlertsSection() {
     final isDark = AppTheme.isDark(context);
+
+    // Build LIVE alerts list only
+    final List<Widget> liveAlertWidgets = [];
+
+    // 1. Live Active Shift Alert (Applicable only for IPD)
+    if (_activeShiftData != null) {
+      liveAlertWidgets.add(
+        _buildAlertItem(
+          isDark ? AppTheme.darkSurfaceColor : const Color(0xFFE8F5E9),
+          const Color(0xFF2E7D32),
+          context.tr(
+            'alert_active_shift_assigned_ipd',
+            fallback: 'Active Shift: Assigned to ${_activeShiftData?['ward_type'] ?? 'General Ward'} (Applicable only for IPD)',
+          ),
+          'Active',
+        ),
+      );
+    } else {
+      liveAlertWidgets.add(
+        _buildAlertItem(
+          isDark ? AppTheme.darkSurfaceColor : AppTheme.alertBgColor,
+          AppTheme.alertTextColor,
+          context.tr(
+            'alert_no_active_shift_ipd',
+            fallback: 'Active Shift: No active shift assignment today (Applicable only for IPD)',
+          ),
+          'Today',
+        ),
+      );
+    }
+
+    // 2. Live Pending Handovers
+    final pendingHandovers =
+        _handovers.where((h) => h['status'] != 'Acknowledged').toList();
+    if (pendingHandovers.isNotEmpty) {
+      liveAlertWidgets.add(
+        _buildAlertItem(
+          isDark ? AppTheme.darkSurfaceColor : AppTheme.alertBgColor,
+          AppTheme.alertTextColor,
+          'Pending Handover: ${pendingHandovers.length} incoming handover(s) require review & acknowledgement',
+          'Action Required',
+        ),
+      );
+    }
+
+    // 3. Live User Notifications from Database
+    for (final n in _liveNotifications.take(3)) {
+      final title =
+          n['title']?.toString() ?? n['message']?.toString() ?? 'Notification';
+      final timeStr = _formatTimeAgo(n['created_at']?.toString());
+      final isUnread = n['is_read'] != true;
+      liveAlertWidgets.add(
+        _buildAlertItem(
+          isDark
+              ? AppTheme.darkSurfaceColor
+              : (isUnread ? AppTheme.infoBgColor : const Color(0xFFF8FAFC)),
+          isUnread
+              ? AppTheme.infoColor
+              : AppTheme.getTextSecondaryColor(context),
+          title,
+          timeStr,
+        ),
+      );
+    }
+
+    final int totalCount = liveAlertWidgets.length;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -1518,12 +1629,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppTheme.dangerColor,
+                  color: totalCount > 0 ? AppTheme.dangerColor : AppTheme.secondaryColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
-                  '2',
-                  style: TextStyle(
+                child: Text(
+                  totalCount.toString(),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -1533,24 +1644,49 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          _buildAlertItem(
-            isDark ? AppTheme.darkSurfaceColor : AppTheme.alertBgColor,
-            AppTheme.alertTextColor,
-            context.tr('alert_opd_inflow', fallback: 'High Patient Inflow in OPD'),
-            '10m ago',
-          ),
-          const SizedBox(height: 12),
-          _buildAlertItem(
-            isDark ? AppTheme.darkSurfaceColor : AppTheme.infoBgColor,
-            AppTheme.infoColor,
-            context.tr('alert_ward_capacity', fallback: 'Ward A Approaching Capacity'),
-            '25m ago',
-          ),
+          if (liveAlertWidgets.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              alignment: Alignment.center,
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.check_circle_outline_rounded,
+                    color: AppTheme.secondaryColor,
+                    size: 36,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No critical alerts at this time',
+                    style: TextStyle(
+                      color: AppTheme.getTextPrimaryColor(context),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'All shift operations and patient vitals are normal.',
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondaryColor(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ...List.generate(liveAlertWidgets.length, (i) {
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: i == liveAlertWidgets.length - 1 ? 0 : 12,
+                ),
+                child: liveAlertWidgets[i],
+              );
+            }),
           const SizedBox(height: 16),
           InkWell(
-            onTap: () {
-              // Footer action to view alerts
-            },
+            onTap: _showAllAlertsDialog,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -1574,6 +1710,74 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAllAlertsDialog() {
+    final isDark = AppTheme.isDark(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: AppTheme.getCardColor(ctx),
+        title: Row(
+          children: [
+            const Icon(Icons.notifications_active_outlined, color: AppTheme.primaryColor),
+            const SizedBox(width: 8),
+            Text(
+              context.tr('critical_alerts', fallback: 'Alerts & Notifications'),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.getTextPrimaryColor(ctx),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: _liveNotifications.isEmpty && _handovers.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'No additional notifications.',
+                    style: TextStyle(color: AppTheme.getTextSecondaryColor(ctx)),
+                  ),
+                )
+              : ListView(
+                  shrinkWrap: true,
+                  children: [
+                    if (_activeShiftData == null)
+                      _buildAlertItem(
+                        isDark ? AppTheme.darkSurfaceColor : AppTheme.alertBgColor,
+                        AppTheme.alertTextColor,
+                        'Active Shift: No active shift assignment today (Applicable only for IPD)',
+                        'Today',
+                      ),
+                    ..._liveNotifications.map((n) {
+                      final title =
+                          n['title']?.toString() ?? n['message']?.toString() ?? '';
+                      final timeStr = _formatTimeAgo(n['created_at']?.toString());
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: _buildAlertItem(
+                          isDark ? AppTheme.darkSurfaceColor : AppTheme.infoBgColor,
+                          AppTheme.infoColor,
+                          title,
+                          timeStr,
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(context.tr('close', fallback: 'Close')),
           ),
         ],
       ),
@@ -2146,14 +2350,37 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: Text(
-                                  '$currentShift  ·  $wardType',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '$currentShift  ·  $wardType',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.22),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: Colors.white.withOpacity(0.35)),
+                                      ),
+                                      child: const Text(
+                                        'IPD Only',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -2199,15 +2426,36 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
-                              '$currentShift  ·  $wardType',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
+                            child: Row(
+                              children: [
+                                Text(
+                                  '$currentShift  ·  $wardType',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                                const SizedBox(width: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.22),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.white.withOpacity(0.35)),
+                                  ),
+                                  child: const Text(
+                                    'Applicable only for IPD',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -2302,6 +2550,43 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                           ),
                         ],
                       ),
+                  ],
+                ),
+              ),
+
+              // IPD Applicability Notice Bar
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.06),
+                  border: Border(
+                    top: BorderSide(
+                      color: AppTheme.getBorderColor(context).withOpacity(0.5),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 14,
+                      color: AppTheme.primaryColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        context.tr(
+                          'active_shift_ipd_notice',
+                          fallback: 'Active Shift schedules and ward allocations are applicable only for IPD (Inpatient Department).',
+                        ),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.getTextSecondaryColor(context),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),

@@ -13,6 +13,7 @@ class UserModel {
   final String? mobile;
   final String? token;
   final String? createdAt;
+  final String? preferredLanguage;
   
   // Isolated Profiles
   final DoctorModel? doctorProfile;
@@ -66,6 +67,7 @@ class UserModel {
     this.mobile,
     this.token,
     this.createdAt,
+    this.preferredLanguage,
     this.doctorProfile,
     this.nurseProfile,
     this.permissions = const [],
@@ -106,6 +108,7 @@ class UserModel {
       createdAt: (json['created_at'] ?? json['createdAt']) != null
           ? DateFormatter.toUi(json['created_at'] ?? json['createdAt'])
           : null,
+      preferredLanguage: json['preferred_language']?.toString() ?? json['preferredLanguage']?.toString(),
       doctorProfile: (json['role'] == 'Doctor' || json['medical_license'] != null || json['specialization_id'] != null) 
           ? DoctorModel.fromJson(json) 
           : null,
@@ -128,6 +131,7 @@ class UserModel {
     String? mobile,
     String? token,
     String? createdAt,
+    String? preferredLanguage,
     DoctorModel? doctorProfile,
     NurseModel? nurseProfile,
     List<String>? permissions,
@@ -144,6 +148,7 @@ class UserModel {
       mobile: mobile ?? this.mobile,
       token: token ?? this.token,
       createdAt: createdAt ?? this.createdAt,
+      preferredLanguage: preferredLanguage ?? this.preferredLanguage,
       doctorProfile: doctorProfile ?? this.doctorProfile,
       nurseProfile: nurseProfile ?? this.nurseProfile,
       permissions: permissions ?? this.permissions,
@@ -191,6 +196,7 @@ class UserModel {
       'staff_unique_id': staffUniqueId,
       'mobile': mobile,
       'token': token,
+      'preferred_language': preferredLanguage,
       'permissions': permissions,
     };
     if (doctorProfile != null) {

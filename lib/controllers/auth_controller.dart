@@ -144,4 +144,18 @@ class AuthController {
     }
   }
 
+  // ✅ Update preferred language on server
+  Future<bool> updatePreferredLanguage(String languageCode) async {
+    try {
+      final response = await ApiService.put(
+        '$baseUrl/auth/preferred-language',
+        {'language': languageCode},
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Failed to update preferred language on server: $e');
+      return false;
+    }
+  }
+
 }

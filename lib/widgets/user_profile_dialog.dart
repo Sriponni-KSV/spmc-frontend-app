@@ -8,14 +8,15 @@ import 'app_settings_dialog.dart';
 
 class UserProfileDialog extends StatelessWidget {
   final UserModel user;
+  final BuildContext? parentContext;
 
-  const UserProfileDialog({super.key, required this.user});
+  const UserProfileDialog({super.key, required this.user, this.parentContext});
 
   static void show(BuildContext context, UserModel user) {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => UserProfileDialog(user: user),
+      builder: (dialogCtx) => UserProfileDialog(user: user, parentContext: context),
     );
   }
 
@@ -202,8 +203,13 @@ class UserProfileDialog extends StatelessWidget {
                       // Settings Button
                       IconButton(
                         onPressed: () {
+                          final targetCtx = parentContext ?? context;
                           Navigator.of(context).pop();
-                          AppSettingsDialog.show(context);
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (targetCtx.mounted) {
+                              AppSettingsDialog.show(targetCtx);
+                            }
+                          });
                         },
                         icon: const Icon(Icons.settings_outlined),
                         color: AppTheme.primaryColor,
@@ -233,8 +239,13 @@ class UserProfileDialog extends StatelessWidget {
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () {
+                              final targetCtx = parentContext ?? context;
                               Navigator.of(context).pop();
-                              context.go(profileRoute);
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (targetCtx.mounted) {
+                                  targetCtx.go(profileRoute);
+                                }
+                              });
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primaryColor,

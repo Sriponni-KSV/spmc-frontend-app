@@ -190,4 +190,12 @@ class AuthProvider extends ChangeNotifier {
     TokenService.saveUser(jsonEncode(newUser.toJson()));
     notifyListeners();
   }
+
+  void updatePreferredLanguage(String lang) {
+    if (_user != null) {
+      _user = _user!.copyWith(preferredLanguage: lang);
+      TokenService.saveUser(jsonEncode(_user!.toJson()));
+      notifyListeners();
+    }
+  }
 }

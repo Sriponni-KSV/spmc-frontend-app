@@ -177,8 +177,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               SnackBar(
                 content: Text(
                   assignedWards.isEmpty 
-                      ? 'Access Denied: You are not assigned to an active shift today.'
-                      : 'Access Denied: You are assigned to ${assignedWards.join(", ")}, but this patient is in ${widget.admission['ward_type']}.'
+                      ? 'Access Denied: You are not assigned to an active shift today. (Active Shift is applicable only for IPD)'
+                      : 'Access Denied: You are assigned to ${assignedWards.join(", ")}, but this patient is in ${widget.admission['ward_type']}. (Active Shift is applicable only for IPD)'
                 ),
                 backgroundColor: Colors.red,
               ),
