@@ -503,7 +503,8 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
   }
 
   Widget _buildDoctorDetailsCard(bool isMobile) {
-    final docId = widget.appointment.doctorDisplayId?.trim().isNotEmpty == true
+    final docId = (widget.appointment.doctorDisplayId?.trim().isNotEmpty == true &&
+            !widget.appointment.doctorDisplayId!.startsWith('SPMC-AN'))
         ? widget.appointment.doctorDisplayId!
         : 'N/A';
 

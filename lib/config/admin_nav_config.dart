@@ -61,32 +61,32 @@ class AdminNavConfig {
   // Hidden Menus (Change to `true` whenever you want to display them)
   // -------------------------------------------------------------------------
 
-  /// Access Control / RBAC (Hidden - Change to true to display)
-  static const bool showAccessControl = false;
+  /// Access Control / RBAC (Visible)
+  static const bool showAccessControl = true;
 
-  /// Appointments (Hidden)
-  static const bool showAppointments = false;
+  /// Appointments (Visible)
+  static const bool showAppointments = true;
 
-  /// OPD Management (Hidden)
-  static const bool showOpdManagement = false;
+  /// OPD Management (Visible)
+  static const bool showOpdManagement = true;
 
-  /// IPD Management (Hidden)
-  static const bool showIpdManagement = false;
+  /// IPD Management (Visible)
+  static const bool showIpdManagement = true;
 
-  /// OT Management (Hidden)
-  static const bool showOtManagement = false;
+  /// OT Management (Visible)
+  static const bool showOtManagement = true;
 
   /// Shift Allocation (Visible)
-  static const bool showShiftAllocation = false;
+  static const bool showShiftAllocation = true;
 
-  /// ICU & Emergency (Hidden - Change to true to display)
-  static const bool showIcuEmergency = false;
+  /// ICU & Emergency (Visible)
+  static const bool showIcuEmergency = true;
 
-  /// Billing & Invoices (Hidden - Change to true to display)
-  static const bool showBillingInvoices = false;
+  /// Billing & Invoices (Visible)
+  static const bool showBillingInvoices = true;
 
-  /// Inventory Management (Hidden - Change to true to display)
-  static const bool showInventoryManagement = false;
+  /// Inventory Management (Visible)
+  static const bool showInventoryManagement = true;
 
   // =========================================================================
   // CATALOG SUB-ITEM VISIBILITY TOGGLES
@@ -124,7 +124,6 @@ class AdminNavConfig {
         index: 3,
         icon: Icons.security_outlined,
         label: 'Access Control (RBAC)',
-        requiredRole: 'Super Admin',
         isVisible: showAccessControl,
       ),
       const AdminNavItem(

@@ -470,7 +470,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
       case 0:
         return _buildDashboardView(isMobile);
       case 1:
-        if (user?.hasPermission('view_patients') ?? false) {
+        if (user?.role == 'Front Desk' || user?.role == 'Receptionist' || (user?.hasPermission('view_patients') ?? false)) {
           return PatientsView(
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
@@ -494,7 +494,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 2:
-        if (user?.hasPermission('book_appointment') ?? false) {
+        if (user?.role == 'Front Desk' || user?.role == 'Receptionist' || (user?.hasPermission('book_appointment') ?? false)) {
           return AppointmentsView(
             key: const ValueKey('front_desk_appointments_tab_view'),
             startWithBookingForm: _forceBookingForm || widget.forceBooking,
@@ -623,18 +623,16 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                         Icons.dashboard_outlined,
                         context.tr('dashboard', fallback: 'Dashboard'),
                       ),
-                      if (user?.hasPermission('view_patients') ?? false)
-                        _buildSidebarItem(
-                          1,
-                          Icons.people_outline,
-                          context.tr('patients', fallback: 'Patients'),
-                        ),
-                      if (user?.hasPermission('book_appointment') ?? false)
-                        _buildSidebarItem(
-                          2,
-                          Icons.calendar_today_outlined,
-                          context.tr('appointments', fallback: 'Appointments'),
-                        ),
+                      _buildSidebarItem(
+                        1,
+                        Icons.people_outline,
+                        context.tr('patients', fallback: 'Patients'),
+                      ),
+                      _buildSidebarItem(
+                        2,
+                        Icons.calendar_today_outlined,
+                        context.tr('appointments', fallback: 'Appointments'),
+                      ),
                       _buildSidebarItem(
                         3,
                         Icons.medical_services_outlined,

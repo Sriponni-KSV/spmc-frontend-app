@@ -105,20 +105,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   Future<void> _loadDoctors() async {
     try {
       final staff = await _adminController.fetchStaff(role: 'Doctor');
-      final activeWithTimings = staff.where((d) {
-        if (d.status.toLowerCase() != 'active') return false;
-        final dp = d.doctorProfile;
-        if (dp == null) return false;
-        if (dp.slotStartTime == null || dp.slotStartTime!.trim().isEmpty) return false;
-        if (dp.slotEndTime == null || dp.slotEndTime!.trim().isEmpty) return false;
-        if (dp.slotDuration == null || dp.slotDuration!.trim().isEmpty) return false;
-        if (dp.availableDays == null || dp.availableDays!.isEmpty) return false;
-        return true;
+      final activeDoctors = staff.where((d) {
+        return d.status.toLowerCase() != 'inactive' && !d.isDeleted;
       }).toList();
       if (mounted) {
-        activeWithTimings.sort((a, b) => a.fullname.compareTo(b.fullname));
+        activeDoctors.sort((a, b) => a.fullname.compareTo(b.fullname));
         setState(() {
-          _doctors = activeWithTimings;
+          _doctors = activeDoctors.isNotEmpty ? activeDoctors : staff;
         });
       }
     } catch (e) {
@@ -1303,6 +1296,35 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ),
                         ),
                       ),
+                      if (app.status != 'Completed' &&
+                          app.status != 'Cancelled' &&
+                          app.status != 'No-Show') ...[
+                        OutlinedButton.icon(
+                          onPressed: () => _showEditAppointmentDialog(app),
+                          icon: const Icon(Icons.edit_outlined, size: 16),
+                          label: Text(
+                            context.tr('edit', fallback: 'Edit'),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            side: const BorderSide(
+                              color: AppTheme.primaryColor,
+                              width: 1.5,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
                       if (app.status == 'Confirmed') ...[
                         if (!_hasVitals(app))
                           ElevatedButton.icon(
@@ -1470,6 +1492,35 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             ),
                           ),
                         ),
+                        if (app.status != 'Completed' &&
+                            app.status != 'Cancelled' &&
+                            app.status != 'No-Show') ...[
+                          OutlinedButton.icon(
+                            onPressed: () => _showEditAppointmentDialog(app),
+                            icon: const Icon(Icons.edit_outlined, size: 16),
+                            label: Text(
+                              context.tr('edit', fallback: 'Edit'),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(
+                                color: AppTheme.primaryColor,
+                                width: 1.5,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
                         if (app.status == 'Confirmed') ...[
                           if (!_hasVitals(app))
                             ElevatedButton.icon(
@@ -1633,6 +1684,841 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         appointment: app,
         editVitalsOnly: true,
         onRefresh: _loadData,
+      ),
+    );
+  }
+
+  void _showEditAppointmentDialog(AppointmentModel app) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final reasonCtrl = TextEditingController(
+      text: 'Walk-in appointment doctor reassignment and reschedule',
+    );
+    String? selectedDoctor = app.doctorName;
+    try {
+      final matchedDoc = _doctors.firstWhere(
+        (d) => _isSameDoctor(d.fullname, selectedDoctor),
+      );
+      selectedDoctor = matchedDoc.fullname;
+    } catch (_) {}
+
+    DateTime? newDate;
+    try {
+      newDate = DateFormatter.toDateTime(app.appointmentDate);
+    } catch (_) {
+      newDate = DateTime.now();
+    }
+    String? newTime = app.appointmentTime;
+    String? department = app.department;
+    bool isSaving = false;
+    String? reasonError;
+
+    String? validateReason(String? val) {
+      if (val == null || val.trim().isEmpty) {
+        return 'Override reason is required.';
+      }
+      final text = val.trim();
+      if (text.length < 3) {
+        return 'Override reason must be at least 3 characters.';
+      }
+      if (text.length > 100) {
+        return 'Override reason cannot exceed 100 characters.';
+      }
+      if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
+        return 'Override reason must contain at least one letter.';
+      }
+      if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;]+$').hasMatch(text)) {
+        return 'Override reason contains invalid characters.';
+      }
+      return null;
+    }
+
+    Set<String> computeOccupiedFromMemory(DateTime? date, String? doctor) {
+      if (date == null) return {};
+      final Set<String> occupied = {};
+      for (final a in _appointments) {
+        if (a.id != null && a.id == app.id) continue;
+        if (a.status.toLowerCase() == 'cancelled' ||
+            a.status.toLowerCase() == 'no-show') continue;
+        if (doctor != null && doctor.trim().isNotEmpty) {
+          if (!_isSameDoctor(a.doctorName, doctor)) continue;
+        }
+        if (_isSameDate(a.appointmentDate, date)) {
+          occupied.add(_normalizeTime(a.appointmentTime));
+        }
+      }
+      return occupied;
+    }
+
+    Set<String> occupiedSlots = computeOccupiedFromMemory(newDate, selectedDoctor);
+    bool isLoadingSlots = false;
+    String? slotConflictError;
+    bool hasInitializedSlots = false;
+
+    Future<void> loadOccupiedSlots(
+      DateTime? date,
+      String? doctor,
+      void Function(void Function()) updateState,
+    ) async {
+      if (date == null) {
+        updateState(() {
+          occupiedSlots = {};
+          isLoadingSlots = false;
+        });
+        return;
+      }
+      final initialOccupied = computeOccupiedFromMemory(date, doctor);
+      updateState(() {
+        occupiedSlots = initialOccupied;
+        isLoadingSlots = true;
+        slotConflictError = null;
+      });
+      try {
+        final dateDb = DateFormat('yyyy-MM-dd').format(date);
+        final appts = await _appointmentController.fetchAdminAppointments(date: dateDb);
+        final Set<String> occupied = Set<String>.from(initialOccupied);
+        for (final a in appts) {
+          if (a.id != null && a.id == app.id) continue;
+          if (a.status.toLowerCase() == 'cancelled' ||
+              a.status.toLowerCase() == 'no-show') continue;
+          if (doctor != null && doctor.trim().isNotEmpty) {
+            if (!_isSameDoctor(a.doctorName, doctor)) continue;
+          }
+          if (_isSameDate(a.appointmentDate, date)) {
+            occupied.add(_normalizeTime(a.appointmentTime));
+          }
+        }
+        updateState(() {
+          occupiedSlots = occupied;
+          isLoadingSlots = false;
+          if (newTime != null && occupiedSlots.contains(_normalizeTime(newTime!))) {
+            newTime = null;
+          }
+        });
+      } catch (e) {
+        updateState(() {
+          occupiedSlots = initialOccupied;
+          isLoadingSlots = false;
+        });
+      }
+    }
+
+    List<String> getEligibleDoctors() {
+      final List<String> list = _doctors
+          .where((d) => d.status.toLowerCase() != 'inactive' && !d.isDeleted)
+          .map((d) => d.fullname)
+          .where((name) => name.trim().isNotEmpty)
+          .toSet()
+          .toList();
+      if (list.isEmpty) {
+        list.addAll(
+          _doctors
+              .map((d) => d.fullname)
+              .where((name) => name.trim().isNotEmpty)
+              .toSet(),
+        );
+      }
+      if (list.isEmpty) {
+        list.addAll(
+          _appointments
+              .map((a) => a.doctorName)
+              .where((name) => name.trim().isNotEmpty)
+              .toSet(),
+        );
+      }
+      list.sort((a, b) => a.compareTo(b));
+      if (selectedDoctor != null && selectedDoctor!.trim().isNotEmpty) {
+        final existingMatch = list.firstWhere(
+          (doc) => _isSameDoctor(doc, selectedDoctor),
+          orElse: () => '',
+        );
+        if (existingMatch.isEmpty) {
+          list.insert(0, selectedDoctor!);
+        } else if (selectedDoctor != existingMatch) {
+          selectedDoctor = existingMatch;
+        }
+      }
+      return list;
+    }
+
+    List<String> getFilteredSlots(DateTime? date, String? doctorName) {
+      if (date == null) return [];
+      UserModel? doctor;
+      if (doctorName != null && doctorName.trim().isNotEmpty) {
+        try {
+          doctor = _doctors.firstWhere(
+            (d) => _isSameDoctor(d.fullname, doctorName),
+          );
+        } catch (_) {}
+      }
+      if (doctor == null) return _generateDefaultSlots();
+
+      final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      final dayName = weekDays[date.weekday - 1];
+      final dateStr = DateFormat('dd/MM/yyyy').format(date);
+
+      bool isAvailable = false;
+      if (doctor.availableDays == null ||
+          doctor.availableDays!.isEmpty ||
+          doctor.availableDays!.contains(dayName)) {
+        isAvailable = true;
+      }
+      if (doctor.weeklyOffDays != null && doctor.weeklyOffDays!.contains(dayName)) {
+        isAvailable = false;
+      }
+      if (doctor.specificLeaveDates != null && doctor.specificLeaveDates!.contains(dateStr)) {
+        isAvailable = false;
+      }
+      if (!isAvailable) return [];
+      return _generateSlotsForDoctor(doctor);
+    }
+
+    if (_doctors.isEmpty) {
+      _adminController.fetchStaff(role: 'Doctor').then((docs) {
+        if (docs.isNotEmpty && mounted) {
+          setState(() {
+            _doctors = docs;
+          });
+        }
+      });
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) {
+          if (!hasInitializedSlots) {
+            hasInitializedSlots = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              loadOccupiedSlots(newDate, selectedDoctor, setS);
+            });
+          }
+
+          Widget buildField(String label, Widget child) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondaryColor,
+                ),
+              ),
+              const SizedBox(height: 6),
+              child,
+              const SizedBox(height: 14),
+            ],
+          );
+
+          final eligibleDoctors = getEligibleDoctors();
+          final availableSlots = getFilteredSlots(newDate, selectedDoctor);
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.edit_calendar_outlined,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  _isWalkIn(app)
+                      ? 'Edit Walk-in Appointment'
+                      : 'Edit Appointment',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: MediaQuery.of(ctx).size.width > 520
+                  ? 480
+                  : MediaQuery.of(ctx).size.width * 0.9,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 12),
+                    // Patient info card
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundColor,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.person_outline,
+                                size: 16,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${app.patientName} ${app.patientDisplayId != null ? "(${app.patientDisplayId})" : ""}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimaryColor,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0D9488).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: const Color(0xFF0D9488).withOpacity(0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  app.appointmentType,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0D9488),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.access_time_outlined,
+                                size: 14,
+                                color: AppTheme.textMutedColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${app.appointmentDate} • ${app.appointmentTime}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textMutedColor,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                'Dr. ${app.doctorName}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 12),
+
+                    // 1. Reassign Doctor
+                    buildField(
+                      'Reassign Doctor *',
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: 'Select doctor',
+                        value: eligibleDoctors.contains(selectedDoctor)
+                            ? selectedDoctor
+                            : null,
+                        dropdownItems: eligibleDoctors,
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setS(() {
+                            selectedDoctor = v;
+                            newTime = null;
+                            try {
+                              final docModel = _doctors.firstWhere(
+                                (d) => _isSameDoctor(d.fullname, v),
+                              );
+                              if (docModel.specialization != null &&
+                                  docModel.specialization!.trim().isNotEmpty) {
+                                department = docModel.specialization;
+                              }
+                            } catch (_) {}
+                            occupiedSlots = computeOccupiedFromMemory(newDate, v);
+                          });
+                          loadOccupiedSlots(newDate, v, setS);
+                        },
+                      ),
+                    ),
+
+                    // 2. Reschedule Appointment Date
+                    buildField(
+                      'Reschedule Date *',
+                      InkWell(
+                        onTap: () async {
+                          DateTime initDate = newDate ?? DateTime.now();
+                          final now = DateTime.now();
+                          final today = DateTime(now.year, now.month, now.day);
+                          if (initDate.isBefore(today)) initDate = today;
+
+                          final d = await showDatePicker(
+                            context: ctx,
+                            initialDate: initDate,
+                            firstDate: today,
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (d != null) {
+                            setS(() {
+                              newDate = d;
+                              newTime = null;
+                              occupiedSlots = computeOccupiedFromMemory(d, selectedDoctor);
+                            });
+                            loadOccupiedSlots(d, selectedDoctor, setS);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppTheme.borderColor),
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white,
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 16,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                newDate != null
+                                    ? DateFormat('dd/MM/yyyy').format(newDate!)
+                                    : 'Pick a date',
+                                style: TextStyle(
+                                  color: newDate != null
+                                      ? AppTheme.textPrimaryColor
+                                      : AppTheme.textSecondaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // 3. Reschedule Time Slot
+                    buildField(
+                      'Appointment Time Slot *',
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (isLoadingSlots) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                children: const [
+                                  SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Checking schedule & booked slots...',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (availableSlots.isEmpty) ...[
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.0),
+                              child: Text(
+                                'No slots available for this doctor on this date.',
+                                style: TextStyle(color: Colors.red, fontSize: 12),
+                              ),
+                            ),
+                          ] else ...[
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                childAspectRatio: 2.3,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                              ),
+                              itemCount: availableSlots.length,
+                              itemBuilder: (context, index) {
+                                final time = availableSlots[index];
+                                final isOccupied =
+                                    occupiedSlots.contains(_normalizeTime(time));
+                                final isSelected = newTime != null &&
+                                    _normalizeTime(newTime!) ==
+                                        _normalizeTime(time);
+
+                                return InkWell(
+                                  onTap: () {
+                                    if (isOccupied) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Time slot $time is already booked for Dr. ${selectedDoctor ?? "this doctor"}.',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    setS(() {
+                                      newTime = time;
+                                      slotConflictError = null;
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isOccupied
+                                          ? const Color(0xFFF1F5F9)
+                                          : isSelected
+                                              ? AppTheme.primaryColor
+                                              : Colors.white,
+                                      border: Border.all(
+                                        color: isOccupied
+                                            ? Colors.red.shade200
+                                            : isSelected
+                                                ? AppTheme.primaryColor
+                                                : AppTheme.borderColor,
+                                        width: isSelected ? 1.5 : 1.0,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          time,
+                                          style: TextStyle(
+                                            color: isOccupied
+                                                ? Colors.grey.shade600
+                                                : isSelected
+                                                    ? Colors.white
+                                                    : AppTheme.textPrimaryColor,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.w500,
+                                            fontSize: 11,
+                                            decoration: isOccupied
+                                                ? TextDecoration.lineThrough
+                                                : null,
+                                          ),
+                                        ),
+                                        if (isOccupied) ...[
+                                          const SizedBox(height: 2),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 4,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.shade50,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: Colors.red.shade200,
+                                                width: 0.5,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'Booked',
+                                              style: TextStyle(
+                                                color: Colors.red.shade700,
+                                                fontSize: 8.5,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                          if (newTime == null)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                'Please select a time slot',
+                                style: TextStyle(color: Colors.red, fontSize: 11),
+                              ),
+                            ),
+                          if (slotConflictError != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              slotConflictError!,
+                              style: const TextStyle(
+                                color: AppTheme.dangerColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    // 4. Override Reason
+                    buildField(
+                      'Override Reason *',
+                      TextFormField(
+                        controller: reasonCtrl,
+                        maxLines: 2,
+                        maxLength: 100,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        validator: validateReason,
+                        decoration: InputDecoration(
+                          hintText:
+                              'Enter reason for reassigning doctor / rescheduling',
+                          filled: true,
+                          fillColor: const Color(0xFFF1F5F9),
+                          counterText: '${reasonCtrl.text.length}/100',
+                          errorText: reasonError,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: AppTheme.borderColor),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: AppTheme.borderColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppTheme.primaryColor,
+                              width: 1.5,
+                            ),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppTheme.dangerColor,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        onChanged: (value) => setS(() {
+                          reasonError = validateReason(value);
+                        }),
+                      ),
+                    ),
+
+                    // Audit Info
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7ED),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFDBA74)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.shield_outlined,
+                            size: 14,
+                            color: Color(0xFFF97316),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Modified by: ${user?.fullname ?? ''} (${user?.role ?? ''})',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF92400E),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              OutlinedButton(
+                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(120, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                ),
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final reasonValidation = validateReason(reasonCtrl.text);
+                        if (reasonValidation != null) {
+                          setS(() => reasonError = reasonValidation);
+                          return;
+                        }
+                        if (newDate == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a date.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        if (newTime == null || newTime!.trim().isEmpty) {
+                          setS(
+                            () => slotConflictError =
+                                'Please select an available time slot.',
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select an available time slot.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        if (occupiedSlots.contains(_normalizeTime(newTime!))) {
+                          setS(
+                            () => slotConflictError =
+                                'The selected time slot ($newTime) is already booked.',
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Time slot $newTime is already booked for Dr. ${selectedDoctor ?? "this doctor"}.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (app.id == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Cannot edit appointment without a valid ID.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        setS(() => isSaving = true);
+                        try {
+                          await _appointmentController.adminOverrideAppointment(
+                            id: app.id!,
+                            status: app.status,
+                            doctorName: selectedDoctor,
+                            appointmentDate:
+                                DateFormat('yyyy-MM-dd').format(newDate!),
+                            appointmentTime: newTime,
+                            patientName: app.patientName,
+                            department: department,
+                            appointmentType: app.appointmentType,
+                            overrideReason: reasonCtrl.text.trim(),
+                          );
+                          if (mounted) {
+                            Navigator.pop(ctx);
+                            _loadData();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                  'Appointment updated successfully.',
+                                ),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  e.toString().replaceAll('Exception: ', ''),
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setS(() => isSaving = false);
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Save Changes',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -2470,6 +3356,37 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
+                        if (app.status != 'Completed' &&
+                            app.status != 'Cancelled' &&
+                            app.status != 'No-Show') ...[
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _showEditAppointmentDialog(app);
+                            },
+                            icon: const Icon(Icons.edit_outlined, size: 16),
+                            label: Text(
+                              context.tr('edit_appointment', fallback: 'Edit Appointment'),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(
+                                color: AppTheme.primaryColor,
+                                width: 1.5,
+                              ),
+                              minimumSize: const Size(120, 48),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 14,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context),
                           style: ElevatedButton.styleFrom(
@@ -3099,9 +4016,22 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               const SizedBox(height: 16),
               TextField(
                 controller: reasonController,
-                decoration: const InputDecoration(
+                maxLength: 100,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                  ),
+                  LengthLimitingTextInputFormatter(100),
+                ],
+                decoration: InputDecoration(
                   labelText: 'Override Reason (Mandatory)',
                   hintText: 'Explain why you are changing the status...',
+                  fillColor: const Color(0xFFF1F5F9),
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppTheme.borderColor),
+                  ),
                 ),
                 maxLines: 2,
               ),
@@ -3117,10 +4047,27 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               onPressed: isSaving
                   ? null
                   : () async {
-                      if (reasonController.text.trim().isEmpty) {
+                      final text = reasonController.text.trim();
+                      if (text.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Please provide a reason'),
+                            content: Text('Please provide an override reason'),
+                          ),
+                        );
+                        return;
+                      }
+                      if (text.length < 3) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Override reason must be at least 3 characters.'),
+                          ),
+                        );
+                        return;
+                      }
+                      if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Override reason must contain at least one letter.'),
                           ),
                         );
                         return;
@@ -3179,16 +4126,107 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return DateTime(2026, 1, 1, hour, minute);
   }
 
-  List<String> _generateSlotsForDoctor(UserModel doctor) {
-    if (doctor.slotStartTime == null || doctor.slotEndTime == null) {
-      List<String> slots = [];
-      DateTime start = DateTime(2026, 1, 1, 9, 0);
-      DateTime end = DateTime(2026, 1, 1, 13, 0);
-      while (start.isBefore(end)) {
-        slots.add(DateFormat('hh:mm a').format(start));
-        start = start.add(const Duration(minutes: 30));
+  String _cleanDoctorName(String? name) {
+    if (name == null) return '';
+    return name.replaceAll(RegExp(r'^(dr\.?|doctor)\s*', caseSensitive: false), '').trim().toLowerCase();
+  }
+
+  bool _isSameDoctor(String? doc1, String? doc2) {
+    if (doc1 == null || doc2 == null) return false;
+    final c1 = _cleanDoctorName(doc1);
+    final c2 = _cleanDoctorName(doc2);
+    return c1.isNotEmpty && (c1 == c2 || c1.contains(c2) || c2.contains(c1));
+  }
+
+  bool _isSameDate(dynamic date1, dynamic date2) {
+    if (date1 == null || date2 == null) return false;
+    DateTime? d1;
+    DateTime? d2;
+
+    if (date1 is DateTime) {
+      d1 = date1;
+    } else if (date1 is String) {
+      d1 = DateFormatter.toDateTime(date1);
+      if (d1 == null) {
+        final clean = date1.trim().split('T')[0];
+        final parts = clean.contains('/') ? clean.split('/') : clean.split('-');
+        if (parts.length == 3) {
+          if (parts[0].length == 4) {
+            d1 = DateTime.tryParse('$clean 00:00:00');
+          } else if (parts[2].length == 4) {
+            d1 = DateTime.tryParse('${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')} 00:00:00');
+          }
+        }
       }
-      return slots;
+    }
+
+    if (date2 is DateTime) {
+      d2 = date2;
+    } else if (date2 is String) {
+      d2 = DateFormatter.toDateTime(date2);
+      if (d2 == null) {
+        final clean = date2.trim().split('T')[0];
+        final parts = clean.contains('/') ? clean.split('/') : clean.split('-');
+        if (parts.length == 3) {
+          if (parts[0].length == 4) {
+            d2 = DateTime.tryParse('$clean 00:00:00');
+          } else if (parts[2].length == 4) {
+            d2 = DateTime.tryParse('${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')} 00:00:00');
+          }
+        }
+      }
+    }
+
+    if (d1 == null || d2 == null) return false;
+    return d1.year == d2.year && d1.month == d2.month && d1.day == d2.day;
+  }
+
+  String _normalizeTime(String? timeStr) {
+    if (timeStr == null || timeStr.trim().isEmpty) return '';
+    try {
+      final s = timeStr.trim().toUpperCase();
+      final hasAm = s.contains('AM');
+      final hasPm = s.contains('PM');
+      
+      final cleaned = s.replaceAll('AM', '').replaceAll('PM', '').trim();
+      final parts = cleaned.split(':');
+      if (parts.isEmpty) return timeStr.trim();
+      
+      int h = int.parse(parts[0]);
+      int m = parts.length > 1 ? int.parse(parts[1]) : 0;
+      
+      if (hasPm && h < 12) h += 12;
+      if (hasAm && h == 12) h = 0;
+      
+      final period = h >= 12 ? 'PM' : 'AM';
+      int h12 = h % 12;
+      if (h12 == 0) h12 = 12;
+      return '${h12.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period';
+    } catch (_) {
+      return timeStr.trim();
+    }
+  }
+
+  List<String> _generateDefaultSlots() {
+    List<String> slots = [];
+    DateTime mStart = DateTime(2026, 1, 1, 9, 0);
+    DateTime mEnd = DateTime(2026, 1, 1, 13, 0);
+    while (mStart.isBefore(mEnd)) {
+      slots.add(DateFormat('hh:mm a').format(mStart));
+      mStart = mStart.add(const Duration(minutes: 30));
+    }
+    DateTime aStart = DateTime(2026, 1, 1, 14, 0);
+    DateTime aEnd = DateTime(2026, 1, 1, 17, 0);
+    while (aStart.isBefore(aEnd)) {
+      slots.add(DateFormat('hh:mm a').format(aStart));
+      aStart = aStart.add(const Duration(minutes: 30));
+    }
+    return slots;
+  }
+
+  List<String> _generateSlotsForDoctor(UserModel? doctor) {
+    if (doctor == null || doctor.slotStartTime == null || doctor.slotEndTime == null) {
+      return _generateDefaultSlots();
     }
 
     int duration = 30;
@@ -3206,9 +4244,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         slots.add(DateFormat('hh:mm a').format(current));
         current = current.add(Duration(minutes: duration));
       }
+      if (slots.isEmpty) {
+        return _generateDefaultSlots();
+      }
       return slots;
     } catch (e) {
-      return [];
+      return _generateDefaultSlots();
     }
   }
 
@@ -3378,25 +4419,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 availableSlots = availableSlots.where((slot) {
                                   bool isBooked = _appointments.any(
                                     (a) =>
-                                        a.doctorName == doctor.fullname &&
-                                        a.appointmentTime == slot &&
+                                        _isSameDoctor(a.doctorName, doctor.fullname) &&
+                                        _isSameDate(a.appointmentDate, now) &&
+                                        _normalizeTime(a.appointmentTime) == _normalizeTime(slot) &&
                                         a.status != 'Cancelled' &&
                                         a.status != 'No-Show',
                                   );
-                                  if (isBooked) return false;
-                                  try {
-                                    DateTime slotTime = _parseTime(slot);
-                                    DateTime fullSlotTime = DateTime(
-                                      now.year,
-                                      now.month,
-                                      now.day,
-                                      slotTime.hour,
-                                      slotTime.minute,
-                                    );
-                                    return fullSlotTime.isAfter(now);
-                                  } catch (e) {
-                                    return true;
-                                  }
+                                  return !isBooked;
                                 }).toList();
                               }
                             });
@@ -3769,6 +4798,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             'reason_for_visit': complaintCtrl.text.trim(),
                           };
                           final newApp = AppointmentModel(
+                            doctorId: selectedDoctor?.id,
                             patientId: selectedPatient!.id!,
                             patientName: selectedPatient!.name,
                             department:

@@ -21,12 +21,17 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
 
         // Then refresh with live data from backend (picks up profile changes & new fields)
-        final freshUser = await _authController.fetchMe();
-        if (freshUser != null) {
-          // Preserve the local token if backend doesn't return one
-          _user = freshUser.copyWith(token: freshUser.token ?? _user?.token);
-          await TokenService.saveUser(jsonEncode(_user!.toJson()));
-          notifyListeners();
+        try {
+          final freshUser = await _authController.fetchMe();
+          if (freshUser != null) {
+            // Preserve the local token if backend doesn't return one
+            _user = freshUser.copyWith(token: freshUser.token ?? _user?.token);
+            await TokenService.saveUser(jsonEncode(_user!.toJson()));
+            notifyListeners();
+          }
+        } on UnauthorizedSessionException {
+          // Token is expired or unauthorized -> log out cleanly so user can log in
+          await logout();
         }
       }
     } catch (e) {

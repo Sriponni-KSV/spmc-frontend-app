@@ -416,13 +416,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       case 'in_progress':
         return context.tr('in_progress', fallback: 'In-Progress');
       case 'scheduled':
-        return context.tr('scheduled', fallback: 'Scheduled');
+        return context.tr('scheduled_status', fallback: context.tr('scheduled', fallback: 'Scheduled'));
       case 'completed':
         return context.tr('completed_status', fallback: 'Completed');
       case 'verified':
         return context.tr('verified', fallback: 'Verified');
       case 'cancelled':
-        return context.tr('cancelled', fallback: 'Cancelled');
+        return context.tr('stopped', fallback: context.tr('cancelled', fallback: 'Cancelled'));
       case 'stopped':
         return context.tr('stopped', fallback: 'Stopped');
       default:
@@ -5868,11 +5868,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 ),
               ),
               actions: [
-                // Removed duplicate top bar actions
-                  // padding: EdgeInsets.only(top: 16.0, right: 12.0),
-                  // child: const SizedBox.shrink(),
-                // ),
-                if (visit.status != 'Cancelled' &&
+                if (!isCompletedOrVerified &&
+                    visit.status != 'Cancelled' &&
                     visit.status != 'Completed' &&
                     visit.status != 'Verified')
                   Builder(
@@ -12221,7 +12218,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Attender verification completed on ${visit.signedAt ?? visit.scheduledDate}',
+                              context.tr('attender_verification_done', fallback: 'Attender verification completed on {date}').replaceAll('{date}', visit.signedAt ?? visit.scheduledDate),
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: Color(0xFF64748B),
@@ -14448,13 +14445,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            v.status == 'Verified'
-                                ? context.tr('completed_status', fallback: 'COMPLETED')
-                                : (v.status == 'Completed'
-                                      ? context.tr('completed_status', fallback: 'COMPLETED')
-                                      : (v.status == 'Cancelled'
-                                            ? context.tr('stopped', fallback: 'STOPPED')
-                                            : v.status.toUpperCase())),
+                            _getTranslatedHomeVisitStatus(v.status),
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
@@ -14897,17 +14888,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 decoration: BoxDecoration(
                                   color: visit.status == 'Cancelled'
                                       ? AppTheme.dangerColor
-                                      : AppTheme.secondaryColor,
+                                      : (visit.status.toLowerCase() == 'scheduled'
+                                          ? Colors.orange
+                                          : AppTheme.secondaryColor),
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
-                                  visit.status == 'Verified'
-                                      ? context.tr('completed_status', fallback: 'COMPLETED')
-                                      : (visit.status == 'Cancelled'
-                                          ? context.tr('stopped', fallback: 'STOPPED')
-                                          : (visit.status == 'Completed'
-                                              ? context.tr('completed_status', fallback: 'COMPLETED')
-                                              : visit.status.toUpperCase())),
+                                  _getTranslatedHomeVisitStatus(visit.status),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,

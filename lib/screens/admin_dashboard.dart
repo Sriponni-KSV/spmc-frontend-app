@@ -607,7 +607,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 3:
-        if (user?.role == 'Super Admin') {
+        if (user?.role == 'Super Admin' || user?.role == 'Admin') {
           return RbacManagementWidget(isMobile: isMobile);
         }
         return const AccessDeniedWidget();

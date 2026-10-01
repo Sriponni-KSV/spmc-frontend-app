@@ -11,6 +11,13 @@ class RequiresPasswordChangeException implements Exception {
   String toString() => message;
 }
 
+class UnauthorizedSessionException implements Exception {
+  final String message;
+  UnauthorizedSessionException([this.message = 'Session expired. Please log in again.']);
+  @override
+  String toString() => message;
+}
+
 class AuthController {
   String get baseUrl => ApiEndpoints.baseUrl;
 
@@ -126,8 +133,12 @@ class AuthController {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return UserModel.fromJson(data['user']);
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        throw UnauthorizedSessionException();
       }
       return null;
+    } on UnauthorizedSessionException {
+      rethrow;
     } catch (_) {
       return null;
     }

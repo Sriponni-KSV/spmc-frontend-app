@@ -579,7 +579,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 ),
                 const SizedBox(height: 8),
                 Padding(
-                  padding: const EdgeInsets.only(right: 70.0),
+                  padding: EdgeInsets.zero,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -670,7 +670,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(right: 70.0),
+                padding: EdgeInsets.zero,
                 child: Row(
                   children: [
                     Text(
@@ -1079,7 +1079,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         if (status == 'All') {
                           displayStatus = context.tr('all', fallback: 'All');
                         } else if (status == 'Scheduled') {
-                          displayStatus = context.tr('scheduled', fallback: 'Scheduled');
+                          displayStatus = context.tr('scheduled_status', fallback: context.tr('scheduled', fallback: 'Scheduled'));
                         } else if (status == 'In-Progress') {
                           displayStatus = context.tr('in_progress', fallback: 'In-Progress');
                         } else if (status == 'Completed') {
@@ -1273,7 +1273,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 560;
+          final isNarrow = constraints.maxWidth < 700;
 
           // Reusable execute button builder
           Widget buildExecuteBtn({bool expanded = false}) => Builder(
@@ -1466,7 +1466,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                           );
                           String displayEffectiveStatus = effectiveStatus;
                           if (effectiveStatus == 'Scheduled') {
-                            displayEffectiveStatus = context.tr('scheduled', fallback: 'Scheduled');
+                            displayEffectiveStatus = context.tr('scheduled_status', fallback: context.tr('scheduled', fallback: 'Scheduled'));
                           } else if (effectiveStatus == 'In-Progress') {
                             displayEffectiveStatus = context.tr('in_progress', fallback: 'In-Progress');
                           } else if (effectiveStatus == 'Completed') {
@@ -1533,7 +1533,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                               TextSpan(
                                 children: [
                                   TextSpan(
-                                    text: 'Nurse: ',
+                                    text: '${context.tr('nurse_label_prefix', fallback: 'Nurse:')} ',
                                     style: const TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
@@ -2131,7 +2131,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                 ],
               ),
               content: SizedBox(
-                width: 440,
+                width: MediaQuery.of(context).size.width < 520
+                    ? MediaQuery.of(context).size.width * 0.9
+                    : 440,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,

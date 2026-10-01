@@ -59,7 +59,7 @@ class HomeVisitInvoiceDialog extends StatelessWidget {
     if (lower.contains('home visit consultation') ||
         (lower.contains('basic nursing care') && lower.contains('fee')) ||
         lower == 'home visit consultation & basic nursing care fee') {
-      return 'வீட்டுப் பராமரிப்பு ஆலோசனை & அடிப்படை நர்சிங் கட்டணம் (Home Visit Fee)';
+      return 'வீட்டுப் பராமரிப்பு ஆலோசனை & அடிப்படை செவிலியர் கட்டணம் (Home Visit Fee)';
     }
 
     // 2. Nail Trimming & Hygiene Care Activity
