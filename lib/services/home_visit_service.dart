@@ -668,4 +668,23 @@ class HomeVisitService {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
     }
   }
+
+  // Parse voice dictation into structured multi-tab fields via AI
+  Future<Map<String, dynamic>> parseDictation(String dictationText) async {
+    try {
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/dictate',
+        {'dictationText': dictationText},
+      );
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true) {
+        return Map<String, dynamic>.from(body['data'] ?? {});
+      } else {
+        throw Exception(body['message'] ?? 'Failed to parse dictation');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
 }
+

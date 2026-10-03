@@ -30,6 +30,7 @@ import '../services/live_speech_service.dart';
 import '../utils/app_localizations.dart';
 import '../utils/tamil_transliteration_helper.dart';
 import '../providers/language_provider.dart';
+import '../widgets/home_visit_voice_scribe_dialog.dart';
 
 class HomeVisitExecutionScreen extends StatefulWidget {
   final int visitId;
@@ -334,6 +335,208 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       items.add('Other (Type Custom Kit Item...)');
     }
     return items;
+  }
+
+  Future<void> _applyAiVoiceData(Map<String, dynamic> data, HomeVisitModel visit) async {
+    // 0. Ensure visit session has started if needed
+    final sessionStarted = await _ensureTodaySessionStarted(visit);
+    if (!sessionStarted && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.tr('start_visit_first_to_save', fallback: 'Please start today\'s visit session first to record entries.'),
+          ),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    final controller = Provider.of<HomeVisitController>(context, listen: false);
+    final activeVisit = controller.selectedVisit ?? visit;
+
+    final vitals = data['vitals'] is Map ? Map<String, dynamic>.from(data['vitals'] as Map) : <String, dynamic>{};
+    final care = data['care'] is Map ? Map<String, dynamic>.from(data['care'] as Map) : <String, dynamic>{};
+    final attender = data['attender'] is Map ? Map<String, dynamic>.from(data['attender'] as Map) : <String, dynamic>{};
+    final rawConsumables = data['consumables'] as List<dynamic>? ?? [];
+    final consumables = rawConsumables.map((e) => Map<String, dynamic>.from(e is Map ? e : {})).toList();
+    final rawMedicines = data['medicines'] as List<dynamic>? ?? [];
+    final medicines = rawMedicines.map((e) => Map<String, dynamic>.from(e is Map ? e : {})).toList();
+
+    // 1. Update text controllers in state for immediate display
+    setState(() {
+      // Vitals Form Controllers
+      if (vitals['systolic_bp'] != null) {
+        _sysBpCtrl.text = vitals['systolic_bp'].toString();
+      }
+      if (vitals['diastolic_bp'] != null) {
+        _diaBpCtrl.text = vitals['diastolic_bp'].toString();
+      }
+      if (vitals['pulse'] != null) {
+        _pulseCtrl.text = vitals['pulse'].toString();
+      }
+      if (vitals['temperature'] != null) {
+        _tempCtrl.text = vitals['temperature'].toString();
+      }
+      if (vitals['spo2'] != null) {
+        _spo2Ctrl.text = vitals['spo2'].toString();
+      }
+      if (vitals['blood_sugar'] != null) {
+        _sugarCtrl.text = vitals['blood_sugar'].toString();
+      }
+      if (vitals['weight'] != null) {
+        _weightCtrl.text = vitals['weight'].toString();
+      }
+      if (vitals['height'] != null) {
+        _heightCtrl.text = vitals['height'].toString();
+      }
+
+      // Care Notes Controllers
+      if (care['dressing_notes'] != null && care['dressing_notes'].toString().trim().isNotEmpty) {
+        _dressingCtrl.text = care['dressing_notes'].toString().trim();
+      }
+      if (care['general_observations'] != null && care['general_observations'].toString().trim().isNotEmpty) {
+        _notesCtrl.text = care['general_observations'].toString().trim();
+      }
+      if (care['catheter_care'] != null && care['catheter_care'].toString().trim().isNotEmpty) {
+        _otherCareCtrl.text = care['catheter_care'].toString().trim();
+      }
+
+      // Attender & Feedback Controllers (Tab 6 - Live Summary)
+      if (attender['attender_name'] != null && attender['attender_name'].toString().trim().isNotEmpty) {
+        _attenderNameCtrl.text = attender['attender_name'].toString().trim();
+      }
+      if (attender['relationship'] != null && attender['relationship'].toString().trim().isNotEmpty) {
+        _attenderRelationCtrl.text = attender['relationship'].toString().trim();
+      }
+      if (attender['feedback'] != null && attender['feedback'].toString().trim().isNotEmpty) {
+        _feedbackCtrl.text = attender['feedback'].toString().trim();
+      }
+
+      // Consumables Form Controllers
+      if (consumables.isNotEmpty) {
+        final first = consumables.first;
+        if (first['item_name'] != null) {
+          _consNameCtrl.text = first['item_name'].toString();
+        }
+        if (first['quantity'] != null) {
+          _consQtyCtrl.text = first['quantity'].toString();
+        }
+      }
+    });
+
+    // 2. Persist Vitals to Database so they appear in Vitals History Table
+    final sys = int.tryParse(vitals['systolic_bp']?.toString() ?? '');
+    final dia = int.tryParse(vitals['diastolic_bp']?.toString() ?? '');
+    final pulse = int.tryParse(vitals['pulse']?.toString() ?? '');
+    final temp = double.tryParse(vitals['temperature']?.toString() ?? '');
+    final spo2 = int.tryParse(vitals['spo2']?.toString() ?? '');
+    final sugar = double.tryParse(vitals['blood_sugar']?.toString() ?? '');
+    final weight = double.tryParse(vitals['weight']?.toString() ?? '');
+    final height = double.tryParse(vitals['height']?.toString() ?? '');
+
+    final bool hasVitals = sys != null || dia != null || pulse != null || temp != null || spo2 != null || sugar != null || weight != null || height != null;
+    int savedItemsCount = 0;
+
+    if (hasVitals) {
+      final vitalsSuccess = await controller.submitVitals(activeVisit.id, {
+        'systolic_bp': sys,
+        'diastolic_bp': dia,
+        'pulse_rate': pulse,
+        'temperature': temp,
+        'spo2': spo2,
+        'blood_sugar': sugar,
+        'weight': weight,
+        'height': height,
+        'bypass_schedule': true,
+      });
+      if (vitalsSuccess) savedItemsCount++;
+    }
+
+    // 3. Persist Care Activities to Database so they appear in Care History Table
+    final dressing = care['dressing_notes']?.toString().trim();
+    final notes = care['general_observations']?.toString().trim();
+    final other = care['catheter_care']?.toString().trim();
+    final bool hasCare = (dressing != null && dressing.isNotEmpty) ||
+        (notes != null && notes.isNotEmpty) ||
+        (other != null && other.isNotEmpty);
+
+    if (hasCare) {
+      final careSuccess = await controller.submitCareActivities(activeVisit.id, {
+        'nursing_notes': (notes != null && notes.isNotEmpty) ? notes : null,
+        'dressing_procedures': (dressing != null && dressing.isNotEmpty) ? dressing : null,
+        'nail_trimming_done': false,
+        'other_care_activities': (other != null && other.isNotEmpty) ? other : null,
+      });
+      if (careSuccess) savedItemsCount++;
+    }
+
+    // 4. Persist Consumables to Database so they appear in Consumables Table
+    for (final cons in consumables) {
+      final itemName = cons['item_name']?.toString().trim() ?? '';
+      if (itemName.isEmpty) continue;
+      final qty = int.tryParse(cons['quantity']?.toString() ?? '1') ?? 1;
+      final price = _consumablePrices[itemName.toLowerCase()] ??
+          _defaultConsumablePrices[itemName.toLowerCase()] ??
+          0.0;
+      final consSuccess = await controller.submitConsumable(activeVisit.id, {
+        'item_name': itemName,
+        'quantity_used': qty,
+        'unit_price': price,
+      });
+      if (consSuccess) savedItemsCount++;
+    }
+
+    // 5. Auto-mark matching prescribed medicines for today if mentioned as administered
+    if (medicines.isNotEmpty) {
+      final now = DateTime.now();
+      final dayKey = DateFormat('yyyy-MM-dd').format(now);
+
+      for (final dictatedMed in medicines) {
+        final dictatedName = dictatedMed['medicine_name']?.toString().toLowerCase().trim() ?? '';
+        if (dictatedName.isEmpty) continue;
+
+        for (final visitMed in activeVisit.medicines) {
+          final visitMedName = visitMed.medicineName.toLowerCase().trim();
+          if (visitMedName.contains(dictatedName) || dictatedName.contains(visitMedName)) {
+            final daysMap = Map<String, bool>.from(visitMed.administeredDays);
+            if (daysMap[dayKey] != true && visitMed.id != null) {
+              daysMap[dayKey] = true;
+              visitMed.administeredDays[dayKey] = true;
+              await controller.toggleMedicineDay(activeVisit.id, visitMed.id!, daysMap);
+              savedItemsCount++;
+            }
+          }
+        }
+      }
+    }
+
+    // 6. Refresh the full visit data so all tabs re-render the stored values
+    await controller.fetchVisitDetails(activeVisit.id);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.tr(
+                    'ai_scribe_applied_success',
+                    fallback: 'AI Voice Scribe: Data successfully stored and displayed across all visit tabs!',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppTheme.secondaryColor,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    }
   }
 
   final List<String> _defaultKitDevices = const [
@@ -5873,7 +6076,42 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 if (!isCompletedOrVerified &&
                     visit.status != 'Cancelled' &&
                     visit.status != 'Completed' &&
-                    visit.status != 'Verified')
+                    visit.status != 'Verified') ...[
+                  Builder(
+                    builder: (ctx) {
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 16.0, right: 8.0),
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                          ),
+                          icon: const Icon(Icons.auto_awesome, size: 16),
+                          label: Text(
+                            ctx.tr('ai_voice_scribe', fallback: 'AI Voice Scribe'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                          onPressed: () async {
+                            final data = await HomeVisitVoiceScribeDialog.show(context);
+                            if (data != null && mounted) {
+                              await _applyAiVoiceData(data, visit);
+                            }
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ],
                   Builder(
                     builder: (ctx) {
                       final isMobile = MediaQuery.of(ctx).size.width < 700;
@@ -6009,6 +6247,27 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       _buildLiveSessionSummaryTab(visit, controller),
                     ],
                   ),
+            floatingActionButton: (!isCompletedOrVerified &&
+                    visit.status != 'Cancelled' &&
+                    visit.status != 'Completed' &&
+                    visit.status != 'Verified')
+                ? FloatingActionButton.extended(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                    icon: const Icon(Icons.auto_awesome, size: 20),
+                    label: Text(
+                      context.tr('ai_voice_scribe', fallback: 'AI Voice Scribe'),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: () async {
+                      final data = await HomeVisitVoiceScribeDialog.show(context);
+                      if (data != null && mounted) {
+                        await _applyAiVoiceData(data, visit);
+                      }
+                    },
+                  )
+                : null,
           ),
         );
       },
@@ -6627,7 +6886,6 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     HomeVisitController controller, {
     HomeVisitVitals? existingVital,
   }) {
-    _clearVitalsForm();
     if (existingVital != null) {
       _sysBpCtrl.text = existingVital.systolicBp?.toString() ?? '';
       _diaBpCtrl.text = existingVital.diastolicBp?.toString() ?? '';

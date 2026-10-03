@@ -1211,8 +1211,24 @@ class AppLocalizations {
       'close_visit_session_return_desc':
           'Are you sure you want to close this visit session and return to the visits list? Any unsubmitted start time will not be recorded.',
       'stay_in_session': 'Stay in Session',
-      'close_session': 'Close Session',
       'exit_session': 'Exit Session',
+      'ai_voice_scribe': 'AI Voice Scribe',
+      'ai_voice_scribe_title': 'AI Voice Scribe',
+      'ai_voice_scribe_desc':
+          'Speak visit notes once to auto-fill vitals, care, medicines, and consumables.',
+      'speech_language': 'Speech Language:',
+      'tap_mic_to_stop': 'Tap to Stop Dictation',
+      'tap_mic_to_speak': 'Tap to Start Dictating',
+      'live_transcript_label': 'Spoken Transcript / Manual Notes:',
+      'voice_scribe_hint':
+          'Example: Patient BP 120/80, pulse 76, sugar 140. Cleaned right foot ulcer with normal saline and applied gauze. Attender Lakshmi satisfied.',
+      'analyzing_notes': 'Analyzing with AI...',
+      'extract_with_ai': 'Extract with AI',
+      'apply_all_tabs': 'Apply to All Tabs',
+      'extracted_fields_preview': 'Extracted Fields Preview',
+      're_analyze': 'Re-analyze',
+      'ai_scribe_applied_success':
+          'AI Voice Scribe data applied across all visit tabs!',
       'starting': 'Starting...',
       'search_select_patient': 'Search/Select Patient',
       'no_nurses_available': 'No nurses available to assign.',
@@ -2791,8 +2807,24 @@ class AppLocalizations {
       'close_visit_session_return_desc':
           'இந்த வருகை அமர்வை மூடிவிட்டு வருகைகள் பட்டியலுக்குத் திரும்ப விரும்புகிறீர்களா? சமர்ப்பிக்கப்படாத தொடக்க நேரம் பதிவு செய்யப்படாது.',
       'stay_in_session': 'அமர்வில் தொடரவும்',
-      'close_session': 'அமர்வை மூடவும்',
       'exit_session': 'அமர்வை விட்டு வெளியேறு',
+      'ai_voice_scribe': 'AI குரல் உதவியாளர்',
+      'ai_voice_scribe_title': 'AI குரல் உதவியாளர்',
+      'ai_voice_scribe_desc':
+          'வருகைக் குறிப்புகளை ஒரு முறை பேசினால் வைட்டல்ஸ், பராமரிப்பு, மருந்துகள் தானாக நிரப்பப்படும்.',
+      'speech_language': 'பேசும் மொழி:',
+      'tap_mic_to_stop': 'பதிவை நிறுத்த தொடவும்',
+      'tap_mic_to_speak': 'பேசத் தொடங்க தொடவும்',
+      'live_transcript_label': 'பேசிய உரை / குறிப்புகள்:',
+      'voice_scribe_hint':
+          'உதாரணம்: நோயாளி BP 120/80, pulse 76, sugar 140. காலில் wound dressing sterile gauze வைத்து செய்தோம். Attender Lakshmi திருப்தி.',
+      'analyzing_notes': 'AI மூலம் பகுப்பாய்வு செய்கிறது...',
+      'extract_with_ai': 'AI மூலம் தகவலைப் பிரி',
+      'apply_all_tabs': 'அனைத்து தாவல்களுக்கும் பொருத்து',
+      'extracted_fields_preview': 'பிரித்தெடுக்கப்பட்ட விவரங்களின் முன்னோட்டம்',
+      're_analyze': 'மீண்டும் பகுப்பாய்வு செய்',
+      'ai_scribe_applied_success':
+          'AI குரல் உதவியாளர் தகவல் அனைத்து தாவல்களிலும் பொருத்தப்பட்டது!',
       'starting': 'தொடங்குகிறது...',
       'search_select_patient': 'நோயாளியைத் தேர்ந்தெடுக்கவும்',
       'no_nurses_available': 'ஒதுக்குவதற்கு செவிலியர்கள் யாரும் இல்லை.',

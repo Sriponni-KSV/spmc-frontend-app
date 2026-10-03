@@ -15,6 +15,12 @@ class ModalHistoryHelper {
 
   static void initialize(GlobalKey<NavigatorState> navigatorKey) {
     _navigatorKey = navigatorKey;
+    _popupRoutes.clear();
+    _pushedHistoryCount = 0;
+    _isHandlingPopState = false;
+    _isIgnoringPopState = false;
+    _skipNextBack = false;
+
     if (_initialized) return;
     _initialized = true;
 
@@ -45,15 +51,27 @@ class ModalHistoryHelper {
         _isHandlingPopState = true;
 
         try {
-          if (_popupRoutes.isNotEmpty) {
+          bool poppedAny = false;
+          while (_popupRoutes.isNotEmpty) {
             final topRoute = _popupRoutes.last;
-            if (topRoute.isActive && topRoute.navigator != null) {
-              topRoute.navigator!.maybePop();
-            } else if (_navigatorKey?.currentState?.canPop() == true) {
-              _navigatorKey!.currentState!.maybePop();
+            final isMounted = (topRoute is ModalRoute)
+                ? (topRoute.subtreeContext != null && topRoute.subtreeContext!.mounted)
+                : true;
+
+            if (topRoute.isActive && topRoute.navigator != null && isMounted) {
+              try {
+                topRoute.navigator!.maybePop().catchError((_) => false);
+                poppedAny = true;
+              } catch (_) {}
+              break;
+            } else {
+              // Stale or unmounted route from a previous screen or hot restart
+              _popupRoutes.removeLast();
             }
-          } else if (_navigatorKey?.currentState?.canPop() == true) {
-            _navigatorKey!.currentState!.maybePop();
+          }
+
+          if (!poppedAny && _navigatorKey?.currentState?.canPop() == true) {
+            _navigatorKey!.currentState!.maybePop().catchError((_) => false);
           }
         } catch (_) {}
 
