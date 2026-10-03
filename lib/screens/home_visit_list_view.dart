@@ -1748,13 +1748,33 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
     );
   }
 
+  Future<T?> _showLocalizedDialog<T>({
+    BuildContext? context,
+    required WidgetBuilder builder,
+    bool barrierDismissible = true,
+  }) {
+    final ctx = (context != null && context.mounted)
+        ? context
+        : (mounted ? this.context : null);
+    if (ctx == null) return Future.value(null);
+    final langLocale = Provider.of<LanguageProvider>(ctx, listen: false).locale;
+    return showDialog<T>(
+      context: ctx,
+      barrierDismissible: barrierDismissible,
+      builder: (dialogCtx) => Localizations.override(
+        context: dialogCtx,
+        locale: langLocale,
+        child: Builder(builder: (bCtx) => builder(bCtx)),
+      ),
+    );
+  }
+
   void _showDiscontinueDialog(BuildContext context, HomeVisitModel visit) {
     String selectedReason = 'Patient Cured / Fully Recovered';
     final notesCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) {
           final isTamil = Localizations.localeOf(context).languageCode == 'ta';
@@ -2529,8 +2549,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
         : 'ID: ${activeVisit.patientId}';
     final visitNumber = activeVisit.visitNumber ?? 'HV-${activeVisit.id}';
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       builder: (dialogCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
@@ -2731,9 +2750,15 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             authUser.staffUniqueId!.isNotEmpty)
         ? authUser.staffUniqueId!
         : '';
+    final langProvider = Provider.of<LanguageProvider>(context, listen: false);
+    final isTamil = langProvider.isTamil;
+    final String formattedNurseName = TamilTransliterationHelper.formatName(
+      rawNurseName,
+      isTamil: isTamil,
+    );
     final String nurseDisplayWithId = nurseStaffId.isNotEmpty
-        ? '$rawNurseName ($nurseStaffId)'
-        : rawNurseName;
+        ? '$formattedNurseName ($nurseStaffId)'
+        : formattedNurseName;
 
     final String rawPatientName = visit.patientName ?? 'Patient';
     final String patientDisplayId =
@@ -2741,7 +2766,6 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             visit.patientDisplayId!.trim().isNotEmpty)
         ? visit.patientDisplayId!
         : 'ID: ${visit.patientId}';
-    final isTamil = Localizations.localeOf(context).languageCode == 'ta';
     final String formattedPatientName = TamilTransliterationHelper.formatName(
       rawPatientName,
       isTamil: isTamil,
@@ -2762,82 +2786,15 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
             ? context.tr('resume_home_visit_session', fallback: 'Resume Home Visit Session')
             : context.tr('start_home_visit_session', fallback: 'Start Home Visit Session'));
 
-    Future<bool> confirmCloseVisitSession() async {
-      final bool? result = await showDialog<bool>(
-        context: context,
-        builder: (confirmCtx) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: AppTheme.dangerColor.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.warning_amber_rounded,
-                  color: AppTheme.dangerColor,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  context.tr('close_visit_session_title', fallback: 'Close Visit Session?'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: AppTheme.textPrimaryColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 440,
-            child: Text(
-              context.tr(
-                'close_visit_session_desc',
-                fallback: 'Are you sure you want to close this visit session? Any unsubmitted start time will not be recorded.',
-              ),
-              style: TextStyle(
-                fontSize: 13.5,
-                color: Color(0xFF64748B),
-                height: 1.4,
-              ),
-              softWrap: true,
-            ),
-          ),
-          actions: [
-            OutlinedButton(
-              style: AppTheme.cancelButton,
-              onPressed: () => Navigator.of(confirmCtx).pop(false),
-              child: Text(context.tr('stay_in_session', fallback: 'Stay in Session')),
-            ),
-            ElevatedButton(
-              style: AppTheme.dangerButton,
-              onPressed: () => Navigator.of(confirmCtx).pop(true),
-              child: Text(context.tr('close_session', fallback: 'Close Session')),
-            ),
-          ],
-        ),
-      );
-      return result == true;
-    }
-
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => PopScope(
           canPop: false,
-          onPopInvokedWithResult: (didPop, result) async {
+          onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
-            final shouldClose = await confirmCloseVisitSession();
-            if (shouldClose && dialogCtx.mounted) {
+            ModalHistoryHelper.skipNextHistoryBack();
+            if (dialogCtx.mounted) {
               Navigator.of(dialogCtx).pop();
             }
           },
@@ -3075,9 +3032,9 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   style: AppTheme.cancelButton,
                   onPressed: isSubmitting
                       ? null
-                      : () async {
-                          final shouldClose = await confirmCloseVisitSession();
-                          if (shouldClose && dialogCtx.mounted) {
+                      : () {
+                          ModalHistoryHelper.skipNextHistoryBack();
+                          if (dialogCtx.mounted) {
                             Navigator.of(dialogCtx).pop();
                           }
                         },

@@ -7,8 +7,15 @@ class AppLocalizations {
   AppLocalizations(this.locale);
 
   static AppLocalizations of(BuildContext context) {
-    return Localizations.of<AppLocalizations>(context, AppLocalizations) ??
-        AppLocalizations(const Locale('en'));
+    if (!context.mounted) {
+      return AppLocalizations(const Locale('en'));
+    }
+    try {
+      return Localizations.of<AppLocalizations>(context, AppLocalizations) ??
+          AppLocalizations(const Locale('en'));
+    } catch (_) {
+      return AppLocalizations(const Locale('en'));
+    }
   }
 
   static const LocalizationsDelegate<AppLocalizations> delegate =
@@ -3493,7 +3500,14 @@ extension AppLocalizationExtension on BuildContext {
     return AppLocalizations.of(this).translateProcedure(name);
   }
 
-  bool get isTamil => Localizations.localeOf(this).languageCode == 'ta';
+  bool get isTamil {
+    if (!mounted) return false;
+    try {
+      return Localizations.localeOf(this).languageCode == 'ta';
+    } catch (_) {
+      return false;
+    }
+  }
 
   String pageOfTotal(int current, int total) {
     if (isTamil) {

@@ -306,10 +306,15 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     if (_selectedHomeVisitId == null || _isReadOnlyHomeVisit) {
       return true;
     }
+    final langLocale = Provider.of<LanguageProvider>(context, listen: false).locale;
     final shouldLeave = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) {
+      builder: (dialogCtx) => Localizations.override(
+        context: dialogCtx,
+        locale: langLocale,
+        child: Builder(
+          builder: (ctx) {
         final isMobile = MediaQuery.of(ctx).size.width < 500;
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -412,8 +417,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           ),
         ),
       );
-      },
-    );
+    },
+  ),
+),
+);
     return shouldLeave == true;
   }
 

@@ -113,6 +113,27 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     }
   }
 
+  Future<T?> _showLocalizedDialog<T>({
+    BuildContext? context,
+    required WidgetBuilder builder,
+    bool barrierDismissible = true,
+  }) {
+    final ctx = (context != null && context.mounted)
+        ? context
+        : (mounted ? this.context : null);
+    if (ctx == null) return Future.value(null);
+    final langLocale = Provider.of<LanguageProvider>(ctx, listen: false).locale;
+    return showDialog<T>(
+      context: ctx,
+      barrierDismissible: barrierDismissible,
+      builder: (dialogCtx) => Localizations.override(
+        context: dialogCtx,
+        locale: langLocale,
+        child: Builder(builder: (bCtx) => builder(bCtx)),
+      ),
+    );
+  }
+
   Future<bool?> _showUnsavedChangesDialog(
     BuildContext context, {
     HomeVisitModel? visit,
@@ -128,8 +149,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       _handleLeave();
       return Future.value(true);
     }
-    return showDialog<bool>(
-      context: context,
+    return _showLocalizedDialog<bool>(
       barrierDismissible: false,
       builder: (ctx) {
         final isMobile = MediaQuery.of(ctx).size.width < 500;
@@ -924,7 +944,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       _loadData();
       // Periodically refresh visit details every 10 seconds to auto-unlock form when scheduled time is reached
       _vitalsTimer = Timer.periodic(const Duration(seconds: 10), (_) {
-        if (!mounted) return;
+        if (!mounted || _isLeaving) return;
         try {
           if (!context.mounted) return;
           final ctrl = Provider.of<HomeVisitController>(context, listen: false);
@@ -1921,8 +1941,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     required String title,
     required String message,
   }) async {
-    return await showDialog<bool>(
-          context: context,
+    return await _showLocalizedDialog<bool>(
           builder: (dCtx) => AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -1953,12 +1972,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               OutlinedButton(
                 style: AppTheme.cancelButton,
                 onPressed: () => Navigator.pop(dCtx, false),
-                child: Text(context.tr('cancel', fallback: 'Cancel')),
-                ),
-                ElevatedButton(
+                child: Text(dCtx.tr('cancel', fallback: 'Cancel')),
+              ),
+              ElevatedButton(
                 style: AppTheme.dangerButton,
                 onPressed: () => Navigator.pop(dCtx, true),
-                child: Text(context.tr('delete', fallback: 'Delete')),
+                child: Text(dCtx.tr('delete', fallback: 'Delete')),
               ),
             ],
           ),
@@ -2039,8 +2058,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     bool isSubmitting = false;
     bool submitAttempted = false;
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       barrierDismissible: false,
       builder: (dCtx) {
         return StatefulBuilder(
@@ -2818,8 +2836,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     bool isSubmitting = false;
     bool submitAttempted = false;
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       barrierDismissible: false,
       builder: (dCtx) {
         return StatefulBuilder(
@@ -3049,8 +3066,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           defaultPriceMap.keys.any((k) => k.toLowerCase().trim() == key);
     }
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       barrierDismissible: false,
       builder: (dCtx) {
         return StatefulBuilder(
@@ -3296,8 +3312,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
     final Map<String, TextEditingController> itemQtyCtrls = {};
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       barrierDismissible: false,
       builder: (dCtx) {
         return StatefulBuilder(
@@ -4350,8 +4365,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
   void _showSelectedPhotoPreviewModal(BuildContext context) {
     if (_selectedPhotoBytes == null) return;
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       builder: (dCtx) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
@@ -4543,8 +4557,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     HomeVisitPhotoEvidence photo,
   ) {
     if (photo.id == null) return;
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       builder: (dialogCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
@@ -4933,7 +4946,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     await ctrl.fetchVisitDetails(widget.visitId);
     await ctrl.fetchVisits();
     _fetchInventoryCatalogs();
-    if (!mounted || widget.isReadOnlyView) return;
+    if (!mounted || widget.isReadOnlyView || _isLeaving) return;
     if (ctrl.selectedVisit != null &&
         !ctrl.selectedVisit!.hasStartedToday &&
         ctrl.selectedVisit!.status != 'Cancelled' &&
@@ -4994,8 +5007,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   }
 
   void _showActiveVisitRestrictionDialog(HomeVisitModel activeVisit) {
+    final langProvider = Provider.of<LanguageProvider>(context, listen: false);
+    final isTamil = langProvider.isTamil;
     final rawPatientName = activeVisit.patientName ?? 'Patient';
-    final isTamil = Localizations.localeOf(context).languageCode == 'ta';
     final formattedPatientName = TamilTransliterationHelper.formatName(
       rawPatientName,
       isTamil: isTamil,
@@ -5007,8 +5021,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         : 'ID: ${activeVisit.patientId}';
     final visitNumber = activeVisit.visitNumber ?? 'HV-${activeVisit.id}';
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -5029,7 +5042,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                context.tr(
+                ctx.tr(
                   'active_visit_in_progress',
                   fallback: 'Active Visit In-Progress',
                 ),
@@ -5047,7 +5060,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              context.tr(
+              ctx.tr(
                 'active_visit_desc',
                 fallback:
                     'You currently have an active home visit in progress. Nurses cannot execute multiple active visits simultaneously.',
@@ -5080,7 +5093,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          '${context.tr('patient_label', fallback: 'Patient:')} $formattedPatientName ($patientDisplayId)',
+                          '${ctx.tr('patient_label', fallback: 'Patient:')} $formattedPatientName ($patientDisplayId)',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -5100,7 +5113,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '${context.tr('visit_number', fallback: 'Visit Number')}: $visitNumber',
+                        '${ctx.tr('visit_number', fallback: 'Visit Number')}: $visitNumber',
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -5121,7 +5134,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          '${context.tr('started_at', fallback: 'Started At')}: ${activeVisit.startTime}',
+                          '${ctx.tr('started_at', fallback: 'Started At')}: ${activeVisit.startTime}',
                           style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -5136,7 +5149,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             ),
             const SizedBox(height: 16),
             Text(
-              context.tr(
+              ctx.tr(
                 'active_visit_note',
                 fallback:
                     'Please complete or resume your ongoing visit before starting another session.',
@@ -5158,7 +5171,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               _handleLeave();
             },
             child: Text(
-              context.tr('exit_to_visits_list', fallback: 'Exit to Visits List'),
+              ctx.tr('exit_to_visits_list', fallback: 'Exit to Visits List'),
             ),
           ),
           const SizedBox(width: 8),
@@ -5170,7 +5183,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               context.go('/nurse/home-visits/execute/${activeVisit.id}');
             },
             child: Text(
-              context.tr('resume_active_visit', fallback: 'Resume Active Visit'),
+              ctx.tr('resume_active_visit', fallback: 'Resume Active Visit'),
             ),
           ),
         ],
@@ -5190,7 +5203,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   }
 
   Future<bool> _promptStartVisitDialog(HomeVisitModel visit) async {
-    if (!mounted || widget.isReadOnlyView || _isStartDialogOpen) return false;
+    if (!mounted || widget.isReadOnlyView || _isStartDialogOpen || _isLeaving) return false;
     _isStartDialogOpen = true;
     try {
       final formKey = GlobalKey<FormState>();
@@ -5201,6 +5214,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       );
       final maxAllowedTime = executionClickTime.add(const Duration(hours: 1));
 
+      final langProvider = Provider.of<LanguageProvider>(context, listen: false);
+      final isTamil = langProvider.isTamil;
       final String rawNurseName = visit.startNurseName ?? visit.nurseName ?? '';
       final String rawPatientName = visit.patientName ?? 'Patient';
       final String patientDisplayId =
@@ -5208,7 +5223,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               visit.patientDisplayId!.trim().isNotEmpty)
           ? visit.patientDisplayId!
           : 'ID: ${visit.patientId}';
-      final String patientDisplayWithId = '$rawPatientName ($patientDisplayId)';
+      final String formattedPatientName = TamilTransliterationHelper.formatName(
+        rawPatientName,
+        isTamil: isTamil,
+      );
+      final String formattedNurseName = TamilTransliterationHelper.formatName(
+        rawNurseName,
+        isTamil: isTamil,
+      );
+      final String patientDisplayWithId = '$formattedPatientName ($patientDisplayId)';
 
       final nurseCtrl = TextEditingController(text: rawNurseName);
       final timeCtrl = TextEditingController(text: defaultTime);
@@ -5223,79 +5246,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ? context.tr('resume_home_visit_session', fallback: 'Resume Home Visit Session')
               : context.tr('start_home_visit_session', fallback: 'Start Home Visit Session'));
 
-      Future<bool> confirmCloseVisitSession() async {
-        final bool? result = await showDialog<bool>(
-          context: context,
-          builder: (confirmCtx) => AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.dangerColor.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.warning_amber_rounded,
-                    color: AppTheme.dangerColor,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    context.tr('close_visit_session_title', fallback: 'Close Visit Session?'),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppTheme.textPrimaryColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
-              context.tr('close_visit_session_return_desc', fallback: 'Are you sure you want to close this visit session and return to the visits list? Any unsubmitted start time will not be recorded.'),
-              style: TextStyle(
-                fontSize: 13.5,
-                color: Color(0xFF64748B),
-                height: 1.4,
-              ),
-            ),
-            actions: [
-              OutlinedButton(
-                style: AppTheme.cancelButton,
-                onPressed: () => Navigator.of(confirmCtx).pop(false),
-                child: Text(context.tr('stay_in_session', fallback: 'Stay in Session')),
-              ),
-              ElevatedButton(
-                style: AppTheme.dangerButton,
-                onPressed: () => Navigator.of(confirmCtx).pop(true),
-                child: Text(context.tr('close_session', fallback: 'Close Session')),
-              ),
-            ],
-          ),
-        );
-        return result == true;
-      }
-
-      final bool? dialogResult = await showDialog<bool>(
-        context: context,
+      final bool? dialogResult = await _showLocalizedDialog<bool>(
         barrierDismissible: false,
         builder: (dialogCtx) => StatefulBuilder(
           builder: (context, setDialogState) => PopScope(
             canPop: false,
-            onPopInvokedWithResult: (didPop, result) async {
+            onPopInvokedWithResult: (didPop, result) {
               if (didPop) return;
-              final shouldClose = await confirmCloseVisitSession();
-              if (shouldClose && mounted) {
-                ModalHistoryHelper.skipNextHistoryBack();
-                Navigator.of(dialogCtx).pop(false);
-                _handleLeave();
-              }
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(dialogCtx).pop(false);
+              _handleLeave();
             },
             child: AlertDialog(
               shape: RoundedRectangleBorder(
@@ -5413,7 +5373,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                               ),
                                             ),
                                             TextSpan(
-                                              text: rawNurseName,
+                                              text: formattedNurseName,
                                               style: const TextStyle(
                                                 fontSize: 12,
                                                 fontWeight: FontWeight.bold,
@@ -5532,13 +5492,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     style: AppTheme.cancelButton,
                     onPressed: isSubmitting
                         ? null
-                        : () async {
-                            final shouldClose = await confirmCloseVisitSession();
-                            if (shouldClose && mounted) {
-                              ModalHistoryHelper.skipNextHistoryBack();
-                              Navigator.of(dialogCtx).pop(false);
-                              _handleLeave();
-                            }
+                        : () {
+                            ModalHistoryHelper.skipNextHistoryBack();
+                            Navigator.of(dialogCtx).pop(false);
+                            _handleLeave();
                           },
                     child: Text(context.tr('exit_session', fallback: 'Exit Session')),
                   ),
@@ -6605,8 +6562,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               size: 20,
                             ),
                             onPressed: () async {
-                              final confirm = await showDialog<bool>(
-                                context: context,
+                              final confirm = await _showLocalizedDialog<bool>(
                                 builder: (ctx) => AlertDialog(
                                   backgroundColor: Colors.white,
                                   surfaceTintColor: Colors.transparent,
@@ -6684,8 +6640,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     }
     final bool isMobile = MediaQuery.of(context).size.width < 600;
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => PopScope(
@@ -8208,8 +8163,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                           existingVital: v,
                                         );
                                       } else if (val == 'delete') {
-                                        final confirm = await showDialog<bool>(
-                                          context: context,
+                                        final confirm = await _showLocalizedDialog<bool>(
                                           builder: (ctx) => AlertDialog(
                                             backgroundColor: Colors.white,
                                             surfaceTintColor:
@@ -8621,8 +8575,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
     bool isSaving = false;
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       barrierDismissible: false,
       builder: (dCtx) {
         return StatefulBuilder(
@@ -9181,8 +9134,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       text: (currentStatus?.intervalMinutes ?? 60).toString(),
     );
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       builder: (dialogCtx) => AlertDialog(
         title: Text(
           context.tr('vitals_schedule_settings_title', fallback: 'Configure Vitals Schedule Settings'),
@@ -12678,8 +12630,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     bool isSubmitting = false;
     bool isDialogSigning = false;
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => Dialog(
@@ -14233,8 +14184,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
     final bool isMobile = MediaQuery.of(context).size.width < 600;
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       builder: (dialogCtx) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: EdgeInsets.all(isMobile ? 12 : 24),
@@ -16226,8 +16176,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final formKey = GlobalKey<FormState>();
     bool isSubmitting = false;
 
-    showDialog(
-      context: context,
+    _showLocalizedDialog(
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) {
           final isTamil = Localizations.localeOf(context).languageCode == 'ta';
