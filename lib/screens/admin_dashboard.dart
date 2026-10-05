@@ -400,10 +400,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showAddUserDialog(BuildContext context) {
+    final currentUserRole =
+        Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const AddUserDialog(),
+      builder: (context) => AddUserDialog(currentUserRole: currentUserRole),
     ).then((_) => _loadStaff()); // Refresh list after dialog closes
   }
 
@@ -14827,7 +14829,8 @@ class _EditStaffDialogState extends State<EditStaffDialog> {
 }
 
 class AddUserDialog extends StatefulWidget {
-  const AddUserDialog({Key? key}) : super(key: key);
+  final String currentUserRole;
+  const AddUserDialog({Key? key, required this.currentUserRole}) : super(key: key);
 
   @override
   State<AddUserDialog> createState() => _AddUserDialogState();
@@ -14875,6 +14878,18 @@ class _AddUserDialogState extends State<AddUserDialog> {
   @override
   void initState() {
     super.initState();
+    if (widget.currentUserRole == 'Super Admin') {
+      _roles = [
+        'Super Admin',
+        'Admin',
+        'Doctor',
+        'Nurse',
+        'Anaesthetist',
+        'Front Desk',
+        'Lab',
+        'Pharmacy',
+      ];
+    }
     _passwordController.text = PasswordPolicy.generateSecurePassword();
     _loadSpecializations();
     _loadRoles();
@@ -15179,13 +15194,37 @@ class _AddUserDialogState extends State<AddUserDialog> {
 
   Future<void> _loadRoles() async {
     setState(() => _isLoadingRoles = true);
+    final isSuperAdmin = widget.currentUserRole == 'Super Admin';
     try {
       final rbacData = await _adminController.fetchRbacData();
       final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
+      final orderedRoles = [
+        'Super Admin',
+        'Admin',
+        'Doctor',
+        'Nurse',
+        'Anaesthetist',
+        'Front Desk',
+        'Lab',
+        'Pharmacy',
+      ];
       final names = rolesList
-          .map((r) => r['name']?.toString() ?? '')
-          .where((name) => name.isNotEmpty && name != 'Super Admin')
+          .map((r) => (r['role_name'] ?? r['name'])?.toString() ?? '')
+          .where((name) {
+            if (name.isEmpty) return false;
+            // Only Super Admin can create Super Admin or Admin accounts
+            if (name == 'Super Admin' || name == 'Admin') return isSuperAdmin;
+            return true;
+          })
           .toList();
+      names.sort((a, b) {
+        int indexA = orderedRoles.indexOf(a);
+        int indexB = orderedRoles.indexOf(b);
+        if (indexA == -1 && indexB == -1) return a.compareTo(b);
+        if (indexA == -1) return 1;
+        if (indexB == -1) return -1;
+        return indexA.compareTo(indexB);
+      });
       if (mounted) {
         setState(() {
           if (names.isNotEmpty) _roles = names;
