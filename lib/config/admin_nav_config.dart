@@ -83,10 +83,10 @@ class AdminNavConfig {
   static const bool showIcuEmergency = false;
 
   /// Billing & Invoices (Visible)
-  static const bool showBillingInvoices = true;
+  static const bool showBillingInvoices = false;
 
   /// Inventory Management (Visible)
-  static const bool showInventoryManagement = true;
+  static const bool showInventoryManagement = false;
 
   // =========================================================================
   // CATALOG SUB-ITEM VISIBILITY TOGGLES
