@@ -499,9 +499,57 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return sessionSlots;
   }
 
+  String _cleanDoctorName(String? name) {
+    if (name == null) return '';
+    return name
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'^dr\.?\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'[\s\u00A0]+'), ' ')
+        .trim();
+  }
+
+  bool _isSameDoctor(String? d1, String? d2) {
+    if (d1 == null || d2 == null) return false;
+    final c1 = _cleanDoctorName(d1);
+    final c2 = _cleanDoctorName(d2);
+    if (c1.isEmpty || c2.isEmpty) return false;
+    if (c1 == c2) return true;
+    return c1.contains(c2) || c2.contains(c1);
+  }
+
+  bool _isSameDate(dynamic date1, dynamic date2) {
+    final d1 = DateFormatter.toDateTime(date1);
+    final d2 = DateFormatter.toDateTime(date2);
+    if (d1 == null || d2 == null) return false;
+    return d1.year == d2.year && d1.month == d2.month && d1.day == d2.day;
+  }
+
   String _normalizeTime(String timeStr) {
+    String clean = timeStr.trim();
+    if (clean.isEmpty) return '';
+    clean = clean.replaceAll(RegExp(r'[\s\u00A0]+'), ' ');
+    final matchAmPm = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (matchAmPm != null) {
+      int hour = int.parse(matchAmPm.group(1)!);
+      String min = matchAmPm.group(2)!;
+      String period = matchAmPm.group(3)!.toUpperCase();
+      if (hour == 0) hour = 12;
+      return '${hour.toString().padLeft(2, '0')}:$min $period';
+    }
+    final match24 = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(clean);
+    if (match24 != null) {
+      int hour = int.parse(match24.group(1)!);
+      String min = match24.group(2)!;
+      String period = hour >= 12 ? 'PM' : 'AM';
+      int h12 = hour % 12;
+      if (h12 == 0) h12 = 12;
+      return '${h12.toString().padLeft(2, '0')}:$min $period';
+    }
     try {
-      String clean = timeStr.trim();
       if (clean.toUpperCase().contains('AM') || clean.toUpperCase().contains('PM')) {
         DateTime dt = DateFormat('h:mm a').parse(clean);
         return DateFormat('hh:mm a').format(dt);
@@ -582,57 +630,80 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return isAvailable;
   }
 
+  DateTime? _parseSlotDateTime(String timeStr, DateTime date) {
+    try {
+      final clean = timeStr.trim();
+      if (clean.isEmpty) return null;
+      final matchAmPm = RegExp(
+        r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+        caseSensitive: false,
+      ).firstMatch(clean);
+      if (matchAmPm != null) {
+        int hour = int.parse(matchAmPm.group(1)!);
+        final int minute = int.parse(matchAmPm.group(2)!);
+        final bool isPm = matchAmPm.group(3)!.toUpperCase() == 'PM';
+        if (isPm && hour < 12) hour += 12;
+        if (!isPm && hour == 12) hour = 0;
+        return DateTime(date.year, date.month, date.day, hour, minute);
+      }
+      final match24 = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(clean);
+      if (match24 != null) {
+        final int hour = int.parse(match24.group(1)!);
+        final int minute = int.parse(match24.group(2)!);
+        return DateTime(date.year, date.month, date.day, hour, minute);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   List<String> _getFilteredTimeSlots() {
     if (_bookingDate == null || _selectedDoctor == null) return [];
-
-    DateTime now = DateTime.now();
-    bool isToday =
-        _bookingDate!.year == now.year &&
-        _bookingDate!.month == now.month &&
-        _bookingDate!.day == now.day;
-
-    final dateStr1 = DateFormat('dd/MM/yyyy').format(_bookingDate!);
-    final dateStr2 = DateFormat('yyyy-MM-dd').format(_bookingDate!);
 
     List<String> baseSlots = _availableSlots;
     if (baseSlots.isEmpty) {
       baseSlots = _generateSlotsForDoctor(_selectedDoctor!);
     }
 
+    final now = DateTime.now();
+    final bool isToday = _bookingDate!.year == now.year &&
+        _bookingDate!.month == now.month &&
+        _bookingDate!.day == now.day;
+
+    int duration = _intervalMinutes;
+    if (_selectedDoctor?.slotDuration != null) {
+      final digits =
+          RegExp(r'\d+').firstMatch(_selectedDoctor!.slotDuration!)?.group(0);
+      if (digits != null) {
+        duration = int.tryParse(digits) ?? _intervalMinutes;
+      }
+    }
+    if (duration <= 0) duration = 30;
+
     return baseSlots.where((slot) {
-      // 1. Check if already booked
+      // 1. If booking for today, display only current and upcoming slots (hide past slots)
+      if (isToday) {
+        final slotStart = _parseSlotDateTime(slot, now);
+        if (slotStart != null) {
+          final slotEnd = slotStart.add(Duration(minutes: duration));
+          // If the slot has already concluded, exclude it
+          if (slotEnd.isBefore(now)) {
+            return false;
+          }
+        }
+      }
+
+      // 2. Check if already booked
       bool isBooked = _appointments.any((a) {
         if (a.status.toLowerCase() == 'cancelled') return false;
-        if (a.doctorName.toLowerCase().trim() !=
-            _selectedDoctor!.fullname.toLowerCase().trim()) {
+        if (!_isSameDoctor(a.doctorName, _selectedDoctor!.fullname)) {
           return false;
         }
-
-        String aDate = a.appointmentDate;
-        if (aDate.contains('T')) aDate = aDate.split('T')[0];
-        if (aDate != dateStr1 && aDate != dateStr2) return false;
+        if (!_isSameDate(a.appointmentDate, _bookingDate)) return false;
 
         return _normalizeTime(a.appointmentTime) == _normalizeTime(slot);
       });
 
       if (isBooked) return false;
-
-      // 2. If today, filter out past slots (unless it's the currently selected slot)
-      if (isToday && slot != _selectedTime) {
-        try {
-          DateTime slotTime = DateFormat('hh:mm a').parse(slot);
-          DateTime fullSlotTime = DateTime(
-            _bookingDate!.year,
-            _bookingDate!.month,
-            _bookingDate!.day,
-            slotTime.hour,
-            slotTime.minute,
-          );
-          return fullSlotTime.isAfter(now);
-        } catch (e) {
-          return true;
-        }
-      }
 
       return true;
     }).toList();
@@ -1362,6 +1433,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       _bpSystolicController.text.trim().isNotEmpty &&
                                       _tempController.text.trim().isNotEmpty;
                                   final appointment = AppointmentModel(
+                                    doctorId: _selectedDoctor?.id,
                                     patientId: _selectedPatient!.id!,
                                     patientName: _selectedPatient!.name,
                                     department: _selectedDept!,
@@ -2157,6 +2229,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                             _bpSystolicController.text.trim().isNotEmpty &&
                                             _tempController.text.trim().isNotEmpty;
                                         final appointment = AppointmentModel(
+                                          doctorId: _selectedDoctor?.id,
                                           patientId: _selectedPatient!.id!,
                                           patientName: _selectedPatient!.name,
                                           department: _selectedDept!,
@@ -2588,7 +2661,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       {'key': 'Table', 'label': context.tr('table_view', fallback: 'Table View')},
       {'key': 'Hospital', 'label': context.tr('hospital_view', fallback: 'Hospital View')},
       {'key': 'Doctor', 'label': context.tr('doctor_view', fallback: 'Doctor View')},
-      {'key': 'Both', 'label': context.tr('both_view', fallback: 'Both View')},
+      {'key': 'Both', 'label': context.tr('hospital_doctor_view', fallback: 'Hospital & Doctor View')},
     ];
     return Container(
       padding: const EdgeInsets.all(4),
@@ -3464,7 +3537,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
                   children: [
                     if (appt.doctorDisplayId != null &&
-                        appt.doctorDisplayId!.isNotEmpty)
+                        appt.doctorDisplayId!.isNotEmpty &&
+                        !appt.doctorDisplayId!.startsWith('SPMC-AN'))
                       TextSpan(
                         text: ' (${appt.doctorDisplayId})',
                         style: const TextStyle(
@@ -3832,7 +3906,21 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         ? appt.patientDisplayId!
         : appt.patientId.toString();
     final doctorName = appt.doctorName;
-    final doctorDisplayId = appt.doctorDisplayId;
+    UserModel? docModel;
+    try {
+      docModel = _doctors.firstWhere(
+        (d) => (appt.doctorId != null && d.id == appt.doctorId) || _isSameDoctor(d.fullname, appt.doctorName),
+      );
+    } catch (_) {}
+    final String? doctorDisplayId = (appt.doctorDisplayId != null &&
+            appt.doctorDisplayId!.isNotEmpty &&
+            !appt.doctorDisplayId!.startsWith('SPMC-AN'))
+        ? appt.doctorDisplayId
+        : (docModel?.staffUniqueId != null &&
+                docModel!.staffUniqueId!.isNotEmpty &&
+                !docModel.staffUniqueId!.startsWith('SPMC-AN')
+            ? docModel.staffUniqueId
+            : null);
     final type = appt.appointmentType;
     final department = appt.department;
     final reason = appt.reasonForVisit?.isNotEmpty == true ? appt.reasonForVisit! : 'N/A';

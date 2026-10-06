@@ -3438,81 +3438,160 @@ class _PatientDetailViewState extends State<PatientDetailView>
                 ),
               ),
               const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.tr('patient_insights', fallback: 'Patient Insights'),
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimaryColor,
+              isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          context.tr('patient_insights', fallback: 'Patient Insights'),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimaryColor,
+                          ),
                         ),
-                      ),
-                      Text(
-                        isTamil
-                            ? '${context.tr('interview_for', fallback: 'நேர்காணல்:')} ${p.name}'
-                            : '${context.tr('interview_for', fallback: 'Interview for')} ${p.name}',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: AppTheme.textSecondaryColor,
+                        const SizedBox(height: 4),
+                        Text(
+                          isTamil
+                              ? '${context.tr('interview_for', fallback: 'நேர்காணல்:')} ${p.name}'
+                              : '${context.tr('interview_for', fallback: 'Interview for')} ${p.name}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.textSecondaryColor,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  ElevatedButton.icon(
-                    onPressed: _isSavingInsights
-                        ? null
-                        : () async {
-                            setState(() => _isSavingInsights = true);
-                            try {
-                              final success = await _insightsFormKey
-                                  .currentState
-                                  ?.saveInsights();
-                              if (success == true) {
-                                setState(() {
-                                  _isShowingInsights = false;
-                                  _isSavingInsights = false;
-                                });
-                              } else {
-                                setState(() => _isSavingInsights = false);
-                              }
-                            } catch (e) {
-                              setState(() => _isSavingInsights = false);
-                            }
-                          },
-                    icon: _isSavingInsights
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _isSavingInsights
+                                ? null
+                                : () async {
+                                    setState(() => _isSavingInsights = true);
+                                    try {
+                                      final success = await _insightsFormKey
+                                          .currentState
+                                          ?.saveInsights();
+                                      if (success == true) {
+                                        setState(() {
+                                          _isShowingInsights = false;
+                                          _isSavingInsights = false;
+                                        });
+                                      } else {
+                                        setState(() => _isSavingInsights = false);
+                                      }
+                                    } catch (e) {
+                                      setState(() => _isSavingInsights = false);
+                                    }
+                                  },
+                            icon: _isSavingInsights
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.check, size: 18),
+                            label: Text(
+                              _isSavingInsights
+                                  ? context.tr('saving', fallback: 'Saving...')
+                                  : context.tr('save_insights', fallback: 'Save Insights'),
                             ),
-                          )
-                        : const Icon(Icons.check, size: 18),
-                    label: Text(
-                      _isSavingInsights
-                          ? context.tr('saving', fallback: 'Saving...')
-                          : context.tr('save_insights', fallback: 'Save Insights'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF38A169),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 12,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.tr('patient_insights', fallback: 'Patient Insights'),
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
+                              ),
+                              Text(
+                                isTamil
+                                    ? '${context.tr('interview_for', fallback: 'நேர்காணல்:')} ${p.name}'
+                                    : '${context.tr('interview_for', fallback: 'Interview for')} ${p.name}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: _isSavingInsights
+                              ? null
+                              : () async {
+                                  setState(() => _isSavingInsights = true);
+                                  try {
+                                    final success = await _insightsFormKey
+                                        .currentState
+                                        ?.saveInsights();
+                                    if (success == true) {
+                                      setState(() {
+                                        _isShowingInsights = false;
+                                        _isSavingInsights = false;
+                                      });
+                                    } else {
+                                      setState(() => _isSavingInsights = false);
+                                    }
+                                  } catch (e) {
+                                    setState(() => _isSavingInsights = false);
+                                  }
+                                },
+                          icon: _isSavingInsights
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.check, size: 18),
+                          label: Text(
+                            _isSavingInsights
+                                ? context.tr('saving', fallback: 'Saving...')
+                                : context.tr('save_insights', fallback: 'Save Insights'),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF38A169),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF38A169),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 20),
               Container(
                 height: 600, // Fixed height for the scrollable form

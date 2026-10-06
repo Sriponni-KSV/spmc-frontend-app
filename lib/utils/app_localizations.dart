@@ -7,8 +7,15 @@ class AppLocalizations {
   AppLocalizations(this.locale);
 
   static AppLocalizations of(BuildContext context) {
-    return Localizations.of<AppLocalizations>(context, AppLocalizations) ??
-        AppLocalizations(const Locale('en'));
+    if (!context.mounted) {
+      return AppLocalizations(const Locale('en'));
+    }
+    try {
+      return Localizations.of<AppLocalizations>(context, AppLocalizations) ??
+          AppLocalizations(const Locale('en'));
+    } catch (_) {
+      return AppLocalizations(const Locale('en'));
+    }
   }
 
   static const LocalizationsDelegate<AppLocalizations> delegate =
@@ -254,6 +261,9 @@ class AppLocalizations {
       'welcome_hospital_overview':
           "Welcome back! Here's your hospital overview",
       'active_shift': 'Active Shift',
+      'active_shift_ipd_notice': 'Active Shift schedules and ward allocations are applicable only for IPD (Inpatient Department).',
+      'alert_active_shift_assigned_ipd': 'Active Shift: Assigned to ward (Applicable only for IPD)',
+      'alert_no_active_shift_ipd': 'Active Shift: No active shift assignment today (Applicable only for IPD)',
       'general_ward': 'General Ward',
       'assigned_nurse': 'Assigned Nurse',
       'not_assigned': 'Not Assigned',
@@ -271,7 +281,11 @@ class AppLocalizations {
       'today_appointments': "Today's Appointments",
       'active_admissions': 'Active Admissions',
       'patient_visits': 'Patient Visits',
+      'on_duty_doctors': 'On-Duty Doctors',
+      'today_home_visits': "Today's Home Visits",
+      'hospital_doctor_view': 'Hospital & Doctor View',
       'pending_shift_handover': 'Pending Shift Handover',
+      'incoming_shift_handover_desc': 'Shift handover from {nurse} for {ward} Ward ({shift} Shift). Please acknowledge.',
       'acknowledge': 'Acknowledge',
       'alert_opd_inflow': 'High Patient Inflow in OPD',
       'alert_ward_capacity': 'Ward A Approaching Capacity',
@@ -344,6 +358,8 @@ class AppLocalizations {
           'There are no home visits recorded for this patient.',
       'total_visits': 'Total Visits',
       'scheduled': 'Scheduled',
+      'scheduled_status': 'Scheduled',
+      'status_scheduled': 'Scheduled',
       'in_progress': 'In-Progress',
       'completed_status': 'Completed',
       'total': 'Total',
@@ -358,6 +374,9 @@ class AppLocalizations {
       'execute_visit': 'Execute Visit',
       'resume_visit': 'Resume Visit',
       'stop_care_plan': 'Stop Care Plan',
+      'nurse_label_prefix': 'Nurse:',
+      'nurse_colon': 'Nurse: ',
+      'attender_verification_done': 'Attender verification completed on {date}',
       'patient_label': 'Patient:',
       'edit_entry': 'Edit Entry',
       'delete_entry': 'Delete Entry',
@@ -545,7 +564,12 @@ class AppLocalizations {
       'today_opd_pipeline': "Today's OPD Pipeline",
       'walk_in': 'Walk-in',
       'new_walk_in_entry': 'New Walk-in Entry',
-      'waiting_queue': 'Waiting',
+      'waiting_queue': 'Waiting Queue',
+      'tab_confirmed': 'Confirmed',
+      'tab_waiting': 'Waiting',
+      'tab_consulting': 'Consulting',
+      'tab_completed': 'Completed',
+      'tab_cancelled': 'Cancelled',
       'consulting_queue': 'Consulting',
       'lab_orders': 'Lab Orders',
       'pharmacy_status': 'Pharmacy Status',
@@ -932,6 +956,7 @@ class AppLocalizations {
           'Home Visit Care Discontinued / Stopped',
       'verified': 'Verified',
       'stopped': 'Stopped',
+      'scheduled_status': 'Scheduled',
       'care_plan_stopped_desc':
           'Care plan stopped/discontinued for this patient.',
       'session_locked_billed_msg':
@@ -1186,8 +1211,24 @@ class AppLocalizations {
       'close_visit_session_return_desc':
           'Are you sure you want to close this visit session and return to the visits list? Any unsubmitted start time will not be recorded.',
       'stay_in_session': 'Stay in Session',
-      'close_session': 'Close Session',
       'exit_session': 'Exit Session',
+      'ai_voice_scribe': 'AI Voice Scribe',
+      'ai_voice_scribe_title': 'AI Voice Scribe',
+      'ai_voice_scribe_desc':
+          'Speak visit notes once to auto-fill vitals, care, medicines, and consumables.',
+      'speech_language': 'Speech Language:',
+      'tap_mic_to_stop': 'Tap to Stop Dictation',
+      'tap_mic_to_speak': 'Tap to Start Dictating',
+      'live_transcript_label': 'Spoken Transcript / Manual Notes:',
+      'voice_scribe_hint':
+          'Example: Patient BP 120/80, pulse 76, sugar 140. Cleaned right foot ulcer with normal saline and applied gauze. Attender Lakshmi satisfied.',
+      'analyzing_notes': 'Analyzing with AI...',
+      'extract_with_ai': 'Extract with AI',
+      'apply_all_tabs': 'Apply to All Tabs',
+      'extracted_fields_preview': 'Extracted Fields Preview',
+      're_analyze': 'Re-analyze',
+      'ai_scribe_applied_success':
+          'AI Voice Scribe data applied across all visit tabs!',
       'starting': 'Starting...',
       'search_select_patient': 'Search/Select Patient',
       'no_nurses_available': 'No nurses available to assign.',
@@ -1620,9 +1661,9 @@ class AppLocalizations {
       'english': 'English (ஆங்கிலம்)',
       'tamil': 'தமிழ் (Tamil)',
       'theme': 'தீம் பயன்முறை',
-      'light_mode': 'வெளிச்சம் (Light)',
-      'dark_mode': 'இருள் (Dark)',
-      'system_default': 'கணினி இயல்பு (System)',
+      'light_mode': 'வெளிச்சம்',
+      'dark_mode': 'இருள்',
+      'system_default': 'கணினி இயல்பு',
       'language_subtitle': 'பயன்பாட்டின் மொழியைத் தேர்ந்தெடுக்கவும்',
       'theme_subtitle': 'உங்கள் விருப்பத்திற்கேற்ப தோற்றத்தை மாற்றவும்',
       'theme_mode_applied': 'தீம் வெற்றிகரமாக மாற்றப்பட்டது',
@@ -1791,6 +1832,9 @@ class AppLocalizations {
       'welcome_hospital_overview':
           'மீண்டும் வருக! உங்கள் மருத்துவமனை கண்ணோட்டம்',
       'active_shift': 'செயலில் உள்ள ஷிப்ட்',
+      'active_shift_ipd_notice': 'செயலில் உள்ள ஷிப்ட் அட்டவணை மற்றும் வார்டு ஒதுக்கீடுகள் IPD-க்கு மட்டுமே பொருந்தும்.',
+      'alert_active_shift_assigned_ipd': 'செயலில் உள்ள ஷிப்ட்: வார்டில் ஒதுக்கப்பட்டுள்ளது (IPD-க்கு மட்டுமே பொருந்தும்)',
+      'alert_no_active_shift_ipd': 'செயலில் உள்ள ஷிப்ட்: இன்று எந்த ஷிப்டும் ஒதுக்கப்படவில்லை (IPD-க்கு மட்டுமே பொருந்தும்)',
       'general_ward': 'பொது வார்டு',
       'assigned_nurse': 'நியமிக்கப்பட்ட செவிலியர்',
       'not_assigned': 'நியமிக்கப்படவில்லை',
@@ -1808,7 +1852,11 @@ class AppLocalizations {
       'today_appointments': 'இன்றைய முன்பதிவுகள்',
       'active_admissions': 'உள்நோயாளிகள் சேர்க்கை',
       'patient_visits': 'நோயாளி வருகைகள்',
+      'on_duty_doctors': 'பணியிலுள்ள மருத்துவர்கள்',
+      'today_home_visits': 'இன்றைய வீட்டுப் பராமரிப்புகள்',
+      'hospital_doctor_view': 'மருத்துவமனை மற்றும் மருத்துவர் பார்வை',
       'pending_shift_handover': 'ஷிப்ட் ஒப்படைப்பு நிலுவையில் உள்ளது',
+      'incoming_shift_handover_desc': '{nurse}-டமிருந்து {ward} வார்டுக்கான ({shift} ஷிப்ட்) பணி ஒப்படைப்பு வந்துள்ளது. தயவுசெய்து உறுதிப்படுத்தவும்.',
       'acknowledge': 'ஏற்றுக்கொள்',
       'alert_opd_inflow': 'OPD-யில் நோயாளிகளின் அதிக வருகை',
       'alert_ward_capacity': 'வார்டு A முழுமை நிலையை எட்டுகிறது',
@@ -1886,9 +1934,11 @@ class AppLocalizations {
       'no_home_visit_desc':
           'இந்த நோயாளிக்கு வீட்டுப் பராமரிப்பு பதிவுகள் எதுவும் இல்லை.',
       'total_visits': 'மொத்த வருகைகள்',
-      'scheduled': 'திட்டமிடப்பட்டவை',
-      'in_progress': 'செயலில் உள்ளவை',
-      'completed_status': 'முடிந்தவை',
+      'scheduled': 'திட்டமிட்டவை',
+      'scheduled_status': 'திட்டமிடப்பட்டது',
+      'status_scheduled': 'திட்டமிடப்பட்டது',
+      'in_progress': 'செயலில்',
+      'completed_status': 'நிறைவு',
       'total': 'மொத்தம்',
       'all_dates': 'அனைத்து தேதிகள்',
       'tomorrow': 'நாளை',
@@ -1898,10 +1948,13 @@ class AppLocalizations {
           'நோயாளி, நோயாளி ஐடி, செவிலியர், வருகை # தேடவும்...',
       'no_home_visits_found':
           'தேடலுக்குப் பொருந்தக்கூடிய வீட்டுப் பராமரிப்பு வருகைகள் எதுவும் கிடைக்கவில்லை.',
-      'view_summary': 'சுருக்கத்தைப் பார்க்கவும்',
-      'execute_visit': 'வருகையை செயல்படுத்தவும்',
-      'resume_visit': 'வருகையைத் தொடரவும்',
+      'view_summary': 'சுருக்கம்',
+      'execute_visit': 'செயல்படுத்து',
+      'resume_visit': 'தொடர்க',
       'stop_care_plan': 'பராமரிப்புத் திட்டத்தை நிறுத்து',
+      'nurse_label_prefix': 'செவிலியர்:',
+      'nurse_colon': 'செவிலியர்: ',
+      'attender_verification_done': 'பராமரிப்பாளர் சரிபார்ப்பு நிறைவுற்றது: {date}',
       'patient_label': 'நோயாளி:',
       'edit_entry': 'பதிவைத் திருத்து',
       'delete_entry': 'பதிவை நீக்கு',
@@ -1909,12 +1962,12 @@ class AppLocalizations {
       'vitals_schedule_updated': 'உயிரளவுகள் அட்டவணை அமைப்பு வெற்றிகரமாக புதுப்பிக்கப்பட்டது!',
       'home_visit_details': 'வீட்டுப் பராமரிப்பு விவரங்கள்',
       'visit_not_found': 'வருகை காணப்படவில்லை அல்லது ஏற்றுவதில் தோல்வி.',
-      'tab_kit_devices': 'கிட் மற்றும் உபகரணங்கள்',
-      'tab_vitals': 'முக்கிய அளவீடுகள் (Vitals)',
-      'tab_nursing_care': 'செவிலியர் பராமரிப்பு மற்றும் டிரஸ்ஸிங்',
-      'tab_meds_consumables': 'மருந்துகள் மற்றும் உபயோகப் பொருட்கள்',
+      'tab_kit_devices': 'கிட் & உபகரணங்கள்',
+      'tab_vitals': 'முக்கிய அளவீடுகள்',
+      'tab_nursing_care': 'செவிலியர் பராமரிப்பு',
+      'tab_meds_consumables': 'மருந்துகள் & பொருட்கள்',
       'tab_photo_evidence': 'புகைப்பட ஆதாரம்',
-      'tab_live_summary': 'நேரடி சுருக்கத்தைப் பார்க்கவும்',
+      'tab_live_summary': 'நேரடி சுருக்கம்',
       'select_add_kit_header':
           'பயன்படுத்திய கிட் பொருட்கள் மற்றும் மருத்துவ உபகரணங்களைத் தேர்ந்தெடுக்கவும்',
       'select_add_kit_sub':
@@ -2095,7 +2148,12 @@ class AppLocalizations {
       'today_opd_pipeline': 'இன்றைய வெளிநோயாளி வரிசை',
       'walk_in': 'நேரடி வருகை',
       'new_walk_in_entry': 'புதிய நேரடி வருகை பதிவு',
-      'waiting_queue': 'காத்திருப்போர்',
+      'waiting_queue': 'காத்திருப்போர் வரிசை',
+      'tab_confirmed': 'உறுதி செய்யப்பட்டது',
+      'tab_waiting': 'காத்திருப்போர்',
+      'tab_consulting': 'ஆலோசனை பெறுவோர்',
+      'tab_completed': 'முடிவடைந்தது',
+      'tab_cancelled': 'ரத்து செய்யப்பட்டது',
       'consulting_queue': 'ஆலோசனை பெறுவோர்',
       'lab_orders': 'ஆய்வக ஆர்டர்கள்',
       'pharmacy_status': 'மருந்தக நிலை',
@@ -2449,14 +2507,14 @@ class AppLocalizations {
           'வருகையை முடித்து ரசீது பெற விவரங்களை பதிவு செய்து கையொப்பம் பெறவும்.',
       'relationship_label': 'உறவுமுறை',
       'generating_invoice': 'பில்லிங் ரசீது உருவாக்கப்படுகிறது...',
-      'voice_to_text': 'குரல் வழி தட்டச்சு (Voice to Text)',
+      'voice_to_text': 'குரல் வழி தட்டச்சு',
       'stop_voice_input': 'குரல் பதிவை நிறுத்து',
       'speak_in_tamil': 'தமிழில் பேசவும்',
       'speak_in_english': 'ஆங்கிலத்தில் பேசவும்',
 
       // View Summary & Care History Timeline
       'daily_home_nursing_care_history':
-          'தினசரி வீட்டு நர்சிங் பராமரிப்பு வரலாறு',
+          'தினசரி வீட்டு செவிலியர் பராமரிப்பு வரலாறு',
       'select_day_session_card_desc':
           'முழு விவரங்களைக் காண கீழே உள்ள ஒரு நாள் அமர்வு அட்டையைத் தேர்ந்தெடுக்கவும்.',
       'recorded_care_sessions_timeline':
@@ -2474,17 +2532,18 @@ class AppLocalizations {
           'வீட்டுப் பராமரிப்பு சேவை நிறுத்தப்பட்டது',
       'verified': 'சரிபார்க்கப்பட்டது',
       'stopped': 'நிறுத்தப்பட்டது',
+      'scheduled_status': 'திட்டமிடப்பட்டது',
       'care_plan_stopped_desc':
           'இந்த நோயாளிக்கான பராமரிப்புத் திட்டம் நிறுத்தப்பட்டது.',
       'session_locked_billed_msg':
-          'அனைத்து முக்கிய அறிகுறிகள், நர்சிங் நடைமுறைகள், மருந்துகள், புகைப்பட ஆதாரங்கள் மற்றும் உதவியாளர் கையொப்பம் {date} க்காக பூட்டப்பட்டு பில் செய்யப்பட்டுள்ளன. அடுத்த திட்டமிட்ட தேதியில் காலை 7:00 மணிக்கு வருகை செயல்படுத்தல் திறக்கப்படும்.',
+          'அனைத்து முக்கிய அறிகுறிகள், செவிலியர் நடைமுறைகள், மருந்துகள், புகைப்பட ஆதாரங்கள் மற்றும் உதவியாளர் கையொப்பம் {date} க்காக பூட்டப்பட்டு பில் செய்யப்பட்டுள்ளன. அடுத்த திட்டமிட்ட தேதியில் காலை 7:00 மணிக்கு வருகை செயல்படுத்தல் திறக்கப்படும்.',
       'invoice_num_label': 'விலைப்பட்டியல் எண்:',
       'payment_status_label': 'கட்டண நிலை:',
       'total_amount_label': 'மொத்தத் தொகை:',
       'view_itemized_invoice': 'விரிவான விலைப்பட்டியலைக் காண்க',
       'patient_attender_overview': 'நோயாளி & உதவியாளர் கண்ணோட்டம்',
       'scheduled_date_label': 'திட்டமிடப்பட்ட தேதி',
-      'assigned_nurse_label': 'ஒதுக்கப்பட்ட நர்ஸ்',
+      'assigned_nurse_label': 'ஒதுக்கப்பட்ட செவிலியர்',
       'verified_attender_label': 'சரிபார்க்கப்பட்ட உதவியாளர்',
       'attender_relation_label': 'உதவியாளர் உறவுமுறை',
       'signed_at_label': 'கையொப்பமிட்ட நேரம்',
@@ -2499,11 +2558,11 @@ class AppLocalizations {
       'temp_unit': 'வெப்பநிலை (°F)',
       'sugar_unit': 'சர்க்கரை அளவு (mg/dL)',
       'nursing_care_procedure_records':
-          'நர்சிங் பராமரிப்பு மற்றும் செயல்முறை பதிவுகள்',
+          'செவிலியர் பராமரிப்பு மற்றும் செயல்முறை பதிவுகள்',
       'no_nursing_care_recorded_day':
-          'நாள் {day} ({date}) க்கு நர்சிங் குறிப்புகள் அல்லது கட்டு கட்டும் நடைமுறைகள் எதுவும் பதிவு செய்யப்படவில்லை.',
+          'நாள் {day} ({date}) க்கு செவிலியர் குறிப்புகள் அல்லது கட்டு கட்டும் நடைமுறைகள் எதுவும் பதிவு செய்யப்படவில்லை.',
       'recorded_on_label': 'பதிவு செய்யப்பட்ட நேரம்:',
-      'nursing_notes_label': 'நர்சிங் குறிப்புகள்',
+      'nursing_notes_label': 'செவிலியர் குறிப்புகள்',
       'dressing_procedure_label': 'கட்டு கட்டும் செயல்முறை',
       'nail_trimming_hygiene_label': 'நகங்கள் வெட்டுதல் / சுகாதார பராமரிப்பு',
       'other_care_activities_label': 'பிற பராமரிப்பு நடவடிக்கைகள்',
@@ -2549,7 +2608,7 @@ class AppLocalizations {
           'பராமரிப்பை நிறுத்த காரணத்தைத் தேர்ந்தெடுக்கவும் *',
       'select_reason_hint': 'காரணத்தைத் தேர்ந்தெடுக்கவும்',
       'remarks_nurse_handover_notes':
-          'குறிப்புகள் / நர்ஸ் ஒப்படைப்பு குறிப்புகள் (விருப்பமானது):',
+          'குறிப்புகள் / செவிலியர் ஒப்படைப்பு குறிப்புகள் (விருப்பமானது):',
       'stop_notes_hint':
           'விவரங்களை உள்ளிடவும் (எ.கா., 5 நாள் பராமரிப்புக்குப் பின் நோயாளி குணமடைந்து உதவியாளர் நிறுத்தக் கோரினார்)...',
       'go_back': 'திரும்பிச் செல்',
@@ -2573,7 +2632,7 @@ class AppLocalizations {
       'reason_financial': 'நிதி / கட்டணக் கட்டுப்பாடுகள்',
       'reason_other': 'பிற காரணம்',
       'attender_label': 'உதவியாளர்',
-      'captured_at_label': 'படம் எடுக்கப்பட்ட நேரம்:',
+      'captured_at_label': 'எடுக்கப்பட்ட நேரம்:',
       'open_image_new_tab': 'புதிய தாவலில் படத்தைத் திறக்கவும்',
       'delete_photo_evidence': 'புகைப்பட ஆதாரத்தை நீக்கு',
       'close_preview': 'முன்னோட்டத்தை மூடு',
@@ -2612,10 +2671,10 @@ class AppLocalizations {
       'status_cancelled': 'ரத்து செய்யப்பட்டது (Cancelled)',
 
       // Home Visit Execution Dropdowns
-      'photo_cat_dressing_pre': 'டிரஸ்ஸிங் முன் காயம் படம் (Pre-Dressing)',
-      'photo_cat_dressing_post': 'டிரஸ்ஸிங் பின் காயம் படம் (Post-Dressing)',
-      'photo_cat_care_activity': 'பராமரிப்பு சான்று படம் (Care Activity)',
-      'photo_cat_general_care': 'பொது வருகை புகைப்படம் (General Visit)',
+      'photo_cat_dressing_pre': 'டிரஸ்ஸிங் முன் காயம் படம்',
+      'photo_cat_dressing_post': 'டிரஸ்ஸிங் பின் காயம் படம்',
+      'photo_cat_care_activity': 'பராமரிப்பு சான்று படம்',
+      'photo_cat_general_care': 'பொது வருகை புகைப்படம்',
 
       'food_after': 'உணவுக்குப் பின் (After Food)',
       'food_before': 'உணவுக்கு முன் (Before Food)',
@@ -2688,7 +2747,7 @@ class AppLocalizations {
 
       // Schedule Home Visit Dialog & Form
       'schedule_new_home_visit':
-          'புதிய வீட்டுப் பராமரிப்பு வருகையைத் திட்டமிடுக',
+          'புதிய வீட்டு வருகை',
       'schedule_home_visit_desc':
           'வீட்டுப் பராமரிப்பு வருகையைத் திட்டமிட செவிலியரை ஒதுக்கி, நோயாளியைத் தேர்ந்தெடுக்கவும்.',
       'select_patient_label': 'நோயாளியைத் தேர்ந்தெடுக்கவும்:',
@@ -2748,8 +2807,24 @@ class AppLocalizations {
       'close_visit_session_return_desc':
           'இந்த வருகை அமர்வை மூடிவிட்டு வருகைகள் பட்டியலுக்குத் திரும்ப விரும்புகிறீர்களா? சமர்ப்பிக்கப்படாத தொடக்க நேரம் பதிவு செய்யப்படாது.',
       'stay_in_session': 'அமர்வில் தொடரவும்',
-      'close_session': 'அமர்வை மூடவும்',
       'exit_session': 'அமர்வை விட்டு வெளியேறு',
+      'ai_voice_scribe': 'AI குரல் உதவியாளர்',
+      'ai_voice_scribe_title': 'AI குரல் உதவியாளர்',
+      'ai_voice_scribe_desc':
+          'வருகைக் குறிப்புகளை ஒரு முறை பேசினால் வைட்டல்ஸ், பராமரிப்பு, மருந்துகள் தானாக நிரப்பப்படும்.',
+      'speech_language': 'பேசும் மொழி:',
+      'tap_mic_to_stop': 'பதிவை நிறுத்த தொடவும்',
+      'tap_mic_to_speak': 'பேசத் தொடங்க தொடவும்',
+      'live_transcript_label': 'பேசிய உரை / குறிப்புகள்:',
+      'voice_scribe_hint':
+          'உதாரணம்: நோயாளி BP 120/80, pulse 76, sugar 140. காலில் wound dressing sterile gauze வைத்து செய்தோம். Attender Lakshmi திருப்தி.',
+      'analyzing_notes': 'AI மூலம் பகுப்பாய்வு செய்கிறது...',
+      'extract_with_ai': 'AI மூலம் தகவலைப் பிரி',
+      'apply_all_tabs': 'அனைத்து தாவல்களுக்கும் பொருத்து',
+      'extracted_fields_preview': 'பிரித்தெடுக்கப்பட்ட விவரங்களின் முன்னோட்டம்',
+      're_analyze': 'மீண்டும் பகுப்பாய்வு செய்',
+      'ai_scribe_applied_success':
+          'AI குரல் உதவியாளர் தகவல் அனைத்து தாவல்களிலும் பொருத்தப்பட்டது!',
       'starting': 'தொடங்குகிறது...',
       'search_select_patient': 'நோயாளியைத் தேர்ந்தெடுக்கவும்',
       'no_nurses_available': 'ஒதுக்குவதற்கு செவிலியர்கள் யாரும் இல்லை.',
@@ -3285,8 +3360,8 @@ class AppLocalizations {
     'icu ward bed charge': 'தீவிர சிகிச்சை பிரிவு கட்டணம் (ICU Bed Charge)',
     'doctor ip visit charge':
         'மருத்துவர் உள்நோயாளி வருகை கட்டணம் (Doctor IP Visit Charge)',
-    'nursing charge': 'நர்சிங் பராமரிப்பு கட்டணம் (Nursing Charge)',
-    'nursing fee': 'நர்சிங் பராமரிப்பு கட்டணம் (Nursing Fee)',
+    'nursing charge': 'செவிலியர் பராமரிப்பு கட்டணம் (Nursing Charge)',
+    'nursing fee': 'செவிலியர் பராமரிப்பு கட்டணம் (Nursing Fee)',
   };
 
   static final Map<String, String> _consumableTamilMap = {
@@ -3340,8 +3415,8 @@ class AppLocalizations {
     'icu ward bed charge': 'தீவிர சிகிச்சை பிரிவு கட்டணம் (ICU Bed Charge)',
     'doctor ip visit charge':
         'மருத்துவர் உள்நோயாளி வருகை கட்டணம் (Doctor IP Visit Charge)',
-    'nursing charge': 'நர்சிங் பராமரிப்பு கட்டணம் (Nursing Charge)',
-    'nursing fee': 'நர்சிங் பராமரிப்பு கட்டணம் (Nursing Fee)',
+    'nursing charge': 'செவிலியர் பராமரிப்பு கட்டணம் (Nursing Charge)',
+    'nursing fee': 'செவிலியர் பராமரிப்பு கட்டணம் (Nursing Fee)',
   };
 
   String translate(
@@ -3457,7 +3532,14 @@ extension AppLocalizationExtension on BuildContext {
     return AppLocalizations.of(this).translateProcedure(name);
   }
 
-  bool get isTamil => Localizations.localeOf(this).languageCode == 'ta';
+  bool get isTamil {
+    if (!mounted) return false;
+    try {
+      return Localizations.localeOf(this).languageCode == 'ta';
+    } catch (_) {
+      return false;
+    }
+  }
 
   String pageOfTotal(int current, int total) {
     if (isTamil) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/custom_dropdown_search.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -75,13 +76,34 @@ class _AdminAppointmentManagementState
 
   String _cleanDoctorName(String? name) {
     if (name == null) return '';
-    return name.trim().toLowerCase().replaceAll(RegExp(r'^dr\.?\s*'), '');
+    return name
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'^dr\.?\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'[\s\u00A0]+'), ' ')
+        .trim();
+  }
+
+  bool _isSameDoctor(String? d1, String? d2) {
+    if (d1 == null || d2 == null) return false;
+    final c1 = _cleanDoctorName(d1);
+    final c2 = _cleanDoctorName(d2);
+    if (c1.isEmpty || c2.isEmpty) return false;
+    if (c1 == c2) return true;
+    return c1.contains(c2) || c2.contains(c1);
+  }
+
+  bool _isSameDate(dynamic date1, dynamic date2) {
+    final d1 = DateFormatter.toDateTime(date1);
+    final d2 = DateFormatter.toDateTime(date2);
+    if (d1 == null || d2 == null) return false;
+    return d1.year == d2.year && d1.month == d2.month && d1.day == d2.day;
   }
 
   String _normalizeTime(String timeStr) {
     String clean = timeStr.trim();
     if (clean.isEmpty) return '';
-    clean = clean.replaceAll(RegExp(r'\s+'), ' ');
+    clean = clean.replaceAll(RegExp(r'[\s\u00A0]+'), ' ');
     final matchAmPm = RegExp(
       r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
       caseSensitive: false,
@@ -90,6 +112,7 @@ class _AdminAppointmentManagementState
       int hour = int.parse(matchAmPm.group(1)!);
       String min = matchAmPm.group(2)!;
       String period = matchAmPm.group(3)!.toUpperCase();
+      if (hour == 0) hour = 12;
       return '${hour.toString().padLeft(2, '0')}:$min $period';
     }
     final match24 = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(clean);
@@ -115,21 +138,32 @@ class _AdminAppointmentManagementState
     }
   }
 
+  List<String> _generateDefaultSlots() {
+    List<String> slots = [];
+    // Morning Session: 09:00 AM - 01:00 PM
+    DateTime startM = DateTime(2026, 1, 1, 9, 0);
+    DateTime endM = DateTime(2026, 1, 1, 13, 0);
+    while (startM.isBefore(endM)) {
+      slots.add(DateFormat('hh:mm a').format(startM));
+      startM = startM.add(const Duration(minutes: 30));
+    }
+    // Afternoon Session: 02:00 PM - 05:00 PM
+    DateTime startA = DateTime(2026, 1, 1, 14, 0);
+    DateTime endA = DateTime(2026, 1, 1, 17, 0);
+    while (startA.isBefore(endA)) {
+      slots.add(DateFormat('hh:mm a').format(startA));
+      startA = startA.add(const Duration(minutes: 30));
+    }
+    return slots;
+  }
+
   List<String> _generateSlotsForDoctor(UserModel? doctor) {
     if (doctor == null ||
         doctor.slotStartTime == null ||
         doctor.slotStartTime!.trim().isEmpty ||
         doctor.slotEndTime == null ||
         doctor.slotEndTime!.trim().isEmpty) {
-      // Default fallback slots matching nurse login
-      List<String> slots = [];
-      DateTime start = DateTime(2026, 1, 1, 9, 0); // 9 AM
-      DateTime end = DateTime(2026, 1, 1, 13, 0); // 1 PM
-      while (start.isBefore(end)) {
-        slots.add(DateFormat('hh:mm a').format(start));
-        start = start.add(const Duration(minutes: 30));
-      }
-      return slots;
+      return _generateDefaultSlots();
     }
 
     int duration = 30;
@@ -151,9 +185,12 @@ class _AdminAppointmentManagementState
         slots.add(DateFormat('hh:mm a').format(current));
         current = current.add(Duration(minutes: duration));
       }
+      if (slots.isEmpty) {
+        return _generateDefaultSlots();
+      }
       return slots;
     } catch (e) {
-      return [];
+      return _generateDefaultSlots();
     }
   }
 
@@ -168,9 +205,7 @@ class _AdminAppointmentManagementState
     if (doctorName != null && doctorName.trim().isNotEmpty) {
       try {
         doctor = _doctors.firstWhere(
-          (d) =>
-              _cleanDoctorName(d.fullname) ==
-              _cleanDoctorName(doctorName),
+          (d) => _isSameDoctor(d.fullname, doctorName),
         );
       } catch (_) {}
     }
@@ -201,29 +236,40 @@ class _AdminAppointmentManagementState
       return [];
     }
 
-    final baseSlots = _generateSlotsForDoctor(doctor);
-    DateTime now = DateTime.now();
-    bool isToday = date.year == now.year &&
+    final allSlots = _generateSlotsForDoctor(doctor);
+    final now = DateTime.now();
+    final bool isToday = date.year == now.year &&
         date.month == now.month &&
         date.day == now.day;
 
-    return baseSlots.where((slot) {
-      // If today, filter out past slots (unless currently selected)
-      if (isToday && slot != currentSelectedTime) {
-        try {
-          DateTime slotTime = DateFormat('hh:mm a').parse(slot);
-          DateTime fullSlotTime = DateTime(
-            now.year,
-            now.month,
-            now.day,
-            slotTime.hour,
-            slotTime.minute,
-          );
-          return fullSlotTime.isAfter(now);
-        } catch (e) {
-          return true;
-        }
+    if (!isToday) {
+      return allSlots;
+    }
+
+    int duration = 30;
+    if (doctor.slotDuration != null && doctor.slotDuration!.trim().isNotEmpty) {
+      final digits = RegExp(r'\d+').firstMatch(doctor.slotDuration!)?.group(0);
+      if (digits != null) {
+        duration = int.tryParse(digits) ?? 30;
       }
+    }
+    if (duration <= 0) duration = 30;
+
+    return allSlots.where((slot) {
+      try {
+        final slotDt = _parseTime(slot);
+        final slotEnd = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          slotDt.hour,
+          slotDt.minute,
+        ).add(Duration(minutes: duration));
+
+        if (slotEnd.isBefore(now)) {
+          return false;
+        }
+      } catch (_) {}
       return true;
     }).toList();
   }
@@ -331,6 +377,12 @@ class _AdminAppointmentManagementState
     final reasonCtrl = TextEditingController();
     String? selectedStatus = appt.status;
     String? selectedDoctor = appt.doctorName;
+    try {
+      final matchedDoc = _doctors.firstWhere(
+        (d) => _isSameDoctor(d.fullname, selectedDoctor),
+      );
+      selectedDoctor = matchedDoc.fullname;
+    } catch (_) {}
     DateTime? newDate;
     try {
       newDate = DateFormatter.toDateTime(appt.appointmentDate);
@@ -343,7 +395,42 @@ class _AdminAppointmentManagementState
     String? appointmentType = appt.appointmentType;
     bool isSaving = false;
     String? reasonError;
-    Set<String> occupiedSlots = {};
+    String? validateReason(String? val) {
+      if (val == null || val.trim().isEmpty) {
+        return 'Override reason is required.';
+      }
+      final text = val.trim();
+      if (text.length < 3) {
+        return 'Override reason must be at least 3 characters.';
+      }
+      if (text.length > 100) {
+        return 'Override reason cannot exceed 100 characters.';
+      }
+      if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
+        return 'Override reason must contain at least one letter.';
+      }
+      if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;]+$').hasMatch(text)) {
+        return 'Override reason contains invalid characters.';
+      }
+      return null;
+    }
+    Set<String> computeOccupiedFromMemory(DateTime? date, String? doctor) {
+      if (date == null) return {};
+      final Set<String> occupied = {};
+      for (final a in _appointments) {
+        if (a.id != null && a.id == appt.id) continue;
+        if (a.status.toLowerCase() == 'cancelled') continue;
+        if (doctor != null && doctor.trim().isNotEmpty) {
+          if (!_isSameDoctor(a.doctorName, doctor)) continue;
+        }
+        if (_isSameDate(a.appointmentDate, date)) {
+          occupied.add(_normalizeTime(a.appointmentTime));
+        }
+      }
+      return occupied;
+    }
+
+    Set<String> occupiedSlots = computeOccupiedFromMemory(newDate, selectedDoctor);
     bool isLoadingSlots = false;
     String? slotConflictError;
     bool hasInitializedSlots = false;
@@ -360,23 +447,27 @@ class _AdminAppointmentManagementState
         });
         return;
       }
+      final initialOccupied = computeOccupiedFromMemory(date, doctor);
       updateState(() {
+        occupiedSlots = initialOccupied;
         isLoadingSlots = true;
         slotConflictError = null;
       });
       try {
         final dateDb = DateFormat('yyyy-MM-dd').format(date);
         final appts = await _apptCtrl.fetchAdminAppointments(date: dateDb);
-        final Set<String> occupied = {};
+        final Set<String> occupied = Set<String>.from(initialOccupied);
         for (final a in appts) {
           if (a.id != null && a.id == appt.id) continue;
           if (a.status.toLowerCase() == 'cancelled') continue;
           if (doctor != null && doctor.trim().isNotEmpty) {
-            if (_cleanDoctorName(a.doctorName) != _cleanDoctorName(doctor)) {
+            if (!_isSameDoctor(a.doctorName, doctor)) {
               continue;
             }
           }
-          occupied.add(_normalizeTime(a.appointmentTime));
+          if (_isSameDate(a.appointmentDate, date)) {
+            occupied.add(_normalizeTime(a.appointmentTime));
+          }
         }
         updateState(() {
           occupiedSlots = occupied;
@@ -388,6 +479,7 @@ class _AdminAppointmentManagementState
         });
       } catch (e) {
         updateState(() {
+          occupiedSlots = initialOccupied;
           isLoadingSlots = false;
         });
       }
@@ -416,13 +508,53 @@ class _AdminAppointmentManagementState
       'Emergency',
     ];
 
-    // Initial doctor filtering
-    List<String> filteredDoctors = _doctors
-        .where((d) => d.specialization == department)
-        .map((d) => d.fullname)
-        .toList();
-    if (!filteredDoctors.contains(selectedDoctor)) {
-      filteredDoctors.insert(0, selectedDoctor);
+    // All eligible doctors (active, non-deleted doctors)
+    List<String> getEligibleDoctors() {
+      final List<String> list = _doctors
+          .where((d) => d.status.toLowerCase() != 'inactive' && !d.isDeleted)
+          .map((d) => d.fullname)
+          .where((name) => name.trim().isNotEmpty)
+          .toSet()
+          .toList();
+      if (list.isEmpty) {
+        list.addAll(
+          _doctors
+              .map((d) => d.fullname)
+              .where((name) => name.trim().isNotEmpty)
+              .toSet(),
+        );
+      }
+      if (list.isEmpty) {
+        list.addAll(
+          _appointments
+              .map((a) => a.doctorName)
+              .where((name) => name.trim().isNotEmpty)
+              .toSet(),
+        );
+      }
+      list.sort((a, b) => a.compareTo(b));
+      if (selectedDoctor != null && selectedDoctor!.trim().isNotEmpty) {
+        final existingMatch = list.firstWhere(
+          (doc) => _isSameDoctor(doc, selectedDoctor),
+          orElse: () => '',
+        );
+        if (existingMatch.isEmpty) {
+          list.insert(0, selectedDoctor!);
+        } else if (selectedDoctor != existingMatch) {
+          selectedDoctor = existingMatch;
+        }
+      }
+      return list;
+    }
+
+    if (_doctors.isEmpty) {
+      _adminCtrl.fetchStaff(role: 'Doctor').then((docs) {
+        if (docs.isNotEmpty && mounted) {
+          setState(() {
+            _doctors = docs;
+          });
+        }
+      });
     }
 
     showDialog(
@@ -639,23 +771,39 @@ class _AdminAppointmentManagementState
                             onChanged: (v) => setS(() => appointmentType = v),
                           ),
                         ),
-                        buildField(
-                          'Reassign Doctor',
-                          CustomDropdownSearch(
-                            label: '',
-                            hint: 'Select doctor',
-                            value: filteredDoctors.contains(selectedDoctor)
-                                ? selectedDoctor
-                                : null,
-                            dropdownItems: filteredDoctors,
-                            onChanged: (v) {
-                              setS(() {
-                                selectedDoctor = v;
-                                newTime = null;
-                              });
-                              loadOccupiedSlots(newDate, v, setS);
-                            },
-                          ),
+                        Builder(
+                          builder: (context) {
+                            final eligibleDoctors = getEligibleDoctors();
+                            return buildField(
+                              'Reassign Doctor',
+                              CustomDropdownSearch(
+                                label: '',
+                                hint: 'Select doctor',
+                                value: eligibleDoctors.contains(selectedDoctor)
+                                    ? selectedDoctor
+                                    : null,
+                                dropdownItems: eligibleDoctors,
+                                onChanged: (v) {
+                                  if (v == null) return;
+                                  setS(() {
+                                    selectedDoctor = v;
+                                    newTime = null;
+                                    try {
+                                      final docModel = _doctors.firstWhere(
+                                        (d) => _isSameDoctor(d.fullname, v),
+                                      );
+                                      if (docModel.specialization != null &&
+                                          docModel.specialization!.trim().isNotEmpty) {
+                                        department = docModel.specialization;
+                                      }
+                                    } catch (_) {}
+                                    occupiedSlots = computeOccupiedFromMemory(newDate, v);
+                                  });
+                                  loadOccupiedSlots(newDate, v, setS);
+                                },
+                              ),
+                            );
+                          },
                         ),
                       ],
 
@@ -721,6 +869,7 @@ class _AdminAppointmentManagementState
                                 setS(() {
                                   newDate = d;
                                   newTime = null;
+                                  occupiedSlots = computeOccupiedFromMemory(d, selectedDoctor);
                                 });
                                 loadOccupiedSlots(d, selectedDoctor, setS);
                               }
@@ -832,7 +981,9 @@ class _AdminAppointmentManagementState
                                       final time = availableSlots[index];
                                       final isOccupied = occupiedSlots
                                           .contains(_normalizeTime(time));
-                                      final isSelected = newTime == time;
+                                      final isSelected = newTime != null &&
+                                          _normalizeTime(newTime!) ==
+                                              _normalizeTime(time);
 
                                       return InkWell(
                                         onTap: () {
@@ -980,35 +1131,59 @@ class _AdminAppointmentManagementState
                           controller: reasonCtrl,
                           maxLines: 3,
                           maxLength: 100,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          validator: validateReason,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                            ),
+                            LengthLimitingTextInputFormatter(100),
+                          ],
                           decoration: InputDecoration(
-                            hintText: 'Enter reason for this override',
+                            hintText: 'Enter reason for this override (max 100 characters)',
                             errorText: reasonError,
-                            contentPadding: const EdgeInsets.all(12),
-                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            fillColor: const Color(0xFFF1F5F9),
                             filled: true,
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(
                                 color: AppTheme.borderColor,
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(
                                 color: AppTheme.borderColor,
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(12),
                               borderSide: const BorderSide(
                                 color: AppTheme.primaryColor,
+                                width: 2,
+                              ),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppTheme.dangerColor,
+                                width: 1.5,
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: AppTheme.dangerColor,
+                                width: 2,
                               ),
                             ),
                           ),
                           onChanged: (value) => setS(() {
-                            reasonError = value.trim().isEmpty
-                                ? 'Override reason is required.'
-                                : null;
+                            reasonError = validateReason(value);
                           }),
                         ),
                       ),
@@ -1072,9 +1247,10 @@ class _AdminAppointmentManagementState
                   onPressed: isSaving
                       ? null
                       : () async {
-                          if (reasonCtrl.text.trim().isEmpty) {
+                          final reasonValidation = validateReason(reasonCtrl.text);
+                          if (reasonValidation != null) {
                             setS(() {
-                              reasonError = 'Override reason is required.';
+                              reasonError = reasonValidation;
                             });
                             return;
                           }
@@ -1974,15 +2150,33 @@ class _AdminAppointmentManagementState
                                     fontSize: 13,
                                   ),
                                 ),
-                                if (appt.doctorDisplayId != null &&
-                                    appt.doctorDisplayId!.isNotEmpty)
-                                  Text(
-                                    appt.doctorDisplayId!,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.textSecondaryColor,
-                                    ),
-                                  ),
+                                Builder(
+                                  builder: (context) {
+                                    UserModel? docModel;
+                                    try {
+                                      docModel = _doctors.firstWhere(
+                                        (d) => (appt.doctorId != null && d.id == appt.doctorId) || _isSameDoctor(d.fullname, appt.doctorName),
+                                      );
+                                    } catch (_) {}
+                                    final docId = (appt.doctorDisplayId != null &&
+                                            appt.doctorDisplayId!.isNotEmpty &&
+                                            !appt.doctorDisplayId!.startsWith('SPMC-AN'))
+                                        ? appt.doctorDisplayId!
+                                        : (docModel?.staffUniqueId != null &&
+                                                docModel!.staffUniqueId!.isNotEmpty &&
+                                                !docModel.staffUniqueId!.startsWith('SPMC-AN')
+                                            ? docModel.staffUniqueId!
+                                            : '');
+                                    if (docId.isEmpty) return const SizedBox.shrink();
+                                    return Text(
+                                      docId,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondaryColor,
+                                      ),
+                                    );
+                                  },
+                                ),
                               ],
                             ),
                           ),
@@ -2120,8 +2314,8 @@ class _AdminAppointmentManagementState
                                   () => _showOverrideDialog(appt, mode: 'view'),
                                 ),
                                 // Edit
-                                if (appt.status == 'Confirmed' ||
-                                    appt.status == 'Completed')
+                                if (appt.status != 'Cancelled' &&
+                                    appt.status != 'No-Show')
                                   _actionBtn(
                                     Icons.edit_outlined,
                                     'Edit',
@@ -2130,7 +2324,9 @@ class _AdminAppointmentManagementState
                                         _showOverrideDialog(appt, mode: 'edit'),
                                   ),
                                 // Reschedule
-                                if (appt.status == 'Confirmed')
+                                if (appt.status == 'Confirmed' ||
+                                    appt.status == 'Waiting' ||
+                                    appt.status == 'Checked-in')
                                   _actionBtn(
                                     Icons.schedule_outlined,
                                     'Reschedule',
@@ -2141,7 +2337,9 @@ class _AdminAppointmentManagementState
                                     ),
                                   ),
                                 // Cancel
-                                if (appt.status == 'Confirmed')
+                                if (appt.status == 'Confirmed' ||
+                                    appt.status == 'Waiting' ||
+                                    appt.status == 'Checked-in')
                                   _actionBtn(
                                     Icons.cancel_outlined,
                                     'Cancel',

@@ -1372,17 +1372,107 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
     return DateTime(2026, 1, 1, hour, minute);
   }
 
+  String _cleanDoctorName(String? name) {
+    if (name == null) return '';
+    return name.replaceAll(RegExp(r'^(dr\.?|doctor)\s*', caseSensitive: false), '').trim().toLowerCase();
+  }
+
+  bool _isSameDoctor(String? doc1, String? doc2) {
+    if (doc1 == null || doc2 == null) return false;
+    final c1 = _cleanDoctorName(doc1);
+    final c2 = _cleanDoctorName(doc2);
+    return c1.isNotEmpty && (c1 == c2 || c1.contains(c2) || c2.contains(c1));
+  }
+
+  bool _isSameDate(dynamic date1, dynamic date2) {
+    if (date1 == null || date2 == null) return false;
+    DateTime? d1;
+    DateTime? d2;
+
+    if (date1 is DateTime) {
+      d1 = date1;
+    } else if (date1 is String) {
+      d1 = DateFormatter.toDateTime(date1);
+      if (d1 == null) {
+        final clean = date1.trim().split('T')[0];
+        final parts = clean.contains('/') ? clean.split('/') : clean.split('-');
+        if (parts.length == 3) {
+          if (parts[0].length == 4) {
+            d1 = DateTime.tryParse('$clean 00:00:00');
+          } else if (parts[2].length == 4) {
+            d1 = DateTime.tryParse('${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')} 00:00:00');
+          }
+        }
+      }
+    }
+
+    if (date2 is DateTime) {
+      d2 = date2;
+    } else if (date2 is String) {
+      d2 = DateFormatter.toDateTime(date2);
+      if (d2 == null) {
+        final clean = date2.trim().split('T')[0];
+        final parts = clean.contains('/') ? clean.split('/') : clean.split('-');
+        if (parts.length == 3) {
+          if (parts[0].length == 4) {
+            d2 = DateTime.tryParse('$clean 00:00:00');
+          } else if (parts[2].length == 4) {
+            d2 = DateTime.tryParse('${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')} 00:00:00');
+          }
+        }
+      }
+    }
+
+    if (d1 == null || d2 == null) return false;
+    return d1.year == d2.year && d1.month == d2.month && d1.day == d2.day;
+  }
+
+  String _normalizeTime(String? timeStr) {
+    if (timeStr == null || timeStr.trim().isEmpty) return '';
+    try {
+      final s = timeStr.trim().toUpperCase();
+      final hasAm = s.contains('AM');
+      final hasPm = s.contains('PM');
+      
+      final cleaned = s.replaceAll('AM', '').replaceAll('PM', '').trim();
+      final parts = cleaned.split(':');
+      if (parts.isEmpty) return timeStr.trim();
+      
+      int h = int.parse(parts[0]);
+      int m = parts.length > 1 ? int.parse(parts[1]) : 0;
+      
+      if (hasPm && h < 12) h += 12;
+      if (hasAm && h == 12) h = 0;
+      
+      final period = h >= 12 ? 'PM' : 'AM';
+      int h12 = h % 12;
+      if (h12 == 0) h12 = 12;
+      return '${h12.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period';
+    } catch (_) {
+      return timeStr.trim();
+    }
+  }
+
+  List<String> _generateDefaultSlots() {
+    List<String> slots = [];
+    DateTime mStart = DateTime(2026, 1, 1, 9, 0);
+    DateTime mEnd = DateTime(2026, 1, 1, 13, 0);
+    while (mStart.isBefore(mEnd)) {
+      slots.add(DateFormat('hh:mm a').format(mStart));
+      mStart = mStart.add(const Duration(minutes: 30));
+    }
+    DateTime aStart = DateTime(2026, 1, 1, 14, 0);
+    DateTime aEnd = DateTime(2026, 1, 1, 17, 0);
+    while (aStart.isBefore(aEnd)) {
+      slots.add(DateFormat('hh:mm a').format(aStart));
+      aStart = aStart.add(const Duration(minutes: 30));
+    }
+    return slots;
+  }
+
   List<String> _generateSlotsForDoctor(UserModel doctor) {
     if (doctor.slotStartTime == null || doctor.slotEndTime == null) {
-      // Default fallback slots
-      List<String> slots = [];
-      DateTime start = DateTime(2026, 1, 1, 9, 0); // 9 AM
-      DateTime end = DateTime(2026, 1, 1, 13, 0); // 1 PM
-      while (start.isBefore(end)) {
-        slots.add(DateFormat('hh:mm a').format(start));
-        start = start.add(const Duration(minutes: 30));
-      }
-      return slots;
+      return _generateDefaultSlots();
     }
 
     int duration = 30;
@@ -1400,9 +1490,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
         slots.add(DateFormat('hh:mm a').format(current));
         current = current.add(Duration(minutes: duration));
       }
+      if (slots.isEmpty) {
+        return _generateDefaultSlots();
+      }
       return slots;
     } catch (e) {
-      return [];
+      return _generateDefaultSlots();
     }
   }
 
@@ -1583,34 +1676,37 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                   availableSlots = [];
                                 } else {
                                   availableSlots = _generateSlotsForDoctor(doc);
-                                  availableSlots = availableSlots.where((slot) {
-                                    // 1. Check if booked
-                                    bool isBooked = _appointments.any(
-                                      (a) =>
-                                          a.doctorName == doc.fullname &&
-                                          a.appointmentTime == slot &&
-                                          a.status != 'Cancelled' &&
-                                          a.status != 'No-Show',
-                                    );
-                                    if (isBooked) return false;
+                                  int duration = 30;
+                                  if (doc.slotDuration != null && doc.slotDuration!.trim().isNotEmpty) {
+                                    final digits = RegExp(r'\d+').firstMatch(doc.slotDuration!)?.group(0);
+                                    if (digits != null) {
+                                      duration = int.tryParse(digits) ?? 30;
+                                    }
+                                  }
+                                  if (duration <= 0) duration = 30;
 
-                                    // 2. Check if past time
+                                  availableSlots = availableSlots.where((slot) {
                                     try {
-                                      DateTime slotTime = DateFormat(
-                                        'hh:mm a',
-                                      ).parse(slot);
-                                      DateTime fullSlotTime = DateTime(
+                                      final slotDt = _parseTime(slot);
+                                      final slotEnd = DateTime(
                                         now.year,
                                         now.month,
                                         now.day,
-                                        slotTime.hour,
-                                        slotTime.minute,
-                                      );
-                                      // Only show slots that are strictly after current time
-                                      return fullSlotTime.isAfter(now);
-                                    } catch (e) {
-                                      return true;
-                                    }
+                                        slotDt.hour,
+                                        slotDt.minute,
+                                      ).add(Duration(minutes: duration));
+                                      if (slotEnd.isBefore(now)) return false;
+                                    } catch (_) {}
+
+                                    bool isBooked = _appointments.any(
+                                      (a) =>
+                                          _isSameDoctor(a.doctorName, doc.fullname) &&
+                                          _isSameDate(a.appointmentDate, now) &&
+                                          _normalizeTime(a.appointmentTime) == _normalizeTime(slot) &&
+                                          a.status != 'Cancelled' &&
+                                          a.status != 'No-Show',
+                                    );
+                                    return !isBooked;
                                   }).toList();
                                 }
                               });
@@ -1970,6 +2066,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             'reason_for_visit': complaintCtrl.text.trim(),
                           };
                           final newApp = AppointmentModel(
+                            doctorId: selectedDoctor?.id,
                             patientId: selectedPatient!.id!,
                             patientName: selectedPatient!.name,
                             department:

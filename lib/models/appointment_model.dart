@@ -2,6 +2,7 @@ import '../utils/date_formatter.dart';
 
 class AppointmentModel {
   final int? id;
+  final int? doctorId;
   final int patientId;
   final String? patientDisplayId;
   final String patientName;
@@ -30,6 +31,7 @@ class AppointmentModel {
 
   AppointmentModel({
     this.id,
+    this.doctorId,
     required this.patientId,
     this.patientDisplayId,
     required this.patientName,
@@ -60,6 +62,7 @@ class AppointmentModel {
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
     return AppointmentModel(
       id: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? ''),
+      doctorId: json['doctor_id'] is int ? json['doctor_id'] : int.tryParse(json['doctor_id']?.toString() ?? ''),
       patientId: json['patient_id'] is int ? json['patient_id'] : int.tryParse(json['patient_id']?.toString() ?? '') ?? 0,
       patientDisplayId: json['patient_display_id']?.toString(),
       patientName: json['patient_name'] ?? '',
@@ -90,6 +93,7 @@ class AppointmentModel {
 
   Map<String, dynamic> toJson() {
     return {
+      if (doctorId != null) 'doctor_id': doctorId,
       'patient_id': patientId,
       'patient_name': patientName,
       'department': department,
@@ -115,6 +119,7 @@ class AppointmentModel {
 
   AppointmentModel copyWith({
     int? id,
+    int? doctorId,
     int? patientId,
     String? patientName,
     String? department,
@@ -139,6 +144,7 @@ class AppointmentModel {
   }) {
     return AppointmentModel(
       id: id ?? this.id,
+      doctorId: doctorId ?? this.doctorId,
       patientId: patientId ?? this.patientId,
       patientName: patientName ?? this.patientName,
       department: department ?? this.department,
