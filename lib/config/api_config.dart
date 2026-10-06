@@ -10,7 +10,7 @@ class ApiEndpoints {
   static const String backendIp = '192.168.1.35';
 
   /// Backend server port for local development.
-  static const String port = '3001';
+  static const String port = '3000';
 
   /// Production/API URL supplied through --dart-define.
   static const String environmentBaseUrl = String.fromEnvironment(
