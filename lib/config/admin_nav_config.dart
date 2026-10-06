@@ -62,28 +62,28 @@ class AdminNavConfig {
   // -------------------------------------------------------------------------
 
   /// Access Control / RBAC (Visible)
-  static const bool showAccessControl = true;
+  static const bool showAccessControl = false;
 
   /// Appointments (Visible)
-  static const bool showAppointments = true;
+  static const bool showAppointments = false;
 
   /// OPD Management (Visible)
-  static const bool showOpdManagement = true;
+  static const bool showOpdManagement = false;
 
   /// IPD Management (Visible)
-  static const bool showIpdManagement = true;
+  static const bool showIpdManagement = false;
 
   /// OT Management (Visible)
-  static const bool showOtManagement = true;
+  static const bool showOtManagement = false;
 
   /// Shift Allocation (Visible)
-  static const bool showShiftAllocation = true;
+  static const bool showShiftAllocation = false;
 
   /// ICU & Emergency (Visible)
-  static const bool showIcuEmergency = true;
+  static const bool showIcuEmergency = false;
 
   /// Billing & Invoices (Visible)
-  static const bool showBillingInvoices = false;
+  static const bool showBillingInvoices = true;
 
   /// Inventory Management (Visible)
   static const bool showInventoryManagement = true;

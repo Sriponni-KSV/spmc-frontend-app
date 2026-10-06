@@ -37,19 +37,19 @@ class NurseNavConfig {
   static const bool showHomeVisitCare = true;
 
   /// Appointments (Visible)
-  static const bool showAppointments = true;
+  static const bool showAppointments = false;
 
   /// Doctors Directory (Visible)
-  static const bool showDoctors = true;
+  static const bool showDoctors = false;
 
   /// OPD Assistance (Visible)
-  static const bool showOpdAssistance = true;
+  static const bool showOpdAssistance = false;
 
   /// IPD Management (Visible)
-  static const bool showIpdManagement = true;
+  static const bool showIpdManagement = false;
 
   /// OT Management (Visible)
-  static const bool showOtManagement = true;
+  static const bool showOtManagement = false;
 
   /// Profile Screen (Visible)
   static const bool showProfile = true;
