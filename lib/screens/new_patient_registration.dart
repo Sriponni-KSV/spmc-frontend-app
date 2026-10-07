@@ -170,21 +170,10 @@ class _NewPatientRegistrationViewState
   void initState() {
     super.initState();
     UnsavedChangesHelper.setUnsavedChanges(true);
-    // Register the browser Back-button guard so that pressing the browser
-    // Back button shows the Flutter confirmation dialog instead of silently
-    // navigating away and discarding unsaved data.
-    UnsavedChangesHelper.registerBackPressedHandler(_handleBrowserBack);
     if (widget.existingPatient != null) {
       _preFillForm();
     }
     _phoneController.addListener(_onPhoneChanged);
-  }
-
-  /// Called by the JS popstate guard when the user presses the browser Back
-  /// button while the form is open and contains unsaved data.
-  void _handleBrowserBack() {
-    if (!mounted) return;
-    _showDiscardDialog();
   }
 
   void _onPhoneChanged() {
@@ -513,8 +502,7 @@ class _NewPatientRegistrationViewState
 
   @override
   void dispose() {
-    UnsavedChangesHelper.clear(); // clears both beforeunload + popstate guard
-    UnsavedChangesHelper.unregisterBackPressedHandler();
+    UnsavedChangesHelper.clear();
     _nameController.dispose();
     _dobController.dispose();
     _ageController.dispose();
@@ -4296,9 +4284,19 @@ class _NewPatientRegistrationViewState
   }
 
   Future<void> _selectDate(BuildContext context) async {
+    DateTime initial = DateTime.now().subtract(const Duration(days: 365 * 30));
+    if (_dobController.text.trim().isNotEmpty) {
+      try {
+        final parsed = DateFormat('dd/MM/yyyy').parseStrict(_dobController.text.trim());
+        if (parsed.isAfter(DateTime(1900)) && parsed.isBefore(DateTime.now())) {
+          initial = parsed;
+        }
+      } catch (_) {}
+    }
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 365 * 30)),
+      initialDate: initial,
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
     );
