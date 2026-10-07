@@ -94,6 +94,7 @@ class AdminNavConfig {
   static const bool showMedicineCatalog = true;
   static const bool showHomeVisitConsumables = true;
   static const bool showCarriedKitItems = true;
+  static const bool showIpdBeds = true;
 
   // =========================================================================
   // HELPER METHODS TO FILTER AND RETURN ACTIVE MENU ITEMS
@@ -211,6 +212,12 @@ class AdminNavConfig {
         icon: Icons.inventory_outlined,
         label: 'Carried Kit Items',
         isVisible: showCarriedKitItems,
+      ),
+      const AdminCatalogSubItem(
+        index: 16,
+        icon: Icons.hotel_outlined,
+        label: 'IPD Beds',
+        isVisible: showIpdBeds,
       ),
     ];
 

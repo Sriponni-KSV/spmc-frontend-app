@@ -725,6 +725,8 @@ class AppLocalizations {
       'today_photos_suffix': 'Today Photos',
       'meds_procedures_count': 'Meds / Procedures',
       'carried_used_kit_devices_title': '1. Carried & Used Kit Devices',
+      'quantity_used': 'Quantity Used',
+      'total_qty': 'Total Qty',
       'photo_evidence_upload_gallery':
           'Timestamped Photo Evidence Upload & Gallery',
       'upload_photo_evidence': 'Upload Timestamped Photo Evidence',
@@ -2282,6 +2284,8 @@ class AppLocalizations {
       'meds_procedures_count': 'மருந்துகள் / நடைமுறைகள்',
       'carried_used_kit_devices_title':
           '1. கொண்டுவரப்பட்ட & பயன்படுத்தப்பட்ட கிட் சாதனங்கள்',
+      'quantity_used': 'பயன்படுத்தப்பட்ட அளவு',
+      'total_qty': 'மொத்த அளவு',
       'photo_evidence_upload_gallery':
           'நேர முத்திரையிட்ட புகைப்பட ஆதாரம் பதிவேற்றம் & தொகுப்பு',
       'upload_photo_evidence':
@@ -3370,6 +3374,7 @@ class AppLocalizations {
     'adhesive tape': 'ஒட்டும் டேப் (Adhesive Tape)',
     'alcohol swab': 'ஆல்கஹால் ஸ்வாப் (Alcohol Swab)',
     'sterile bandage': 'சுத்தமான பேண்டேஜ் (Sterile Bandage)',
+    'sterile gauze': 'ஸ்டெரைல் காஸ் (Sterile Gauze)',
     'syringe 5ml': 'ஊசி குழாய் 5ml (Syringe 5ml)',
     'syringe 2ml': 'ஊசி குழாய் 2ml (Syringe 2ml)',
     'syringe 10ml': 'ஊசி குழாய் 10ml (Syringe 10ml)',

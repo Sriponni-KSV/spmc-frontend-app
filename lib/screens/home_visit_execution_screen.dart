@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -274,6 +275,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   final TextEditingController _sugarCtrl = TextEditingController();
   final TextEditingController _weightCtrl = TextEditingController();
   final TextEditingController _heightCtrl = TextEditingController();
+  bool _autoValidateVitalsTab = false;
 
   // Care Activities Controllers
   final TextEditingController _notesCtrl = TextEditingController();
@@ -586,6 +588,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       case 'Suction Machine':
         return context.tr('kit_suction', fallback: 'Suction Machine');
       case 'Dressing & Minor Procedure Kit':
+      case 'Dressing Kit':
         return context.tr(
           'kit_dressing',
           fallback: 'Dressing & Minor Procedure Kit',
@@ -915,6 +918,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
   final List<String> _defaultConsumables = const [
     'Sterile Bandage',
+    'Sterile Gauze',
     'Syringe 5ml',
     'Cotton Roll 100g',
     'Surgical Gloves (Pair)',
@@ -1095,16 +1099,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
   static const List<String> _quickNursingNoteTemplates = [
     'Patient is stable and comfortable / நோயாளி சீராக உள்ளார்',
-    'Vitals checked & within normal limits / உயிரளவுகள் இயல்பானவை',
+    'Vitals checked and within normal limits / உயிரளவுகள் இயல்பானவை',
     'Sterile dressing changed cleanly / டிரஸ்ஸிங் மாற்றப்பட்டது',
     'Wound healing well, no discharge / காயம் சீராக ஆறி வருகிறது',
-    'Patient advised on diet & hydration / உணவு, நீர்ச்சத்து ஆலோசனை வழங்கப்பட்டது',
-    'Hygiene & position care provided / சுகாதாரம், நிலை மாற்றம் செய்யப்பட்டது',
+    'Patient advised on diet and hydration / உணவு, நீர்ச்சத்து ஆலோசனை வழங்கப்பட்டது',
+    'Hygiene and position care provided / சுகாதாரம், நிலை மாற்றம் செய்யப்பட்டது',
   ];
 
   static const List<String> _quickDressingTemplates = [
-    'Cleaned with Normal Saline & Betadine / நார்மல் சலைன் மூலம் சுத்தம் செய்யப்பட்டது',
-    'Sterile gauze & adhesive tape applied / சுத்தமான பேண்டேஜ் போடப்பட்டது',
+    'Cleaned with Normal Saline and Betadine / நார்மல் சலைன் மூலம் சுத்தம் செய்யப்பட்டது',
+    'Sterile gauze and adhesive tape applied / சுத்தமான பேண்டேஜ் போடப்பட்டது',
     'Surgical wound clean, sutures intact / அறுவைசிகிச்சை காயம் சுத்தமாக உள்ளது',
     'Minimal serous discharge, no signs of infection / தொற்று அறிகுறிகள் இல்லை',
   ];
@@ -1121,8 +1125,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     'Vitals checked and normal',
     'Wound dressing changed cleanly',
     'Attender satisfied with home care',
-    'Patient advised on diet & hydration',
-    'Catheter & hygiene care provided',
+    'Patient advised on diet and hydration',
+    'Catheter and hygiene care provided',
   ];
 
   List<String> _getQuickFeedbackTemplates(BuildContext context) => [
@@ -1577,7 +1581,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width - 60,
+                      maxWidth: math.max(120.0, MediaQuery.of(context).size.width - 60),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1660,6 +1664,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     _sugarCtrl.clear();
     _weightCtrl.clear();
     _heightCtrl.clear();
+    _autoValidateVitalsTab = false;
     _formKeyVitals.currentState?.reset();
   }
 
@@ -3096,7 +3101,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       inputFormatters: [
                         LengthLimitingTextInputFormatter(60),
                         FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z0-9\u0B80-\u0BFF\s]'),
+                          RegExp(r'[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;%+]'),
                         ),
                       ],
                       onChanged: (val) {
@@ -3168,7 +3173,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             );
                             return;
                           }
-                          if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s]+$').hasMatch(cName)) {
+                          if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;%+]+$').hasMatch(cName)) {
                             AppNotification.showError(
                               dialogCtx,
                               context.tr('consumable_name_no_special_chars', fallback: 'Special characters are not allowed in consumable item name'),
@@ -3234,6 +3239,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       'Gloves': 15.0,
       'Disposable Sheet': 35.0,
       'Gauze': 10.0,
+      'Sterile Gauze': 15.0,
       'Dressing Pad': 25.0,
       'Syringe 5ml': 15.0,
       'Alcohol Swab': 5.0,
@@ -3301,12 +3307,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         for (var c in availableConsumables)
                           c: context.translateConsumable(c),
                       },
+                      value: nameCtrl.text.isNotEmpty ? nameCtrl.text : null,
                       allowFreeText: true,
                       maxLength: 60,
                       inputFormatters: [
                         LengthLimitingTextInputFormatter(60),
                         FilteringTextInputFormatter.allow(
-                          RegExp(r'[a-zA-Z0-9\u0B80-\u0BFF\s]'),
+                          RegExp(r'[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;%+]'),
                         ),
                       ],
                       onChanged: (val) {
@@ -3442,7 +3449,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       );
                       return;
                     }
-                    if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s]+$').hasMatch(cName)) {
+                    if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;%+]+$').hasMatch(cName)) {
                       AppNotification.showError(
                         ctx,
                         context.tr('consumable_name_no_special_chars', fallback: 'Special characters are not allowed in consumable item name'),
@@ -3613,7 +3620,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         inputFormatters: [
                           LengthLimitingTextInputFormatter(60),
                           FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                            RegExp(r'[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;%+]'),
                           ),
                         ],
                         onChanged: (val) {
@@ -4070,6 +4077,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         'Gloves': 15.0,
                                         'Disposable Sheet': 35.0,
                                         'Gauze': 10.0,
+                                        'Sterile Gauze': 15.0,
                                         'Dressing Pad': 25.0,
                                         'Syringe 5ml': 15.0,
                                         'Alcohol Swab': 5.0,
@@ -4254,6 +4262,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 'Gloves': 15.0,
                                 'Disposable Sheet': 35.0,
                                 'Gauze': 10.0,
+                                'Sterile Gauze': 15.0,
                                 'Dressing Pad': 25.0,
                                 'Syringe 5ml': 15.0,
                                 'Alcohol Swab': 5.0,
@@ -4411,7 +4420,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             return;
                           }
                           if (!RegExp(
-                            r'^[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;]+$',
+                            r'^[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;%+]+$',
                           ).hasMatch(procName)) {
                             AppNotification.showError(
                               dialogCtx,
@@ -5932,6 +5941,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             widget.isReadOnlyView ||
             visit.status == 'Completed' ||
             visit.status == 'Verified';
+        final bool isMobile = MediaQuery.of(context).size.width < 700;
 
         return PopScope(
           canPop: true,
@@ -5950,10 +5960,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               backgroundColor: AppTheme.backgroundColor,
               elevation: 0,
               scrolledUnderElevation: 0,
-              toolbarHeight: 75,
+              toolbarHeight: isMobile ? 72 : 75,
               leading: widget.onBack != null
                   ? Padding(
-                      padding: const EdgeInsets.only(top: 16.0),
+                      padding: EdgeInsets.only(top: isMobile ? 8.0 : 16.0),
                       child: IconButton(
                         icon: const Icon(
                           Icons.arrow_back,
@@ -5982,53 +5992,24 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     )
                   : null,
               title: Padding(
-                padding: const EdgeInsets.only(top: 16.0),
+                padding: EdgeInsets.only(top: isMobile ? 8.0 : 16.0),
                 child: Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+                    if (!isMobile || widget.onBack == null) ...[
+                      Container(
+                        padding: EdgeInsets.all(isMobile ? 6 : 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.home_work_rounded,
+                          color: AppTheme.primaryColor,
+                          size: isMobile ? 20 : 24,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.home_work_rounded,
-                        color: AppTheme.primaryColor,
-                      ),
-                      //             elevation: 0,
-                      //             scrolledUnderElevation: 0,
-                      //             toolbarHeight: 75,
-                      //             leading: (widget.onBack != null || _selectedSummaryVisitId != null)
-                      //                 ? Padding(
-                      //                     padding: const EdgeInsets.only(top: 16.0),
-                      //                     child: IconButton(
-                      //                       icon: const Icon(
-                      //                         Icons.arrow_back,
-                      //                         color: AppTheme.primaryColor,
-                      //                       ),
-                      //                       onPressed: () {
-                      //                         if (_selectedSummaryVisitId != null) {
-                      //                           setState(() {
-                      //                             _selectedSummaryVisitId = null;
-                      //                           });
-                      //                         } else {
-                      //                           widget.onBack?.call();
-                      //                         }
-                      //                       },
-                      //                     ),
-                      //                   )
-                      //                 : null,
-                      //             title: Padding(
-                      //               padding: const EdgeInsets.only(top: 16.0),
-                      //               child: Row(
-                      //                 children: [
-                      //                   Container(
-                      //                     padding: const EdgeInsets.all(8),
-                      //                     decoration: BoxDecoration(
-                      //                       color: AppTheme.primaryColor.withOpacity(0.1),
-                      //                       borderRadius: BorderRadius.circular(8),
-                    ),
-                    const SizedBox(width: 12),
+                      SizedBox(width: isMobile ? 8 : 12),
+                    ],
                     Expanded(
                       child: Builder(
                         builder: (ctx) {
@@ -6042,26 +6023,35 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           final pId = (visit.patientDisplayId != null && visit.patientDisplayId!.isNotEmpty)
                               ? ' (${visit.patientDisplayId})'
                               : '';
+                          final visitNum = visit.visitNumber.isNotEmpty ? ' - ${visit.visitNumber}' : '';
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                '${ctx.tr('home_visit_care', fallback: 'Home Visit Care')} - ${visit.visitNumber}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimaryColor,
-                                  fontFamily: 'Inter',
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  '${ctx.tr('home_visit_care', fallback: 'Home Visit Care')}${isMobile ? '' : visitNum}',
+                                  style: TextStyle(
+                                    fontSize: isMobile ? (isTamil ? 13.5 : 14.5) : 16.0,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimaryColor,
+                                    fontFamily: 'Inter',
+                                  ),
                                 ),
-                                overflow: TextOverflow.ellipsis,
                               ),
+                              const SizedBox(height: 1),
                               Text(
-                                '${ctx.tr('patient_label', fallback: 'Patient:')} $formattedPatientName$pId',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey,
+                                isMobile
+                                    ? '${ctx.tr('patient_label', fallback: 'Patient:')} $formattedPatientName${visit.visitNumber.isNotEmpty ? ' (${visit.visitNumber})' : ''}'
+                                    : '${ctx.tr('patient_label', fallback: 'Patient:')} $formattedPatientName$pId',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 10.5 : 11.0,
+                                  color: Colors.grey.shade600,
                                   fontFamily: 'Inter',
                                 ),
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ],
@@ -6080,103 +6070,135 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   Builder(
                     builder: (ctx) {
                       return Padding(
-                        padding: const EdgeInsets.only(top: 16.0, right: 8.0),
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                          ),
-                          icon: const Icon(Icons.auto_awesome, size: 16),
-                          label: Text(
-                            ctx.tr('ai_voice_scribe', fallback: 'AI Voice Scribe'),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                          onPressed: () async {
-                            final data = await HomeVisitVoiceScribeDialog.show(context);
-                            if (data != null && mounted) {
-                              await _applyAiVoiceData(data, visit);
-                            }
-                          },
+                        padding: EdgeInsets.only(
+                          top: isMobile ? 8.0 : 16.0,
+                          right: isMobile ? 6.0 : 8.0,
                         ),
-                      );
-                    },
-                  ),
-                ],
-                  Builder(
-                    builder: (ctx) {
-                      final isMobile = MediaQuery.of(ctx).size.width < 700;
-
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 16.0, right: 16.0),
                         child: isMobile
                             ? IconButton(
-                                tooltip: ctx.tr('stop_care_plan', fallback: 'Stop Care Plan'),
+                                tooltip: ctx.tr('ai_voice_scribe', fallback: 'AI Voice Scribe'),
                                 style: IconButton.styleFrom(
-                                  foregroundColor: AppTheme.dangerColor,
-                                  backgroundColor: AppTheme.dangerColor
-                                      .withValues(alpha: 0.1),
+                                  backgroundColor: AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    side: const BorderSide(
-                                      color: AppTheme.dangerColor,
-                                    ),
                                   ),
+                                  minimumSize: const Size(38, 38),
+                                  padding: const EdgeInsets.all(8),
                                 ),
-                                icon: const Icon(
-                                  Icons.do_not_disturb_on_outlined,
-                                  size: 20,
-                                ),
-                                onPressed: () =>
-                                    _showDiscontinueDialog(context, visit),
+                                icon: const Icon(Icons.auto_awesome, size: 18),
+                                onPressed: () async {
+                                  final data = await HomeVisitVoiceScribeDialog.show(context);
+                                  if (data != null && mounted) {
+                                    await _applyAiVoiceData(data, visit);
+                                  }
+                                },
                               )
-                            : OutlinedButton.icon(
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: AppTheme.dangerColor,
-                                  side: const BorderSide(
-                                    color: AppTheme.dangerColor,
-                                  ),
+                            : ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
                                   ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                 ),
-                                icon: const Icon(
-                                  Icons.do_not_disturb_on_outlined,
-                                  size: 16,
-                                ),
+                                icon: const Icon(Icons.auto_awesome, size: 16),
                                 label: Text(
-                                  ctx.tr('stop_care_plan', fallback: 'Stop Care Plan'),
+                                  ctx.tr('ai_voice_scribe', fallback: 'AI Voice Scribe'),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
                                   ),
                                 ),
-                                onPressed: () =>
-                                    _showDiscontinueDialog(context, visit),
+                                onPressed: () async {
+                                  final data = await HomeVisitVoiceScribeDialog.show(context);
+                                  if (data != null && mounted) {
+                                    await _applyAiVoiceData(data, visit);
+                                  }
+                                },
                               ),
                       );
                     },
                   ),
+                ],
+                Builder(
+                  builder: (ctx) {
+                    return Padding(
+                      padding: EdgeInsets.only(
+                        top: isMobile ? 8.0 : 16.0,
+                        right: isMobile ? 12.0 : 16.0,
+                      ),
+                      child: isMobile
+                          ? IconButton(
+                              tooltip: ctx.tr('stop_care_plan', fallback: 'Stop Care Plan'),
+                              style: IconButton.styleFrom(
+                                foregroundColor: AppTheme.dangerColor,
+                                backgroundColor: AppTheme.dangerColor
+                                    .withValues(alpha: 0.1),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: const BorderSide(
+                                    color: AppTheme.dangerColor,
+                                  ),
+                                ),
+                                minimumSize: const Size(38, 38),
+                                padding: const EdgeInsets.all(8),
+                              ),
+                              icon: const Icon(
+                                Icons.do_not_disturb_on_outlined,
+                                size: 18,
+                              ),
+                              onPressed: () =>
+                                  _showDiscontinueDialog(context, visit),
+                            )
+                          : OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.dangerColor,
+                                side: const BorderSide(
+                                  color: AppTheme.dangerColor,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              icon: const Icon(
+                                Icons.do_not_disturb_on_outlined,
+                                size: 16,
+                              ),
+                              label: Text(
+                                ctx.tr('stop_care_plan', fallback: 'Stop Care Plan'),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              onPressed: () =>
+                                  _showDiscontinueDialog(context, visit),
+                            ),
+                    );
+                  },
+                ),
               ],
               bottom: isCompletedOrVerified
                   ? null
-                  : TabBar(
-                      controller: _tabController,
-                      labelColor: AppTheme.primaryColor,
-                      unselectedLabelColor: const Color(0xFF64748B),
-                      indicatorColor: AppTheme.primaryColor,
-                      indicatorWeight: 3,
-                      isScrollable: true,
-                      tabs: [
+                  : PreferredSize(
+                      preferredSize: Size.fromHeight(isMobile ? 84.0 : 76.0),
+                      child: Container(
+                        margin: EdgeInsets.only(top: isMobile ? 12.0 : 6.0),
+                        child: TabBar(
+                          controller: _tabController,
+                          labelColor: AppTheme.primaryColor,
+                          unselectedLabelColor: const Color(0xFF64748B),
+                          indicatorColor: AppTheme.primaryColor,
+                          indicatorWeight: 3,
+                          isScrollable: true,
+                          tabAlignment: TabAlignment.start,
+                          padding: EdgeInsets.zero,
+                          tabs: [
                         Tab(
                           icon: const Icon(
                             Icons.medical_services_outlined,
@@ -6221,6 +6243,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         ),
                       ],
                     ),
+                  ),
+                ),
             ),
             body: isCompletedOrVerified
                 ? (_selectedSummaryVisitId == null
@@ -6247,7 +6271,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       _buildLiveSessionSummaryTab(visit, controller),
                     ],
                   ),
-            floatingActionButton: (!isCompletedOrVerified &&
+            floatingActionButton: (!isMobile &&
+                    !isCompletedOrVerified &&
                     visit.status != 'Cancelled' &&
                     visit.status != 'Completed' &&
                     visit.status != 'Verified')
@@ -6321,6 +6346,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           color: AppTheme.secondaryColor,
                           fontFamily: 'Inter',
                         ),
+                        maxLines: 2,
+                        softWrap: true,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -6661,17 +6688,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           const SizedBox(height: 24),
 
           // Section 2 Header with Items Count Badge
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: _buildSectionHeader(
-                  context.tr('carried_used_kit_list', fallback: 'Carried & Used Kit Devices List'),
-                  Icons.assignment_turned_in_outlined,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
+          LayoutBuilder(
+            builder: (context, hConstraints) {
+              final isCompact = hConstraints.maxWidth < 550;
+              final headerWidget = _buildSectionHeader(
+                context.tr('carried_used_kit_list', fallback: 'Carried & Used Kit Devices List'),
+                Icons.assignment_turned_in_outlined,
+              );
+              final badgeWidget = Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 4,
@@ -6681,15 +6705,37 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  '${visit.carriedItems.length} ${context.tr('items', fallback: 'Items')}',
+                  visit.carriedItems.isEmpty
+                      ? '0 ${context.tr('items', fallback: 'Items')}'
+                      : '${visit.carriedItems.fold<int>(0, (sum, i) => sum + i.quantityCarried)} ${context.tr('qty', fallback: 'Qty')} (${visit.carriedItems.length} ${context.tr('items', fallback: 'Items')})',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF0369A1),
                   ),
                 ),
-              ),
-            ],
+              );
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    headerWidget,
+                    const SizedBox(height: 8),
+                    badgeWidget,
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: headerWidget),
+                  const SizedBox(width: 12),
+                  badgeWidget,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
 
@@ -6897,6 +6943,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       _heightCtrl.text = existingVital.height?.toString() ?? '';
     }
     final bool isMobile = MediaQuery.of(context).size.width < 600;
+    bool autoValidateVitals = false;
+    final modalFormKey = GlobalKey<FormState>();
 
     _showLocalizedDialog(
       barrierDismissible: false,
@@ -6918,8 +6966,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
               ),
               padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
               child: Form(
-                key: _formKeyVitals,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
+                key: modalFormKey,
+                autovalidateMode: autoValidateVitals
+                    ? AutovalidateMode.always
+                    : AutovalidateMode.disabled,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -6995,6 +7045,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 _buildLabel(context.tr('systolic_bp_req')),
                                 TextFormField(
                                   controller: _sysBpCtrl,
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
@@ -7030,6 +7082,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 _buildLabel(context.tr('diastolic_bp_req')),
                                 TextFormField(
                                   controller: _diaBpCtrl,
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
@@ -7068,9 +7122,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel(context.tr('pulse_rate_req')),
+                                _buildLabel(context.tr('pulse_rate_req', fallback: 'Pulse Rate (bpm) *')),
                                 TextFormField(
                                   controller: _pulseCtrl,
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
@@ -7103,9 +7159,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel(context.tr('temperature_req')),
+                                _buildLabel(context.tr('temperature_req', fallback: 'Temperature (°F) *')),
                                 TextFormField(
                                   controller: _tempCtrl,
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
                                   keyboardType:
                                       const TextInputType.numberWithOptions(
                                         decimal: true,
@@ -7149,9 +7207,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildLabel(context.tr('spo2_req')),
+                                _buildLabel(context.tr('spo2_req', fallback: 'SpO2 (%) *')),
                                 TextFormField(
                                   controller: _spo2Ctrl,
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
@@ -7187,6 +7247,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 _buildLabel(context.tr('blood_sugar_label')),
                                 TextFormField(
                                   controller: _sugarCtrl,
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
@@ -7227,6 +7289,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 _buildLabel(context.tr('weight_label')),
                                 TextFormField(
                                   controller: _weightCtrl,
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
                                   keyboardType:
                                       const TextInputType.numberWithOptions(
                                         decimal: true,
@@ -7266,6 +7330,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 _buildLabel(context.tr('height_label')),
                                 TextFormField(
                                   controller: _heightCtrl,
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
                                   keyboardType:
                                       const TextInputType.numberWithOptions(
                                         decimal: true,
@@ -7340,7 +7406,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             onPressed: _isSavingVitals
                                 ? null
                                 : () async {
-                                    if (!(_formKeyVitals.currentState
+                                    setDialogState(() {
+                                      autoValidateVitals = true;
+                                    });
+                                    if (!(modalFormKey.currentState
                                             ?.validate() ??
                                         false)) {
                                       return;
@@ -7427,7 +7496,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
       ),
       child: Form(
         key: _formKeyVitals,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
+        autovalidateMode: _autoValidateVitalsTab
+            ? AutovalidateMode.always
+            : AutovalidateMode.disabled,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -7451,6 +7522,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       _buildLabel('Systolic BP (mmHg) *'),
                       TextFormField(
                         controller: _sysBpCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
@@ -7483,6 +7555,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       _buildLabel('Diastolic BP (mmHg) *'),
                       TextFormField(
                         controller: _diaBpCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
@@ -7518,9 +7591,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLabel('Pulse Rate (bpm)'),
+                      _buildLabel('Pulse Rate (bpm) *'),
                       TextFormField(
                         controller: _pulseCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
@@ -7534,11 +7608,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         ),
                         validator: (val) {
-                          if (val != null && val.trim().isNotEmpty) {
-                            final n = int.tryParse(val.trim());
-                            if (n == null || n < 30 || n > 250)
-                              return 'Invalid pulse';
-                          }
+                          if (val == null || val.trim().isEmpty)
+                            return 'Mandatory';
+                          final n = int.tryParse(val.trim());
+                          if (n == null || n < 30 || n > 250)
+                            return '30-250 bpm';
                           return null;
                         },
                       ),
@@ -7553,6 +7627,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       _buildLabel('Temperature (°F) *'),
                       TextFormField(
                         controller: _tempCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
@@ -7592,9 +7667,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildLabel('SpO2 (%)'),
+                      _buildLabel('SpO2 (%) *'),
                       TextFormField(
                         controller: _spo2Ctrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
@@ -7608,11 +7684,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           ),
                         ),
                         validator: (val) {
-                          if (val != null && val.trim().isNotEmpty) {
-                            final n = int.tryParse(val.trim());
-                            if (n == null || n < 50 || n > 100)
-                              return '50-100%';
-                          }
+                          if (val == null || val.trim().isEmpty)
+                            return 'Mandatory';
+                          final n = int.tryParse(val.trim());
+                          if (n == null || n < 50 || n > 100)
+                            return '50-100%';
                           return null;
                         },
                       ),
@@ -7627,6 +7703,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       _buildLabel('Blood Sugar (mg/dL)'),
                       TextFormField(
                         controller: _sugarCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         keyboardType: TextInputType.number,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
@@ -7665,6 +7742,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       _buildLabel('Weight (kg)'),
                       TextFormField(
                         controller: _weightCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
@@ -7700,6 +7778,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       _buildLabel('Height (cm)'),
                       TextFormField(
                         controller: _heightCtrl,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
@@ -7753,6 +7832,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 onPressed: _isSavingVitals
                     ? null
                     : () async {
+                        setState(() => _autoValidateVitalsTab = true);
                         if (!(_formKeyVitals.currentState?.validate() ??
                             false)) {
                           return;
@@ -8651,7 +8731,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       children: [
                         entriesText,
                         const SizedBox(height: 10),
-                        Center(child: buttons),
+                        Center(child: FittedBox(fit: BoxFit.scaleDown, child: buttons)),
                       ],
                     );
                   }
@@ -9503,7 +9583,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(val)) {
                     return context.tr('notes_must_contain_letters');
                   }
-                  if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;?!%]+$').hasMatch(val.trim())) {
+                  if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s,./_\-]+$').hasMatch(val.trim())) {
                     return context.tr('nursing_notes_invalid_chars', fallback: 'Nursing notes contains invalid special characters');
                   }
                 }
@@ -9527,7 +9607,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(val)) {
                     return context.tr('dressing_must_contain_letters');
                   }
-                  if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;?!%]+$').hasMatch(val.trim())) {
+                  if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s,./_\-]+$').hasMatch(val.trim())) {
                     return context.tr('dressing_invalid_chars', fallback: 'Dressing details contains invalid special characters');
                   }
                 }
@@ -9575,7 +9655,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   if (!RegExp(r'[a-zA-Z\u0B80-\u0BFF]').hasMatch(val)) {
                     return context.tr('personal_care_must_contain_letters');
                   }
-                  if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s.,/#\-\(\):;?!%]+$').hasMatch(val.trim())) {
+                  if (!RegExp(r'^[a-zA-Z0-9\u0B80-\u0BFF\s,./_\-]+$').hasMatch(val.trim())) {
                     return context.tr('personal_care_invalid_chars', fallback: 'Personal care details contains invalid special characters');
                   }
                 }
@@ -13564,55 +13644,108 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 const SizedBox(height: 16),
 
                 // Live Summary Counters Row (Today's Entries Only)
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
-                  children: [
-                    _liveSummaryChip(
-                      Icons.devices,
-                      context.tr('kit_devices_stat', fallback: 'Kit Devices'),
-                      '${visit.carriedItems.length} ${context.tr('added_suffix', fallback: 'Added')}',
-                      AppTheme.primaryColor,
-                    ),
-                    _liveSummaryChip(
-                      Icons.monitor_heart_outlined,
-                      context.tr('vitals_log_stat', fallback: 'Vitals Log'),
-                      '${todayVitals.length} ${context.tr('today_entries_suffix', fallback: 'Today Entries')}',
-                      Colors.purple,
-                    ),
-                    _liveSummaryChip(
-                      Icons.edit_note,
-                      context.tr('care_notes_stat', fallback: 'Care Notes'),
-                      todayCare.isNotEmpty
-                          ? '${todayCare.length} ${context.tr('today_entries_suffix', fallback: 'Today Entries')}'
-                          : context.tr('pending_status', fallback: 'Pending'),
-                      Colors.orange,
-                    ),
-                    _liveSummaryChip(
-                      Icons.medication_liquid,
-                      context.tr('meds_procedures_stat', fallback: 'Meds & Procedures'),
-                      '${todayMedicines.length} ${context.tr('meds_short', fallback: 'Meds')} / ${todayProcedures.length} ${context.tr('procedures_short', fallback: 'Procedures')}',
-                      AppTheme.secondaryColor,
-                    ),
-                    _liveSummaryChip(
-                      Icons.camera_alt_outlined,
-                      context.tr('photos_stat', fallback: 'Photos'),
-                      '${todayPhotos.length} ${context.tr('today_photos_suffix', fallback: 'Today Photos')}',
-                      Colors.teal,
-                    ),
-                    _liveSummaryChip(
-                      Icons.verified_user_outlined,
-                      context.tr('attender_verification_stat', fallback: 'Attender Verification'),
-                      visit.attenderName != null &&
-                              visit.attenderName!.isNotEmpty
-                          ? '${context.tr('verified', fallback: 'Verified')} (${visit.attenderName})'
-                          : context.tr('pending_status', fallback: 'Pending'),
-                      visit.attenderName != null &&
-                              visit.attenderName!.isNotEmpty
-                          ? Colors.green
-                          : AppTheme.dangerColor,
-                    ),
-                  ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxAvailableWidth = (constraints.maxWidth.isFinite && constraints.maxWidth > 0)
+                        ? constraints.maxWidth
+                        : math.max(120.0, MediaQuery.of(context).size.width - 48);
+                    final isMobileChip = maxAvailableWidth < 650;
+                    return Wrap(
+                      spacing: 16,
+                      runSpacing: 12,
+                      children: [
+                        _liveSummaryChip(
+                          Icons.devices,
+                          context.tr('kit_devices_stat', fallback: 'Kit Devices'),
+                          visit.carriedItems.isEmpty
+                              ? '0 ${context.tr('added_suffix', fallback: 'Added')}'
+                              : visit.carriedItems
+                                  .map((i) =>
+                                      '${_getTranslatedKitDevice(i.itemName)} (${context.tr('qty', fallback: 'Qty')}: ${i.quantityCarried})')
+                                  .join(', '),
+                          AppTheme.primaryColor,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                          customSubtitle: visit.carriedItems.isEmpty
+                              ? Text(
+                                  '0 ${context.tr('added_suffix', fallback: 'Added')}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    for (final item in visit.carriedItems)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 1.0),
+                                        child: Text(
+                                          '${_getTranslatedKitDevice(item.itemName)} • ${context.tr('qty', fallback: 'Qty')}: ${item.quantityCarried}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                          softWrap: true,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                        ),
+                        _liveSummaryChip(
+                          Icons.monitor_heart_outlined,
+                          context.tr('vitals_log_stat', fallback: 'Vitals Log'),
+                          '${todayVitals.length} ${context.tr('today_entries_suffix', fallback: 'Today Entries')}',
+                          Colors.purple,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                        ),
+                        _liveSummaryChip(
+                          Icons.edit_note,
+                          context.tr('care_notes_stat', fallback: 'Care Notes'),
+                          todayCare.isNotEmpty
+                              ? '${todayCare.length} ${context.tr('today_entries_suffix', fallback: 'Today Entries')}'
+                              : context.tr('pending_status', fallback: 'Pending'),
+                          Colors.orange,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                        ),
+                        _liveSummaryChip(
+                          Icons.medication_liquid,
+                          context.tr('meds_procedures_stat', fallback: 'Meds & Procedures'),
+                          '${todayMedicines.length} ${context.tr('meds_short', fallback: 'Meds')} / ${todayProcedures.length} ${context.tr('procedures_short', fallback: 'Procedures')}',
+                          AppTheme.secondaryColor,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                        ),
+                        _liveSummaryChip(
+                          Icons.camera_alt_outlined,
+                          context.tr('photos_stat', fallback: 'Photos'),
+                          '${todayPhotos.length} ${context.tr('today_photos_suffix', fallback: 'Today Photos')}',
+                          Colors.teal,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                        ),
+                        _liveSummaryChip(
+                          Icons.verified_user_outlined,
+                          context.tr('attender_verification_stat', fallback: 'Attender Verification'),
+                          visit.attenderName != null &&
+                                  visit.attenderName!.isNotEmpty
+                              ? '${context.tr('verified', fallback: 'Verified')} (${visit.attenderName})'
+                              : context.tr('pending_status', fallback: 'Pending'),
+                          visit.attenderName != null &&
+                                  visit.attenderName!.isNotEmpty
+                              ? Colors.green
+                              : AppTheme.dangerColor,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -13631,9 +13764,61 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSectionHeader(
-                  context.tr('carried_used_kit_devices_title', fallback: '1. Carried & Used Kit Devices'),
-                  Icons.devices,
+                LayoutBuilder(
+                  builder: (context, sConstraints) {
+                    final isCompact = sConstraints.maxWidth < 550;
+                    final headerWidget = _buildSectionHeader(
+                      context.tr('carried_used_kit_devices_title', fallback: '1. Carried & Used Kit Devices'),
+                      Icons.devices,
+                    );
+                    final badgeWidget = visit.carriedItems.isNotEmpty
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppTheme.primaryColor.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Text(
+                              '${context.tr('total_qty', fallback: 'Total Qty')}: ${visit.carriedItems.fold<int>(0, (sum, i) => sum + i.quantityCarried)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          )
+                        : null;
+
+                    if (isCompact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          headerWidget,
+                          if (badgeWidget != null) ...[
+                            const SizedBox(height: 8),
+                            badgeWidget,
+                          ],
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: headerWidget),
+                        if (badgeWidget != null) ...[
+                          const SizedBox(width: 8),
+                          badgeWidget,
+                        ],
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 if (visit.carriedItems.isEmpty)
@@ -13661,7 +13846,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             ),
                           ),
                           label: Text(
-                            '${_getTranslatedKitDevice(item.itemName)} (${_getTranslatedKitType(item.itemType)} • ${context.tr('qty', fallback: 'Qty')}: ${item.quantityCarried})',
+                            '${_getTranslatedKitDevice(item.itemName)} (${_getTranslatedKitType(item.itemType)} • ${context.tr('quantity_used', fallback: 'Quantity Used')}: ${item.quantityCarried})',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                           backgroundColor: const Color(0xFFF1F5F9),
                         ),
@@ -13833,12 +14021,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 color: AppTheme.secondaryColor,
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                '${context.tr('recorded_on', fallback: 'Recorded on')}: ${_formatRecordedAt(care.createdAt)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.secondaryColor,
+                              Expanded(
+                                child: Text(
+                                  '${context.tr('recorded_on', fallback: 'Recorded on')}: ${_formatRecordedAt(care.createdAt)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: AppTheme.secondaryColor,
+                                  ),
                                 ),
                               ),
                             ],
@@ -13939,6 +14129,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
+                          softWrap: true,
                         ),
                       ),
                   ] else if (todayConsumables.isNotEmpty) ...[
@@ -13957,6 +14148,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         child: Text(
                           '• ${context.translateConsumable(c.itemName)} - ${context.tr('qty', fallback: 'Qty')}: ${c.quantityUsed} | ₹${(c.unitPrice * c.quantityUsed).toStringAsFixed(2)}',
                           style: const TextStyle(fontSize: 13),
+                          softWrap: true,
                         ),
                       ),
                   ],
@@ -14377,9 +14569,16 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     IconData icon,
     String title,
     String subtitle,
-    Color color,
-  ) {
+    Color color, {
+    Widget? customSubtitle,
+    double? maxWidth,
+    bool isFullWidth = false,
+  }) {
     return Container(
+      width: (isFullWidth && maxWidth != null && maxWidth > 0) ? maxWidth : null,
+      constraints: (maxWidth != null && maxWidth > 0)
+          ? BoxConstraints(maxWidth: maxWidth)
+          : null,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: color.withOpacity(0.08),
@@ -14387,31 +14586,39 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(icon, size: 20, color: color),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: color,
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
                 ),
-              ),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
+                const SizedBox(height: 2),
+                if (customSubtitle != null)
+                  customSubtitle
+                else
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    softWrap: true,
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -16019,12 +16226,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     color: AppTheme.primaryColor,
                                   ),
                                   const SizedBox(width: 6),
-                                  Text(
-                                    '${context.tr('recorded_on_label', fallback: 'Recorded on:')} ${_formatRecordedAt(care.createdAt)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                  Expanded(
+                                    child: Text(
+                                      '${context.tr('recorded_on_label', fallback: 'Recorded on:')} ${_formatRecordedAt(care.createdAt)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: AppTheme.primaryColor,
+                                      ),
                                     ),
                                   ),
                                 ],
