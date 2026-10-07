@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:intl/intl.dart';
 
 class HomeVisitCarriedItem {
   final int? id;
@@ -307,6 +308,7 @@ class HomeVisitModel {
   final String? attenderSignatureUrl;
   final String? signedAt;
   final String? notes;
+  final String? feedback;
   final List<HomeVisitCarriedItem> carriedItems;
   final HomeVisitVitals? vitals;
   final List<HomeVisitVitals> vitalsHistory;
@@ -318,6 +320,8 @@ class HomeVisitModel {
   final List<HomeVisitProcedureModel> procedures;
   final List<HomeVisitPhotoEvidence> photos;
   final Map<String, dynamic>? invoice;
+  final Map<String, dynamic>? sessionStartTimes;
+  final bool? hasStartedTodayBackend;
 
   HomeVisitModel({
     required this.id,
@@ -341,6 +345,7 @@ class HomeVisitModel {
     this.attenderSignatureUrl,
     this.signedAt,
     this.notes,
+    this.feedback,
     this.carriedItems = const [],
     this.vitals,
     this.vitalsHistory = const [],
@@ -352,6 +357,8 @@ class HomeVisitModel {
     this.procedures = const [],
     this.photos = const [],
     this.invoice,
+    this.sessionStartTimes,
+    this.hasStartedTodayBackend,
   });
 
   HomeVisitModel copyWith({
@@ -376,6 +383,7 @@ class HomeVisitModel {
     String? attenderSignatureUrl,
     String? signedAt,
     String? notes,
+    String? feedback,
     List<HomeVisitCarriedItem>? carriedItems,
     HomeVisitVitals? vitals,
     List<HomeVisitVitals>? vitalsHistory,
@@ -387,6 +395,8 @@ class HomeVisitModel {
     List<HomeVisitProcedureModel>? procedures,
     List<HomeVisitPhotoEvidence>? photos,
     Map<String, dynamic>? invoice,
+    Map<String, dynamic>? sessionStartTimes,
+    bool? hasStartedTodayBackend,
   }) {
     return HomeVisitModel(
       id: id ?? this.id,
@@ -410,6 +420,7 @@ class HomeVisitModel {
       attenderSignatureUrl: attenderSignatureUrl ?? this.attenderSignatureUrl,
       signedAt: signedAt ?? this.signedAt,
       notes: notes ?? this.notes,
+      feedback: feedback ?? this.feedback,
       carriedItems: carriedItems ?? this.carriedItems,
       vitals: vitals ?? this.vitals,
       vitalsHistory: vitalsHistory ?? this.vitalsHistory,
@@ -421,6 +432,8 @@ class HomeVisitModel {
       procedures: procedures ?? this.procedures,
       photos: photos ?? this.photos,
       invoice: invoice ?? this.invoice,
+      sessionStartTimes: sessionStartTimes ?? this.sessionStartTimes,
+      hasStartedTodayBackend: hasStartedTodayBackend ?? this.hasStartedTodayBackend,
     );
   }
 
@@ -433,6 +446,41 @@ class HomeVisitModel {
       }
     } catch (_) {}
     return scheduledDate;
+  }
+
+  bool get hasStartedToday {
+    if (hasStartedTodayBackend == true) return true;
+    final now = DateTime.now();
+    final todayStr = DateFormat('yyyy-MM-dd').format(now);
+    final todayStrAlt = DateFormat('dd-MM-yyyy').format(now);
+    if (sessionStartTimes != null) {
+      final entry = sessionStartTimes![todayStr] ?? sessionStartTimes![todayStrAlt];
+      if (entry is Map && entry['start_time'] != null && entry['start_time'].toString().trim().isNotEmpty) {
+        return true;
+      }
+    }
+    final cleanScheduled = scheduledDate.split('T')[0];
+    if (cleanScheduled == todayStr && startTime != null && startTime!.trim().isNotEmpty) {
+      return true;
+    }
+    return false;
+  }
+
+  String? get todayStartTime {
+    final now = DateTime.now();
+    final todayStr = DateFormat('yyyy-MM-dd').format(now);
+    final todayStrAlt = DateFormat('dd-MM-yyyy').format(now);
+    if (sessionStartTimes != null) {
+      final entry = sessionStartTimes![todayStr] ?? sessionStartTimes![todayStrAlt];
+      if (entry is Map && entry['start_time'] != null && entry['start_time'].toString().trim().isNotEmpty) {
+        return entry['start_time'].toString();
+      }
+    }
+    final cleanScheduled = scheduledDate.split('T')[0];
+    if (cleanScheduled == todayStr && startTime != null && startTime!.trim().isNotEmpty) {
+      return startTime;
+    }
+    return null;
   }
 
   factory HomeVisitModel.fromJson(Map<String, dynamic> json) {
@@ -458,6 +506,7 @@ class HomeVisitModel {
       attenderSignatureUrl: json['attender_signature_url'],
       signedAt: json['signed_at'],
       notes: json['notes'],
+      feedback: json['feedback'],
       carriedItems: (json['carried_items'] as List<dynamic>?)
               ?.map((item) => HomeVisitCarriedItem.fromJson(item))
               .toList() ??
@@ -501,6 +550,18 @@ class HomeVisitModel {
                   'payment_status': json['invoice_payment_status'],
                 }
               : null),
+      sessionStartTimes: json['session_start_times'] is Map<String, dynamic>
+          ? json['session_start_times'] as Map<String, dynamic>
+          : (json['session_start_times'] is String
+              ? () {
+                  try {
+                    return jsonDecode(json['session_start_times']) as Map<String, dynamic>;
+                  } catch (_) {
+                    return null;
+                  }
+                }()
+              : null),
+      hasStartedTodayBackend: json['has_started_today'] == true,
     );
   }
 }

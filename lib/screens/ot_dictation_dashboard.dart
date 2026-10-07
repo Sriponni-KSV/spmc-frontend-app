@@ -11,6 +11,7 @@ import '../screens/ot_management.dart'; // To use OtCase and IntraOpLog models
 import '../models/user_model.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import '../services/live_speech_service.dart';
 
 class OtDictationDashboardView extends StatefulWidget {
   final bool isMobile;
@@ -118,6 +119,7 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
 
   @override
   void dispose() {
+    LiveSpeechService().stopListening();
     _waveformController.dispose();
     _textController.dispose();
     _searchController.dispose();
@@ -126,28 +128,10 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
   }
 
   Future<void> _initSpeech() async {
-    try {
-      bool enabled = await _speech.initialize(
-        onStatus: (status) {
-          if (status == 'notListening' || status == 'done') {
-            setState(() {
-              _isListening = false;
-            });
-          }
-        },
-        onError: (val) {
-          setState(() {
-            _isListening = false;
-            _commandFeedback = "Microphone error: ${val.errorMsg}";
-          });
-        },
-      );
+    final enabled = await LiveSpeechService().initialize();
+    if (mounted) {
       setState(() {
         _speechEnabled = enabled;
-      });
-    } catch (e) {
-      setState(() {
-        _speechEnabled = false;
       });
     }
   }
@@ -265,58 +249,70 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
   }
 
   void _startListening() async {
-    if (!_speechEnabled) {
-      await _initSpeech();
-    }
-    if (_speechEnabled) {
-      setState(() {
-        _isListening = true;
-        _transcribedText = "";
-        _textController.clear();
-      });
-      await _speech.listen(
-        onResult: (result) {
+    setState(() {
+      _isListening = true;
+      _transcribedText = "";
+      _textController.clear();
+      _soundLevel = 0.0;
+    });
+
+    final success = await LiveSpeechService().startListening(
+      onResult: (liveText) {
+        if (mounted) {
           setState(() {
-            _transcribedText = result.recognizedWords;
-            _textController.text = _transcribedText;
-            _processLiveSpeechText(_transcribedText);
+            _transcribedText = liveText;
+            _textController.value = TextEditingValue(
+              text: liveText,
+              selection: TextSelection.collapsed(offset: liveText.length),
+            );
+            _processLiveSpeechText(liveText);
           });
-        },
-        onSoundLevelChange: (level) {
+        }
+      },
+      onSoundLevel: (level) {
+        if (mounted) {
           setState(() {
             _soundLevel = level;
           });
-        },
-      );
-    } else {
-      // Simulate listening if speech is disabled
-      setState(() {
-        _isListening = true;
-      });
-      _simulateMicrophoneActivity();
-    }
-  }
+        }
+      },
+      onStatus: (status) {
+        if (status == 'notListening' || status == 'done') {
+          if (mounted) {
+            setState(() {
+              _isListening = false;
+              _soundLevel = 0.0;
+            });
+          }
+        }
+      },
+      onError: (err) {
+        if (mounted) {
+          setState(() {
+            _isListening = false;
+            _soundLevel = 0.0;
+            _commandFeedback = "Microphone error: $err";
+          });
+        }
+      },
+    );
 
-  void _simulateMicrophoneActivity() {
-    Timer.periodic(const Duration(milliseconds: 200), (timer) {
-      if (!_isListening) {
-        timer.cancel();
-        return;
-      }
+    if (!success && mounted) {
       setState(() {
-        _soundLevel = 2.0 + (math.Random().nextDouble() * 8.0);
+        _isListening = false;
+        _soundLevel = 0.0;
       });
-    });
+    }
   }
 
   void _stopListening() async {
-    if (_speechEnabled) {
-      await _speech.stop();
+    await LiveSpeechService().stopListening();
+    if (mounted) {
+      setState(() {
+        _isListening = false;
+        _soundLevel = 0.0;
+      });
     }
-    setState(() {
-      _isListening = false;
-      _soundLevel = 0.0;
-    });
     _runAiParser(_textController.text);
   }
 
@@ -713,69 +709,94 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
     return Scaffold(
       backgroundColor: bgColor,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
+        preferredSize: Size.fromHeight(isMobileLayout ? 52 : 60),
         child: Container(
           decoration: const BoxDecoration(
             color: Colors.transparent,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          padding: EdgeInsets.symmetric(horizontal: isMobileLayout ? 16 : 24),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(
-                    Icons.online_prediction,
-                    color: _isListening ? AppTheme.logoRed : AppTheme.secondaryColor,
-                    size: 28,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'AI Dictation',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: textPrimary,
-                      letterSpacing: 0.5,
+              Expanded(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.online_prediction,
+                      color: _isListening ? AppTheme.logoRed : AppTheme.secondaryColor,
+                      size: isMobileLayout ? 24 : 28,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
-                      borderRadius: BorderRadius.circular(4),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'AI Dictation',
+                        style: TextStyle(
+                          fontSize: isMobileLayout ? 16 : 18,
+                          fontWeight: FontWeight.bold,
+                          color: textPrimary,
+                          letterSpacing: 0.5,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    child: const Text(
-                      'AI ASSISTED EMR v2.5',
-                      style: TextStyle(color: AppTheme.primaryColor, fontSize: 10, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
+                    if (!isMobileLayout) ...[
+                      const SizedBox(width: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'AI ASSISTED EMR v2.5',
+                          style: TextStyle(color: AppTheme.primaryColor, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              Row(
-                children: [
-                  Text(
-                    _isDarkMode ? 'FUTURISTIC DARK' : 'CLINICAL LIGHT',
-                    style: TextStyle(
-                      color: textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+              const SizedBox(width: 8),
+              if (isMobileLayout)
+                IconButton(
+                  icon: Icon(
+                    _isDarkMode ? Icons.dark_mode : Icons.light_mode,
+                    color: _isDarkMode ? Colors.amber : AppTheme.primaryColor,
+                    size: 22,
+                  ),
+                  tooltip: _isDarkMode ? 'Dark Mode' : 'Light Mode',
+                  onPressed: () {
+                    setState(() {
+                      _isDarkMode = !_isDarkMode;
+                    });
+                  },
+                )
+              else
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _isDarkMode ? 'FUTURISTIC DARK' : 'CLINICAL LIGHT',
+                      style: TextStyle(
+                        color: textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Switch(
-                    value: _isDarkMode,
-                    activeColor: AppTheme.primaryColor,
-                    onChanged: (val) {
-                      setState(() {
-                        _isDarkMode = val;
-                      });
-                    },
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+                    Switch(
+                      value: _isDarkMode,
+                      activeColor: AppTheme.primaryColor,
+                      onChanged: (val) {
+                        setState(() {
+                          _isDarkMode = val;
+                        });
+                      },
+                    ),
+                  ],
+                ),
             ],
           ),
         ),

@@ -15,8 +15,22 @@ class ModalHistoryHelper {
 
   static void initialize(GlobalKey<NavigatorState> navigatorKey) {
     _navigatorKey = navigatorKey;
+    _popupRoutes.clear();
+    _pushedHistoryCount = 0;
+    _isHandlingPopState = false;
+    _isIgnoringPopState = false;
+    _skipNextBack = false;
+
     if (_initialized) return;
     _initialized = true;
+
+    // Clean up any corrupt history state that does not have GoRouter's expected keys
+    try {
+      final currentState = html.window.history.state;
+      if (currentState is Map && !currentState.containsKey('location')) {
+        html.window.history.replaceState(null, '', html.window.location.href);
+      }
+    } catch (_) {}
 
     html.window.addEventListener('popstate', (html.Event event) {
       if (_isIgnoringPopState) {
@@ -24,20 +38,40 @@ class ModalHistoryHelper {
         return;
       }
 
+      // Ensure any corrupt history state during popstate is sanitized before GoRouter parses it
+      try {
+        final currentState = html.window.history.state;
+        if (currentState is Map && !currentState.containsKey('location')) {
+          html.window.history.replaceState(null, '', html.window.location.href);
+        }
+      } catch (_) {}
+
       if (_popupRoutes.isNotEmpty || _pushedHistoryCount > 0) {
         _pushedHistoryCount = (_pushedHistoryCount - 1).clamp(0, 999999);
         _isHandlingPopState = true;
 
         try {
-          if (_popupRoutes.isNotEmpty) {
+          bool poppedAny = false;
+          while (_popupRoutes.isNotEmpty) {
             final topRoute = _popupRoutes.last;
-            if (topRoute.isActive && topRoute.navigator != null) {
-              topRoute.navigator!.maybePop();
-            } else if (_navigatorKey?.currentState?.canPop() == true) {
-              _navigatorKey!.currentState!.maybePop();
+            final isMounted = (topRoute is ModalRoute)
+                ? (topRoute.subtreeContext != null && topRoute.subtreeContext!.mounted)
+                : true;
+
+            if (topRoute.isActive && topRoute.navigator != null && isMounted) {
+              try {
+                topRoute.navigator!.maybePop().catchError((_) => false);
+                poppedAny = true;
+              } catch (_) {}
+              break;
+            } else {
+              // Stale or unmounted route from a previous screen or hot restart
+              _popupRoutes.removeLast();
             }
-          } else if (_navigatorKey?.currentState?.canPop() == true) {
-            _navigatorKey!.currentState!.maybePop();
+          }
+
+          if (!poppedAny && _navigatorKey?.currentState?.canPop() == true) {
+            _navigatorKey!.currentState!.maybePop().catchError((_) => false);
           }
         } catch (_) {}
 
@@ -55,20 +89,26 @@ class ModalHistoryHelper {
     }
   }
 
+  static void reset() {
+    _popupRoutes.clear();
+    _pushedHistoryCount = 0;
+    _skipNextBack = false;
+    _isHandlingPopState = false;
+    _isIgnoringPopState = false;
+  }
+
   static void onPopupPushed(Route<dynamic> route) {
     _popupRoutes.add(route);
     if (!_isHandlingPopState) {
       try {
         final currentState = html.window.history.state;
-        Map<dynamic, dynamic> newState = {};
-        if (currentState is Map) {
-          try {
-            newState = Map<dynamic, dynamic>.from(currentState);
-          } catch (_) {}
-        }
-        newState['flutter_modal_popup'] = true;
+        // Never put custom keys like 'flutter_modal_popup' in history state.
+        // GoRouter expects history state to be null or a valid RouteMatchList map with 'location'.
+        final stateToPush = (currentState is Map && currentState.containsKey('location'))
+            ? currentState
+            : null;
         html.window.history.pushState(
-          newState,
+          stateToPush,
           '',
           html.window.location.href,
         );

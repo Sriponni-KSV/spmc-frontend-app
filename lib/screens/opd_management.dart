@@ -15,6 +15,7 @@ import '../utils/date_formatter.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/unsaved_changes_helper.dart';
+import '../utils/app_localizations.dart';
 
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -54,7 +55,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   void initState() {
     super.initState();
     UnsavedChangesHelper.setUnsavedChanges(true);
-    _tabController = TabController(length: 7, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
     _loadData();
     _loadDoctors();
   }
@@ -104,20 +105,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   Future<void> _loadDoctors() async {
     try {
       final staff = await _adminController.fetchStaff(role: 'Doctor');
-      final activeWithTimings = staff.where((d) {
-        if (d.status.toLowerCase() != 'active') return false;
-        final dp = d.doctorProfile;
-        if (dp == null) return false;
-        if (dp.slotStartTime == null || dp.slotStartTime!.trim().isEmpty) return false;
-        if (dp.slotEndTime == null || dp.slotEndTime!.trim().isEmpty) return false;
-        if (dp.slotDuration == null || dp.slotDuration!.trim().isEmpty) return false;
-        if (dp.availableDays == null || dp.availableDays!.isEmpty) return false;
-        return true;
+      final activeDoctors = staff.where((d) {
+        return d.status.toLowerCase() != 'inactive' && !d.isDeleted;
       }).toList();
       if (mounted) {
-        activeWithTimings.sort((a, b) => a.fullname.compareTo(b.fullname));
+        activeDoctors.sort((a, b) => a.fullname.compareTo(b.fullname));
         setState(() {
-          _doctors = activeWithTimings;
+          _doctors = activeDoctors.isNotEmpty ? activeDoctors : staff;
         });
       }
     } catch (e) {
@@ -173,18 +167,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   List<AppointmentModel> _getTabAppointments(int tabIndex) {
     final baseApps = _filteredAppointments;
     switch (tabIndex) {
-      case 0: // Waiting (Confirmed / Checked-in / Waiting)
+      case 0: // Confirmed (Awaiting arrival / vitals)
+        return baseApps.where((a) => a.status == 'Confirmed').toList();
+      case 1: // Waiting (Checked-in / Waiting queue)
         return baseApps
             .where(
               (a) =>
-                  a.status == 'Confirmed' ||
                   a.status == 'Checked-in' ||
                   a.status == 'Waiting',
             )
             .toList();
-      case 1: // In Consultation
+      case 2: // In Consultation
         return baseApps.where((a) => a.status == 'In Consultation').toList();
-      case 2: // Completed – driven by consultations (all dates, not date-filtered)
+      case 3: // Completed – driven by consultations (all dates, not date-filtered)
         return _consultations.map((c) {
           return AppointmentModel(
             id: c['appointment_id'] is int
@@ -207,7 +202,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             updatedAt: c['updated_at'] as String?,
           );
         }).toList();
-      case 3: // Cancelled & No-Show
+      case 4: // Cancelled & No-Show
         return baseApps
             .where((a) => a.status == 'Cancelled' || a.status == 'No-Show')
             .toList();
@@ -219,20 +214,21 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   int _getCountForTab(int tabIndex) {
     final walkins = _walkInAppointments;
     switch (tabIndex) {
-      case 0:
+      case 0: // Confirmed
+        return walkins.where((a) => a.status == 'Confirmed').length;
+      case 1: // Waiting
         return walkins
             .where(
               (a) =>
-                  a.status == 'Confirmed' ||
                   a.status == 'Checked-in' ||
                   a.status == 'Waiting',
             )
             .length;
-      case 1:
+      case 2: // In Consultation
         return walkins.where((a) => a.status == 'In Consultation').length;
-      case 2:
+      case 3: // Completed
         return _consultations.length;
-      case 3:
+      case 4: // Cancelled & No-Show
         return walkins
             .where((a) => a.status == 'Cancelled' || a.status == 'No-Show')
             .length;
@@ -285,6 +281,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       _buildTabQueueList(1),
                       _buildTabQueueList(2),
                       _buildTabQueueList(3),
+                      _buildTabQueueList(4),
                       _buildPrescriptionsTab(),
                       _buildLabTestsTab(),
                       _buildPharmacyTab(),
@@ -340,7 +337,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        widget.title,
+                        (widget.title == 'OPD Assistance' || widget.title == 'OPD Management')
+                            ? context.tr('opd_assistance', fallback: widget.title)
+                            : widget.title,
                         style: TextStyle(
                           fontSize: widget.isMobile ? 18 : 24,
                           fontWeight: FontWeight.bold,
@@ -352,7 +351,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Today\'s OPD Pipeline: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
+                  '${context.tr('today_opd_pipeline', fallback: "Today's OPD Pipeline")}: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 12,
@@ -364,9 +363,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   ElevatedButton.icon(
                     onPressed: () => _showWalkInDialog(),
                     icon: const Icon(Icons.add, size: 18),
-                    label: const Text(
-                      'Walk-in',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    label: Text(
+                      context.tr('walk_in', fallback: 'Walk-in'),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
@@ -399,7 +398,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            widget.title,
+                            (widget.title == 'OPD Assistance' || widget.title == 'OPD Management')
+                                ? context.tr('opd_assistance', fallback: widget.title)
+                                : widget.title,
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -410,7 +411,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Today\'s OPD Pipeline: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
+                        '${context.tr('today_opd_pipeline', fallback: "Today's OPD Pipeline")}: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.9),
                           fontSize: 13,
@@ -425,7 +426,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     onPressed: () => _showWalkInDialog(),
                     icon: const Icon(Icons.add, size: 18),
                     label: Text(
-                      widget.isMobile ? 'Walk-in' : 'New Walk-in Entry',
+                      widget.isMobile
+                          ? context.tr('walk_in', fallback: 'Walk-in')
+                          : context.tr('new_walk_in_entry', fallback: 'New Walk-in Entry'),
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -456,60 +459,67 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         scrollDirection: Axis.horizontal,
         children: [
           _buildStatCard(
-            title: 'Total OPD Today',
+            title: context.tr('total_opd_today', fallback: 'Total OPD Today'),
             count: _walkInAppointments.length,
             color: Colors.blue.shade700,
             icon: Icons.people_outline,
             onTap: null,
           ),
           _buildStatCard(
-            title: 'Waiting Queue',
+            title: context.tr('confirmed', fallback: 'Confirmed'),
             count: _getCountForTab(0),
-            color: const Color(0xFF0D9488),
-            icon: Icons.hourglass_empty,
+            color: AppTheme.primaryColor,
+            icon: Icons.event_available,
             onTap: () => _tabController.animateTo(0),
           ),
           _buildStatCard(
-            title: 'In Consultation',
+            title: context.tr('waiting_queue', fallback: 'Waiting Queue'),
             count: _getCountForTab(1),
-            color: const Color(0xFFF59E0B),
-            icon: Icons.medical_services_outlined,
+            color: const Color(0xFF0D9488),
+            icon: Icons.hourglass_empty,
             onTap: () => _tabController.animateTo(1),
           ),
           _buildStatCard(
-            title: 'Completed',
+            title: context.tr('in_consultation', fallback: 'In Consultation'),
             count: _getCountForTab(2),
-            color: const Color(0xFF22C55E),
-            icon: Icons.check_circle_outline,
+            color: const Color(0xFFF59E0B),
+            icon: Icons.medical_services_outlined,
             onTap: () => _tabController.animateTo(2),
           ),
           _buildStatCard(
-            title: 'Cancelled',
+            title: context.tr('completed', fallback: 'Completed'),
             count: _getCountForTab(3),
-            color: const Color(0xFFEF4444),
-            icon: Icons.cancel_outlined,
+            color: const Color(0xFF22C55E),
+            icon: Icons.check_circle_outline,
             onTap: () => _tabController.animateTo(3),
           ),
           _buildStatCard(
-            title: 'Prescriptions',
-            count: _getPrescriptionsCount(),
-            color: Colors.indigo,
-            icon: Icons.description_outlined,
+            title: context.tr('cancelled', fallback: 'Cancelled'),
+            count: _getCountForTab(4),
+            color: const Color(0xFFEF4444),
+            icon: Icons.cancel_outlined,
             onTap: () => _tabController.animateTo(4),
           ),
           _buildStatCard(
-            title: 'Lab Orders',
-            count: _getLabTestsCount(),
-            color: Colors.teal.shade700,
-            icon: Icons.science_outlined,
+            title: context.tr('prescriptions', fallback: 'Prescriptions'),
+            count: _getPrescriptionsCount(),
+            color: Colors.indigo,
+            icon: Icons.description_outlined,
             onTap: () => _tabController.animateTo(5),
           ),
           _buildStatCard(
-            title: 'Pharmacy Status',
+            title: context.tr('lab_orders', fallback: 'Lab Orders'),
+            count: _getLabTestsCount(),
+            color: Colors.teal.shade700,
+            icon: Icons.science_outlined,
+            onTap: () => _tabController.animateTo(6),
+          ),
+          _buildStatCard(
+            title: context.tr('pharmacy_status', fallback: 'Pharmacy Status'),
             count: _getPharmacyCount(),
             color: Colors.purple.shade700,
             icon: Icons.local_pharmacy_outlined,
-            onTap: () => _tabController.animateTo(6),
+            onTap: () => _tabController.animateTo(7),
           ),
         ],
       ),
@@ -604,29 +614,36 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.search,
             size: 18,
-            color: AppTheme.textSecondaryColor,
+            color: AppTheme.getTextSecondaryColor(context),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: TextField(
               controller: _searchCtrl,
+              style: TextStyle(
+                color: AppTheme.getTextPrimaryColor(context),
+                fontSize: 14,
+              ),
               onChanged: (v) => setState(() => _searchQuery = v),
-              decoration: const InputDecoration(
-                hintText: 'Search patient name, ID, or phone...',
+              decoration: InputDecoration(
+                hintText: context.tr('search_opd_hint', fallback: 'Search patient name, ID, or phone...'),
                 hintStyle: TextStyle(
                   fontSize: 13,
-                  color: AppTheme.textSecondaryColor,
+                  color: AppTheme.getTextSecondaryColor(context),
                 ),
+                filled: true,
+                fillColor: Colors.transparent,
+                contentPadding: EdgeInsets.zero,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
@@ -831,9 +848,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                const Icon(Icons.event_available, size: 16),
+                const SizedBox(width: 4),
+                Text('${context.tr('tab_confirmed', fallback: 'Confirmed')} (${_getCountForTab(0)})'),
+              ],
+            ),
+          ),
+          Tab(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 const Icon(Icons.hourglass_empty, size: 16),
                 const SizedBox(width: 4),
-                Text('Waiting (${_getCountForTab(0)})'),
+                Text('${context.tr('tab_waiting', fallback: 'Waiting')} (${_getCountForTab(1)})'),
               ],
             ),
           ),
@@ -843,7 +870,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.medical_services_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Consulting (${_getCountForTab(1)})'),
+                Text('${context.tr('tab_consulting', fallback: 'Consulting')} (${_getCountForTab(2)})'),
               ],
             ),
           ),
@@ -853,7 +880,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.check_circle_outline, size: 16),
                 const SizedBox(width: 4),
-                Text('Completed (${_getCountForTab(2)})'),
+                Text('${context.tr('tab_completed', fallback: 'Completed')} (${_getCountForTab(3)})'),
               ],
             ),
           ),
@@ -863,7 +890,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.cancel_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Cancelled (${_getCountForTab(3)})'),
+                Text('${context.tr('tab_cancelled', fallback: 'Cancelled')} (${_getCountForTab(4)})'),
               ],
             ),
           ),
@@ -873,7 +900,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.description_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Prescriptions (${_getPrescriptionsCount()})'),
+                Text('${context.tr('tab_prescriptions', fallback: 'Prescriptions')} (${_getPrescriptionsCount()})'),
               ],
             ),
           ),
@@ -883,7 +910,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.science_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Lab Orders (${_getLabTestsCount()})'),
+                Text('${context.tr('tab_lab_orders', fallback: 'Lab Orders')} (${_getLabTestsCount()})'),
               ],
             ),
           ),
@@ -893,7 +920,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               children: [
                 const Icon(Icons.local_pharmacy_outlined, size: 16),
                 const SizedBox(width: 4),
-                Text('Pharmacy Status (${_getPharmacyCount()})'),
+                Text('${context.tr('tab_pharmacy_status', fallback: 'Pharmacy Status')} (${_getPharmacyCount()})'),
               ],
             ),
           ),
@@ -946,6 +973,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     // Status colors
     Color statusColor;
     switch (app.status) {
+      case 'Confirmed':
+        statusColor = AppTheme.primaryColor;
+        break;
       case 'Waiting':
       case 'Checked-in':
         statusColor = const Color(0xFF0D9488); // Teal
@@ -963,6 +993,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
       default:
         statusColor = Colors.grey;
     }
+
+    final bool isMobile = widget.isMobile || MediaQuery.of(context).size.width < 900;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -995,8 +1027,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
+                          horizontal: 8,
+                          vertical: 5,
                         ),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.1),
@@ -1015,7 +1047,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             const SizedBox(width: 4),
                             Text(
                               app.status == 'Completed'
-                                  ? '${app.appointmentDate}  ${app.appointmentTime}'
+                                  ? (isMobile ? app.appointmentTime : '${app.appointmentDate}  ${app.appointmentTime}')
                                   : app.appointmentTime,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
@@ -1050,18 +1082,20 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 4,
                           children: [
                             Text(
                               app.patientName,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 16,
+                                fontSize: 15,
                                 color: AppTheme.textPrimaryColor,
                               ),
                             ),
-                            if (app.patientDisplayId != null) ...[
-                              const SizedBox(width: 8),
+                            if (app.patientDisplayId != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 6,
@@ -1084,9 +1118,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                   ),
                                 ),
                               ),
-                            ],
                             // Appointment type badge
-                            const SizedBox(width: 6),
                             Builder(
                               builder: (_) {
                                 final normalized = app.appointmentType
@@ -1126,14 +1158,16 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ],
                         ),
                         const SizedBox(height: 6),
-                        Row(
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 4,
+                          runSpacing: 2,
                           children: [
                             const Icon(
                               Icons.medical_services_outlined,
                               size: 14,
                               color: AppTheme.textSecondaryColor,
                             ),
-                            const SizedBox(width: 6),
                             Text(
                               'Dr. ${app.doctorName}',
                               style: const TextStyle(
@@ -1142,7 +1176,6 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 color: AppTheme.textSecondaryColor,
                               ),
                             ),
-                            const SizedBox(width: 4),
                             Text(
                               '• ${app.department}',
                               style: const TextStyle(
@@ -1154,14 +1187,15 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         ),
                         const SizedBox(height: 4),
                         if (app.patientPhone != null)
-                          Row(
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 4,
                             children: [
                               const Icon(
                                 Icons.phone_outlined,
                                 size: 14,
                                 color: AppTheme.textMutedColor,
                               ),
-                              const SizedBox(width: 6),
                               Text(
                                 app.patientPhone!,
                                 style: const TextStyle(
@@ -1176,94 +1210,86 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   ),
 
                   // Status Pill Summary
+                  const SizedBox(width: 8),
                   _buildStatusBadge(app.status),
                 ],
               ),
               const Divider(height: 16),
 
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              if (isMobile) ...[
+                if (app.bloodPressureSystolic != null ||
+                    app.temperature != null ||
+                    app.sugarLevel != null) ...[
+                  Text(
+                    '${context.tr('patient_vitals_label', fallback: 'Patient Vitals')}:',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      if (app.bloodPressureSystolic != null)
+                        _buildVitalPill(
+                          Icons.speed,
+                          'BP: ${app.bloodPressureSystolic}/${app.bloodPressureDiastolic ?? "--"} mmHg',
+                          Colors.blue.shade700,
+                        ),
+                      if (app.temperature != null)
+                        _buildVitalPill(
+                          Icons.thermostat_outlined,
+                          'Temp: ${app.temperature} °F',
+                          Colors.orange.shade700,
+                        ),
+                      if (app.sugarLevel != null)
+                        _buildVitalPill(
+                          Icons.bloodtype_outlined,
+                          'Sugar: ${app.sugarLevel} mg/dL',
+                          Colors.red.shade700,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                if (app.reasonForVisit != null &&
+                    app.reasonForVisit!.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade100),
+                    ),
+                    child: Row(
                       children: [
-                        // Show Vitals values if they exist (BP, Temp, Sugar)
-                        if (app.bloodPressureSystolic != null ||
-                            app.temperature != null ||
-                            app.sugarLevel != null) ...[
-                          const Text(
-                            'Patient Vitals:',
+                        Icon(
+                          Icons.notes,
+                          size: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${context.tr('complaint_label', fallback: 'Complaint')}: ${app.reasonForVisit}',
                             style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textSecondaryColor,
+                              fontSize: 12,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.grey.shade700,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 8,
-                            children: [
-                              if (app.bloodPressureSystolic != null)
-                                _buildVitalPill(
-                                  Icons.speed,
-                                  'BP: ${app.bloodPressureSystolic}/${app.bloodPressureDiastolic ?? "--"} mmHg',
-                                  Colors.blue.shade700,
-                                ),
-                              if (app.temperature != null)
-                                _buildVitalPill(
-                                  Icons.thermostat_outlined,
-                                  'Temp: ${app.temperature} °F',
-                                  Colors.orange.shade700,
-                                ),
-                              if (app.sugarLevel != null)
-                                _buildVitalPill(
-                                  Icons.bloodtype_outlined,
-                                  'Sugar: ${app.sugarLevel} mg/dL',
-                                  Colors.red.shade700,
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        if (app.reasonForVisit != null &&
-                            app.reasonForVisit!.isNotEmpty) ...[
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade100),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.notes,
-                                  size: 14,
-                                  color: Colors.grey.shade600,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Complaint: ${app.reasonForVisit}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontStyle: FontStyle.italic,
-                                      color: Colors.grey.shade700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                        ),
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Actions Bar
-                  Wrap(
+                  const SizedBox(height: 8),
+                ],
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     alignment: WrapAlignment.end,
@@ -1271,9 +1297,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       OutlinedButton.icon(
                         onPressed: () => _showVisitDetails(app),
                         icon: const Icon(Icons.visibility_outlined, size: 16),
-                        label: const Text(
-                          'View Details',
-                          style: TextStyle(
+                        label: Text(
+                          context.tr('view_details', fallback: 'View Details'),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -1293,8 +1319,37 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ),
                         ),
                       ),
+                      if (app.status != 'Completed' &&
+                          app.status != 'Cancelled' &&
+                          app.status != 'No-Show') ...[
+                        OutlinedButton.icon(
+                          onPressed: () => _showEditAppointmentDialog(app),
+                          icon: const Icon(Icons.edit_outlined, size: 16),
+                          label: Text(
+                            context.tr('edit', fallback: 'Edit'),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            side: const BorderSide(
+                              color: AppTheme.primaryColor,
+                              width: 1.5,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
                       if (app.status == 'Confirmed') ...[
-                        if (!_hasVitals(app)) ...[
+                        if (!_hasVitals(app))
                           ElevatedButton.icon(
                             onPressed: () => _openVitalsDialog(app),
                             icon: const Icon(
@@ -1302,9 +1357,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                               size: 14,
                               color: Colors.white,
                             ),
-                            label: const Text(
-                              'Add Vitals',
-                              style: TextStyle(
+                            label: Text(
+                              context.tr('add_vitals', fallback: 'Add Vitals'),
+                              style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -1321,14 +1376,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                               ),
                             ),
                           ),
-                        ],
-
                         ElevatedButton.icon(
                           onPressed: () => _showCancelAppointmentDialog(app),
                           icon: const Icon(Icons.cancel_outlined, size: 14),
-                          label: const Text(
-                            'Cancel',
-                            style: TextStyle(
+                          label: Text(
+                            context.tr('cancel', fallback: 'Cancel'),
+                            style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -1348,8 +1401,205 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       ],
                     ],
                   ),
-                ],
-              ),
+                ),
+              ] else ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Show Vitals values if they exist (BP, Temp, Sugar)
+                          if (app.bloodPressureSystolic != null ||
+                              app.temperature != null ||
+                              app.sugarLevel != null) ...[
+                            Text(
+                              '${context.tr('patient_vitals_label', fallback: 'Patient Vitals')}:',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                if (app.bloodPressureSystolic != null)
+                                  _buildVitalPill(
+                                    Icons.speed,
+                                    'BP: ${app.bloodPressureSystolic}/${app.bloodPressureDiastolic ?? "--"} mmHg',
+                                    Colors.blue.shade700,
+                                  ),
+                                if (app.temperature != null)
+                                  _buildVitalPill(
+                                    Icons.thermostat_outlined,
+                                    'Temp: ${app.temperature} °F',
+                                    Colors.orange.shade700,
+                                  ),
+                                if (app.sugarLevel != null)
+                                  _buildVitalPill(
+                                    Icons.bloodtype_outlined,
+                                    'Sugar: ${app.sugarLevel} mg/dL',
+                                    Colors.red.shade700,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          if (app.reasonForVisit != null &&
+                              app.reasonForVisit!.isNotEmpty) ...[
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.grey.shade100),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.notes,
+                                    size: 14,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '${context.tr('complaint_label', fallback: 'Complaint')}: ${app.reasonForVisit}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontStyle: FontStyle.italic,
+                                        color: Colors.grey.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Actions Bar
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: () => _showVisitDetails(app),
+                          icon: const Icon(Icons.visibility_outlined, size: 16),
+                          label: Text(
+                            context.tr('view_details', fallback: 'View Details'),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            side: const BorderSide(
+                              color: AppTheme.primaryColor,
+                              width: 1.5,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        if (app.status != 'Completed' &&
+                            app.status != 'Cancelled' &&
+                            app.status != 'No-Show') ...[
+                          OutlinedButton.icon(
+                            onPressed: () => _showEditAppointmentDialog(app),
+                            icon: const Icon(Icons.edit_outlined, size: 16),
+                            label: Text(
+                              context.tr('edit', fallback: 'Edit'),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(
+                                color: AppTheme.primaryColor,
+                                width: 1.5,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (app.status == 'Confirmed') ...[
+                          if (!_hasVitals(app))
+                            ElevatedButton.icon(
+                              onPressed: () => _openVitalsDialog(app),
+                              icon: const Icon(
+                                Icons.monitor_heart,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                              label: Text(
+                                context.tr('add_vitals', fallback: 'Add Vitals'),
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F766E),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ElevatedButton.icon(
+                            onPressed: () => _showCancelAppointmentDialog(app),
+                            icon: const Icon(Icons.cancel_outlined, size: 14),
+                            label: Text(
+                              context.tr('cancel', fallback: 'Cancel'),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red.shade600,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -1461,6 +1711,860 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     );
   }
 
+  void _showEditAppointmentDialog(AppointmentModel app) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final reasonCtrl = TextEditingController(
+      text: 'Walk-in appointment doctor reassignment and reschedule',
+    );
+    String? selectedDoctor = app.doctorName;
+    try {
+      final matchedDoc = _doctors.firstWhere(
+        (d) => _isSameDoctor(d.fullname, selectedDoctor),
+      );
+      selectedDoctor = matchedDoc.fullname;
+    } catch (_) {}
+
+    DateTime? newDate;
+    try {
+      newDate = DateFormatter.toDateTime(app.appointmentDate);
+    } catch (_) {
+      newDate = DateTime.now();
+    }
+    String? newTime = app.appointmentTime;
+    String? department = app.department;
+    bool isSaving = false;
+    String? reasonError;
+
+    String? validateReason(String? val) {
+      if (val == null || val.trim().isEmpty) {
+        return 'Override reason is required.';
+      }
+      final text = val.trim();
+      if (text.length < 3) {
+        return 'Override reason must be at least 3 characters.';
+      }
+      if (text.length > 100) {
+        return 'Override reason cannot exceed 100 characters.';
+      }
+      if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
+        return 'Override reason must contain at least one letter.';
+      }
+      if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;]+$').hasMatch(text)) {
+        return 'Override reason contains invalid characters.';
+      }
+      return null;
+    }
+
+    Set<String> computeOccupiedFromMemory(DateTime? date, String? doctor) {
+      if (date == null) return {};
+      final Set<String> occupied = {};
+      for (final a in _appointments) {
+        if (a.id != null && a.id == app.id) continue;
+        if (a.status.toLowerCase() == 'cancelled' ||
+            a.status.toLowerCase() == 'no-show') continue;
+        if (doctor != null && doctor.trim().isNotEmpty) {
+          if (!_isSameDoctor(a.doctorName, doctor)) continue;
+        }
+        if (_isSameDate(a.appointmentDate, date)) {
+          occupied.add(_normalizeTime(a.appointmentTime));
+        }
+      }
+      return occupied;
+    }
+
+    Set<String> occupiedSlots = computeOccupiedFromMemory(newDate, selectedDoctor);
+    bool isLoadingSlots = false;
+    String? slotConflictError;
+    bool hasInitializedSlots = false;
+
+    Future<void> loadOccupiedSlots(
+      DateTime? date,
+      String? doctor,
+      void Function(void Function()) updateState,
+    ) async {
+      if (date == null) {
+        updateState(() {
+          occupiedSlots = {};
+          isLoadingSlots = false;
+        });
+        return;
+      }
+      final initialOccupied = computeOccupiedFromMemory(date, doctor);
+      updateState(() {
+        occupiedSlots = initialOccupied;
+        isLoadingSlots = true;
+        slotConflictError = null;
+      });
+      try {
+        final dateDb = DateFormat('yyyy-MM-dd').format(date);
+        final appts = await _appointmentController.fetchAdminAppointments(date: dateDb);
+        final Set<String> occupied = Set<String>.from(initialOccupied);
+        for (final a in appts) {
+          if (a.id != null && a.id == app.id) continue;
+          if (a.status.toLowerCase() == 'cancelled' ||
+              a.status.toLowerCase() == 'no-show') continue;
+          if (doctor != null && doctor.trim().isNotEmpty) {
+            if (!_isSameDoctor(a.doctorName, doctor)) continue;
+          }
+          if (_isSameDate(a.appointmentDate, date)) {
+            occupied.add(_normalizeTime(a.appointmentTime));
+          }
+        }
+        updateState(() {
+          occupiedSlots = occupied;
+          isLoadingSlots = false;
+          if (newTime != null && occupiedSlots.contains(_normalizeTime(newTime!))) {
+            newTime = null;
+          }
+        });
+      } catch (e) {
+        updateState(() {
+          occupiedSlots = initialOccupied;
+          isLoadingSlots = false;
+        });
+      }
+    }
+
+    List<String> getEligibleDoctors() {
+      final List<String> list = _doctors
+          .where((d) => d.status.toLowerCase() != 'inactive' && !d.isDeleted)
+          .map((d) => d.fullname)
+          .where((name) => name.trim().isNotEmpty)
+          .toSet()
+          .toList();
+      if (list.isEmpty) {
+        list.addAll(
+          _doctors
+              .map((d) => d.fullname)
+              .where((name) => name.trim().isNotEmpty)
+              .toSet(),
+        );
+      }
+      if (list.isEmpty) {
+        list.addAll(
+          _appointments
+              .map((a) => a.doctorName)
+              .where((name) => name.trim().isNotEmpty)
+              .toSet(),
+        );
+      }
+      list.sort((a, b) => a.compareTo(b));
+      if (selectedDoctor != null && selectedDoctor!.trim().isNotEmpty) {
+        final existingMatch = list.firstWhere(
+          (doc) => _isSameDoctor(doc, selectedDoctor),
+          orElse: () => '',
+        );
+        if (existingMatch.isEmpty) {
+          list.insert(0, selectedDoctor!);
+        } else if (selectedDoctor != existingMatch) {
+          selectedDoctor = existingMatch;
+        }
+      }
+      return list;
+    }
+
+    List<String> getFilteredSlots(DateTime? date, String? doctorName) {
+      if (date == null) return [];
+      UserModel? doctor;
+      if (doctorName != null && doctorName.trim().isNotEmpty) {
+        try {
+          doctor = _doctors.firstWhere(
+            (d) => _isSameDoctor(d.fullname, doctorName),
+          );
+        } catch (_) {}
+      }
+      if (doctor == null) return _generateDefaultSlots();
+
+      final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      final dayName = weekDays[date.weekday - 1];
+      final dateStr = DateFormat('dd/MM/yyyy').format(date);
+
+      bool isAvailable = false;
+      if (doctor.availableDays == null ||
+          doctor.availableDays!.isEmpty ||
+          doctor.availableDays!.contains(dayName)) {
+        isAvailable = true;
+      }
+      if (doctor.weeklyOffDays != null && doctor.weeklyOffDays!.contains(dayName)) {
+        isAvailable = false;
+      }
+      if (doctor.specificLeaveDates != null && doctor.specificLeaveDates!.contains(dateStr)) {
+        isAvailable = false;
+      }
+      if (!isAvailable) return [];
+      final allSlots = _generateSlotsForDoctor(doctor);
+      final now = DateTime.now();
+      final bool isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+      if (!isToday) return allSlots;
+
+      int duration = 30;
+      if (doctor.slotDuration != null && doctor.slotDuration!.trim().isNotEmpty) {
+        final digits = RegExp(r'\d+').firstMatch(doctor.slotDuration!)?.group(0);
+        if (digits != null) duration = int.tryParse(digits) ?? 30;
+      }
+      if (duration <= 0) duration = 30;
+
+      return allSlots.where((slot) {
+        try {
+          final slotDt = _parseTime(slot);
+          final slotEnd = DateTime(now.year, now.month, now.day, slotDt.hour, slotDt.minute).add(Duration(minutes: duration));
+          if (slotEnd.isBefore(now)) return false;
+        } catch (_) {}
+        return true;
+      }).toList();
+    }
+
+    if (_doctors.isEmpty) {
+      _adminController.fetchStaff(role: 'Doctor').then((docs) {
+        if (docs.isNotEmpty && mounted) {
+          setState(() {
+            _doctors = docs;
+          });
+        }
+      });
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) {
+          if (!hasInitializedSlots) {
+            hasInitializedSlots = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              loadOccupiedSlots(newDate, selectedDoctor, setS);
+            });
+          }
+
+          Widget buildField(String label, Widget child) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondaryColor,
+                ),
+              ),
+              const SizedBox(height: 6),
+              child,
+              const SizedBox(height: 14),
+            ],
+          );
+
+          final eligibleDoctors = getEligibleDoctors();
+          final availableSlots = getFilteredSlots(newDate, selectedDoctor);
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.edit_calendar_outlined,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  _isWalkIn(app)
+                      ? 'Edit Walk-in Appointment'
+                      : 'Edit Appointment',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: MediaQuery.of(ctx).size.width > 520
+                  ? 480
+                  : MediaQuery.of(ctx).size.width * 0.9,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 12),
+                    // Patient info card
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundColor,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.person_outline,
+                                size: 16,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '${app.patientName} ${app.patientDisplayId != null ? "(${app.patientDisplayId})" : ""}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: AppTheme.textPrimaryColor,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0D9488).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: const Color(0xFF0D9488).withOpacity(0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  app.appointmentType,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF0D9488),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.access_time_outlined,
+                                size: 14,
+                                color: AppTheme.textMutedColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${app.appointmentDate} • ${app.appointmentTime}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textMutedColor,
+                                ),
+                              ),
+                              const Spacer(),
+                              Text(
+                                'Dr. ${app.doctorName}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 12),
+
+                    // 1. Reassign Doctor
+                    buildField(
+                      'Reassign Doctor *',
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: 'Select doctor',
+                        value: eligibleDoctors.contains(selectedDoctor)
+                            ? selectedDoctor
+                            : null,
+                        dropdownItems: eligibleDoctors,
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setS(() {
+                            selectedDoctor = v;
+                            newTime = null;
+                            try {
+                              final docModel = _doctors.firstWhere(
+                                (d) => _isSameDoctor(d.fullname, v),
+                              );
+                              if (docModel.specialization != null &&
+                                  docModel.specialization!.trim().isNotEmpty) {
+                                department = docModel.specialization;
+                              }
+                            } catch (_) {}
+                            occupiedSlots = computeOccupiedFromMemory(newDate, v);
+                          });
+                          loadOccupiedSlots(newDate, v, setS);
+                        },
+                      ),
+                    ),
+
+                    // 2. Reschedule Appointment Date
+                    buildField(
+                      'Reschedule Date *',
+                      InkWell(
+                        onTap: () async {
+                          DateTime initDate = newDate ?? DateTime.now();
+                          final now = DateTime.now();
+                          final today = DateTime(now.year, now.month, now.day);
+                          if (initDate.isBefore(today)) initDate = today;
+
+                          final d = await showDatePicker(
+                            context: ctx,
+                            initialDate: initDate,
+                            firstDate: today,
+                            lastDate: DateTime.now().add(const Duration(days: 365)),
+                          );
+                          if (d != null) {
+                            setS(() {
+                              newDate = d;
+                              newTime = null;
+                              occupiedSlots = computeOccupiedFromMemory(d, selectedDoctor);
+                            });
+                            loadOccupiedSlots(d, selectedDoctor, setS);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppTheme.borderColor),
+                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.white,
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 16,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                newDate != null
+                                    ? DateFormat('dd/MM/yyyy').format(newDate!)
+                                    : 'Pick a date',
+                                style: TextStyle(
+                                  color: newDate != null
+                                      ? AppTheme.textPrimaryColor
+                                      : AppTheme.textSecondaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // 3. Reschedule Time Slot
+                    buildField(
+                      'Appointment Time Slot *',
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (isLoadingSlots) ...[
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                children: const [
+                                  SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Checking schedule & booked slots...',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                          if (availableSlots.isEmpty) ...[
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.0),
+                              child: Text(
+                                'No slots available for this doctor on this date.',
+                                style: TextStyle(color: Colors.red, fontSize: 12),
+                              ),
+                            ),
+                          ] else ...[
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                childAspectRatio: 2.3,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                              ),
+                              itemCount: availableSlots.length,
+                              itemBuilder: (context, index) {
+                                final time = availableSlots[index];
+                                final isOccupied =
+                                    occupiedSlots.contains(_normalizeTime(time));
+                                final isSelected = newTime != null &&
+                                    _normalizeTime(newTime!) ==
+                                        _normalizeTime(time);
+
+                                return InkWell(
+                                  onTap: () {
+                                    if (isOccupied) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Time slot $time is already booked for Dr. ${selectedDoctor ?? "this doctor"}.',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    setS(() {
+                                      newTime = time;
+                                      slotConflictError = null;
+                                    });
+                                  },
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isOccupied
+                                          ? const Color(0xFFF1F5F9)
+                                          : isSelected
+                                              ? AppTheme.primaryColor
+                                              : Colors.white,
+                                      border: Border.all(
+                                        color: isOccupied
+                                            ? Colors.red.shade200
+                                            : isSelected
+                                                ? AppTheme.primaryColor
+                                                : AppTheme.borderColor,
+                                        width: isSelected ? 1.5 : 1.0,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          time,
+                                          style: TextStyle(
+                                            color: isOccupied
+                                                ? Colors.grey.shade600
+                                                : isSelected
+                                                    ? Colors.white
+                                                    : AppTheme.textPrimaryColor,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.w500,
+                                            fontSize: 11,
+                                            decoration: isOccupied
+                                                ? TextDecoration.lineThrough
+                                                : null,
+                                          ),
+                                        ),
+                                        if (isOccupied) ...[
+                                          const SizedBox(height: 2),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 4,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.red.shade50,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: Colors.red.shade200,
+                                                width: 0.5,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'Booked',
+                                              style: TextStyle(
+                                                color: Colors.red.shade700,
+                                                fontSize: 8.5,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                          if (newTime == null)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                'Please select a time slot',
+                                style: TextStyle(color: Colors.red, fontSize: 11),
+                              ),
+                            ),
+                          if (slotConflictError != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              slotConflictError!,
+                              style: const TextStyle(
+                                color: AppTheme.dangerColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    // 4. Override Reason
+                    buildField(
+                      'Override Reason *',
+                      TextFormField(
+                        controller: reasonCtrl,
+                        maxLines: 2,
+                        maxLength: 100,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        validator: validateReason,
+                        decoration: InputDecoration(
+                          hintText:
+                              'Enter reason for reassigning doctor / rescheduling',
+                          filled: true,
+                          fillColor: const Color(0xFFF1F5F9),
+                          counterText: '${reasonCtrl.text.length}/100',
+                          errorText: reasonError,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: AppTheme.borderColor),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide:
+                                const BorderSide(color: AppTheme.borderColor),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppTheme.primaryColor,
+                              width: 1.5,
+                            ),
+                          ),
+                          errorBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                              color: AppTheme.dangerColor,
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        onChanged: (value) => setS(() {
+                          reasonError = validateReason(value);
+                        }),
+                      ),
+                    ),
+
+                    // Audit Info
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF7ED),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFDBA74)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.shield_outlined,
+                            size: 14,
+                            color: Color(0xFFF97316),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Modified by: ${user?.fullname ?? ''} (${user?.role ?? ''})',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF92400E),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              OutlinedButton(
+                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(120, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 14,
+                  ),
+                ),
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        final reasonValidation = validateReason(reasonCtrl.text);
+                        if (reasonValidation != null) {
+                          setS(() => reasonError = reasonValidation);
+                          return;
+                        }
+                        if (newDate == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a date.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        if (newTime == null || newTime!.trim().isEmpty) {
+                          setS(
+                            () => slotConflictError =
+                                'Please select an available time slot.',
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select an available time slot.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        if (occupiedSlots.contains(_normalizeTime(newTime!))) {
+                          setS(
+                            () => slotConflictError =
+                                'The selected time slot ($newTime) is already booked.',
+                          );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Time slot $newTime is already booked for Dr. ${selectedDoctor ?? "this doctor"}.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        if (app.id == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Cannot edit appointment without a valid ID.'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        setS(() => isSaving = true);
+                        try {
+                          await _appointmentController.adminOverrideAppointment(
+                            id: app.id!,
+                            status: app.status,
+                            doctorName: selectedDoctor,
+                            appointmentDate:
+                                DateFormat('yyyy-MM-dd').format(newDate!),
+                            appointmentTime: newTime,
+                            patientName: app.patientName,
+                            department: department,
+                            appointmentType: app.appointmentType,
+                            overrideReason: reasonCtrl.text.trim(),
+                          );
+                          if (mounted) {
+                            Navigator.pop(ctx);
+                            _loadData();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                  'Appointment updated successfully.',
+                                ),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  e.toString().replaceAll('Exception: ', ''),
+                                ),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        } finally {
+                          if (mounted) setS(() => isSaving = false);
+                        }
+                      },
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Save Changes',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _showVitalsMissingDialog(
     BuildContext context,
     AppointmentModel appt,
@@ -1548,29 +2652,143 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
 
   Future<void> _showCancelAppointmentDialog(AppointmentModel app) async {
     final cancelReasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
 
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Appointment'),
-        content: TextField(
-          controller: cancelReasonController,
-          decoration: const InputDecoration(
-            hintText: 'Enter cancellation reason (required)',
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.dangerColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.cancel_outlined,
+                color: AppTheme.dangerColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Cancel Appointment',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Form(
+            key: formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Are you sure you want to cancel the appointment for ${app.patientName}?',
+                  style: const TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Reason for Cancellation *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: cancelReasonController,
+                  maxLines: 3,
+                  maxLength: 200,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                    ),
+                    LengthLimitingTextInputFormatter(200),
+                  ],
+                  validator: (val) {
+                    final v = val?.trim() ?? '';
+                    if (v.isEmpty) {
+                      return 'Please enter a cancellation reason';
+                    }
+                    if (v.length < 3) {
+                      return 'Reason must be at least 3 characters';
+                    }
+                    if (v.length > 200) {
+                      return 'Reason cannot exceed 200 characters';
+                    }
+                    if (!RegExp(r'[a-zA-Z]').hasMatch(v)) {
+                      return 'Reason must contain alphabetic characters';
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Patient requested cancellation due to personal emergency',
+                    hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                    fillColor: const Color(0xFFF1F5F9),
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          maxLines: 2,
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Back'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.textSecondaryColor,
+              side: const BorderSide(color: AppTheme.borderColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: const Text('Keep Appointment'),
           ),
           ElevatedButton(
             onPressed: () async {
-              if (cancelReasonController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Reason is required')),
-                );
+              if (!formKey.currentState!.validate()) {
                 return;
               }
 
@@ -1586,7 +2804,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('${app.patientName} cancelled ✓'),
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppTheme.dangerColor,
                     ),
                   );
                 }
@@ -1595,15 +2813,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(e.toString()),
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppTheme.dangerColor,
                     ),
                   );
                 }
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.dangerColor,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             child: const Text('Cancel Appointment'),
           ),
@@ -1648,22 +2869,30 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 });
           }
 
+          final screenWidth = MediaQuery.of(context).size.width;
+          final screenHeight = MediaQuery.of(context).size.height;
+          final bool isMobileDialog = screenWidth < 768;
+
           return Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
             backgroundColor: Colors.white,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobileDialog ? 12 : 40,
+              vertical: isMobileDialog ? 20 : 40,
+            ),
             child: SizedBox(
-              width: 800,
-              height: 600,
+              width: isMobileDialog ? screenWidth : 800,
+              height: isMobileDialog ? screenHeight * 0.88 : 600,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // Premium Card Header
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 20,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobileDialog ? 16 : 24,
+                      vertical: 16,
                     ),
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(
@@ -1677,45 +2906,44 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       ),
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.assignment_outlined,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  app.patientName,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.assignment_outlined,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                app.patientName,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
                                 ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'ID: ${app.patientDisplayId ?? 'N/A'} • Contact: ${app.patientPhone ?? 'N/A'}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white.withOpacity(0.8),
-                                  ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'ID: ${app.patientDisplayId ?? 'N/A'} • Contact: ${app.patientPhone ?? 'N/A'}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.white.withOpacity(0.8),
                                 ),
-                              ],
-                            ),
-                          ],
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
                         IconButton(
                           onPressed: () => Navigator.pop(context),
@@ -1728,14 +2956,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   // Content Body
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Left Column: Patient & Appointment details + vitals
-                          Expanded(
-                            flex: 5,
-                            child: Column(
+                      padding: EdgeInsets.all(isMobileDialog ? 16 : 24),
+                      child: isMobileDialog
+                          ? Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
@@ -1789,44 +3012,33 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     ),
                                   ),
                                   const SizedBox(height: 12),
-                                  Row(
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
                                     children: [
                                       if (app.bloodPressureSystolic != null)
-                                        Expanded(
-                                          child: _buildVitalPillCard(
-                                            'Blood Pressure',
-                                            '${app.bloodPressureSystolic}/${app.bloodPressureDiastolic}',
-                                            'mmHg',
-                                            Icons.favorite,
-                                            Colors.red,
-                                          ),
+                                        _buildVitalPillCard(
+                                          'Blood Pressure',
+                                          '${app.bloodPressureSystolic}/${app.bloodPressureDiastolic}',
+                                          'mmHg',
+                                          Icons.favorite,
+                                          Colors.red,
                                         ),
-                                      if (app.bloodPressureSystolic != null &&
-                                          (app.temperature != null ||
-                                              app.sugarLevel != null))
-                                        const SizedBox(width: 8),
                                       if (app.temperature != null)
-                                        Expanded(
-                                          child: _buildVitalPillCard(
-                                            'Temperature',
-                                            '${app.temperature}',
-                                            '°F',
-                                            Icons.thermostat,
-                                            Colors.orange,
-                                          ),
+                                        _buildVitalPillCard(
+                                          'Temperature',
+                                          '${app.temperature}',
+                                          '°F',
+                                          Icons.thermostat,
+                                          Colors.orange,
                                         ),
-                                      if (app.temperature != null &&
-                                          app.sugarLevel != null)
-                                        const SizedBox(width: 8),
                                       if (app.sugarLevel != null)
-                                        Expanded(
-                                          child: _buildVitalPillCard(
-                                            'Blood Sugar',
-                                            '${app.sugarLevel}',
-                                            'mg/dL',
-                                            Icons.water_drop,
-                                            Colors.blue,
-                                          ),
+                                        _buildVitalPillCard(
+                                          'Blood Sugar',
+                                          '${app.sugarLevel}',
+                                          'mg/dL',
+                                          Icons.water_drop,
+                                          Colors.blue,
                                         ),
                                     ],
                                   ),
@@ -1864,25 +3076,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(height: 20),
                                 ],
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 24),
-                          // Vertical Divider
-                          Container(
-                            width: 1,
-                            height: 480,
-                            color: Colors.grey.shade200,
-                          ),
-                          const SizedBox(width: 24),
 
-                          // Right Column: Clinical Consult findings / Status Timeline Log
-                          Expanded(
-                            flex: 6,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                                const Divider(),
+                                const SizedBox(height: 20),
+
+                                // Clinical Consult findings
                                 if (app.status == 'Completed') ...[
                                   const Text(
                                     'Clinical Consultation Findings',
@@ -1934,8 +3134,6 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                   ),
                                   child: Builder(
                                     builder: (_) {
-                                      // Prefer the freshly-fetched consultation's
-                                      // changes_log; fall back to app.changesLog
                                       final timelineData =
                                           (consultation != null &&
                                               consultation!['changes_log'] !=
@@ -1956,10 +3154,235 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                   ),
                                 ),
                               ],
+                            )
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Left Column: Patient & Appointment details + vitals
+                                Expanded(
+                                  flex: 5,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Appointment Details',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade50,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: Colors.grey.shade200,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            _detailItem(
+                                              'Assigned Doctor',
+                                              app.doctorName,
+                                            ),
+                                            _detailItem('Department', app.department),
+                                            _detailItem(
+                                              'Date / Time',
+                                              '${app.appointmentDate} • ${app.appointmentTime}',
+                                            ),
+                                            _detailItem(
+                                              'Session Status',
+                                              app.status,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 20),
+
+                                      // Vitals Card
+                                      if (app.bloodPressureSystolic != null ||
+                                          app.temperature != null ||
+                                          app.sugarLevel != null) ...[
+                                        const Text(
+                                          'Patient Vitals',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          children: [
+                                            if (app.bloodPressureSystolic != null)
+                                              Expanded(
+                                                child: _buildVitalPillCard(
+                                                  'Blood Pressure',
+                                                  '${app.bloodPressureSystolic}/${app.bloodPressureDiastolic}',
+                                                  'mmHg',
+                                                  Icons.favorite,
+                                                  Colors.red,
+                                                ),
+                                              ),
+                                            if (app.bloodPressureSystolic != null &&
+                                                (app.temperature != null ||
+                                                    app.sugarLevel != null))
+                                              const SizedBox(width: 8),
+                                            if (app.temperature != null)
+                                              Expanded(
+                                                child: _buildVitalPillCard(
+                                                  'Temperature',
+                                                  '${app.temperature}',
+                                                  '°F',
+                                                  Icons.thermostat,
+                                                  Colors.orange,
+                                                ),
+                                              ),
+                                            if (app.temperature != null &&
+                                                app.sugarLevel != null)
+                                              const SizedBox(width: 8),
+                                            if (app.sugarLevel != null)
+                                              Expanded(
+                                                child: _buildVitalPillCard(
+                                                  'Blood Sugar',
+                                                  '${app.sugarLevel}',
+                                                  'mg/dL',
+                                                  Icons.water_drop,
+                                                  Colors.blue,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 20),
+                                      ],
+
+                                      if (app.reasonForVisit != null &&
+                                          app.reasonForVisit!.isNotEmpty) ...[
+                                        const Text(
+                                          'Reason for Visit',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(12),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade50,
+                                            border: Border.all(
+                                              color: Colors.amber.shade100,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            app.reasonForVisit!,
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.amber.shade900,
+                                              height: 1.4,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 24),
+                                // Vertical Divider
+                                Container(
+                                  width: 1,
+                                  height: 480,
+                                  color: Colors.grey.shade200,
+                                ),
+                                const SizedBox(width: 24),
+
+                                // Right Column: Clinical Consult findings / Status Timeline Log
+                                Expanded(
+                                  flex: 6,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (app.status == 'Completed') ...[
+                                        const Text(
+                                          'Clinical Consultation Findings',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        if (isLoadingConsul)
+                                          const Center(
+                                            child: Padding(
+                                              padding: EdgeInsets.all(16),
+                                              child: CircularProgressIndicator(),
+                                            ),
+                                          )
+                                        else if (consultation == null)
+                                          const Text(
+                                            'No consultation details recorded yet.',
+                                            style: TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.grey,
+                                            ),
+                                          )
+                                        else ...[
+                                          _buildConsultationSummary(consultation!),
+                                        ],
+                                        const SizedBox(height: 24),
+                                      ],
+
+                                      const Text(
+                                        'Status Timeline Log',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade50,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: Colors.grey.shade200,
+                                          ),
+                                        ),
+                                        child: Builder(
+                                          builder: (_) {
+                                            final timelineData =
+                                                (consultation != null &&
+                                                    consultation!['changes_log'] !=
+                                                        null)
+                                                ? consultation!['changes_log']
+                                                : app.changesLog;
+                                            return timelineData != null
+                                                ? _buildTimeline(timelineData)
+                                                : const Text(
+                                                    'No status changes recorded yet.',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color:
+                                                          AppTheme.textSecondaryColor,
+                                                    ),
+                                                  );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
 
@@ -1975,6 +3398,37 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
+                        if (app.status != 'Completed' &&
+                            app.status != 'Cancelled' &&
+                            app.status != 'No-Show') ...[
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _showEditAppointmentDialog(app);
+                            },
+                            icon: const Icon(Icons.edit_outlined, size: 16),
+                            label: Text(
+                              context.tr('edit_appointment', fallback: 'Edit Appointment'),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(
+                                color: AppTheme.primaryColor,
+                                width: 1.5,
+                              ),
+                              minimumSize: const Size(120, 48),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 14,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context),
                           style: ElevatedButton.styleFrom(
@@ -2470,21 +3924,23 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 80,
+            width: 120,
             child: Text(
               '$label:',
               style: const TextStyle(
                 color: AppTheme.textSecondaryColor,
                 fontWeight: FontWeight.w600,
+                fontSize: 13,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
             ),
           ),
         ],
@@ -2602,9 +4058,22 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               const SizedBox(height: 16),
               TextField(
                 controller: reasonController,
-                decoration: const InputDecoration(
+                maxLength: 100,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                  ),
+                  LengthLimitingTextInputFormatter(100),
+                ],
+                decoration: InputDecoration(
                   labelText: 'Override Reason (Mandatory)',
                   hintText: 'Explain why you are changing the status...',
+                  fillColor: const Color(0xFFF1F5F9),
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppTheme.borderColor),
+                  ),
                 ),
                 maxLines: 2,
               ),
@@ -2620,10 +4089,27 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
               onPressed: isSaving
                   ? null
                   : () async {
-                      if (reasonController.text.trim().isEmpty) {
+                      final text = reasonController.text.trim();
+                      if (text.isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Please provide a reason'),
+                            content: Text('Please provide an override reason'),
+                          ),
+                        );
+                        return;
+                      }
+                      if (text.length < 3) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Override reason must be at least 3 characters.'),
+                          ),
+                        );
+                        return;
+                      }
+                      if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Override reason must contain at least one letter.'),
                           ),
                         );
                         return;
@@ -2682,16 +4168,107 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return DateTime(2026, 1, 1, hour, minute);
   }
 
-  List<String> _generateSlotsForDoctor(UserModel doctor) {
-    if (doctor.slotStartTime == null || doctor.slotEndTime == null) {
-      List<String> slots = [];
-      DateTime start = DateTime(2026, 1, 1, 9, 0);
-      DateTime end = DateTime(2026, 1, 1, 13, 0);
-      while (start.isBefore(end)) {
-        slots.add(DateFormat('hh:mm a').format(start));
-        start = start.add(const Duration(minutes: 30));
+  String _cleanDoctorName(String? name) {
+    if (name == null) return '';
+    return name.replaceAll(RegExp(r'^(dr\.?|doctor)\s*', caseSensitive: false), '').trim().toLowerCase();
+  }
+
+  bool _isSameDoctor(String? doc1, String? doc2) {
+    if (doc1 == null || doc2 == null) return false;
+    final c1 = _cleanDoctorName(doc1);
+    final c2 = _cleanDoctorName(doc2);
+    return c1.isNotEmpty && (c1 == c2 || c1.contains(c2) || c2.contains(c1));
+  }
+
+  bool _isSameDate(dynamic date1, dynamic date2) {
+    if (date1 == null || date2 == null) return false;
+    DateTime? d1;
+    DateTime? d2;
+
+    if (date1 is DateTime) {
+      d1 = date1;
+    } else if (date1 is String) {
+      d1 = DateFormatter.toDateTime(date1);
+      if (d1 == null) {
+        final clean = date1.trim().split('T')[0];
+        final parts = clean.contains('/') ? clean.split('/') : clean.split('-');
+        if (parts.length == 3) {
+          if (parts[0].length == 4) {
+            d1 = DateTime.tryParse('$clean 00:00:00');
+          } else if (parts[2].length == 4) {
+            d1 = DateTime.tryParse('${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')} 00:00:00');
+          }
+        }
       }
-      return slots;
+    }
+
+    if (date2 is DateTime) {
+      d2 = date2;
+    } else if (date2 is String) {
+      d2 = DateFormatter.toDateTime(date2);
+      if (d2 == null) {
+        final clean = date2.trim().split('T')[0];
+        final parts = clean.contains('/') ? clean.split('/') : clean.split('-');
+        if (parts.length == 3) {
+          if (parts[0].length == 4) {
+            d2 = DateTime.tryParse('$clean 00:00:00');
+          } else if (parts[2].length == 4) {
+            d2 = DateTime.tryParse('${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')} 00:00:00');
+          }
+        }
+      }
+    }
+
+    if (d1 == null || d2 == null) return false;
+    return d1.year == d2.year && d1.month == d2.month && d1.day == d2.day;
+  }
+
+  String _normalizeTime(String? timeStr) {
+    if (timeStr == null || timeStr.trim().isEmpty) return '';
+    try {
+      final s = timeStr.trim().toUpperCase();
+      final hasAm = s.contains('AM');
+      final hasPm = s.contains('PM');
+      
+      final cleaned = s.replaceAll('AM', '').replaceAll('PM', '').trim();
+      final parts = cleaned.split(':');
+      if (parts.isEmpty) return timeStr.trim();
+      
+      int h = int.parse(parts[0]);
+      int m = parts.length > 1 ? int.parse(parts[1]) : 0;
+      
+      if (hasPm && h < 12) h += 12;
+      if (hasAm && h == 12) h = 0;
+      
+      final period = h >= 12 ? 'PM' : 'AM';
+      int h12 = h % 12;
+      if (h12 == 0) h12 = 12;
+      return '${h12.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period';
+    } catch (_) {
+      return timeStr.trim();
+    }
+  }
+
+  List<String> _generateDefaultSlots() {
+    List<String> slots = [];
+    DateTime mStart = DateTime(2026, 1, 1, 9, 0);
+    DateTime mEnd = DateTime(2026, 1, 1, 13, 0);
+    while (mStart.isBefore(mEnd)) {
+      slots.add(DateFormat('hh:mm a').format(mStart));
+      mStart = mStart.add(const Duration(minutes: 30));
+    }
+    DateTime aStart = DateTime(2026, 1, 1, 14, 0);
+    DateTime aEnd = DateTime(2026, 1, 1, 17, 0);
+    while (aStart.isBefore(aEnd)) {
+      slots.add(DateFormat('hh:mm a').format(aStart));
+      aStart = aStart.add(const Duration(minutes: 30));
+    }
+    return slots;
+  }
+
+  List<String> _generateSlotsForDoctor(UserModel? doctor) {
+    if (doctor == null || doctor.slotStartTime == null || doctor.slotEndTime == null) {
+      return _generateDefaultSlots();
     }
 
     int duration = 30;
@@ -2709,9 +4286,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
         slots.add(DateFormat('hh:mm a').format(current));
         current = current.add(Duration(minutes: duration));
       }
+      if (slots.isEmpty) {
+        return _generateDefaultSlots();
+      }
       return slots;
     } catch (e) {
-      return [];
+      return _generateDefaultSlots();
     }
   }
 
@@ -2878,28 +4458,29 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 availableSlots = _generateSlotsForDoctor(
                                   doctor,
                                 );
+                                int duration = 30;
+                                if (doctor.slotDuration != null && doctor.slotDuration!.trim().isNotEmpty) {
+                                  final digits = RegExp(r'\d+').firstMatch(doctor.slotDuration!)?.group(0);
+                                  if (digits != null) duration = int.tryParse(digits) ?? 30;
+                                }
+                                if (duration <= 0) duration = 30;
+
                                 availableSlots = availableSlots.where((slot) {
+                                  try {
+                                    final slotDt = _parseTime(slot);
+                                    final slotEnd = DateTime(now.year, now.month, now.day, slotDt.hour, slotDt.minute).add(Duration(minutes: duration));
+                                    if (slotEnd.isBefore(now)) return false;
+                                  } catch (_) {}
+
                                   bool isBooked = _appointments.any(
                                     (a) =>
-                                        a.doctorName == doctor.fullname &&
-                                        a.appointmentTime == slot &&
+                                        _isSameDoctor(a.doctorName, doctor.fullname) &&
+                                        _isSameDate(a.appointmentDate, now) &&
+                                        _normalizeTime(a.appointmentTime) == _normalizeTime(slot) &&
                                         a.status != 'Cancelled' &&
                                         a.status != 'No-Show',
                                   );
-                                  if (isBooked) return false;
-                                  try {
-                                    DateTime slotTime = _parseTime(slot);
-                                    DateTime fullSlotTime = DateTime(
-                                      now.year,
-                                      now.month,
-                                      now.day,
-                                      slotTime.hour,
-                                      slotTime.minute,
-                                    );
-                                    return fullSlotTime.isAfter(now);
-                                  } catch (e) {
-                                    return true;
-                                  }
+                                  return !isBooked;
                                 }).toList();
                               }
                             });
@@ -3272,6 +4853,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             'reason_for_visit': complaintCtrl.text.trim(),
                           };
                           final newApp = AppointmentModel(
+                            doctorId: selectedDoctor?.id,
                             patientId: selectedPatient!.id!,
                             patientName: selectedPatient!.name,
                             department:

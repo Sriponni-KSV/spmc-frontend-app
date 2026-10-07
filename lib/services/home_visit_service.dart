@@ -1,4 +1,3 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/home_visit_model.dart';
 import 'api_service.dart';
 import '../config/api_config.dart';
@@ -294,8 +293,9 @@ class HomeVisitService {
     int visitId,
     String attenderName,
     String attenderRelation,
-    String signatureUrl,
-  ) async {
+    String signatureUrl, {
+    String? feedback,
+  }) async {
     try {
       final response = await ApiService.post(
         '$baseUrl/home-visits/$visitId/verify-and-bill',
@@ -303,6 +303,8 @@ class HomeVisitService {
           'attender_name': attenderName,
           'attender_relation': attenderRelation,
           'attender_signature_url': signatureUrl,
+          if (feedback != null && feedback.trim().isNotEmpty)
+            'feedback': feedback.trim(),
         },
       );
       final body = ApiService.decodeJsonResponse(response);
@@ -517,7 +519,7 @@ class HomeVisitService {
     }
   }
 
-  // Delete/Deactivate Procedure Master
+  // Delete Procedure Master
   Future<void> deleteProcedureMaster(int procedureId) async {
     try {
       final response = await ApiService.delete(
@@ -525,7 +527,7 @@ class HomeVisitService {
       );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to deactivate procedure');
+        throw Exception(body['message'] ?? 'Failed to remove procedure');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
@@ -582,7 +584,7 @@ class HomeVisitService {
     }
   }
 
-  // Soft Delete / Deactivate Consumable Item Master
+  // Delete Consumable Item Master
   Future<void> deleteConsumableMaster(int id) async {
     try {
       final response = await ApiService.delete(
@@ -591,7 +593,7 @@ class HomeVisitService {
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
         throw Exception(
-          body['message'] ?? 'Failed to deactivate consumable item',
+          body['message'] ?? 'Failed to remove consumable item',
         );
       }
     } catch (e) {
@@ -652,7 +654,7 @@ class HomeVisitService {
     }
   }
 
-  // Soft Delete / Deactivate Master Carried Kit Item
+  // Delete Master Carried Kit Item
   Future<void> deleteKitItemMaster(int id) async {
     try {
       final response = await ApiService.delete(
@@ -660,10 +662,29 @@ class HomeVisitService {
       );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] != true) {
-        throw Exception(body['message'] ?? 'Failed to deactivate kit item');
+        throw Exception(body['message'] ?? 'Failed to remove kit item');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Parse voice dictation into structured multi-tab fields via AI
+  Future<Map<String, dynamic>> parseDictation(String dictationText) async {
+    try {
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/dictate',
+        {'dictationText': dictationText},
+      );
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true) {
+        return Map<String, dynamic>.from(body['data'] ?? {});
+      } else {
+        throw Exception(body['message'] ?? 'Failed to parse dictation');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll("Exception: ", ""));
     }
   }
 }
+

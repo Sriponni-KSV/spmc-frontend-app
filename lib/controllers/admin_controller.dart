@@ -1,10 +1,11 @@
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 
+import '../config/api_config.dart';
+
 class AdminController {
-  String get baseUrl => dotenv.env['BASE_URL']!;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
   Future<void> createStaff({
     required String fullname,
@@ -71,11 +72,11 @@ class AdminController {
   }
 }
 
- Future<List<UserModel>> fetchStaff({String? role, bool showDeleted = false})  async {
+  Future<List<UserModel>> fetchStaff({String? role}) async {
     try {
-      String url = '$baseUrl/admin/staff?showDeleted=$showDeleted';
+      String url = '$baseUrl/admin/staff';
       if (role != null && role != 'All') {
-        url += '&role=$role';
+        url += '?role=$role';
       }
 
       final response = await ApiService.get(url);
@@ -85,10 +86,39 @@ class AdminController {
         final List data = body['data'] ?? [];
         return data.map((e) => UserModel.fromJson(e)).toList();
       } else {
-        throw Exception(body['message'] ?? 'Failed to fetch staff');
+        throw Exception(body['message'] ?? body['error'] ?? 'Failed to fetch staff');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<Map<String, dynamic>> checkDuplicateStaff({
+    String? email,
+    String? mobile,
+    int? excludeId,
+  }) async {
+    try {
+      final queryParams = <String>[];
+      if (email != null && email.trim().isNotEmpty) {
+        queryParams.add('email=${Uri.encodeComponent(email.trim())}');
+      }
+      if (mobile != null && mobile.trim().isNotEmpty) {
+        queryParams.add('mobile=${Uri.encodeComponent(mobile.trim())}');
+      }
+      if (excludeId != null) {
+        queryParams.add('excludeId=$excludeId');
+      }
+      final url = '$baseUrl/admin/check-duplicate?${queryParams.join('&')}';
+      final response = await ApiService.get(url);
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        return body['data'] as Map<String, dynamic>? ?? {};
+      }
+      return {};
+    } catch (e) {
+      print('Error checking duplicate staff: $e');
+      return {};
     }
   }
 
@@ -249,7 +279,7 @@ class AdminController {
       if (response.statusCode == 200 && body['success'] == true) {
         return Map<String, dynamic>.from(body['data'] ?? {});
       } else {
-        throw Exception(body['message'] ?? 'Failed to fetch dashboard stats');
+        throw Exception(body['message'] ?? body['error'] ?? 'Failed to fetch dashboard stats');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));

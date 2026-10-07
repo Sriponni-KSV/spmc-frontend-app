@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
+import '../utils/tamil_transliteration_helper.dart';
 
 // --- Models ---
 
@@ -10,6 +12,7 @@ class PatientModel {
   final String name;
   final String age;
   final String phone;
+  final String patientId;
   final String initials;
   final Map<String, dynamic>? originalData;
 
@@ -17,6 +20,7 @@ class PatientModel {
     required this.name,
     required this.age,
     required this.phone,
+    this.patientId = '',
     required this.initials,
     this.originalData,
   });
@@ -51,20 +55,26 @@ class _StatCardState extends State<StatCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
+    final cardBg = isDark ? AppTheme.darkCardColor : Colors.white;
+    final cardBorder = isDark ? AppTheme.darkBorderColor : const Color(0xFFE8EDF2);
+    final textColor = isDark ? AppTheme.darkTextPrimaryColor : const Color(0xFF1A202C);
+    final subTextColor = isDark ? AppTheme.darkTextSecondaryColor : const Color(0xFF718096);
+
     Widget card = MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: cardBg,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
               color: _isHovered
                   ? widget.color.withOpacity(0.12)
-                  : Colors.black.withOpacity(0.04),
+                  : (isDark ? Colors.black.withOpacity(0.2) : Colors.black.withOpacity(0.04)),
               blurRadius: _isHovered ? 16 : 6,
               offset: const Offset(0, 2),
             ),
@@ -72,27 +82,27 @@ class _StatCardState extends State<StatCard> {
           border: Border.all(
             color: _isHovered
                 ? widget.color.withOpacity(0.35)
-                : const Color(0xFFE8EDF2),
+                : cardBorder,
           ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(9),
+              padding: EdgeInsets.all(widget.isMobile ? 7 : 9),
               decoration: BoxDecoration(
                 color: widget.color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(widget.icon, color: widget.color, size: 20),
+              child: Icon(widget.icon, color: widget.color, size: widget.isMobile ? 18 : 20),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: widget.isMobile ? 10 : 14),
             Text(
               widget.value,
-              style: const TextStyle(
-                fontSize: 26,
+              style: TextStyle(
+                fontSize: widget.isMobile ? 22 : 26,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF1A202C),
+                color: textColor,
                 letterSpacing: -0.5,
               ),
               maxLines: 1,
@@ -101,9 +111,9 @@ class _StatCardState extends State<StatCard> {
             const SizedBox(height: 3),
             Text(
               widget.title,
-              style: const TextStyle(
-                color: Color(0xFF718096),
-                fontSize: 12,
+              style: TextStyle(
+                color: subTextColor,
+                fontSize: widget.isMobile ? 11 : 12,
                 fontWeight: FontWeight.w500,
               ),
               maxLines: 1,
@@ -114,12 +124,6 @@ class _StatCardState extends State<StatCard> {
       ),
     );
 
-    if (widget.isMobile) {
-      return SizedBox(
-        width: (MediaQuery.of(context).size.width - 48) / 2,
-        child: card,
-      );
-    }
     return card;
   }
 }
@@ -156,14 +160,15 @@ class _LiveClockState extends State<LiveClock> {
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = widget.isDark || AppTheme.isDark(context);
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: widget.isDark ? const Color(0xFF0F5132).withOpacity(0.4) : AppTheme.backgroundColor,
+        color: isDarkMode ? AppTheme.darkCardColor : AppTheme.backgroundColor,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: widget.isDark ? Colors.white.withOpacity(0.15) : AppTheme.borderColor.withOpacity(0.3),
+          color: isDarkMode ? AppTheme.darkBorderColor : AppTheme.borderColor.withOpacity(0.3),
         ),
       ),
       child: Row(
@@ -172,7 +177,7 @@ class _LiveClockState extends State<LiveClock> {
           Icon(
             Icons.access_time,
             size: 16,
-            color: widget.isDark ? Colors.white70 : AppTheme.primaryColor,
+            color: isDarkMode ? AppTheme.secondaryColor : AppTheme.primaryColor,
           ),
           const SizedBox(width: 10),
           Column(
@@ -184,7 +189,7 @@ class _LiveClockState extends State<LiveClock> {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
-                  color: widget.isDark ? Colors.white : AppTheme.textPrimaryColor,
+                  color: isDarkMode ? AppTheme.darkTextPrimaryColor : AppTheme.textPrimaryColor,
                 ),
               ),
               Text(
@@ -192,7 +197,7 @@ class _LiveClockState extends State<LiveClock> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
-                  color: widget.isDark ? Colors.white70 : AppTheme.primaryColor,
+                  color: isDarkMode ? AppTheme.secondaryColor : AppTheme.primaryColor,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -307,6 +312,9 @@ class CustomSpeedDial extends StatefulWidget {
 class _CustomSpeedDialState extends State<CustomSpeedDial>
     with SingleTickerProviderStateMixin {
   bool _isOpen = false;
+  bool _isDragging = false;
+  static const double _right = 24.0;
+  double _bottom = 24.0;
   late AnimationController _controller;
   late Animation<double> _expandAnimation;
 
@@ -353,109 +361,142 @@ class _CustomSpeedDialState extends State<CustomSpeedDial>
       return const SizedBox.shrink();
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        if (_isOpen)
-          ...widget.children.asMap().entries.map((entry) {
-            SpeedDialChild child = entry.value;
+    final double screenHeight = MediaQuery.of(context).size.height;
+    // Limit vertical dragging to strictly half (50%) of the screen height
+    final double maxBottom = (screenHeight * 0.50).clamp(24.0, double.infinity);
+    final double clampedBottom = _bottom.clamp(24.0, maxBottom);
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: FadeTransition(
-                opacity: _expandAnimation,
-                child: ScaleTransition(
-                  alignment: Alignment.bottomRight,
-                  scale: _expandAnimation,
-                  child: InkWell(
-                    onTap: () {
-                      _toggle();
-                      child.onTap();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 14,
-                      ),
-                      decoration: BoxDecoration(
-                        color: child.color,
-                        borderRadius: BorderRadius.circular(32),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(child.icon, color: Colors.white, size: 24),
-                          const SizedBox(width: 12),
-                          Text(
-                            child.label,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.white,
-                              fontFamily: AppTheme.fontFamily,
+    return Positioned(
+      right: _right,
+      bottom: clampedBottom,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (_isOpen)
+            ...widget.children.asMap().entries.map((entry) {
+              SpeedDialChild child = entry.value;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: FadeTransition(
+                  opacity: _expandAnimation,
+                  child: ScaleTransition(
+                    alignment: Alignment.bottomRight,
+                    scale: _expandAnimation,
+                    child: InkWell(
+                      onTap: () {
+                        _toggle();
+                        child.onTap();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          color: child.color,
+                          borderRadius: BorderRadius.circular(32),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(child.icon, color: Colors.white, size: 24),
+                            const SizedBox(width: 12),
+                            Text(
+                              child.label,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: Colors.white,
+                                fontFamily: AppTheme.fontFamily,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
-        const SizedBox(height: 8),
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: GestureDetector(
-            onTap: _toggle,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: _isOpen
-                    ? const Color(0xFFE53E3E)
-                    : AppTheme.primaryColor,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  transitionBuilder: (Widget child, Animation<double> anim) {
-                    return RotationTransition(
-                      turns: _isOpen
-                          ? anim
-                          : Tween<double>(begin: 0.125, end: 0).animate(anim),
-                      child: FadeTransition(opacity: anim, child: child),
-                    );
-                  },
-                  child: Icon(
-                    _isOpen ? Icons.close : Icons.add,
-                    key: ValueKey<bool>(_isOpen),
-                    color: Colors.white,
-                    size: 32,
+              );
+            }),
+          const SizedBox(height: 8),
+          MouseRegion(
+            cursor: SystemMouseCursors.allScroll,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggle,
+              onPanStart: (_) {
+                setState(() {
+                  _isDragging = true;
+                });
+              },
+              onPanUpdate: (details) {
+                setState(() {
+                  // Only up and down: dragging up decreases dy -> increases bottom
+                  _bottom = (_bottom - details.delta.dy).clamp(24.0, maxBottom);
+                });
+              },
+              onPanEnd: (_) {
+                setState(() {
+                  _isDragging = false;
+                });
+              },
+              onPanCancel: () {
+                setState(() {
+                  _isDragging = false;
+                });
+              },
+              child: AnimatedContainer(
+                duration: _isDragging
+                    ? Duration.zero
+                    : const Duration(milliseconds: 250),
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: _isOpen
+                      ? const Color(0xFFE53E3E)
+                      : AppTheme.primaryColor,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.3),
+                      blurRadius: 15,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    transitionBuilder: (Widget child, Animation<double> anim) {
+                      return RotationTransition(
+                        turns: _isOpen
+                            ? anim
+                            : Tween<double>(begin: 0.125, end: 0).animate(anim),
+                        child: FadeTransition(opacity: anim, child: child),
+                      );
+                    },
+                    child: Icon(
+                      _isOpen ? Icons.close : Icons.add,
+                      key: ValueKey<bool>(_isOpen),
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -497,22 +538,62 @@ class _SearchOverlayState extends State<SearchOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final String query = _searchController.text.toLowerCase();
+    final String query = _searchController.text.toLowerCase().trim();
     final List<PatientModel> displayPatients = (widget.patients ?? [])
         .map((p) {
-          String name = p['name']?.toString() ?? 'Unknown';
+          String name = p['name']?.toString() ??
+              p['full_name']?.toString() ??
+              p['patient_name']?.toString() ??
+              'Unknown';
           String age = p['age']?.toString() ?? '-';
-          String phone = p['phone']?.toString() ?? '-';
+          String phone = p['phone']?.toString() ??
+              p['mobile_number']?.toString() ??
+              p['phone_number']?.toString() ??
+              '-';
+          final rawPid = p['patient_id'] ??
+              p['patientId'] ??
+              p['patient_display_id'] ??
+              p['display_id'] ??
+              p['uhid'];
+          String patientId = (rawPid != null && rawPid.toString().trim().isNotEmpty)
+              ? rawPid.toString().trim()
+              : '';
           String initials = '?';
           if (name.trim().isNotEmpty) {
-            final parts = name.trim().split(' ').where((part) => part.isNotEmpty).take(2).toList();
+            final parts = name
+                .trim()
+                .split(' ')
+                .where((part) => part.isNotEmpty)
+                .take(2)
+                .toList();
             if (parts.isNotEmpty) {
               initials = parts.map((part) => part[0].toUpperCase()).join('');
             }
           }
-          return PatientModel(name: name, age: '${age}y', phone: phone, initials: initials, originalData: p);
+          return PatientModel(
+            name: name,
+            age: '${age}y',
+            phone: phone,
+            patientId: patientId,
+            initials: initials,
+            originalData: p,
+          );
         })
-        .where((p) => p.name.toLowerCase().contains(query) || p.phone.contains(query))
+        .where((p) {
+          if (query.isEmpty) return true;
+          final transliteratedName =
+              TamilTransliterationHelper.transliterate(p.name).toLowerCase();
+          return p.name.toLowerCase().contains(query) ||
+              transliteratedName.contains(query) ||
+              p.phone.toLowerCase().contains(query) ||
+              p.patientId.toLowerCase().contains(query) ||
+              (p.originalData?['id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['patient_id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['patientId']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['display_id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['patient_display_id']?.toString().toLowerCase().contains(query) ?? false) ||
+              (p.originalData?['uhid']?.toString().toLowerCase().contains(query) ?? false);
+        })
         .toList();
 
     return CallbackShortcuts(
@@ -562,14 +643,19 @@ class _SearchOverlayState extends State<SearchOverlay> {
                             fontSize: 18,
                             fontFamily: AppTheme.fontFamily,
                           ),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             hintText:
-                                'Search patients, appointments, or actions...',
-                            hintStyle: TextStyle(color: AppTheme.iconColor),
+                                context.tr('search_patients_placeholder', fallback: 'Search patients by name, ID, phone, or actions...'),
+                            hintStyle: const TextStyle(color: AppTheme.iconColor),
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
+                            errorBorder: InputBorder.none,
+                            focusedErrorBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            filled: false,
                             fillColor: Colors.transparent,
+                            contentPadding: EdgeInsets.zero,
                           ),
                         ),
                       ),
@@ -598,11 +684,11 @@ class _SearchOverlayState extends State<SearchOverlay> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildSectionTitle('Quick Actions'),
+                        _buildSectionTitle(context.tr('quick_actions', fallback: 'Quick Actions')),
                         const SizedBox(height: 16),
                         _buildQuickAction(
                           icon: Icons.person_add_alt_1_outlined,
-                          label: 'New Patient',
+                          label: context.tr('new_patient', fallback: 'New Patient'),
                           color: AppTheme.dangerColor,
                           onTap: () {
                             Navigator.of(context).pop();
@@ -615,7 +701,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                           const SizedBox(height: 12),
                           _buildQuickAction(
                             icon: Icons.calendar_month_outlined,
-                            label: 'Book Appointment',
+                            label: context.tr('book_appointment', fallback: 'Book Appointment'),
                             color: AppTheme.primaryColor,
                             onTap: () {
                               Navigator.of(context).pop();
@@ -625,14 +711,14 @@ class _SearchOverlayState extends State<SearchOverlay> {
                         ],
 
                         const SizedBox(height: 32),
-                        _buildSectionTitle('Patients (${displayPatients.length})'),
+                        _buildSectionTitle('${context.tr('patients', fallback: 'Patients')} (${displayPatients.length})'),
                         const SizedBox(height: 16),
                         if (displayPatients.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16.0),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16.0),
                             child: Text(
-                              'No patients found.',
-                              style: TextStyle(color: AppTheme.textSecondaryColor),
+                              context.tr('no_patients_found', fallback: 'No patients found.'),
+                              style: const TextStyle(color: AppTheme.textSecondaryColor),
                             ),
                           )
                         else
@@ -660,7 +746,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   ),
                   child: Row(
                     children: [
-                      _buildShortcutHint('Esc', 'to close'),
+                      _buildShortcutHint('Esc', context.tr('to_close', fallback: 'to close')),
                     ],
                   ),
                 ),
@@ -721,6 +807,16 @@ class _SearchOverlayState extends State<SearchOverlay> {
   }
 
   Widget _buildPatientItem(PatientModel patient) {
+    final bool isTamil =
+        Localizations.localeOf(context).languageCode == 'ta';
+    final String displayName = TamilTransliterationHelper.formatName(
+      patient.name,
+      isTamil: isTamil,
+      showBoth: true,
+    );
+    final String ageDisplay =
+        isTamil ? patient.age.replaceAll('y', ' வய') : patient.age;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -755,7 +851,7 @@ class _SearchOverlayState extends State<SearchOverlay> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  patient.name,
+                  displayName,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -764,12 +860,37 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
-                Text(
-                  '${patient.age} • ${patient.phone}',
-                  style: const TextStyle(
-                    color: AppTheme.textSecondaryColor,
-                    fontSize: 13,
-                  ),
+                Row(
+                  children: [
+                    if (patient.patientId.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          patient.patientId,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    Text(
+                      '$ageDisplay • ${patient.phone}',
+                      style: const TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -789,9 +910,9 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   borderRadius: BorderRadius.circular(6),
                 ),
               ),
-              child: const Text(
-                'Book',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              child: Text(
+                context.tr('book', fallback: 'Book'),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
             ),
         ],
@@ -853,9 +974,22 @@ class PatientInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool hasQuickTag = tags.any((t) => t.toLowerCase() == 'quick');
-    final List<String> otherTags = tags.where((t) => t.toLowerCase() != 'quick').toList();
+    final bool hasQuickTag = tags.any((t) {
+      final l = t.trim().toLowerCase();
+      return l == 'quick' || l == 'விரைவு';
+    });
+    final List<String> otherTags = tags.where((t) {
+      final l = t.trim().toLowerCase();
+      return l != 'quick' && l != 'விரைவு';
+    }).toList();
 
+    final bool isTamil =
+        Localizations.localeOf(context).languageCode == 'ta';
+    final String displayName = TamilTransliterationHelper.formatName(
+      name,
+      isTamil: isTamil,
+      showBoth: true,
+    );
     final avatarColors = AppTheme.getAvatarColors(name);
 
     return Container(
@@ -896,7 +1030,7 @@ class PatientInfoCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
+                      displayName,
                       style: const TextStyle(
                         fontWeight: FontWeight.w500,
                         fontSize: 15,
@@ -919,7 +1053,7 @@ class PatientInfoCard extends StatelessWidget {
                 ),
               ),
               if (hasQuickTag) 
-                const HealthTag(label: 'Quick'),
+                HealthTag(label: context.tr('quick_tag', fallback: 'Quick')),
             ],
           ),
           const SizedBox(height: 16),
@@ -942,9 +1076,9 @@ class PatientInfoCard extends StatelessWidget {
                     size: 16,
                     color: AppTheme.primaryColor,
                   ),
-                  label: const Text(
-                    'View',
-                    style: TextStyle(
+                  label: Text(
+                    context.tr('view', fallback: 'View'),
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: AppTheme.primaryColor,
@@ -970,9 +1104,9 @@ class PatientInfoCard extends StatelessWidget {
                     size: 16,
                     color: Colors.white,
                   ),
-                  label: const Text(
-                    'Book',
-                    style: TextStyle(
+                  label: Text(
+                    context.tr('book', fallback: 'Book'),
+                    style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: Colors.white,
@@ -1008,22 +1142,45 @@ class HealthTag extends StatelessWidget {
     Color color;
     Color bgColor;
 
-    switch (label.toLowerCase()) {
+    final lower = label.trim().toLowerCase();
+    String displayLabel = label;
+
+    switch (lower) {
       case 'diabetic':
+      case 'நீரிழிவு':
         color = AppTheme.dangerColor;
         bgColor = AppTheme.dangerBg;
+        displayLabel = context.tr('diabetic_tag', fallback: 'Diabetic');
         break;
       case 'high risk':
+      case 'அதிக ஆபத்து':
         color = AppTheme.dangerColor;
         bgColor = AppTheme.dangerBg;
+        displayLabel = context.tr('high_risk', fallback: 'High Risk');
         break;
       case 'hypertension':
+      case 'உயர் இரத்த அழுத்தம்':
         color = AppTheme.dangerColor;
         bgColor = AppTheme.dangerBg;
+        displayLabel = context.tr('hypertension', fallback: 'Hypertension');
         break;
       case 'quick':
+      case 'விரைவு':
         color = const Color(0xFF805AD5);
         bgColor = const Color(0xFFFAF5FF);
+        displayLabel = context.tr('quick_tag', fallback: 'Quick');
+        break;
+      case 'male':
+      case 'ஆண்':
+        color = AppTheme.primaryColor;
+        bgColor = AppTheme.primaryColor.withOpacity(0.1);
+        displayLabel = context.tr('male', fallback: 'Male');
+        break;
+      case 'female':
+      case 'பெண்':
+        color = const Color(0xFFD53F8C);
+        bgColor = const Color(0xFFFFF5F7);
+        displayLabel = context.tr('female', fallback: 'Female');
         break;
       default:
         color = AppTheme.primaryColor;
@@ -1037,7 +1194,7 @@ class HealthTag extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        label,
+        displayLabel,
         style: TextStyle(
           color: color,
           fontSize: 11,

@@ -1,10 +1,12 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
 import '../utils/app_theme.dart';
+import '../utils/capitalize_formatter.dart';
 import '../models/user_model.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../providers/auth_provider.dart';
@@ -40,6 +42,12 @@ import 'home_visit_execution_screen.dart';
 import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
+import '../config/admin_nav_config.dart';
+import 'ipd_beds_catalog_view.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/app_top_bar_actions.dart';
+import '../providers/language_provider.dart';
+import '../utils/tamil_transliteration_helper.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -65,15 +73,19 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
-  bool _isCatalogMenuExpanded = true;
+  bool _isCatalogMenuExpanded = false;
   String _selectedRoleFilter = 'All';
   String _selectedStatusFilter = 'All';
   final AdminController _adminController = AdminController();
 
   String _totalStaffCount = '--';
-  String _activeSessionsCount = '--';
-  String _systemHealthPercent = '--';
-  String _securityAlertsCount = '--';
+  String _totalPatientsCount = '--';
+  String _todayAppointmentsCount = '--';
+  String _activeHomeVisitsCount = '--';
+  List<double> _weeklyStaffData = [0, 0, 0, 0, 0, 0, 0];
+  String _selectedStaffOverviewFilter = 'This Week';
+  int _selectedStaffOverviewDayIndex = (DateTime.now().weekday - 1).clamp(0, 6);
+  List<UserModel> _allStaffList = [];
   bool _isLoadingDashboardStats = false;
 
   Future<List<UserModel>>? _staffFuture;
@@ -82,7 +94,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final ScrollController _horizontalScrollController = ScrollController();
   final ScrollController _shiftAllocHorizontalScrollController =
       ScrollController();
-  bool _showDeleted = false;
   final FocusNode _mainFocusNode = FocusNode();
   List<PatientModel> _dbPatients = [];
   final PatientController _patientController = PatientController();
@@ -237,6 +248,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _viewPatient = widget.viewPatient;
     _viewingStaffProfile = widget.viewingStaffProfile;
     _selectedHomeVisitId = widget.selectedHomeVisitId;
+    _isCatalogMenuExpanded = widget.initialIndex == 13 ||
+        widget.initialIndex == 14 ||
+        widget.initialIndex == 15 ||
+        widget.initialIndex == 16;
     _loadStaff();
     _loadRbacData();
     _fetchPatients();
@@ -255,6 +270,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         widget.viewingStaffProfile != oldWidget.viewingStaffProfile ||
         widget.selectedHomeVisitId != oldWidget.selectedHomeVisitId) {
       _selectedIndex = widget.initialIndex;
+      if (widget.initialIndex == 13 ||
+          widget.initialIndex == 14 ||
+          widget.initialIndex == 15) {
+        _isCatalogMenuExpanded = true;
+      }
       _isRegisteringPatient = widget.isRegisteringPatient;
       _patientToComplete = widget.existingPatient;
       _viewPatient = widget.viewPatient;
@@ -262,7 +282,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       _selectedHomeVisitId = widget.selectedHomeVisitId;
 
       if (_selectedIndex == 1) {
-        _staffFuture = _adminController.fetchStaff(showDeleted: _showDeleted);
+        _staffFuture = _adminController.fetchStaff();
       }
       if (_selectedIndex == 8) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -355,9 +375,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (mounted) {
         setState(() {
           _totalStaffCount = stats['totalStaff']?.toString() ?? '--';
-          _activeSessionsCount = stats['activeSessions']?.toString() ?? '--';
-          _systemHealthPercent = stats['systemHealth']?.toString() ?? '--';
-          _securityAlertsCount = stats['securityAlerts']?.toString() ?? '--';
+          _totalPatientsCount = stats['totalPatients']?.toString() ??
+              stats['activeSessions']?.toString() ??
+              '--';
+          _todayAppointmentsCount = stats['todayAppointments']?.toString() ?? '--';
+          _activeHomeVisitsCount = stats['activeHomeVisits']?.toString() ?? '--';
+          if (stats['weeklyStaffOverview'] != null &&
+              stats['weeklyStaffOverview'] is List) {
+            final List list = stats['weeklyStaffOverview'];
+            _weeklyStaffData =
+                list.map((e) => (e as num).toDouble()).toList();
+          }
         });
       }
     } catch (e) {
@@ -369,11 +397,176 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  void _loadStaff() {
+  void _loadStaff() async {
+    final future = _adminController.fetchStaff();
     setState(() {
-      _staffFuture = _adminController.fetchStaff(showDeleted: _showDeleted);
+      _staffFuture = future;
     });
+    try {
+      final staff = await future;
+      if (mounted) {
+        setState(() {
+          _allStaffList = staff;
+        });
+        _computeWeeklyStaffData(staff);
+      }
+    } catch (_) {}
     _loadDashboardStats();
+  }
+
+  bool _isUserOnDutyOnDay(UserModel u, String day) {
+    if (u.status.toLowerCase() != 'active') return false;
+    final d = day.toLowerCase();
+
+    if (u.role.toLowerCase() == 'doctor') {
+      final avail = u.availableDays;
+      final off = u.weeklyOffDays;
+      if (avail != null && avail.isNotEmpty) {
+        return avail.any((x) => x.toLowerCase().startsWith(d));
+      } else if (off != null && off.isNotEmpty) {
+        return !off.any((x) => x.toLowerCase().startsWith(d));
+      } else {
+        return d != 'sun';
+      }
+    } else if (u.role.toLowerCase() == 'nurse') {
+      final working = u.workingDays;
+      final off = u.weeklyOffDays;
+      if (working != null && working.isNotEmpty) {
+        return working.any((x) => x.toLowerCase().startsWith(d));
+      } else if (off != null && off.isNotEmpty) {
+        return !off.any((x) => x.toLowerCase().startsWith(d));
+      } else {
+        return d != 'sun';
+      }
+    } else {
+      final off = u.weeklyOffDays;
+      if (off != null && off.isNotEmpty) {
+        return !off.any((x) => x.toLowerCase().startsWith(d));
+      } else {
+        return d != 'sun';
+      }
+    }
+  }
+
+  String _getUserOffReason(UserModel u, String day) {
+    final d = day.toLowerCase();
+    if (u.status.toLowerCase() != 'active') return 'Account Inactive';
+    if (d == 'sun') return 'Sunday Hospital Routine Off';
+
+    if (u.role.toLowerCase() == 'doctor') {
+      final avail = u.availableDays;
+      final off = u.weeklyOffDays;
+      if (avail != null && avail.isNotEmpty) {
+        return 'Available on ${avail.join(", ")} only';
+      } else if (off != null && off.isNotEmpty) {
+        return 'Scheduled Weekly Off';
+      }
+    } else if (u.role.toLowerCase() == 'nurse') {
+      final working = u.workingDays;
+      final off = u.weeklyOffDays;
+      if (working != null && working.isNotEmpty) {
+        return 'Available on ${working.join(", ")} only';
+      } else if (off != null && off.isNotEmpty) {
+        return 'Scheduled Weekly Off';
+      }
+    } else {
+      final off = u.weeklyOffDays;
+      if (off != null && off.isNotEmpty) {
+        return 'Scheduled Weekly Off';
+      }
+    }
+    return 'Off Duty';
+  }
+
+  void _computeWeeklyStaffData(List<UserModel> staff) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final activeStaff = staff
+        .where((u) => u.status.toLowerCase() == 'active')
+        .toList();
+    final counts = days.map((day) {
+      int count = 0;
+      for (final u in activeStaff) {
+        if (_isUserOnDutyOnDay(u, day)) count++;
+      }
+      return count.toDouble();
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        _weeklyStaffData = counts;
+      });
+    }
+  }
+
+  List<double> _getFilteredWeeklyStaffData() {
+    if (_allStaffList.isEmpty) {
+      return _weeklyStaffData.isNotEmpty
+          ? _weeklyStaffData
+          : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    }
+
+    final activeStaff = _allStaffList
+        .where((u) => u.status.toLowerCase() == 'active')
+        .where((u) {
+          if (_selectedStaffOverviewFilter == 'Doctors') {
+            return u.role.toLowerCase() == 'doctor';
+          } else if (_selectedStaffOverviewFilter == 'Nurses') {
+            return u.role.toLowerCase() == 'nurse';
+          } else if (_selectedStaffOverviewFilter == 'Admin & Support') {
+            return u.role.toLowerCase() != 'doctor' &&
+                u.role.toLowerCase() != 'nurse';
+          }
+          return true; // 'This Week' (All Staff)
+        })
+        .toList();
+
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days.map((day) {
+      int count = 0;
+      for (final u in activeStaff) {
+        if (_isUserOnDutyOnDay(u, day)) count++;
+      }
+      return count.toDouble();
+    }).toList();
+  }
+
+  Map<String, dynamic> _getDayStaffBreakdown(int dayIndex) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final day = days[dayIndex.clamp(0, 6)];
+
+    final activeStaff = _allStaffList
+        .where((u) => u.status.toLowerCase() == 'active')
+        .toList();
+
+    final onDutyDoctors = <UserModel>[];
+    final onDutyNurses = <UserModel>[];
+    final onDutySupport = <UserModel>[];
+    final offDutyStaff = <UserModel>[];
+
+    for (final u in activeStaff) {
+      if (_isUserOnDutyOnDay(u, day)) {
+        if (u.role.toLowerCase() == 'doctor') {
+          onDutyDoctors.add(u);
+        } else if (u.role.toLowerCase() == 'nurse') {
+          onDutyNurses.add(u);
+        } else {
+          onDutySupport.add(u);
+        }
+      } else {
+        offDutyStaff.add(u);
+      }
+    }
+
+    return {
+      'day': day,
+      'totalOnDuty': onDutyDoctors.length + onDutyNurses.length + onDutySupport.length,
+      'totalOffDuty': offDutyStaff.length,
+      'totalActive': activeStaff.length,
+      'doctors': onDutyDoctors,
+      'nurses': onDutyNurses,
+      'support': onDutySupport,
+      'offDuty': offDutyStaff,
+    };
   }
 
   void _loadRbacData() {
@@ -394,472 +587,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showEditDialog(BuildContext context, UserModel user) {
-    final String initialName = (user.rawFullname ?? '').trim();
-    final String initialEmail = user.email.trim();
-    final String initialMobile = (user.mobile ?? '').trim();
-    final String initialRole = user.role;
-    final String initialStatus = user.status;
-    final int? initialSpecializationId = user.specializationId;
-
-    final nameCtrl = TextEditingController(text: user.rawFullname);
-    final emailCtrl = TextEditingController(text: user.email);
-    final mobileCtrl = TextEditingController(text: user.mobile);
-    final editFormKey = GlobalKey<FormState>();
-    String selectedRole = user.role;
-    String selectedStatus = user.status;
-    int? selectedSpecializationId = user.specializationId;
-    List<Map<String, dynamic>> specializations = [];
-    bool isSaving = false;
-    bool isLoadingSpecializations = false;
-
-    List<String> availableRoles = [];
-    bool isLoadingRoles = false;
-    String? dialogError;
-
-    bool hasChanges() {
-      final currentName = nameCtrl.text.trim();
-      final currentEmail = emailCtrl.text.trim();
-      final currentMobile = mobileCtrl.text.trim();
-      final currentRole = selectedRole;
-      final currentStatus = selectedStatus;
-      final currentSpecId =
-          selectedRole == 'Doctor' ? selectedSpecializationId : null;
-      final origSpecId =
-          initialRole == 'Doctor' ? initialSpecializationId : null;
-
-      return currentName != initialName ||
-          currentEmail != initialEmail ||
-          currentMobile != initialMobile ||
-          currentRole != initialRole ||
-          currentStatus != initialStatus ||
-          currentSpecId != origSpecId;
-    }
-
-    // Initial sync
-    if (!availableRoles.contains(selectedRole)) {
-      availableRoles.add(selectedRole);
-    }
-
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          // Initialize specializations once if needed
-          if (specializations.isEmpty && !isLoadingSpecializations) {
-            setDialogState(() => isLoadingSpecializations = true);
-            _adminController
-                .fetchSpecializations()
-                .then((specs) {
-                  setDialogState(() {
-                    specializations = specs;
-                    isLoadingSpecializations = false;
-                  });
-                })
-                .catchError((e) {
-                  setDialogState(() => isLoadingSpecializations = false);
-                });
-          }
-
-          // Initialize roles dynamically
-          if (availableRoles.length <= 1 && !isLoadingRoles) {
-            setDialogState(() => isLoadingRoles = true);
-            _adminController
-                .fetchRbacData()
-                .then((rbacData) {
-                  setDialogState(() {
-                    final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
-                    final currentUserRole = Provider.of<AuthProvider>(
-                      ctx,
-                      listen: false,
-                    ).user?.role;
-
-                    // Allow Super Admin to assign any role. Admin can only assign Doctor/Nurse/Front Desk/Anaesthetist
-                    final orderedRoles = [
-                      'Super Admin',
-                      'Admin',
-                      'Doctor',
-                      'Nurse',
-                      'Anaesthetist',
-                      'Front Desk',
-                    ];
-                    availableRoles = rolesList
-                        .map((r) => r['role_name'].toString())
-                        .where((r) {
-                          if (currentUserRole == 'Super Admin') return true;
-                          return r == 'Doctor' ||
-                              r == 'Nurse' ||
-                              r == 'Front Desk' ||
-                              r == 'Anaesthetist' ||
-                              r == selectedRole;
-                        })
-                        .toList();
-                    availableRoles.sort((a, b) {
-                      int indexA = orderedRoles.indexOf(a);
-                      int indexB = orderedRoles.indexOf(b);
-                      if (indexA == -1 && indexB == -1) return a.compareTo(b);
-                      if (indexA == -1) return 1;
-                      if (indexB == -1) return -1;
-                      return indexA.compareTo(indexB);
-                    });
-
-                    if (!availableRoles.contains(selectedRole)) {
-                      availableRoles.add(selectedRole);
-                    }
-                    isLoadingRoles = false;
-                  });
-                })
-                .catchError((e) {
-                  setDialogState(() => isLoadingRoles = false);
-                });
-          }
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(28),
-            ),
-            title: const Text(
-              'Edit Staff',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            content: SizedBox(
-              width: MediaQuery.of(context).size.width > 500
-                  ? 450
-                  : MediaQuery.of(context).size.width * 0.9,
-              child: SingleChildScrollView(
-                child: Form(
-                  key: editFormKey,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (dialogError != null)
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.red.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.error_outline,
-                                color: Colors.redAccent,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  dialogError!,
-                                  style: const TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      if (user.staffUniqueId != null) ...[
-                        const Text(
-                          'Staff ID',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: TextFormField(
-                            initialValue: user.staffUniqueId,
-                            readOnly: true,
-                            decoration: const InputDecoration(
-                              hintText: 'Staff ID',
-                              prefixIcon: Icon(Icons.pin_outlined),
-                              fillColor: Color(0xFFE5E7EB), // read-only color
-                              filled: true,
-                              helperText: 'Auto-generated ID',
-                            ),
-                          ),
-                        ),
-                      ],
-                      const Text(
-                        'Full Name',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: nameCtrl,
-                        onChanged: (_) => setDialogState(() {}),
-                        decoration: const InputDecoration(
-                          hintText: 'Enter full name',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'[a-zA-Z\s]'),
-                          ),
-                          LengthLimitingTextInputFormatter(30),
-                        ],
-                        validator: (val) => val == null || val.trim().isEmpty
-                            ? 'Please enter a name'
-                            : null,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Email Address',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: emailCtrl,
-                        onChanged: (_) => setDialogState(() {}),
-                        decoration: const InputDecoration(
-                          hintText: 'Enter email address',
-                          prefixIcon: Icon(Icons.email_outlined),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        inputFormatters: [
-                          LengthLimitingTextInputFormatter(100),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Please enter Email Address';
-                          }
-                          if (!RegExp(
-                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                          ).hasMatch(val.trim())) {
-                            return 'Please enter a valid email address';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Mobile Number',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextFormField(
-                        controller: mobileCtrl,
-                        onChanged: (_) => setDialogState(() {}),
-                        decoration: const InputDecoration(
-                          hintText: 'Enter mobile number',
-                          prefixIcon: Icon(Icons.phone_outlined),
-                          counterText: "",
-                          errorMaxLines: 2,
-                        ),
-                        keyboardType: TextInputType.phone,
-                        maxLength: 10,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(10),
-                        ],
-                        validator: (val) {
-                          if (val == null || val.trim().isEmpty) {
-                            return 'Please enter a mobile number';
-                          }
-                          final clean = val.trim();
-                          if (!RegExp(r'^[6-9]').hasMatch(clean)) {
-                            return 'Mobile number must start with 6, 7, 8, or 9';
-                          }
-                          if (clean.length != 10) {
-                            return 'Mobile number must be exactly 10 digits';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      if (isLoadingRoles)
-                        const Center(child: CircularProgressIndicator())
-                      else
-                        const Text(
-                          'Role',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
-                          ),
-                        ),
-
-                      const SizedBox(height: 10),
-
-                      CustomDropdownSearch(
-                        label: '',
-                        value: selectedRole,
-                        dropdownItems: availableRoles,
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() {
-                              selectedRole = val;
-                              if (selectedRole != 'Doctor') {
-                                selectedSpecializationId = null;
-                              }
-                            });
-                          }
-                        },
-                      ),
-                      if (selectedRole == 'Doctor') ...[
-                        const SizedBox(height: 16),
-                        if (isLoadingSpecializations)
-                          const Center(child: CircularProgressIndicator())
-                        else
-                          CustomDropdownSearch(
-                            label: 'Specialization',
-                            value: selectedSpecializationId?.toString(),
-                            dropdownMap: {
-                              for (var s in specializations)
-                                s['id'].toString(): s['name'].toString(),
-                            },
-                            onChanged: (val) {
-                              setDialogState(() {
-                                selectedSpecializationId =
-                                    val != null ? int.tryParse(val) : null;
-                                dialogError = null;
-                              });
-                            },
-                            validator: (val) {
-                              if (selectedRole != 'Doctor') return null;
-                              if (val == null || val.isEmpty) {
-                                return 'Please select a specialization';
-                              }
-                              final validSpecIds = specializations
-                                  .map((s) => s['id'].toString())
-                                  .toSet();
-                              if (!validSpecIds.contains(val)) {
-                                return 'Please select a valid specialization from the list';
-                              }
-                              return null;
-                            },
-                          ),
-                      ],
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Status',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      CustomDropdownSearch(
-                        label: '',
-                        value: selectedStatus,
-                        dropdownMap: const {
-                          'active': 'Active',
-                          'inactive': 'Inactive',
-                          'suspended': 'Suspended',
-                        },
-                        onChanged: (val) {
-                          if (val != null) {
-                            setDialogState(() {
-                              selectedStatus = val;
-                            });
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              OutlinedButton(
-                onPressed: isSaving ? null : () => Navigator.pop(ctx),
-                style: AppTheme.cancelButton,
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: (isSaving || !hasChanges())
-                    ? null
-                    : () async {
-                        if (!editFormKey.currentState!.validate()) return;
-                        setDialogState(() => isSaving = true);
-                        try {
-                          await _adminController.updateStaff(
-                            id: user.id,
-                            fullname: nameCtrl.text.trim(),
-                            email: emailCtrl.text.trim(),
-                            mobile: mobileCtrl.text.trim(),
-                            role: selectedRole,
-                            status: selectedStatus,
-                            medicalLicense: null,
-                            specializationId: selectedRole == 'Doctor'
-                                ? selectedSpecializationId
-                                : null,
-                          );
-                          if (mounted) {
-                            Navigator.pop(ctx);
-                            _loadStaff();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '${nameCtrl.text.trim()} updated successfully!',
-                                ),
-                                backgroundColor: Colors.green.shade600,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          if (mounted) {
-                            setDialogState(
-                              () => dialogError = e.toString().replaceFirst(
-                                'Exception: ',
-                                '',
-                              ),
-                            );
-                          }
-                        } finally {
-                          if (mounted) setDialogState(() => isSaving = false);
-                        }
-                      },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.logoRed,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(120, 48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 14,
-                  ),
-                ),
-                child: isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text('Save'),
-              ),
-            ],
-          );
-        },
+      builder: (ctx) => EditStaffDialog(
+        user: user,
+        onSaved: _loadStaff,
       ),
     );
   }
@@ -880,20 +613,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               'Delete Staff',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            content: RichText(
-              text: TextSpan(
-                style: const TextStyle(color: Colors.black87, fontSize: 15),
-                children: [
-                  const TextSpan(text: 'Are you sure you want to delete '),
-                  TextSpan(
-                    text: user.fullname,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const TextSpan(
-                    text:
-                        '? This will deactivate their account and hide them from active lists.',
-                  ),
-                ],
+            content: SizedBox(
+              width: 440,
+              child: RichText(
+                softWrap: true,
+                text: TextSpan(
+                  style: const TextStyle(color: Colors.black87, fontSize: 15),
+                  children: [
+                    const TextSpan(text: 'Are you sure you want to permanently delete '),
+                    TextSpan(
+                      text: user.fullname,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const TextSpan(
+                      text:
+                          '? This will permanently remove this staff member and all associated records from the database. This action cannot be undone.',
+                    ),
+                  ],
+                ),
               ),
             ),
             actions: [
@@ -914,7 +651,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             _loadStaff();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('${user.fullname} deleted.'),
+                                content: Text('${user.fullname} permanently deleted.'),
                                 backgroundColor: Colors.green.shade600,
                               ),
                             );
@@ -967,7 +704,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: AppTheme.getBackgroundColor(context),
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
       body: SafeArea(
         child: Row(
@@ -1049,7 +786,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 3:
-        if (user?.role == 'Super Admin') {
+        if (user?.role == 'Super Admin' || user?.role == 'Admin') {
           return RbacManagementWidget(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
@@ -1144,13 +881,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _buildStatsRow(isMobile),
                 const SizedBox(height: 24),
                 if (isMobile) ...[
-                  _buildAlertsSection(),
+                  _buildStaffOverviewChart(true),
                   const SizedBox(height: 24),
                   _buildQuickActions(isMobile),
                   const SizedBox(height: 24),
-                  _buildStaffOverviewChart(),
-                  const SizedBox(height: 24),
-                  _buildSystemStatus(),
+                  _buildAlertsSection(),
                 ] else
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1159,8 +894,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         flex: 1,
                         child: Column(
                           children: [
-                            _buildAlertsSection(),
-                            const SizedBox(height: 24),
                             _buildStaffOverviewChart(),
                           ],
                         ),
@@ -1172,7 +905,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           children: [
                             _buildQuickActions(false),
                             const SizedBox(height: 24),
-                            _buildSystemStatus(),
+                            _buildAlertsSection(),
                           ],
                         ),
                       ),
@@ -1207,7 +940,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         List<UserModel> filtered = searchedStaff.where((u) {
           final matchesRole =
               _selectedRoleFilter == 'All' || u.role == _selectedRoleFilter;
-          final matchesStatus = _selectedStatusFilter == 'All' ||
+          final matchesStatus =
+              _selectedStatusFilter == 'All' ||
               u.status.toLowerCase() == _selectedStatusFilter.toLowerCase();
           return matchesRole && matchesStatus;
         }).toList();
@@ -1244,94 +978,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ).user?.hasPermission('manage_users') ??
                             false) ...[
                           const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              // Show Deleted Toggle
-                              Expanded(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: _showDeleted
-                                        ? Colors.red.withOpacity(0.1)
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: _showDeleted
-                                          ? Colors.red.withOpacity(0.3)
-                                          : AppTheme.borderColor,
-                                    ),
-                                  ),
-                                  child: InkWell(
-                                    onTap: () {
-                                      setState(() => _showDeleted = !_showDeleted);
-                                      _loadStaff();
-                                    },
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 12,
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            _showDeleted
-                                                ? Icons.delete_sweep
-                                                : Icons.delete_outline,
-                                            size: 18,
-                                            color: _showDeleted
-                                                ? Colors.red
-                                                : AppTheme.textSecondaryColor,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            'Show Deleted',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: _showDeleted
-                                                  ? Colors.red
-                                                  : AppTheme.textSecondaryColor,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showAddUserDialog(context),
+                              icon: const Icon(
+                                Icons.person_add_outlined,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                'Register Staff',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
                                 ),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _showAddUserDialog(context),
-                                  icon: const Icon(
-                                    Icons.person_add_outlined,
-                                    size: 18,
-                                  ),
-                                  label: const Text(
-                                    'Register Staff',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.dangerColor,
-                                    foregroundColor: Colors.white,
-                                    elevation: 0,
-                                    minimumSize: const Size(0, 48),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.dangerColor,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                minimumSize: const Size(0, 48),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
                               ),
-                            ],
+                            ),
                           ),
                         ],
                       ],
@@ -1363,58 +1038,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               listen: false,
                             ).user?.hasPermission('manage_users') ??
                             false) ...[
-                          const SizedBox(width: 12),
-                          // Show Deleted Toggle
-                          Container(
-                            decoration: BoxDecoration(
-                              color: _showDeleted
-                                  ? Colors.red.withOpacity(0.1)
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: _showDeleted
-                                    ? Colors.red.withOpacity(0.3)
-                                    : AppTheme.borderColor,
-                              ),
-                            ),
-                            child: InkWell(
-                              onTap: () {
-                                setState(() => _showDeleted = !_showDeleted);
-                                _loadStaff();
-                              },
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      _showDeleted
-                                          ? Icons.delete_sweep
-                                          : Icons.delete_outline,
-                                      size: 18,
-                                      color: _showDeleted
-                                          ? Colors.red
-                                          : AppTheme.textSecondaryColor,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      'Show Deleted',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: _showDeleted
-                                            ? Colors.red
-                                            : AppTheme.textSecondaryColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
                             onPressed: () => _showAddUserDialog(context),
@@ -1518,8 +1141,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: FutureBuilder<Map<String, dynamic>>(
                 future: _rbacFuture,
                 builder: (context, rbacSnapshot) {
-                  final currentUser =
-                      Provider.of<AuthProvider>(context, listen: false).user;
+                  final currentUser = Provider.of<AuthProvider>(
+                    context,
+                    listen: false,
+                  ).user;
 
                   final Set<String> rolesSet = {
                     'All',
@@ -1529,6 +1154,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     'Nurse',
                     'Anaesthetist',
                     'Front Desk',
+                    'Lab',
+                    'Pharmacy',
                   };
 
                   for (final staff in allStaff) {
@@ -1562,6 +1189,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     'Nurse',
                     'Anaesthetist',
                     'Front Desk',
+                    'Lab',
+                    'Pharmacy',
                   ];
 
                   final filterRoles = rolesSet.toList();
@@ -1591,7 +1220,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 final isActive = _selectedRoleFilter == role;
                                 final count = role == 'All'
                                     ? allStaff.length
-                                    : allStaff.where((u) => u.role == role).length;
+                                    : allStaff
+                                          .where((u) => u.role == role)
+                                          .length;
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8),
                                   child: InkWell(
@@ -1601,7 +1232,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       _staffCurrentPage = 0;
                                     }),
                                     child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 200),
+                                      duration: const Duration(
+                                        milliseconds: 200,
+                                      ),
                                       padding: EdgeInsets.symmetric(
                                         horizontal: isMobile ? 14 : 18,
                                         vertical: 10,
@@ -1640,16 +1273,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                             ),
                                             decoration: BoxDecoration(
                                               color: isActive
-                                                  ? Colors.white.withValues(alpha: 0.2)
+                                                  ? Colors.white.withValues(
+                                                      alpha: 0.2,
+                                                    )
                                                   : AppTheme.backgroundColor,
-                                              borderRadius: BorderRadius.circular(10),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
                                             ),
                                             child: Text(
                                               '$count',
                                               style: TextStyle(
                                                 color: isActive
                                                     ? Colors.white
-                                                    : AppTheme.textSecondaryColor,
+                                                    : AppTheme
+                                                          .textSecondaryColor,
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.bold,
                                               ),
@@ -1710,48 +1347,51 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 });
                               }
                             },
-                            items: [
-                              'All',
-                              'Active',
-                              'Inactive',
-                              'Suspended',
-                            ].map((status) {
-                              Color dotColor = AppTheme.textSecondaryColor;
-                              if (status == 'Active') dotColor = Colors.green;
-                              if (status == 'Inactive') dotColor = Colors.grey;
-                              if (status == 'Suspended') dotColor = Colors.red;
+                            items: ['All', 'Active', 'Inactive', 'Suspended']
+                                .map((status) {
+                                  Color dotColor = AppTheme.textSecondaryColor;
+                                  if (status == 'Active')
+                                    dotColor = Colors.green;
+                                  if (status == 'Inactive')
+                                    dotColor = Colors.grey;
+                                  if (status == 'Suspended')
+                                    dotColor = Colors.red;
 
-                              return DropdownMenuItem<String>(
-                                value: status,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (status != 'All') ...[
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: BoxDecoration(
-                                          color: dotColor,
-                                          shape: BoxShape.circle,
+                                  return DropdownMenuItem<String>(
+                                    value: status,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (status != 'All') ...[
+                                          Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: BoxDecoration(
+                                              color: dotColor,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                        ],
+                                        Text(
+                                          status == 'All'
+                                              ? 'Status: All'
+                                              : status,
+                                          style: TextStyle(
+                                            fontFamily: 'Inter',
+                                            fontSize: 13,
+                                            fontWeight:
+                                                status == _selectedStatusFilter
+                                                ? FontWeight.bold
+                                                : FontWeight.w500,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    Text(
-                                      status == 'All' ? 'Status: All' : status,
-                                      style: TextStyle(
-                                        fontFamily: 'Inter',
-                                        fontSize: 13,
-                                        fontWeight: status == _selectedStatusFilter
-                                            ? FontWeight.bold
-                                            : FontWeight.w500,
-                                        color: AppTheme.textPrimaryColor,
-                                      ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
+                                  );
+                                })
+                                .toList(),
                           ),
                         ),
                       ),
@@ -1861,9 +1501,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (isMobile) {
       return Column(
         children: [
-          Expanded(
-            child: _buildStaffCards(paginatedStaff),
-          ),
+          Expanded(child: _buildStaffCards(paginatedStaff)),
           if (totalPages > 1) ...[
             const Divider(height: 1),
             _buildStaffPaginationControls(totalPages, true),
@@ -2023,6 +1661,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             break;
                           case 'Anaesthetist':
                             roleColor = const Color(0xFF3B82F6);
+                            break;
+                          case 'Lab':
+                            roleColor = const Color(0xFF0EA5E9);
+                            break;
+                          case 'Pharmacy':
+                            roleColor = const Color(0xFF10B981);
                             break;
                           default:
                             roleColor = Colors.grey;
@@ -2245,7 +1889,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         children: [
           Expanded(
             child: Text(
-              'Page ${_staffCurrentPage + 1} of $totalPages',
+              context.pageOfTotal(_staffCurrentPage + 1, totalPages),
               style: const TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondaryColor,
@@ -2276,9 +1920,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.chevron_left, size: 16),
-                    Text('Prev', style: TextStyle(fontSize: 12)),
+                  children: [
+                    const Icon(Icons.chevron_left, size: 16),
+                    Text(context.tr('previous'), style: const TextStyle(fontSize: 12)),
                   ],
                 ),
               ),
@@ -2301,9 +1945,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Text('Next', style: TextStyle(fontSize: 12)),
-                    Icon(Icons.chevron_right, size: 16),
+                  children: [
+                    Text(context.tr('next'), style: const TextStyle(fontSize: 12)),
+                    const Icon(Icons.chevron_right, size: 16),
                   ],
                 ),
               ),
@@ -2341,6 +1985,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           case 'Anaesthetist':
             roleColor = const Color(0xFF3B82F6);
             break;
+          case 'Lab':
+            roleColor = const Color(0xFF0EA5E9);
+            break;
+          case 'Pharmacy':
+            roleColor = const Color(0xFF10B981);
+            break;
           default:
             roleColor = Colors.grey;
             break;
@@ -2354,12 +2004,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: user.isDeleted ? Colors.red.withOpacity(0.02) : Colors.white,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: user.isDeleted
-                  ? Colors.red.withOpacity(0.3)
-                  : AppTheme.borderColor.withOpacity(0.6),
+              color: AppTheme.borderColor.withOpacity(0.6),
             ),
             boxShadow: [
               BoxShadow(
@@ -2403,27 +2051,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (user.isDeleted) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: const Text(
-                                  'DELETED',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                         Text(
@@ -2532,7 +2159,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       icon: const Icon(Icons.visibility_outlined, size: 18),
                       label: const Text('View'),
                     ),
-                    if (!user.isDeleted && user.role != 'Super Admin') ...[
+                    if (user.role != 'Super Admin') ...[
                       TextButton.icon(
                         onPressed: () => _showEditDialog(context, user),
                         icon: const Icon(Icons.edit_outlined, size: 18),
@@ -2563,20 +2190,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildSidebar(BuildContext context) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final isDark = AppTheme.isDark(context);
 
     return Container(
-      width: 260,
+      width: 275,
       margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppTheme.getBorderColor(context)),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         children: [
@@ -2590,67 +2221,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
 
-          // Navigation Items (Scrollable)
+          // Navigation Items (Scrollable driven by AdminNavConfig)
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Column(
                 children: [
-                  _buildSidebarItem(
-                    0,
-                    Icons.admin_panel_settings_outlined,
-                    'Dashboard',
-                  ),
-                  _buildSidebarItem(
-                    1,
-                    Icons.people_outline,
-                    'Staff Management',
-                  ),
-                  _buildSidebarItem(2, Icons.sick_outlined, 'Patients'),
-                  if (user?.role == 'Super Admin')
-                    _buildSidebarItem(
-                      3,
-                      Icons.security_outlined,
-                      'Access Control (RBAC)',
+                  ...AdminNavConfig.getVisibleNavItems(user).map(
+                    (item) => _buildSidebarItem(
+                      item.index,
+                      item.icon,
+                      item.label,
                     ),
-                  _buildSidebarItem(
-                    4,
-                    Icons.calendar_month_outlined,
-                    'Appointments',
                   ),
-                  _buildSidebarItem(
-                    5,
-                    Icons.monitor_heart_outlined,
-                    'OPD Management',
-                  ),
-                  _buildSidebarItem(6, Icons.hotel_outlined, 'IPD Management'),
-                  _buildSidebarItem(7, Icons.healing_outlined, 'OT Management'),
-                  _buildSidebarItem(
-                    8,
-                    Icons.schedule_outlined,
-                    'Shift Allocation',
-                  ),
-                  _buildSidebarItem(
-                    9,
-                    Icons.emergency_outlined,
-                    'ICU & Emergency',
-                  ),
-                  _buildSidebarItem(
-                    10,
-                    Icons.receipt_long_outlined,
-                    'Billing & Invoices',
-                  ),
-                  _buildSidebarItem(
-                    11,
-                    Icons.inventory_2_outlined,
-                    'Inventory Management',
-                  ),
-                  _buildSidebarItem(
-                    12,
-                    Icons.home_work_outlined,
-                    'Home Visit Care',
-                  ),
-                  _buildCatalogParentMenu(),
+                  if (AdminNavConfig.showMasterCatalog)
+                    _buildCatalogParentMenu(),
                 ],
               ),
             ),
@@ -2658,9 +2243,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           // User Profile Footer
           Container(
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(color: AppTheme.borderColor, width: 1),
+                top: BorderSide(color: AppTheme.getBorderColor(context), width: 1),
               ),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -2704,18 +2289,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       children: [
                                         Text(
                                           user.rawFullname ?? user.fullname,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
-                                            color: AppTheme.textPrimaryColor,
+                                            color: AppTheme.getTextPrimaryColor(context),
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         Text(
-                                          user.role,
-                                          style: const TextStyle(
+                                          context.translateRole(user.role),
+                                          style: TextStyle(
                                             fontSize: 11,
-                                            color: AppTheme.textSecondaryColor,
+                                            color: AppTheme.getTextSecondaryColor(context),
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -2727,10 +2312,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.logout,
                               size: 18,
-                              color: AppTheme.textSecondaryColor,
+                              color: AppTheme.getTextSecondaryColor(context),
                             ),
                             onPressed: () =>
                                 LogoutHelper.showLogoutConfirmation(
@@ -2808,29 +2393,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         if (_isCatalogMenuExpanded)
           Column(
-            children: [
-              _buildSidebarItem(
-                13,
-                Icons.medication_outlined,
-                'Medicine Catalog',
-                isSubItem: true,
-              ),
-              _buildSidebarItem(
-                14,
-                Icons.home_repair_service_outlined,
-                'Home Visit Consumables',
-                isSubItem: true,
-              ),
-              _buildSidebarItem(
-                15,
-                Icons.inventory_outlined,
-                'Carried Kit Items',
-                isSubItem: true,
-              ),
-            ],
+            children: AdminNavConfig.getVisibleCatalogSubItems()
+                .map(
+                  (subItem) => _buildSidebarItem(
+                    subItem.index,
+                    subItem.icon,
+                    subItem.label,
+                    isSubItem: true,
+                  ),
+                )
+                .toList(),
           ),
       ],
     );
+  }
+
+  String _translateAdminLabel(BuildContext context, String label, {bool isSubItem = false}) {
+    if (isSubItem) {
+      // Master Catalog items must ALWAYS stay strictly in English
+      return label;
+    }
+    final lower = label.toLowerCase();
+    if (lower == 'home visit care' || lower.contains('home visit') || lower.contains('home care')) {
+      return context.tr('home_visit_care', fallback: 'வீட்டுப் பராமரிப்பு சேவை');
+    }
+    return label;
   }
 
   Widget _buildSidebarItem(
@@ -2842,8 +2429,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     bool isSelected =
         (_selectedIndex == index && !_isRegisteringPatient) ||
         (_isRegisteringPatient && index == 2);
-    return InkWell(
-      onTap: () {
+    final displayLabel = _translateAdminLabel(context, label, isSubItem: isSubItem);
+    return Tooltip(
+      message: displayLabel,
+      waitDuration: const Duration(milliseconds: 200),
+      preferBelow: false,
+      verticalOffset: 20,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      textStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w500,
+      ),
+      child: InkWell(
+        onTap: () {
         switch (index) {
           case 0:
             context.go(AppRoutes.adminDashboard);
@@ -2896,16 +2505,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
           default:
             context.go(AppRoutes.adminDashboard);
+            break;
         }
       },
       borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        margin: EdgeInsets.only(
-          left: isSubItem ? 28 : 12,
-          right: 12,
-          top: 2,
-          bottom: 2,
+        margin: EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: isSubItem ? 1 : 2,
         ),
         padding: EdgeInsets.symmetric(
           horizontal: isSubItem ? 12 : 14,
@@ -2917,17 +2525,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
         child: Row(
           children: [
+            if (isSubItem) const SizedBox(width: 12),
             Icon(
               icon,
-              color: isSelected ? Colors.white : const Color(0xFF4A5568),
+              color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
               size: isSubItem ? 18 : 20,
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                label,
+                displayLabel,
                 style: TextStyle(
-                  color: isSelected ? Colors.white : const Color(0xFF4A5568),
+                  color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
                   fontWeight: isSelected
                       ? FontWeight.bold
                       : (isSubItem ? FontWeight.w600 : FontWeight.bold),
@@ -2939,17 +2548,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildBannerTopBar(BuildContext context, bool isMobile) {
+    final isDark = AppTheme.isDark(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (isMobile) ...[
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(Icons.menu, color: AppTheme.textSecondaryColor),
+              icon: Icon(Icons.menu, color: AppTheme.getTextPrimaryColor(context)),
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           ),
@@ -2963,23 +2574,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: Container(
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.getCardColor(context),
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.getBorderColor(context), width: 1.2),
+                boxShadow: isDark
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
               ),
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.search,
                     size: 18,
-                    color: AppTheme.textSecondaryColor,
+                    color: AppTheme.getTextSecondaryColor(context),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    isMobile ? 'Search...' : 'Quick search...',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.textSecondaryColor,
+                  Expanded(
+                    child: Text(
+                      context.tr('search_anything', fallback: isMobile ? 'Search...' : 'Quick search...'),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppTheme.getTextSecondaryColor(context),
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -2995,15 +2619,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.notifications_none_outlined,
-                color: AppTheme.textSecondaryColor,
+                color: AppTheme.getTextPrimaryColor(context),
                 size: 22,
               ),
               const SizedBox(width: 20),
-              const Icon(
+              Icon(
                 Icons.help_outline,
-                color: AppTheme.textSecondaryColor,
+                color: AppTheme.getTextPrimaryColor(context),
                 size: 22,
               ),
               const SizedBox(width: 20),
@@ -3018,16 +2642,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   elevation: 0,
                 ),
-                child: const Text(
-                  'Share',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                child: Text(
+                  context.tr('share', fallback: 'Share'),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
           ),
-          const SizedBox(width: 24),
-          // Date & Time
-          const AdminLiveClock(),
+          const SizedBox(width: 16),
+          const AppTopBarActions(
+            showClock: true,
+            liveClockWidget: AdminLiveClock(),
+          ),
+        ],
+        if (isMobile) ...[
+          const SizedBox(width: 8),
+          const AppTopBarActions(showClock: false),
         ],
       ],
     );
@@ -3088,14 +2718,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildStatsRow(bool isMobile) {
-    final securityColor =
-        (_securityAlertsCount != '0' && _securityAlertsCount != '--')
-        ? AppTheme.logoRed
-        : AppTheme.secondaryColor;
-    final securitySub = (_securityAlertsCount == '0')
-        ? 'Safe'
-        : (_securityAlertsCount == '--' ? '' : 'Requires attention');
-
     final card1 = _buildStatCard(
       'Total Staff',
       _totalStaffCount,
@@ -3107,47 +2729,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
 
     final card2 = _buildStatCard(
-      'Active Sessions',
-      _activeSessionsCount,
-      _activeSessionsCount == '--' ? '' : 'Live',
-      Icons.monitor_heart_outlined,
+      'Total Patients',
+      _totalPatientsCount,
+      _totalPatientsCount == '--' ? '' : 'Registered',
+      Icons.personal_injury_outlined,
       AppTheme.secondaryColor,
       isMobile,
-      () => context.go(AppRoutes.adminUsers),
+      () => context.go(AppRoutes.adminPatients),
     );
 
     final card3 = _buildStatCard(
-      'System Health',
-      _systemHealthPercent,
-      _systemHealthPercent == '--' ? '' : 'Optimal',
-      Icons.health_and_safety_outlined,
-      Colors.indigo,
+      'Today\'s Appointments',
+      _todayAppointmentsCount,
+      _todayAppointmentsCount == '--' ? '' : 'Scheduled',
+      Icons.calendar_today_outlined,
+      AppTheme.nurseColor,
       isMobile,
-      () => {},
+      () => context.go(AppRoutes.adminAppointments),
     );
 
     final card4 = _buildStatCard(
-      'Security Alerts',
-      _securityAlertsCount,
-      securitySub,
-      Icons.security_outlined,
-      securityColor,
+      'Active Home Visits',
+      _activeHomeVisitsCount,
+      _activeHomeVisitsCount == '--' ? '' : 'Active / Scheduled',
+      Icons.home_work_outlined,
+      AppTheme.warningColor,
       isMobile,
-      () {
-        final currentUser = Provider.of<AuthProvider>(
-          context,
-          listen: false,
-        ).user;
-        if (currentUser?.role == 'Super Admin') {
-          context.go(AppRoutes.adminSettings);
-        }
-      },
+      () => context.go(AppRoutes.adminHomeVisits),
     );
 
     if (isMobile) {
       return LayoutBuilder(
         builder: (context, constraints) {
-          final cardWidth = (constraints.maxWidth - 12) / 2;
+          if (constraints.maxWidth <= 12) return const SizedBox.shrink();
+          final cardWidth = math.max(0.0, (constraints.maxWidth - 12) / 2);
           return Wrap(
             spacing: 12,
             runSpacing: 12,
@@ -3428,9 +3043,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     const SizedBox(width: 12),
                     _buildActionGridItem(
-                      Icons.settings_suggest_outlined,
-                      'System\nConfiguration',
-                      () {},
+                      Icons.person_add_alt_1_outlined,
+                      'Register\nNew Patient',
+                      () => context.go(AppRoutes.adminNewPatient),
                     ),
                   ],
                 ),
@@ -3438,15 +3053,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 Row(
                   children: [
                     _buildActionGridItem(
-                      Icons.storage_outlined,
-                      'Manual\nDatabase Backup',
-                      () {},
+                      Icons.receipt_long_outlined,
+                      'Billing &\nInvoices',
+                      () => context.go(AppRoutes.adminBilling),
                     ),
                     const SizedBox(width: 12),
                     _buildActionGridItem(
-                      Icons.receipt_long_outlined,
-                      'Audit\nLogs',
-                      () {},
+                      Icons.inventory_2_outlined,
+                      'Inventory\nManagement',
+                      () => context.go(AppRoutes.adminInventory),
                     ),
                   ],
                 ),
@@ -3462,21 +3077,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 const SizedBox(width: 12),
                 _buildActionGridItem(
-                  Icons.settings_suggest_outlined,
-                  'System\nConfiguration',
-                  () {},
-                ),
-                const SizedBox(width: 12),
-                _buildActionGridItem(
-                  Icons.storage_outlined,
-                  'Manual\nDatabase Backup',
-                  () {},
+                  Icons.person_add_alt_1_outlined,
+                  'Register\nNew Patient',
+                  () => context.go(AppRoutes.adminNewPatient),
                 ),
                 const SizedBox(width: 12),
                 _buildActionGridItem(
                   Icons.receipt_long_outlined,
-                  'Audit\nLogs',
-                  () {},
+                  'Billing &\nInvoices',
+                  () => context.go(AppRoutes.adminBilling),
+                ),
+                const SizedBox(width: 12),
+                _buildActionGridItem(
+                  Icons.inventory_2_outlined,
+                  'Inventory\nManagement',
+                  () => context.go(AppRoutes.adminInventory),
                 ),
               ],
             ),
@@ -3525,8 +3140,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
   }
+  Widget _buildStaffOverviewChart([bool isMobile = false]) {
+    final List<double> weeklyData = _getFilteredWeeklyStaffData();
+    const List<String> weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const Map<String, String> fullDayNames = {
+      'Mon': 'Monday',
+      'Tue': 'Tuesday',
+      'Wed': 'Wednesday',
+      'Thu': 'Thursday',
+      'Fri': 'Friday',
+      'Sat': 'Saturday',
+      'Sun': 'Sunday',
+    };
 
-  Widget _buildSystemStatus([bool isMobile = false]) {
+    final int todayIndex = (DateTime.now().weekday - 1).clamp(0, 6);
+    final double maxVal = weeklyData.isNotEmpty ? weeklyData.reduce(math.max) : 20.0;
+    final double maxY = maxVal <= 5.0
+        ? 5.0
+        : (maxVal <= 10.0
+            ? 10.0
+            : (maxVal <= 20.0 ? 20.0 : ((maxVal / 10.0).ceil() * 10.0)));
+    final double step = maxY / 4.0;
+    final List<String> yLabels = [
+      maxY.toInt().toString(),
+      (step * 3).toInt().toString(),
+      (step * 2).toInt().toString(),
+      step.toInt().toString(),
+      '0',
+    ];
+
+    final int selectedDayIndex = _selectedStaffOverviewDayIndex.clamp(0, 6);
+    final String selectedDayAbbr = weekdays[selectedDayIndex];
+    final String selectedDayFull = fullDayNames[selectedDayAbbr] ?? selectedDayAbbr;
+    final bool isSelectedToday = selectedDayIndex == todayIndex;
+    final int todayOnDutyCount = weeklyData.length > todayIndex ? weeklyData[todayIndex].toInt() : 0;
+    final breakdown = _getDayStaffBreakdown(selectedDayIndex);
+
     return Container(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
@@ -3537,214 +3186,295 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
+          // Header Row
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'System Status',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 6),
               Container(
-                width: 32,
-                height: 3,
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.groups_outlined,
                   color: AppTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(2),
+                  size: 22,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSystemStatusItem(
-                      'Backend API',
-                      'All systems operational',
-                      'Online',
-                      AppTheme.secondaryColor,
+                    const Text(
+                      'Staff On-Duty Roster',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 16),
-                    _buildSystemStatusItem(
-                      'PostgreSQL DB',
-                      'Database connected',
-                      'Connected',
-                      AppTheme.secondaryColor,
+                    const SizedBox(height: 3),
+                    const Text(
+                      'Daily scheduled hospital duty presence (Mon – Sun)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ),
-              ),
-              if (!isMobile) ...[
-                const SizedBox(width: 16),
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.06),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.show_chart,
-                        color: AppTheme.primaryColor,
-                        size: 40,
-                      ),
-                    ),
-                    Positioned(
-                      right: -2,
-                      bottom: -2,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.check_circle,
-                          color: AppTheme.secondaryColor,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSystemStatusItem(
-    String title,
-    String subtitle,
-    String status,
-    Color color,
-  ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: AppTheme.textPrimaryColor,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textSecondaryColor,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              status,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStaffOverviewChart([bool isMobile = false]) {
-    final List<double> weeklyData = [16, 24, 21, 32, 23, 12, 25];
-    final List<String> weekdays = [
-      'Mon',
-      'Tue',
-      'Wed',
-      'Thu',
-      'Fri',
-      'Sat',
-      'Sun',
-    ];
-
-    return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Expanded(
-                child: Text(
-                  'Staff Overview',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
+              // Today status pill
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.borderColor),
+                  color: AppTheme.secondaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppTheme.secondaryColor.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
-                  children: const [
-                    Text(
-                      'This Week',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimaryColor,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.secondaryColor,
+                        shape: BoxShape.circle,
                       ),
                     ),
-                    SizedBox(width: 6),
-                    Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 16,
-                      color: AppTheme.textSecondaryColor,
+                    const SizedBox(width: 6),
+                    Text(
+                      'Today: $todayOnDutyCount On Duty',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.secondaryColor,
+                      ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              // Filter Popup
+              PopupMenuButton<String>(
+                tooltip: 'Filter staff role',
+                initialValue: _selectedStaffOverviewFilter,
+                onSelected: (String val) {
+                  setState(() {
+                    _selectedStaffOverviewFilter = val;
+                  });
+                },
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: AppTheme.borderColor),
+                ),
+                color: Colors.white,
+                elevation: 4,
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'This Week',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 16,
+                          color: AppTheme.primaryColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'All Staff',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'Doctors',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.medical_services_outlined,
+                          size: 16,
+                          color: AppTheme.primaryColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Doctors Only',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'Nurses',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.health_and_safety_outlined,
+                          size: 16,
+                          color: AppTheme.secondaryColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Nurses Only',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'Admin & Support',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.admin_panel_settings_outlined,
+                          size: 16,
+                          color: AppTheme.warningColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Admin & Support',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _selectedStaffOverviewFilter == 'This Week'
+                            ? 'All Roles'
+                            : _selectedStaffOverviewFilter,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 15,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 32),
+
+          const SizedBox(height: 14),
+
+          // Visual Legend / Helper Strip
+          Wrap(
+            spacing: 16,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 12,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'On-Duty Count (Scheduled)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondaryColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppTheme.secondaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Today Indicator',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondaryColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Tap any day below for details',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          // Line Graph
           SizedBox(
             height: 180,
             child: Row(
@@ -3752,78 +3482,550 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 // Y-Axis labels
                 Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text(
-                      '40',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      '30',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      '20',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      '10',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      '0',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                  children: yLabels
+                      .map(
+                        (lbl) => Text(
+                          lbl,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.textSecondaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
-                const SizedBox(width: 16),
-                // Line Graph
+                const SizedBox(width: 14),
+                // Chart Canvas
                 Expanded(
                   child: CustomPaint(
-                    painter: LineChartPainter(weeklyData),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 155.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: List.generate(weekdays.length, (index) {
-                              return Text(
-                                weekdays[index],
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.textSecondaryColor,
-                                  fontWeight: FontWeight.bold,
+                    painter: LineChartPainter(
+                      weeklyData,
+                      maxY: maxY,
+                      selectedIndex: selectedDayIndex,
+                      todayIndex: todayIndex,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Weekday Interactive Selector Strip
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Row(
+                children: List.generate(weekdays.length, (index) {
+                  final day = weekdays[index];
+                  final bool isSelected = index == selectedDayIndex;
+                  final bool isToday = index == todayIndex;
+                  final int count = weeklyData.length > index ? weeklyData[index].toInt() : 0;
+
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2.5),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedStaffOverviewDayIndex = index;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.primaryColor
+                                : (isToday
+                                    ? AppTheme.secondaryColor.withValues(alpha: 0.1)
+                                    : const Color(0xFFF8FAFC)),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppTheme.primaryColor
+                                  : (isToday
+                                      ? AppTheme.secondaryColor
+                                      : AppTheme.borderColor),
+                              width: isSelected || isToday ? 1.5 : 1.0,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: AppTheme.primaryColor.withValues(alpha: 0.25),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    day,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : (isToday
+                                              ? AppTheme.secondaryColor
+                                              : AppTheme.textPrimaryColor),
+                                    ),
+                                  ),
+                                  if (isToday) ...[
+                                    const SizedBox(width: 3),
+                                    Container(
+                                      width: 5,
+                                      height: 5,
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? Colors.white : AppTheme.secondaryColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? Colors.white.withValues(alpha: 0.22)
+                                      : (isToday
+                                          ? AppTheme.secondaryColor.withValues(alpha: 0.2)
+                                          : Colors.white),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Colors.white.withValues(alpha: 0.3)
+                                        : AppTheme.borderColor.withValues(alpha: 0.7),
+                                    width: 0.8,
+                                  ),
                                 ),
-                              );
-                            }),
+                                child: Text(
+                                  '$count',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : (isToday
+                                            ? AppTheme.secondaryColor
+                                            : AppTheme.textPrimaryColor),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              );
+            },
+          ),
+
+          const SizedBox(height: 20),
+
+          // Detailed Selected Day Breakdown Card
+          _buildStaffDayBreakdownPanel(
+            selectedDayFull: selectedDayFull,
+            selectedDayAbbr: selectedDayAbbr,
+            isSelectedToday: isSelectedToday,
+            breakdown: breakdown,
+            isMobile: isMobile,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStaffDayBreakdownPanel({
+    required String selectedDayFull,
+    required String selectedDayAbbr,
+    required bool isSelectedToday,
+    required Map<String, dynamic> breakdown,
+    required bool isMobile,
+  }) {
+    final List<UserModel> allDoctors = (breakdown['doctors'] as List<UserModel>?) ?? [];
+    final List<UserModel> allNurses = (breakdown['nurses'] as List<UserModel>?) ?? [];
+    final List<UserModel> allSupport = (breakdown['support'] as List<UserModel>?) ?? [];
+    final List<UserModel> allOffDuty = (breakdown['offDuty'] as List<UserModel>?) ?? [];
+
+    final bool showDoctors = _selectedStaffOverviewFilter == 'This Week' ||
+        _selectedStaffOverviewFilter == 'Doctors';
+    final bool showNurses = _selectedStaffOverviewFilter == 'This Week' ||
+        _selectedStaffOverviewFilter == 'Nurses';
+    final bool showSupport = _selectedStaffOverviewFilter == 'This Week' ||
+        _selectedStaffOverviewFilter == 'Admin & Support';
+
+    final int totalOnDuty = (breakdown['totalOnDuty'] as int?) ?? 0;
+    final int totalOffDuty = (breakdown['totalOffDuty'] as int?) ?? 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Breakdown Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_outlined,
+                  size: 16,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '$selectedDayFull Roster ${isSelectedToday ? '(Today)' : ''}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // On-duty badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$totalOnDuty On Duty',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.secondaryColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Off-duty badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$totalOffDuty Off Duty',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // Sunday Hospital Notice Banner
+          if (selectedDayAbbr == 'Sun') ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    color: AppTheme.primaryColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sunday Hospital Operational Schedule',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          'Routine Outpatient Department (OPD) & administrative offices are closed on Sundays. Inpatient rounds, ICU nursing, and Emergency Room (ER) attendances operate under emergency on-call rotation.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF334155),
+                            height: 1.35,
                           ),
                         ),
                       ],
                     ),
                   ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Doctors Section
+          if (showDoctors && allDoctors.isNotEmpty) ...[
+            _buildStaffRoleSectionHeader(
+              title: 'Doctors On Duty',
+              count: allDoctors.length,
+              icon: Icons.medical_services_outlined,
+              iconColor: AppTheme.primaryColor,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allDoctors.map((doc) {
+                final spec = doc.specialization != null && doc.specialization!.isNotEmpty
+                    ? doc.specialization!
+                    : 'General Physician';
+                return _buildStaffMemberBadge(
+                  name: 'Dr. ${doc.fullname}',
+                  subtitle: spec,
+                  role: 'Doctor',
+                  isOnDuty: true,
+                  roleColor: AppTheme.primaryColor,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Nurses Section
+          if (showNurses && allNurses.isNotEmpty) ...[
+            _buildStaffRoleSectionHeader(
+              title: 'Nurses On Duty',
+              count: allNurses.length,
+              icon: Icons.health_and_safety_outlined,
+              iconColor: AppTheme.secondaryColor,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allNurses.map((nurse) {
+                return _buildStaffMemberBadge(
+                  name: nurse.fullname,
+                  subtitle: nurse.shiftType != null && nurse.shiftType!.isNotEmpty
+                      ? '${nurse.shiftType} Shift'
+                      : 'Staff Nurse',
+                  role: 'Nurse',
+                  isOnDuty: true,
+                  roleColor: AppTheme.secondaryColor,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Admin & Support Staff Section
+          if (showSupport && allSupport.isNotEmpty) ...[
+            _buildStaffRoleSectionHeader(
+              title: 'Admin & Support Staff On Duty',
+              count: allSupport.length,
+              icon: Icons.admin_panel_settings_outlined,
+              iconColor: AppTheme.warningColor,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allSupport.map((staff) {
+                return _buildStaffMemberBadge(
+                  name: staff.fullname,
+                  subtitle: staff.role,
+                  role: staff.role,
+                  isOnDuty: true,
+                  roleColor: AppTheme.warningColor,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Scheduled Off Section (only when not Sunday, as Sunday banner covers all)
+          if (selectedDayAbbr != 'Sun' && allOffDuty.isNotEmpty) ...[
+            _buildStaffRoleSectionHeader(
+              title: 'Scheduled Off Duty',
+              count: allOffDuty.length,
+              icon: Icons.event_busy_outlined,
+              iconColor: const Color(0xFF94A3B8),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allOffDuty.map((staff) {
+                final reason = _getUserOffReason(staff, selectedDayAbbr);
+                return _buildStaffMemberBadge(
+                  name: staff.role == 'Doctor' ? 'Dr. ${staff.fullname}' : staff.fullname,
+                  subtitle: '${staff.role} • $reason',
+                  role: staff.role,
+                  isOnDuty: false,
+                  roleColor: const Color(0xFF64748B),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStaffRoleSectionHeader({
+    required String title,
+    required int count,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: iconColor),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textPrimaryColor,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: iconColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStaffMemberBadge({
+    required String name,
+    required String subtitle,
+    required String role,
+    required bool isOnDuty,
+    required Color roleColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isOnDuty
+              ? AppTheme.borderColor
+              : const Color(0xFFCBD5E1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 12,
+            backgroundColor: isOnDuty
+                ? roleColor.withValues(alpha: 0.12)
+                : const Color(0xFFF1F5F9),
+            child: Text(
+              name.replaceAll('Dr. ', '').isNotEmpty
+                  ? name.replaceAll('Dr. ', '')[0].toUpperCase()
+                  : '?',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.bold,
+                color: isOnDuty ? roleColor : const Color(0xFF64748B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                name,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isOnDuty ? AppTheme.textPrimaryColor : const Color(0xFF64748B),
                 ),
-              ],
+              ),
+              const SizedBox(height: 1),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isOnDuty ? AppTheme.textSecondaryColor : const Color(0xFF94A3B8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: isOnDuty
+                  ? AppTheme.secondaryColor.withValues(alpha: 0.1)
+                  : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              isOnDuty ? 'On Duty' : 'Off',
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.bold,
+                color: isOnDuty ? AppTheme.secondaryColor : const Color(0xFF94A3B8),
+              ),
             ),
           ),
         ],
@@ -4450,11 +4652,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ],
         ),
-        content: Text(
-          'This will automatically assign shifts for the selected week ($weekStartStr - $weekEndStr) '
-          'using the available nurses in the system.\n\n'
-          'Existing assignments in this week will be overwritten.\n\n'
-          'Do you want to proceed?',
+        content: SizedBox(
+          width: 440,
+          child: Text(
+            'This will automatically assign shifts for the selected week ($weekStartStr - $weekEndStr) '
+            'using the available nurses in the system.\n\n'
+            'Existing assignments in this week will be overwritten.\n\n'
+            'Do you want to proceed?',
+            softWrap: true,
+          ),
         ),
         actions: [
           TextButton(
@@ -6085,186 +6291,211 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // --- Home Visit Care Section (Admin Only Schedule) ---
 
   Widget _buildAdminHomeVisitCare(bool isMobile) {
+    final langProvider = Provider.of<LanguageProvider>(context);
     if (_selectedHomeVisitId != null) {
-      return HomeVisitExecutionScreen(
-        visitId: _selectedHomeVisitId!,
-        isReadOnlyView: true,
-        onBack: () {
-          setState(() {
-            _selectedHomeVisitId = null;
-          });
-          context.go(AppRoutes.adminHomeVisits);
-        },
+      return Localizations.override(
+        context: context,
+        locale: langProvider.locale,
+        child: HomeVisitExecutionScreen(
+          key: ValueKey('admin_home_visit_${_selectedHomeVisitId}'),
+          visitId: _selectedHomeVisitId!,
+          isReadOnlyView: true,
+          onBack: () {
+            setState(() {
+              _selectedHomeVisitId = null;
+            });
+            context.go(AppRoutes.adminHomeVisits);
+          },
+        ),
       );
     }
 
-    return Container(
-      color: AppTheme.backgroundColor,
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(isMobile ? 16 : 24),
-            color: Colors.white,
-            child: isMobile
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+    return Localizations.override(
+      context: context,
+      locale: langProvider.locale,
+      child: Consumer<LanguageProvider>(
+        builder: (context, langProvider, child) {
+          return Container(
+            color: AppTheme.backgroundColor,
+          child: Column(
+            children: [
+              Container(
+                padding: EdgeInsets.fromLTRB(
+                  isMobile ? 16 : 24,
+                  isMobile ? 16 : 20,
+                  isMobile ? 16 : 24,
+                  12,
+                ),
+                child: isMobile
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.home_work_outlined,
-                              color: AppTheme.primaryColor,
-                              size: 24,
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.home_work_outlined,
+                                color: AppTheme.primaryColor,
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      context.tr(
+                                        'home_visit_care_scheduling',
+                                        fallback: 'Home Visit Care & Scheduling',
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimaryColor,
+                                        fontFamily: 'Inter',
+                                      ),
+                                    ),
+                                    Text(
+                                      context.tr(
+                                        'home_visit_care_scheduling_sub',
+                                        fallback:
+                                            'Schedule home care visits by assigning nurses & patients',
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                        fontFamily: 'Inter',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 44,
+                            child: ElevatedButton.icon(
+                              style: AppTheme.dangerButton,
+                              icon: const Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              label: Text(
+                                context.tr(
+                                  'schedule_home_visit',
+                                  fallback: 'Schedule Home Visit',
+                                ),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              onPressed: () =>
+                                  _showAdminScheduleVisitDialog(context),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          const Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                        ],
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Row(
                               children: [
-                                Text(
-                                  'Home Visit Care & Scheduling',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimaryColor,
-                                    fontFamily: 'Inter',
-                                  ),
+                                const Icon(
+                                  Icons.home_work_outlined,
+                                  color: AppTheme.primaryColor,
+                                  size: 28,
                                 ),
-                                Text(
-                                  'Schedule home care visits by assigning nurses & patients',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                    fontFamily: 'Inter',
+                                const SizedBox(width: 14),
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        context.tr(
+                                          'home_visit_care_scheduling',
+                                          fallback: 'Home Visit Care & Scheduling',
+                                        ),
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.textPrimaryColor,
+                                          fontFamily: 'Inter',
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        context.tr(
+                                          'home_visit_care_scheduling_sub',
+                                          fallback:
+                                              'Schedule home care visits by assigning nurses & patients',
+                                        ),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey,
+                                          fontFamily: 'Inter',
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            height: 42,
+                            child: ElevatedButton.icon(
+                              style: AppTheme.dangerButton,
+                              icon: const Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              label: Text(
+                                context.tr(
+                                  'schedule_home_visit',
+                                  fallback: 'Schedule Home Visit',
+                                ),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              onPressed: () =>
+                                  _showAdminScheduleVisitDialog(context),
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 44,
-                        child: ElevatedButton.icon(
-                          style: AppTheme.dangerButton,
-                          icon: const Icon(
-                            Icons.add,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                          label: const Text(
-                            'Schedule Home Visit',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: Colors.white,
-                            ),
-                          ),
-                          onPressed: () =>
-                              _showAdminScheduleVisitDialog(context),
-                        ),
-                      ),
-                    ],
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.home_work_outlined,
-                                color: AppTheme.primaryColor,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            const Flexible(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Home Visit Care & Scheduling',
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textPrimaryColor,
-                                      fontFamily: 'Inter',
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    'Schedule home care visits by assigning nurses & patients',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey,
-                                      fontFamily: 'Inter',
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        height: 42,
-                        child: ElevatedButton.icon(
-                          style: AppTheme.dangerButton,
-                          icon: const Icon(
-                            Icons.add,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                          label: const Text(
-                            'Schedule Home Visit',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: Colors.white,
-                            ),
-                          ),
-                          onPressed: () =>
-                              _showAdminScheduleVisitDialog(context),
-                        ),
-                      ),
-                    ],
-                  ),
+              ),
+              Expanded(
+                child: HomeVisitListView(
+                  showHeader: false,
+                  showScheduleButton: false,
+                  showExecuteButton: false,
+                  onViewSummary: (visitId) {
+                    setState(() {
+                      _selectedHomeVisitId = visitId;
+                    });
+                    context.go('/admin/home-visits/summary/$visitId');
+                  },
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: HomeVisitListView(
-              showHeader: false,
-              showScheduleButton: false,
-              showExecuteButton: false,
-              onViewSummary: (visitId) {
-                setState(() {
-                  _selectedHomeVisitId = visitId;
-                });
-                context.go('/admin/home-visits/summary/$visitId');
-              },
-            ),
-          ),
-        ],
+        );
+        },
       ),
     );
   }
+
 
   void _showAdminScheduleVisitDialog(BuildContext context) async {
     List<UserModel> availableNurses = _nurses;
@@ -6290,365 +6521,553 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           "${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}",
     );
     final addressCtrl = TextEditingController(text: '');
-    final timeCtrl = TextEditingController(text: '9:00 AM');
+    final timeCtrl = TextEditingController(text: '09:00 AM');
     bool isSubmitting = false;
 
+    String selectedShiftKey = 'morning';
+
+    final _adminDialogLocale = Provider.of<LanguageProvider>(context, listen: false).locale;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final homeVisitCtrl = Provider.of<HomeVisitController>(
-            context,
-            listen: false,
-          );
+      builder: (dialogCtx) => Localizations.override(
+        context: dialogCtx,
+        locale: _adminDialogLocale,
+        child: Consumer<LanguageProvider>(
+          builder: (context, langProvider, child) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              final bool isTamil = langProvider.isTamil;
+            final homeVisitCtrl = Provider.of<HomeVisitController>(
+              context,
+              listen: false,
+            );
 
-          String apiDateStr = dateCtrl.text;
-          final dateParts = dateCtrl.text.split('-');
-          if (dateParts.length == 3 && dateParts[2].length == 4) {
-            apiDateStr = "${dateParts[2]}-${dateParts[1]}-${dateParts[0]}";
-          }
+            String apiDateStr = dateCtrl.text;
+            final dateParts = dateCtrl.text.split('-');
+            if (dateParts.length == 3 && dateParts[2].length == 4) {
+              apiDateStr = "${dateParts[2]}-${dateParts[1]}-${dateParts[0]}";
+            }
 
-          // Validation Check: "Once already chosen nurse patient on selected date cannot chosen again."
-          final bool isDuplicateNursePatient =
-              selectedNurse != null &&
-              selectedPatient != null &&
-              homeVisitCtrl.visits.any(
-                (v) =>
-                    v.nurseId == selectedNurse!.id &&
-                    v.patientId == selectedPatient!.id &&
-                    v.scheduledDate == apiDateStr &&
-                    v.status != 'Cancelled',
-              );
+            final String targetTime = timeCtrl.text.trim();
 
-          final bool isDuplicatePatientDate =
-              selectedPatient != null &&
-              homeVisitCtrl.visits.any(
-                (v) =>
-                    v.patientId == selectedPatient!.id &&
-                    v.scheduledDate == apiDateStr &&
-                    v.status != 'Cancelled',
-              );
+            // Validation Check: duplicate nurse or patient on same date and same shift/time
+            final bool isDuplicateNursePatient =
+                selectedNurse != null &&
+                selectedPatient != null &&
+                homeVisitCtrl.visits.any(
+                  (v) =>
+                      v.nurseId == selectedNurse!.id &&
+                      v.patientId == selectedPatient!.id &&
+                      v.scheduledDate == apiDateStr &&
+                      (v.scheduledTime ?? '09:00 AM').trim().toLowerCase() == targetTime.toLowerCase() &&
+                      v.status != 'Cancelled',
+                );
 
-          final bool hasValidationError =
-              isDuplicateNursePatient || isDuplicatePatientDate;
+            final bool isDuplicatePatientDate =
+                selectedPatient != null &&
+                homeVisitCtrl.visits.any(
+                  (v) =>
+                      v.patientId == selectedPatient!.id &&
+                      v.scheduledDate == apiDateStr &&
+                      (v.scheduledTime ?? '09:00 AM').trim().toLowerCase() == targetTime.toLowerCase() &&
+                      v.status != 'Cancelled',
+                );
 
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: const Row(
-              children: [
-                Icon(
-                  Icons.home_work_outlined,
-                  color: AppTheme.primaryColor,
-                  size: 26,
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Schedule Home Visit',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: AppTheme.primaryColor,
+            final bool hasValidationError =
+                isDuplicateNursePatient || isDuplicatePatientDate;
+
+            final Map<String, String> shiftLabels = {
+              'morning': context.tr(
+                'shift_morning',
+                fallback: 'Morning Shift (09:00 AM - 06:00 PM)',
+              ),
+              'night': context.tr(
+                'shift_night',
+                fallback: 'Night Shift (06:00 PM - 09:00 AM)',
+              ),
+              'custom': context.tr('shift_custom', fallback: 'Custom Time'),
+            };
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Row(
+                children: [
+                  const Icon(
+                    Icons.home_work_outlined,
+                    color: AppTheme.primaryColor,
+                    size: 26,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      context.tr('schedule_home_visit', fallback: 'Schedule Home Visit'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: AppTheme.primaryColor,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: SizedBox(
-                width: MediaQuery.of(context).size.width > 520
-                    ? 480
-                    : MediaQuery.of(context).size.width * 0.88,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Assign a nurse and select a patient to schedule a home care visit.',
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 1. Choose Nurse
-                    const Text(
-                      'Select Nurse:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                  InkWell(
+                    onTap: () {
+                      final auth = Provider.of<AuthProvider>(context, listen: false);
+                      langProvider.toggleLanguage(userId: auth.user?.id);
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: AppTheme.primaryColor.withOpacity(0.3),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    CustomDropdownSearch(
-                      label: '',
-                      hint: 'Select Nurse',
-                      dropdownItems: availableNurses.map((n) {
-                        final uid = n.staffUniqueId ?? '';
-                        final idStr = uid.isNotEmpty ? ' ($uid)' : '';
-                        return '${n.fullname}$idStr';
-                      }).toList(),
-                      value: selectedNurse != null
-                          ? '${selectedNurse!.fullname}${(selectedNurse!.staffUniqueId != null && selectedNurse!.staffUniqueId!.isNotEmpty) ? ' (${selectedNurse!.staffUniqueId})' : ''}'
-                          : null,
-                      onChanged: (val) {
-                        if (val != null) {
-                          final found = availableNurses.firstWhere((n) {
-                            final uid = n.staffUniqueId ?? '';
-                            final idStr = uid.isNotEmpty ? ' ($uid)' : '';
-                            return '${n.fullname}$idStr' == val;
-                          }, orElse: () => availableNurses.first);
-                          setDialogState(() {
-                            selectedNurse = found;
-                          });
-                        }
-                      },
-                      height: 48,
-                      borderColor: const Color(0xFFE2E8F0),
-                      focusedBorderColor: AppTheme.primaryColor,
-                      fillColor: AppTheme.backgroundColor,
-                      popupBgColor: Colors.white,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 2. Choose Patient
-                    const Text(
-                      'Select Patient:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    CustomDropdownSearch(
-                      label: '',
-                      hint: 'Search/Select Patient',
-                      dropdownItems: availablePatients
-                          .map((p) => "${p.name} (${p.patientId ?? 'N/A'})")
-                          .toList(),
-                      value: selectedPatient != null
-                          ? "${selectedPatient!.name} (${selectedPatient!.patientId ?? 'N/A'})"
-                          : null,
-                      onChanged: (val) {
-                        if (val != null) {
-                          final found = availablePatients.firstWhere(
-                            (p) => "${p.name} (${p.patientId ?? 'N/A'})" == val,
-                            orElse: () => availablePatients.first,
-                          );
-                          setDialogState(() {
-                            selectedPatient = found;
-                            addressCtrl.text = found.fullAddress.isNotEmpty
-                                ? found.fullAddress
-                                : found.address;
-                          });
-                        }
-                      },
-                      height: 48,
-                      borderColor: const Color(0xFFE2E8F0),
-                      focusedBorderColor: AppTheme.primaryColor,
-                      fillColor: AppTheme.backgroundColor,
-                      popupBgColor: Colors.white,
-                    ),
-                    const SizedBox(height: 6),
-                    // Single small gray line for Visit Address directly below patient field
-                    Padding(
-                      padding: const EdgeInsets.only(left: 2.0),
                       child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.location_on_outlined,
-                            color: Colors.grey,
-                            size: 14,
+                            Icons.translate,
+                            size: 15,
+                            color: AppTheme.primaryColor,
                           ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              selectedPatient != null
-                                  ? 'Visit Address: ${addressCtrl.text.isNotEmpty ? addressCtrl.text : "No address recorded"}'
-                                  : 'Visit Address: Select a patient to view address',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          const SizedBox(width: 5),
+                          Text(
+                            isTamil ? 'தமிழ்' : 'English',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // 4. Scheduled Date
-                    const Text(
-                      'Scheduled Date:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                    onPressed: isSubmitting ? null : () => Navigator.of(dialogCtx).pop(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    splashRadius: 18,
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width > 520
+                      ? 480
+                      : MediaQuery.of(context).size.width * 0.88,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr(
+                          'schedule_home_visit_desc',
+                          fallback: 'Assign a nurse and select a patient to schedule a home care visit.',
+                        ),
+                        style: const TextStyle(fontSize: 13, color: Colors.grey),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: dateCtrl,
-                      readOnly: true,
-                      decoration: AppTheme.standardInputDecoration(
-                        suffixIcon: const Icon(
-                          Icons.calendar_today,
-                          size: 18,
-                          color: AppTheme.primaryColor,
+                      const SizedBox(height: 16),
+
+                      // 1. Choose Nurse
+                      Text(
+                        context.tr('select_nurse', fallback: 'Select Nurse:'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         ),
                       ),
-                      onTap: () async {
-                        final DateTime? picked = await showDatePicker(
-                          context: context,
-                          initialDate: DateTime.now(),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime(2030),
-                        );
-                        if (picked != null) {
-                          setDialogState(() {
-                            dateCtrl.text =
-                                "${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}";
-                          });
-                        }
-                      },
-                    ),
+                      const SizedBox(height: 6),
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: context.tr('select_nurse_hint', fallback: 'Select Nurse'),
+                        dropdownMap: {
+                          for (final n in availableNurses)
+                            n.id.toString():
+                                '${TamilTransliterationHelper.formatName(n.fullname, isTamil: isTamil, showBoth: true)}${(n.staffUniqueId != null && n.staffUniqueId!.isNotEmpty) ? ' (${n.staffUniqueId})' : ''}',
+                        },
+                        value: selectedNurse?.id?.toString(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            final found = availableNurses.firstWhere(
+                              (n) => n.id?.toString() == val,
+                              orElse: () => availableNurses.first,
+                            );
+                            setDialogState(() {
+                              selectedNurse = found;
+                            });
+                          } else {
+                            setDialogState(() {
+                              selectedNurse = null;
+                            });
+                          }
+                        },
+                        height: 48,
+                        borderColor: const Color(0xFFE2E8F0),
+                        focusedBorderColor: AppTheme.primaryColor,
+                        fillColor: AppTheme.backgroundColor,
+                        popupBgColor: Colors.white,
+                      ),
+                      const SizedBox(height: 16),
 
-                    // Validation Warning Box
-                    if (isDuplicateNursePatient) ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
+                      // 2. Choose Patient
+                      Text(
+                        context.tr('select_patient_label', fallback: 'Select Patient:'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         ),
+                      ),
+                      const SizedBox(height: 6),
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: context.tr('search_select_patient', fallback: 'Search/Select Patient'),
+                        dropdownMap: {
+                          for (final p in availablePatients)
+                            p.id.toString():
+                                "${TamilTransliterationHelper.formatName(p.name, isTamil: isTamil, showBoth: true)} (${(p.patientId != null && p.patientId!.isNotEmpty) ? p.patientId! : 'ID: ${p.id}'})",
+                        },
+                        value: selectedPatient?.id?.toString(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            final pId = int.tryParse(val);
+                            final found = availablePatients.firstWhere(
+                              (p) => p.id == pId,
+                              orElse: () => availablePatients.first,
+                            );
+                            setDialogState(() {
+                              selectedPatient = found;
+                              addressCtrl.text = found.fullAddress.isNotEmpty
+                                  ? found.fullAddress
+                                  : found.address;
+                            });
+                          } else {
+                            setDialogState(() {
+                              selectedPatient = null;
+                              addressCtrl.text = '';
+                            });
+                          }
+                        },
+                        height: 48,
+                        borderColor: const Color(0xFFE2E8F0),
+                        focusedBorderColor: AppTheme.primaryColor,
+                        fillColor: AppTheme.backgroundColor,
+                        popupBgColor: Colors.white,
+                      ),
+                      const SizedBox(height: 6),
+                      // Single small gray line for Visit Address directly below patient field
+                      Padding(
+                        padding: const EdgeInsets.only(left: 2.0),
                         child: Row(
                           children: [
                             const Icon(
-                              Icons.warning_amber_rounded,
-                              color: Colors.red,
-                              size: 20,
+                              Icons.location_on_outlined,
+                              color: Colors.grey,
+                              size: 14,
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                '⚠️ Nurse "${selectedNurse?.fullname}" is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text}. Once chosen, this nurse & patient combination on this date cannot be scheduled again.',
+                                selectedPatient != null
+                                    ? '${context.tr('visit_address_label', fallback: 'Visit Address:')} ${addressCtrl.text.isNotEmpty ? addressCtrl.text : context.tr('no_address_recorded', fallback: "No address recorded")}'
+                                    : '${context.tr('visit_address_label', fallback: 'Visit Address:')} ${context.tr('select_patient_to_view_address', fallback: 'Select a patient to view address')}',
                                 style: const TextStyle(
-                                  color: Colors.red,
                                   fontSize: 12,
-                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey,
                                 ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ] else if (isDuplicatePatientDate) ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.warning_amber_rounded,
-                              color: Colors.red,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                '⚠️ A home visit is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text}. Only 1 visit per patient per day is allowed.',
-                                style: const TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: 16),
+
+                      // 3. Scheduled Date
+                      Text(
+                        context.tr('scheduled_date', fallback: 'Scheduled Date:'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
                         ),
                       ),
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: dateCtrl,
+                        readOnly: true,
+                        decoration: AppTheme.standardInputDecoration(
+                          suffixIcon: const Icon(
+                            Icons.calendar_today,
+                            size: 18,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        onTap: () async {
+                          final DateTime? picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime.now(),
+                            firstDate: DateTime.now(),
+                            lastDate: DateTime(2030),
+                          );
+                          if (picked != null) {
+                            setDialogState(() {
+                              dateCtrl.text =
+                                  "${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}";
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // 4. Shift & Scheduled Time
+                      Text(
+                        context.tr('shift_scheduled_time', fallback: 'Shift & Scheduled Time:'),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: context.tr('select_shift_time_hint', fallback: 'Select Shift / Time'),
+                        dropdownMap: shiftLabels,
+                        value: selectedShiftKey,
+                        onChanged: (val) async {
+                          if (val == null) return;
+                          setDialogState(() => selectedShiftKey = val);
+                          if (val == 'custom') {
+                            final TimeOfDay? customPicked = await showTimePicker(
+                              context: context,
+                              initialTime: const TimeOfDay(hour: 9, minute: 0),
+                              helpText: context.tr('select_custom_scheduled_time', fallback: 'Select Custom Scheduled Time'),
+                            );
+                            if (customPicked != null) {
+                              final dt = DateTime(2026, 1, 1, customPicked.hour, customPicked.minute);
+                              setDialogState(() {
+                                timeCtrl.text = DateFormat('hh:mm a').format(dt);
+                              });
+                            }
+                          } else if (val == 'morning') {
+                            setDialogState(() {
+                              timeCtrl.text = '09:00 AM';
+                            });
+                          } else if (val == 'night') {
+                            setDialogState(() {
+                              timeCtrl.text = '06:00 PM';
+                            });
+                          }
+                        },
+                        height: 48,
+                        borderColor: const Color(0xFFE2E8F0),
+                        focusedBorderColor: AppTheme.primaryColor,
+                        fillColor: AppTheme.backgroundColor,
+                        popupBgColor: Colors.white,
+                      ),
+
+                      // Validation Warning Box
+                      if (isDuplicateNursePatient) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  '⚠️ ' +
+                                      context.tr(
+                                        'nurse_already_scheduled_warning',
+                                        params: {
+                                          'nurse': TamilTransliterationHelper.formatName(
+                                            selectedNurse?.fullname ?? '',
+                                            isTamil: isTamil,
+                                            showBoth: true,
+                                          ),
+                                          'patient': TamilTransliterationHelper.formatName(
+                                            selectedPatient?.name ?? '',
+                                            isTamil: isTamil,
+                                            showBoth: true,
+                                          ),
+                                          'date': dateCtrl.text,
+                                          'time': timeCtrl.text,
+                                        },
+                                        fallback:
+                                            'Nurse "${selectedNurse?.fullname}" is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text} at ${timeCtrl.text}.',
+                                      ),
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else if (isDuplicatePatientDate) ...[
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  '⚠️ ' +
+                                      context.tr(
+                                        'visit_already_scheduled_warning',
+                                        params: {
+                                          'patient': TamilTransliterationHelper.formatName(
+                                            selectedPatient?.name ?? '',
+                                            isTamil: isTamil,
+                                            showBoth: true,
+                                          ),
+                                          'date': dateCtrl.text,
+                                          'time': timeCtrl.text,
+                                        },
+                                        fallback:
+                                            'A home visit is already scheduled for "${selectedPatient?.name}" on ${dateCtrl.text} at ${timeCtrl.text}. You can schedule another shift (e.g. Night Shift) at a different time.',
+                                      ),
+                                  style: const TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: isSubmitting
-                    ? null
-                    : () => Navigator.of(dialogCtx).pop(),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.grey),
+              actions: [
+                TextButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () => Navigator.of(dialogCtx).pop(),
+                  child: Text(
+                    context.tr('cancel', fallback: 'Cancel'),
+                    style: const TextStyle(color: Colors.grey),
+                  ),
                 ),
-              ),
-              ElevatedButton(
-                style: AppTheme.dangerButton,
-                onPressed:
-                    (isSubmitting ||
-                        hasValidationError ||
-                        selectedNurse == null ||
-                        selectedPatient == null)
-                    ? null
-                    : () async {
-                        setDialogState(() => isSubmitting = true);
-                        final homeVisitCtrl = Provider.of<HomeVisitController>(
-                          context,
-                          listen: false,
-                        );
+                ElevatedButton(
+                  style: AppTheme.dangerButton,
+                  onPressed:
+                      (isSubmitting ||
+                          hasValidationError ||
+                          selectedNurse == null ||
+                          selectedPatient == null)
+                      ? null
+                      : () async {
+                          setDialogState(() => isSubmitting = true);
+                          final homeVisitCtrl = Provider.of<HomeVisitController>(
+                            context,
+                            listen: false,
+                          );
 
-                        final newVisit = await homeVisitCtrl.createVisit({
-                          'nurse_id': selectedNurse!.id,
-                          'patient_id': selectedPatient!.id,
-                          'scheduled_date': apiDateStr,
-                          'scheduled_time': timeCtrl.text,
-                          'visit_address': addressCtrl.text,
-                          'carried_items': [],
-                        });
+                          final newVisit = await homeVisitCtrl.createVisit({
+                            'nurse_id': selectedNurse!.id,
+                            'patient_id': selectedPatient!.id,
+                            'scheduled_date': apiDateStr,
+                            'scheduled_time': timeCtrl.text.trim(),
+                            'visit_address': addressCtrl.text,
+                            'carried_items': [],
+                          });
 
-                        if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
+                          if (dialogCtx.mounted) Navigator.of(dialogCtx).pop();
 
-                        if (newVisit != null) {
-                          await homeVisitCtrl.fetchVisits();
-                          if (context.mounted) {
+                          if (newVisit != null) {
+                            await homeVisitCtrl.fetchVisits();
+                            if (context.mounted) {
+                              final nurseName = TamilTransliterationHelper.formatName(
+                                selectedNurse!.fullname,
+                                isTamil: isTamil,
+                                showBoth: false,
+                              );
+                              final patientName = TamilTransliterationHelper.formatName(
+                                selectedPatient!.name,
+                                isTamil: isTamil,
+                                showBoth: false,
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    context.tr(
+                                      'home_visit_scheduled_success_nurse',
+                                      params: {
+                                        'visitNum': newVisit.visitNumber,
+                                        'time': timeCtrl.text,
+                                        'patient': patientName,
+                                        'nurse': nurseName,
+                                      },
+                                      fallback:
+                                          'Home visit ${newVisit.visitNumber} (${timeCtrl.text}) scheduled for ${selectedPatient!.name} with Nurse ${selectedNurse!.fullname}!',
+                                    ),
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } else if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  'Home visit ${newVisit.visitNumber} scheduled for ${selectedPatient!.name} with Nurse ${selectedNurse!.fullname}!',
+                                  homeVisitCtrl.errorMessage ??
+                                      context.tr(
+                                        'failed_to_schedule_visit',
+                                        fallback: 'Failed to schedule home visit.',
+                                      ),
                                 ),
-                                backgroundColor: Colors.green,
+                                backgroundColor: AppTheme.dangerColor,
                               ),
                             );
                           }
-                        } else if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                homeVisitCtrl.errorMessage ??
-                                    'Failed to schedule home visit.',
-                              ),
-                              backgroundColor: AppTheme.dangerColor,
-                            ),
-                          );
-                        }
-                      },
-                child: Text(isSubmitting ? 'Scheduling...' : 'Schedule Visit'),
-              ),
-            ],
-          );
-        },
+                        },
+                  child: Text(
+                    isSubmitting
+                        ? context.tr('scheduling_in_progress', fallback: 'Scheduling...')
+                        : context.tr('schedule_visit_action', fallback: 'Schedule Visit'),
+                  ),
+                ),
+              ],
+            );
+          },
+          ),
+        ),
       ),
     );
   }
+
 
   // --- Helpers & Dialogs ---
 
@@ -6841,18 +7260,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Shift'),
-        content: const Text(
-          'Are you sure you want to delete this shift schedule? All associated allocations will be deleted.',
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text(
+          'Delete Shift',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const SizedBox(
+          width: 440,
+          child: Text(
+            'Are you sure you want to delete this shift schedule? All associated allocations will be deleted.',
+            softWrap: true,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
+            style: AppTheme.cancelButton,
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            style: AppTheme.dangerButton,
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -6915,18 +7346,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Allocation'),
-        content: const Text(
-          'Are you sure you want to delete this nurse shift allocation?',
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text(
+          'Delete Allocation',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const SizedBox(
+          width: 440,
+          child: Text(
+            'Are you sure you want to delete this nurse shift allocation?',
+            softWrap: true,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
+            style: AppTheme.cancelButton,
             child: const Text('Cancel'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+            style: AppTheme.dangerButton,
+            child: const Text('Delete'),
           ),
         ],
       ),
@@ -6955,6 +7398,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String? _medCatalogError;
   String _medCatalogSearch = '';
   String _selectedMedCategoryFilter = 'Total';
+  int _medCatalogCurrentPage = 0;
+  final int _medCatalogItemsPerPage = 10;
   final TextEditingController _medSearchController = TextEditingController();
 
   String get _medBaseUrl => ApiEndpoints.baseUrl;
@@ -6964,6 +7409,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() {
       _isMedCatalogLoading = true;
       _medCatalogError = null;
+      _medCatalogCurrentPage = 0;
     });
     try {
       final search = _medCatalogSearch.trim();
@@ -7548,7 +7994,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             }
                           } else {
                             throw Exception(
-                              respBody['message'] ?? 'Failed to update medication',
+                              respBody['message'] ??
+                                  'Failed to update medication',
                             );
                           }
                         } catch (e) {
@@ -7597,23 +8044,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           'Remove Medication',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: RichText(
-          text: TextSpan(
-            style: const TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 14,
-              height: 1.5,
+        content: SizedBox(
+          width: 440,
+          child: RichText(
+            softWrap: true,
+            text: TextSpan(
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 14,
+                height: 1.5,
+              ),
+              children: [
+                const TextSpan(text: 'Are you sure you want to remove '),
+                TextSpan(
+                  text: '"${med['name']}"',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text: ' from the medication catalog? This cannot be undone.',
+                ),
+              ],
             ),
-            children: [
-              const TextSpan(text: 'Are you sure you want to remove '),
-              TextSpan(
-                text: '"${med['name']}"',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const TextSpan(
-                text: ' from the medication catalog? This cannot be undone.',
-              ),
-            ],
           ),
         ),
         actions: [
@@ -7667,13 +8118,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
 
     final filtered = _medicationCatalog.where((m) {
-      final matchesSearch = _medCatalogSearch.trim().isEmpty ||
+      final matchesSearch =
+          _medCatalogSearch.trim().isEmpty ||
           (m['name'] as String).toLowerCase().contains(
-                _medCatalogSearch.toLowerCase(),
-              ) ||
+            _medCatalogSearch.toLowerCase(),
+          ) ||
           (m['category'] as String).toLowerCase().contains(
-                _medCatalogSearch.toLowerCase(),
-              );
+            _medCatalogSearch.toLowerCase(),
+          );
 
       final matchesCategory = () {
         if (_selectedMedCategoryFilter == 'Total') return true;
@@ -7686,12 +8138,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return matchesSearch && matchesCategory;
     }).toList();
 
+    final totalItems = filtered.length;
+    final totalPages = (totalItems / _medCatalogItemsPerPage).ceil();
+
+    if (_medCatalogCurrentPage >= totalPages && totalPages > 0) {
+      _medCatalogCurrentPage = totalPages - 1;
+    }
+    if (_medCatalogCurrentPage < 0) _medCatalogCurrentPage = 0;
+
+    final paginatedItems = filtered
+        .skip(_medCatalogCurrentPage * _medCatalogItemsPerPage)
+        .take(_medCatalogItemsPerPage)
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // ── Header Bar ──────────────────────────────────────────────────────
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
           decoration: const BoxDecoration(color: Colors.transparent),
           child: isMobile
               ? Column(
@@ -7700,74 +8165,170 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     _buildMedCatalogHeaderTitle(),
                     const SizedBox(height: 12),
                     _buildMedCatalogSearchBar(),
-                    const SizedBox(height: 12),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _buildMedCatalogHeaderTitle(),
+                    const Spacer(),
                     SizedBox(
-                      width: double.infinity,
-                      height: 48,
+                      width: 440,
+                      child: _buildMedCatalogSearchBar(),
+                    ),
+                  ],
+                ),
+        ),
+
+        // ── Stats & Actions Row ──────────────────────────────────────────────
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          _buildMedStatChip(
+                            Icons.medication_outlined,
+                            AppTheme.primaryColor,
+                            'Total',
+                            '${_medicationCatalog.length}',
+                          ),
+                          const SizedBox(width: 8),
+                          _buildMedStatChip(
+                            Icons.science_outlined,
+                            AppTheme.secondaryColor,
+                            'Medicine',
+                            '${_medicationCatalog.where((m) => m['category'] == 'Medicine').length}',
+                          ),
+                          const SizedBox(width: 8),
+                          _buildMedStatChip(
+                            Icons.local_hospital_outlined,
+                            const Color(0xFF7C3AED),
+                            'ICU Consumable',
+                            '${_medicationCatalog.where((m) => m['category'] == 'ICU Consumable').length}',
+                          ),
+                          const SizedBox(width: 8),
+                          _buildMedStatChip(
+                            Icons.content_cut_outlined,
+                            const Color(0xFFF59E0B),
+                            'Surgical Item',
+                            '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
+                          ),
+                          const SizedBox(width: 8),
+                          _buildMedStatChip(
+                            Icons.lock_outline,
+                            AppTheme.dangerColor,
+                            'Controlled',
+                            '${_medicationCatalog.where((m) => m['is_controlled'] == true).length}',
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 38,
                       child: ElevatedButton.icon(
                         onPressed: () => _showAddMedicationDialog(isMobile),
-                        style: AppTheme.primaryButton,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Medication'),
+                        style: AppTheme.primaryButton.copyWith(
+                          padding: WidgetStateProperty.all(
+                            const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          shape: WidgetStateProperty.all(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text(
+                          'Add Medication',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 )
               : Row(
                   children: [
-                    _buildMedCatalogHeaderTitle(),
-                    const Spacer(),
-                    SizedBox(width: 280, child: _buildMedCatalogSearchBar()),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => _showAddMedicationDialog(isMobile),
-                      style: AppTheme.primaryButton,
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add Medication'),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: [
+                            _buildMedStatChip(
+                              Icons.medication_outlined,
+                              AppTheme.primaryColor,
+                              'Total',
+                              '${_medicationCatalog.length}',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildMedStatChip(
+                              Icons.science_outlined,
+                              AppTheme.secondaryColor,
+                              'Medicine',
+                              '${_medicationCatalog.where((m) => m['category'] == 'Medicine').length}',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildMedStatChip(
+                              Icons.local_hospital_outlined,
+                              const Color(0xFF7C3AED),
+                              'ICU Consumable',
+                              '${_medicationCatalog.where((m) => m['category'] == 'ICU Consumable').length}',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildMedStatChip(
+                              Icons.content_cut_outlined,
+                              const Color(0xFFF59E0B),
+                              'Surgical Item',
+                              '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildMedStatChip(
+                              Icons.lock_outline,
+                              AppTheme.dangerColor,
+                              'Controlled',
+                              '${_medicationCatalog.where((m) => m['is_controlled'] == true).length}',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      height: 34,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showAddMedicationDialog(isMobile),
+                        style: AppTheme.primaryButton.copyWith(
+                          padding: WidgetStateProperty.all(
+                            const EdgeInsets.symmetric(horizontal: 14),
+                          ),
+                          shape: WidgetStateProperty.all(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text(
+                          'Add Medication',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-        ),
-
-        // ── Stats Row ────────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _buildMedStatChip(
-                Icons.medication_outlined,
-                AppTheme.primaryColor,
-                'Total',
-                '${_medicationCatalog.length}',
-              ),
-              _buildMedStatChip(
-                Icons.science_outlined,
-                AppTheme.secondaryColor,
-                'Medicine',
-                '${_medicationCatalog.where((m) => m['category'] == 'Medicine').length}',
-              ),
-              _buildMedStatChip(
-                Icons.local_hospital_outlined,
-                const Color(0xFF7C3AED),
-                'ICU Consumable',
-                '${_medicationCatalog.where((m) => m['category'] == 'ICU Consumable').length}',
-              ),
-              _buildMedStatChip(
-                Icons.content_cut_outlined,
-                const Color(0xFFF59E0B),
-                'Surgical Item',
-                '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
-              ),
-              _buildMedStatChip(
-                Icons.lock_outline,
-                AppTheme.dangerColor,
-                'Controlled',
-                '${_medicationCatalog.where((m) => m['is_controlled'] == true).length}',
-              ),
-            ],
-          ),
         ),
         const SizedBox(height: 16),
 
@@ -7782,8 +8343,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 : filtered.isEmpty
                 ? _buildMedCatalogEmpty()
                 : isMobile
-                ? _buildMedCatalogMobileList(filtered)
-                : _buildMedCatalogDesktopTable(filtered),
+                ? _buildMedCatalogMobileList(paginatedItems, totalPages)
+                : _buildMedCatalogDesktopTable(
+                    paginatedItems,
+                    totalPages,
+                    totalItems,
+                  ),
           ),
         ),
       ],
@@ -7831,25 +8396,59 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildMedCatalogSearchBar() {
     return TextField(
       controller: _medSearchController,
+      style: const TextStyle(fontSize: 13),
       decoration:
           AppTheme.standardInputDecoration(
             label: null,
             prefixIcon: Icons.search,
             hintText: 'Search medications...',
           ).copyWith(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: AppTheme.primaryColor,
+                width: 1.4,
+              ),
+            ),
             suffixIcon: _medCatalogSearch.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
+                    icon: const Icon(Icons.clear, size: 16),
                     onPressed: () {
                       _medSearchController.clear();
-                      setState(() => _medCatalogSearch = '');
+                      setState(() {
+                        _medCatalogSearch = '';
+                        _medCatalogCurrentPage = 0;
+                      });
                       _loadMedicationCatalog();
                     },
                   )
                 : null,
           ),
       onChanged: (v) {
-        setState(() => _medCatalogSearch = v);
+        setState(() {
+          _medCatalogSearch = v;
+          _medCatalogCurrentPage = 0;
+        });
       },
       onSubmitted: (_) => _loadMedicationCatalog(),
     );
@@ -7863,18 +8462,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   ) {
     final isSelected = _selectedMedCategoryFilter == label;
     return InkWell(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(8),
       onTap: () {
         setState(() {
           _selectedMedCategoryFilter = label;
+          _medCatalogCurrentPage = 0;
         });
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected ? color : color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected ? color : color.withValues(alpha: 0.25),
             width: isSelected ? 1.5 : 1.0,
@@ -7883,8 +8483,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ? [
                   BoxShadow(
                     color: color.withValues(alpha: 0.25),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1.5),
                   ),
                 ]
               : null,
@@ -7892,12 +8492,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : color,
-              size: 16,
-            ),
-            const SizedBox(width: 8),
+            Icon(icon, color: isSelected ? Colors.white : color, size: 14),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
@@ -7908,17 +8504,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
             const SizedBox(width: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: 1.5,
+              ),
               decoration: BoxDecoration(
                 color: isSelected
                     ? Colors.white.withValues(alpha: 0.25)
                     : color,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 count,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
@@ -7989,11 +8588,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildMedCatalogDesktopTable(List<Map<String, dynamic>> items) {
+  Widget _buildMedCatalogDesktopTable(
+    List<Map<String, dynamic>> items,
+    int totalPages,
+    int totalItems,
+  ) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: Container(
         decoration: BoxDecoration(
+          color: Colors.white,
           border: Border.all(color: AppTheme.borderColor),
           borderRadius: BorderRadius.circular(14),
         ),
@@ -8009,7 +8613,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: const Row(
                 children: [
                   Expanded(
-                    flex: 3,
+                    flex: 4,
                     child: Text(
                       '#  Medication Name',
                       style: TextStyle(
@@ -8031,20 +8635,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   ),
                   Expanded(
-                    flex: 1,
+                    flex: 2,
                     child: Text(
                       'Unit',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    flex: 1,
-                    child: Text(
-                      'Status',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -8056,6 +8649,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     width: 88,
                     child: Text(
                       'Actions',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -8074,7 +8668,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 itemCount: items.length,
                 itemBuilder: (ctx, i) {
                   final med = items[i];
-                  final isControlled = med['is_controlled'] == true;
+                  final itemIndex =
+                      (i + 1) + (_medCatalogCurrentPage * _medCatalogItemsPerPage);
                   final category = med['category'] as String? ?? 'Medicine';
                   final catColor = category == 'Medicine'
                       ? AppTheme.primaryColor
@@ -8090,11 +8685,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     child: Row(
                       children: [
                         Expanded(
-                          flex: 3,
+                          flex: 4,
                           child: Row(
                             children: [
                               Text(
-                                '${i + 1}. ',
+                                '$itemIndex. ',
                                 style: const TextStyle(
                                   fontSize: 12,
                                   color: AppTheme.textSecondaryColor,
@@ -8126,7 +8721,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
                         Expanded(
-                          flex: 1,
+                          flex: 2,
                           child: Text(
                             med['default_unit'] as String? ?? '-',
                             style: const TextStyle(
@@ -8135,65 +8730,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                         ),
-                        Expanded(
-                          flex: 1,
-                          child: isControlled
-                              ? Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.dangerColor.withOpacity(
-                                      0.1,
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.lock_outline,
-                                        size: 12,
-                                        color: AppTheme.dangerColor,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Controlled',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: AppTheme.dangerColor,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.secondaryColor.withOpacity(
-                                      0.1,
-                                    ),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(
-                                    'Standard',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.secondaryColor,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                        ),
                         SizedBox(
                           width: 88,
                           child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               IconButton(
                                 icon: const Icon(
@@ -8202,16 +8742,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   color: AppTheme.primaryColor,
                                 ),
                                 tooltip: 'Edit Medication',
+                                padding: const EdgeInsets.all(4),
+                                constraints: const BoxConstraints(),
                                 onPressed: () =>
                                     _showEditMedicationDialog(med, false),
                               ),
+                              const SizedBox(width: 8),
                               IconButton(
                                 icon: const Icon(
                                   Icons.delete_outline,
                                   size: 18,
                                   color: AppTheme.dangerColor,
                                 ),
-                                tooltip: 'Remove from catalog',
+                                tooltip: 'Remove',
+                                padding: const EdgeInsets.all(4),
+                                constraints: const BoxConstraints(),
                                 onPressed: () => _deleteMedication(med),
                               ),
                             ],
@@ -8223,158 +8768,257 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 },
               ),
             ),
+            if (totalPages > 1) ...[
+              const Divider(height: 1, color: AppTheme.borderColor),
+              _buildMedCatalogPaginationControls(totalPages, false),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMedCatalogMobileList(List<Map<String, dynamic>> items) {
-    return ListView.separated(
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemCount: items.length,
-      itemBuilder: (ctx, i) {
-        final med = items[i];
-        final isControlled = med['is_controlled'] == true;
-        final category = med['category'] as String? ?? 'Medicine';
-        final catColor = category == 'Medicine'
-            ? AppTheme.primaryColor
-            : category == 'ICU Consumable'
-            ? const Color(0xFF7C3AED)
-            : const Color(0xFFF59E0B);
-        return Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppTheme.borderColor),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
+  Widget _buildMedCatalogMobileList(
+    List<Map<String, dynamic>> items,
+    int totalPages,
+  ) {
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.separated(
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemCount: items.length,
+            itemBuilder: (ctx, i) {
+              final med = items[i];
+              final itemIndex =
+                  (i + 1) + (_medCatalogCurrentPage * _medCatalogItemsPerPage);
+              final isControlled = med['is_controlled'] == true;
+              final category = med['category'] as String? ?? 'Medicine';
+              final catColor = category == 'Medicine'
+                  ? AppTheme.primaryColor
+                  : category == 'ICU Consumable'
+                  ? const Color(0xFF7C3AED)
+                  : const Color(0xFFF59E0B);
+              return Container(
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.borderColor),
                 ),
-                child: Text(
-                  '${i + 1}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      med['name'] as String? ?? '',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14,
-                        color: AppTheme.textPrimaryColor,
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$itemIndex',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          color: AppTheme.primaryColor,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: [
-                        Text(
-                          category,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: catColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            med['default_unit'] as String? ?? '-',
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            med['name'] as String? ?? '',
                             style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondaryColor,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: AppTheme.textPrimaryColor,
                             ),
                           ),
-                        ),
-                        if (isControlled)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.dangerColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.lock_outline,
-                                  size: 11,
-                                  color: AppTheme.dangerColor,
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              Text(
+                                category,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: catColor,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                const SizedBox(width: 3),
-                                Text(
-                                  'Controlled',
-                                  style: TextStyle(
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  med['default_unit'] as String? ?? '-',
+                                  style: const TextStyle(
                                     fontSize: 11,
-                                    color: AppTheme.dangerColor,
+                                    color: AppTheme.textSecondaryColor,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              if (isControlled)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.dangerColor.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.lock_outline,
+                                        size: 11,
+                                        color: AppTheme.dangerColor,
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'Controlled',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.dangerColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
                           ),
+                        ],
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.edit_outlined,
+                            size: 18,
+                            color: AppTheme.primaryColor,
+                          ),
+                          tooltip: 'Edit Medication',
+                          onPressed: () => _showEditMedicationDialog(med, true),
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            size: 18,
+                            color: AppTheme.dangerColor,
+                          ),
+                          tooltip: 'Remove',
+                          onPressed: () => _deleteMedication(med),
+                        ),
                       ],
                     ),
                   ],
                 ),
+              );
+            },
+          ),
+        ),
+        if (totalPages > 1) ...[
+          const Divider(height: 1, color: AppTheme.borderColor),
+          _buildMedCatalogPaginationControls(totalPages, true),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMedCatalogPaginationControls(int totalPages, bool isMobile) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 20,
+        vertical: isMobile ? 10 : 12,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              context.pageOfTotal(_medCatalogCurrentPage + 1, totalPages),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondaryColor,
+                fontWeight: FontWeight.w500,
               ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      Icons.edit_outlined,
-                      size: 18,
-                      color: AppTheme.primaryColor,
-                    ),
-                    tooltip: 'Edit Medication',
-                    onPressed: () => _showEditMedicationDialog(med, true),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              OutlinedButton(
+                onPressed: _medCatalogCurrentPage > 0
+                    ? () => setState(() => _medCatalogCurrentPage--)
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(64, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      size: 18,
-                      color: AppTheme.dangerColor,
-                    ),
-                    tooltip: 'Remove',
-                    onPressed: () => _deleteMedication(med),
+                  side: BorderSide(
+                    color: _medCatalogCurrentPage > 0
+                        ? AppTheme.primaryColor
+                        : AppTheme.borderColor,
                   ),
-                ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.chevron_left, size: 16),
+                    Text(context.tr('previous'), style: const TextStyle(fontSize: 12)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              OutlinedButton(
+                onPressed: _medCatalogCurrentPage < totalPages - 1
+                    ? () => setState(() => _medCatalogCurrentPage++)
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(64, 32),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  side: BorderSide(
+                    color: _medCatalogCurrentPage < totalPages - 1
+                        ? AppTheme.primaryColor
+                        : AppTheme.borderColor,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(context.tr('next'), style: const TextStyle(fontSize: 12)),
+                    const Icon(Icons.chevron_right, size: 16),
+                  ],
+                ),
               ),
             ],
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -8603,7 +9247,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               decoration: AppTheme.standardInputDecoration(
                                 label: null,
                                 prefixIcon: Icons.healing_outlined,
-                                hintText: 'e.g. Tracheostomy Care, Wound Dressing',
+                                hintText:
+                                    'e.g. Tracheostomy Care, Wound Dressing',
                               ).copyWith(counterText: ''),
                               validator: (v) {
                                 if (v == null || v.trim().isEmpty)
@@ -8640,9 +9285,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             const SizedBox(height: 6),
                             TextFormField(
                               controller: procChargeCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(
-                                decimal: true,
-                              ),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                               inputFormatters: [
                                 FilteringTextInputFormatter.allow(
                                   RegExp(r'^\d*\.?\d{0,2}'),
@@ -8666,7 +9312,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 if (val == null || val < 0) {
                                   return 'Enter a valid non-negative amount';
                                 }
-                                if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(clean)) {
+                                if (!RegExp(
+                                  r'^\d+(\.\d{1,2})?$',
+                                ).hasMatch(clean)) {
                                   return 'Decimal value cannot exceed 2 decimal places';
                                 }
                                 return null;
@@ -8725,7 +9373,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: AppTheme.borderColor),
+                                  border: Border.all(
+                                    color: AppTheme.borderColor,
+                                  ),
                                 ),
                                 child: Row(
                                   children: [
@@ -8749,14 +9399,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               )
                             else
                               Column(
-                                children: itemsList.asMap().entries.map((entry) {
+                                children: itemsList.asMap().entries.map((
+                                  entry,
+                                ) {
                                   final idx = entry.key;
                                   final row = entry.value;
-                                  final rowId = row['id']?.toString() ?? 'row_$idx';
+                                  final rowId =
+                                      row['id']?.toString() ?? 'row_$idx';
                                   final nameCtrl =
                                       row['name_ctrl'] as TextEditingController;
                                   final priceCtrl =
-                                      row['price_ctrl'] as TextEditingController;
+                                      row['price_ctrl']
+                                          as TextEditingController;
                                   final qtyCtrl =
                                       row['qty_ctrl'] as TextEditingController;
 
@@ -8767,10 +9421,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFF8FAFC),
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: AppTheme.borderColor),
+                                      border: Border.all(
+                                        color: AppTheme.borderColor,
+                                      ),
                                     ),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           children: [
@@ -8779,7 +9436,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 12,
-                                                color: AppTheme.textPrimaryColor,
+                                                color:
+                                                    AppTheme.textPrimaryColor,
                                               ),
                                             ),
                                             const Spacer(),
@@ -8790,9 +9448,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                                 color: AppTheme.logoRed,
                                               ),
                                               padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(),
+                                              constraints:
+                                                  const BoxConstraints(),
                                               onPressed: () {
-                                                setD(() => itemsList.removeAt(idx));
+                                                setD(
+                                                  () => itemsList.removeAt(idx),
+                                                );
                                               },
                                             ),
                                           ],
@@ -8803,15 +9464,28 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                           key: ValueKey('name_$rowId'),
                                           label: 'Consumable Item',
                                           requiredMark: true,
-                                          hint: 'Select or type consumable item name',
+                                          hint:
+                                              'Select or type consumable item name',
                                           value: nameCtrl.text.isEmpty
                                               ? null
                                               : nameCtrl.text,
-                                          dropdownItems: _hvConsumablesMasterList
-                                              .map((c) => c['name']?.toString() ?? '')
-                                              .where((n) => n.isNotEmpty)
-                                              .toSet()
-                                              .toList(),
+                                          maxLength: 60,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'[a-zA-Z0-9\s]'),
+                                            ),
+                                            LengthLimitingTextInputFormatter(60),
+                                          ],
+                                          dropdownItems:
+                                              _hvConsumablesMasterList
+                                                  .map(
+                                                    (c) =>
+                                                        c['name']?.toString() ??
+                                                        '',
+                                                  )
+                                                  .where((n) => n.isNotEmpty)
+                                                  .toSet()
+                                                  .toList(),
                                           allowFreeText: true,
                                           onChanged: (val) {
                                             if (val != null) {
@@ -8832,7 +9506,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                                 if (matched.isNotEmpty) {
                                                   row['is_master'] = true;
                                                   row['unit'] =
-                                                      matched['unit']?.toString() ??
+                                                      matched['unit']
+                                                          ?.toString() ??
                                                       'Pc';
                                                   priceCtrl.text =
                                                       (double.tryParse(
@@ -8852,11 +9527,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                             if (v == null || v.trim().isEmpty) {
                                               return 'Consumable item name is required';
                                             }
-                                            final clean = v.trim().toLowerCase();
-                                            final duplicateCount = itemsList.where((r) {
-                                              final ctrl = r['name_ctrl'] as TextEditingController;
-                                              return ctrl.text.trim().toLowerCase() == clean;
-                                            }).length;
+                                            final clean = v.trim();
+                                            if (clean.length < 2) {
+                                              return 'Min 2 characters required';
+                                            }
+                                            if (clean.length > 60) {
+                                              return 'Consumable item name cannot exceed 60 characters';
+                                            }
+                                            if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
+                                              return 'Consumable item name must contain alphabetical characters';
+                                            }
+                                            if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;%+]+$').hasMatch(clean)) {
+                                              return 'Special characters are not allowed in consumable item name';
+                                            }
+                                            final cleanLower = clean.toLowerCase();
+                                            final duplicateCount = itemsList
+                                                .where((r) {
+                                                  final ctrl =
+                                                      r['name_ctrl']
+                                                          as TextEditingController;
+                                                  return ctrl.text
+                                                          .trim()
+                                                          .toLowerCase() ==
+                                                      cleanLower;
+                                                })
+                                                .length;
                                             if (duplicateCount > 1) {
                                               return 'Duplicate consumable item in procedure';
                                             }
@@ -8877,41 +9572,76 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                                     'Unit',
                                                     style: TextStyle(
                                                       fontFamily: 'Manrope',
-                                                      color: Colors.grey.shade700,
+                                                      color:
+                                                          Colors.grey.shade700,
                                                       fontSize: 12,
-                                                      fontWeight: FontWeight.w700,
+                                                      fontWeight:
+                                                          FontWeight.w700,
                                                     ),
                                                   ),
                                                   const SizedBox(height: 4),
-                                                  DropdownButtonFormField<String>(
-                                                    value: (row['unit'] as String?) ?? 'Pc',
+                                                  DropdownButtonFormField<
+                                                    String
+                                                  >(
+                                                    value:
+                                                        (row['unit']
+                                                            as String?) ??
+                                                        'Pc',
                                                     isExpanded: true,
-                                                    decoration: AppTheme.standardInputDecoration(
-                                                      label: null,
-                                                    ).copyWith(
-                                                      contentPadding: const EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 10,
-                                                      ),
-                                                      fillColor: row['is_master'] == true
-                                                          ? const Color(0xFFF1F5F9)
-                                                          : Colors.white,
-                                                    ),
-                                                    items: const [
-                                                      'Pc',
-                                                      'Pair',
-                                                      'Pack',
-                                                      'Roll',
-                                                      'Vial',
-                                                      'Box',
-                                                      'Strip',
-                                                      'ml',
-                                                    ].map((u) => DropdownMenuItem(value: u, child: Text(u, style: const TextStyle(fontSize: 13)))).toList(),
-                                                    onChanged: row['is_master'] == true
+                                                    decoration:
+                                                        AppTheme.standardInputDecoration(
+                                                          label: null,
+                                                        ).copyWith(
+                                                          contentPadding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 12,
+                                                                vertical: 10,
+                                                              ),
+                                                          fillColor:
+                                                              row['is_master'] ==
+                                                                  true
+                                                              ? const Color(
+                                                                  0xFFF1F5F9,
+                                                                )
+                                                              : Colors.white,
+                                                        ),
+                                                    items:
+                                                        const [
+                                                              'Pc',
+                                                              'Pair',
+                                                              'Pack',
+                                                              'Roll',
+                                                              'Vial',
+                                                              'Box',
+                                                              'Strip',
+                                                              'ml',
+                                                            ]
+                                                            .map(
+                                                              (
+                                                                u,
+                                                              ) => DropdownMenuItem(
+                                                                value: u,
+                                                                child: Text(
+                                                                  u,
+                                                                  style:
+                                                                      const TextStyle(
+                                                                        fontSize:
+                                                                            13,
+                                                                      ),
+                                                                ),
+                                                              ),
+                                                            )
+                                                            .toList(),
+                                                    onChanged:
+                                                        row['is_master'] == true
                                                         ? null
                                                         : (newU) {
                                                             if (newU != null) {
-                                                              setD(() => row['unit'] = newU);
+                                                              setD(
+                                                                () =>
+                                                                    row['unit'] =
+                                                                        newU,
+                                                              );
                                                             }
                                                           },
                                                   ),
@@ -8930,69 +9660,102 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                                     'Price (₹)',
                                                     style: TextStyle(
                                                       fontFamily: 'Manrope',
-                                                      color: Colors.grey.shade700,
+                                                      color:
+                                                          Colors.grey.shade700,
                                                       fontSize: 12,
-                                                      fontWeight: FontWeight.w700,
+                                                      fontWeight:
+                                                          FontWeight.w700,
                                                     ),
                                                   ),
                                                   const SizedBox(height: 4),
                                                   MouseRegion(
-                                                    cursor: row['is_master'] == true
-                                                        ? SystemMouseCursors.forbidden
-                                                        : SystemMouseCursors.text,
+                                                    cursor:
+                                                        row['is_master'] == true
+                                                        ? SystemMouseCursors
+                                                              .forbidden
+                                                        : SystemMouseCursors
+                                                              .text,
                                                     child: TextFormField(
                                                       controller: priceCtrl,
-                                                      readOnly: row['is_master'] == true,
-                                                      showCursor: row['is_master'] != true,
-                                                      canRequestFocus: row['is_master'] != true,
+                                                      readOnly:
+                                                          row['is_master'] ==
+                                                          true,
+                                                      showCursor:
+                                                          row['is_master'] !=
+                                                          true,
+                                                      canRequestFocus:
+                                                          row['is_master'] !=
+                                                          true,
                                                       keyboardType:
                                                           const TextInputType.numberWithOptions(
                                                             decimal: true,
                                                           ),
                                                       inputFormatters: [
                                                         FilteringTextInputFormatter.allow(
-                                                          RegExp(r'^\d*\.?\d{0,2}'),
+                                                          RegExp(
+                                                            r'^\d*\.?\d{0,2}',
+                                                          ),
                                                         ),
-                                                        LengthLimitingTextInputFormatter(10),
+                                                        LengthLimitingTextInputFormatter(
+                                                          10,
+                                                        ),
                                                       ],
                                                       decoration:
                                                           AppTheme.standardInputDecoration(
                                                             label: null,
-                                                            prefixIcon:
-                                                                Icons.currency_rupee,
-                                                            suffixIcon: row['is_master'] == true
+                                                            prefixIcon: Icons
+                                                                .currency_rupee,
+                                                            suffixIcon:
+                                                                row['is_master'] ==
+                                                                    true
                                                                 ? Tooltip(
                                                                     message:
                                                                         'Price locked to Master Catalog',
                                                                     child: Icon(
-                                                                      Icons.lock_outline,
+                                                                      Icons
+                                                                          .lock_outline,
                                                                       size: 16,
-                                                                      color: Colors.grey.shade600,
+                                                                      color: Colors
+                                                                          .grey
+                                                                          .shade600,
                                                                     ),
                                                                   )
                                                                 : null,
-                                                            hintText: row['is_master'] == true
+                                                            hintText:
+                                                                row['is_master'] ==
+                                                                    true
                                                                 ? 'Locked'
                                                                 : 'Unit Price',
                                                           ).copyWith(
-                                                            fillColor: row['is_master'] == true
-                                                                ? const Color(0xFFF1F5F9)
+                                                            fillColor:
+                                                                row['is_master'] ==
+                                                                    true
+                                                                ? const Color(
+                                                                    0xFFF1F5F9,
+                                                                  )
                                                                 : Colors.white,
                                                             counterText: '',
                                                           ),
                                                       validator: (v) {
-                                                        if (v == null || v.trim().isEmpty) {
+                                                        if (v == null ||
+                                                            v.trim().isEmpty) {
                                                           return 'Required';
                                                         }
                                                         final clean = v.trim();
                                                         if (clean.length > 10) {
                                                           return 'Max 10 chars';
                                                         }
-                                                        final val = double.tryParse(clean);
-                                                        if (val == null || val < 0) {
+                                                        final val =
+                                                            double.tryParse(
+                                                              clean,
+                                                            );
+                                                        if (val == null ||
+                                                            val < 0) {
                                                           return 'Invalid';
                                                         }
-                                                        if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(clean)) {
+                                                        if (!RegExp(
+                                                          r'^\d+(\.\d{1,2})?$',
+                                                        ).hasMatch(clean)) {
                                                           return 'Max 2 decimals';
                                                         }
                                                         return null;
@@ -9014,31 +9777,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                                     'Qty/Proc',
                                                     style: TextStyle(
                                                       fontFamily: 'Manrope',
-                                                      color: Colors.grey.shade700,
+                                                      color:
+                                                          Colors.grey.shade700,
                                                       fontSize: 12,
-                                                      fontWeight: FontWeight.w700,
+                                                      fontWeight:
+                                                          FontWeight.w700,
                                                     ),
                                                   ),
                                                   const SizedBox(height: 4),
                                                   TextFormField(
                                                     controller: qtyCtrl,
-                                                    keyboardType: TextInputType.number,
+                                                    keyboardType:
+                                                        TextInputType.number,
                                                     inputFormatters: [
-                                                      FilteringTextInputFormatter.digitsOnly,
-                                                      LengthLimitingTextInputFormatter(5),
+                                                      FilteringTextInputFormatter
+                                                          .digitsOnly,
+                                                      LengthLimitingTextInputFormatter(
+                                                        5,
+                                                      ),
                                                     ],
                                                     decoration:
                                                         AppTheme.standardInputDecoration(
                                                           label: null,
-                                                          prefixIcon: Icons.numbers,
+                                                          prefixIcon:
+                                                              Icons.numbers,
                                                           hintText: 'Qty',
                                                         ),
                                                     validator: (v) {
-                                                      if (v == null || v.trim().isEmpty) {
+                                                      if (v == null ||
+                                                          v.trim().isEmpty) {
                                                         return 'Required';
                                                       }
-                                                      final val = int.tryParse(v.trim());
-                                                      if (val == null || val <= 0) {
+                                                      final val = int.tryParse(
+                                                        v.trim(),
+                                                      );
+                                                      if (val == null ||
+                                                          val <= 0) {
                                                         return '> 0';
                                                       }
                                                       if (v.trim().length > 5) {
@@ -9066,7 +9840,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   // ── Dialog Actions ──
                   const Divider(height: 1),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -9083,18 +9860,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   if (!formKey.currentState!.validate()) return;
                                   final seenNames = <String>{};
                                   for (final row in itemsList) {
-                                    final cName = (row['name_ctrl'] as TextEditingController)
-                                        .text
-                                        .trim()
-                                        .toLowerCase();
+                                    final cName =
+                                        (row['name_ctrl']
+                                                as TextEditingController)
+                                            .text
+                                            .trim()
+                                            .toLowerCase();
                                     if (cName.isNotEmpty) {
                                       if (seenNames.contains(cName)) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
                                           SnackBar(
                                             content: Text(
                                               'Duplicate consumable item "${(row['name_ctrl'] as TextEditingController).text.trim()}" in procedure mapping. Redundant items are not allowed.',
                                             ),
-                                            backgroundColor: AppTheme.dangerColor,
+                                            backgroundColor:
+                                                AppTheme.dangerColor,
                                           ),
                                         );
                                         return;
@@ -9107,20 +9889,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     final mappedItems = itemsList.map((row) {
                                       return {
                                         'consumable_name':
-                                            (row['name_ctrl'] as TextEditingController)
+                                            (row['name_ctrl']
+                                                    as TextEditingController)
                                                 .text
                                                 .trim(),
                                         'unit': row['unit'],
                                         'unit_price':
                                             double.tryParse(
-                                              (row['price_ctrl'] as TextEditingController)
+                                              (row['price_ctrl']
+                                                      as TextEditingController)
                                                   .text
                                                   .trim(),
                                             ) ??
                                             0.0,
                                         'qty_per_procedure':
                                             int.tryParse(
-                                              (row['qty_ctrl'] as TextEditingController)
+                                              (row['qty_ctrl']
+                                                      as TextEditingController)
                                                   .text
                                                   .trim(),
                                             ) ??
@@ -9128,32 +9913,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       };
                                     }).toList();
 
-                                    await HomeVisitService().createProcedureMaster({
-                                      'name': procNameCtrl.text.trim(),
-                                      'procedure_charge':
-                                          double.tryParse(procChargeCtrl.text.trim()) ??
-                                          0.0,
-                                      'items': mappedItems,
-                                    });
+                                    await HomeVisitService()
+                                        .createProcedureMaster({
+                                          'name': procNameCtrl.text.trim(),
+                                          'procedure_charge':
+                                              double.tryParse(
+                                                procChargeCtrl.text.trim(),
+                                              ) ??
+                                              0.0,
+                                          'items': mappedItems,
+                                        });
 
                                     if (mounted) Navigator.pop(ctx, true);
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
                                           content: const Text(
                                             'Procedure and mapped consumables saved successfully',
                                           ),
-                                          backgroundColor: Colors.green.shade600,
+                                          backgroundColor:
+                                              Colors.green.shade600,
                                         ),
                                       );
                                     }
                                   } catch (e) {
                                     setD(() => isSaving = false);
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                            e.toString().replaceFirst('Exception: ', ''),
+                                            e.toString().replaceFirst(
+                                              'Exception: ',
+                                              '',
+                                            ),
                                           ),
                                           backgroundColor: AppTheme.dangerColor,
                                         ),
@@ -9394,10 +10190,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             {
                               'name': procNameCtrl.text.trim(),
                               'procedure_charge':
-                                  double.tryParse(
-                                        procChargeCtrl.text.trim(),
-                                      ) ??
-                                      0.0,
+                                  double.tryParse(procChargeCtrl.text.trim()) ??
+                                  0.0,
                             },
                           );
 
@@ -9520,6 +10314,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         requiredMark: true,
                         hint: 'Select or type consumable item name',
                         value: nameCtrl.text.isEmpty ? null : nameCtrl.text,
+                        maxLength: 60,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9\s]'),
+                          ),
+                          LengthLimitingTextInputFormatter(60),
+                        ],
                         dropdownItems: _hvConsumablesMasterList
                             .map((c) => c['name']?.toString() ?? '')
                             .where((n) => n.isNotEmpty)
@@ -9560,9 +10361,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (v == null || v.trim().isEmpty) {
                             return 'Consumable item name is required';
                           }
-                          final clean = v.trim().toLowerCase();
+                          final clean = v.trim();
+                          if (clean.length < 2) {
+                            return 'Min 2 characters required';
+                          }
+                          if (clean.length > 60) {
+                            return 'Consumable item name cannot exceed 60 characters';
+                          }
+                          if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
+                            return 'Consumable item name must contain alphabetical characters';
+                          }
+                          if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;%+]+$').hasMatch(clean)) {
+                            return 'Special characters are not allowed in consumable item name';
+                          }
+                          final cleanLower = clean.toLowerCase();
                           final alreadyMapped = proc.mappedConsumables.any(
-                            (c) => c.consumableName.trim().toLowerCase() == clean,
+                            (c) =>
+                                c.consumableName.trim().toLowerCase() == cleanLower,
                           );
                           if (alreadyMapped) {
                             return 'Item is already mapped to this procedure';
@@ -9643,27 +10458,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       ),
                                       LengthLimitingTextInputFormatter(10),
                                     ],
-                                    decoration: AppTheme.standardInputDecoration(
-                                      label: null,
-                                      prefixIcon: Icons.currency_rupee,
-                                      suffixIcon: isMasterItem
-                                          ? Tooltip(
-                                              message:
-                                                  'Price locked to Master Catalog',
-                                              child: Icon(
-                                                Icons.lock_outline,
-                                                size: 16,
-                                                color: Colors.grey.shade600,
-                                              ),
-                                            )
-                                          : null,
-                                      hintText: isMasterItem ? 'Locked' : '0.00',
-                                    ).copyWith(
-                                      fillColor: isMasterItem
-                                          ? const Color(0xFFF1F5F9)
-                                          : Colors.white,
-                                      counterText: '',
-                                    ),
+                                    decoration:
+                                        AppTheme.standardInputDecoration(
+                                          label: null,
+                                          prefixIcon: Icons.currency_rupee,
+                                          suffixIcon: isMasterItem
+                                              ? Tooltip(
+                                                  message:
+                                                      'Price locked to Master Catalog',
+                                                  child: Icon(
+                                                    Icons.lock_outline,
+                                                    size: 16,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                )
+                                              : null,
+                                          hintText: isMasterItem
+                                              ? 'Locked'
+                                              : '0.00',
+                                        ).copyWith(
+                                          fillColor: isMasterItem
+                                              ? const Color(0xFFF1F5F9)
+                                              : Colors.white,
+                                          counterText: '',
+                                        ),
                                     validator: (v) {
                                       if (v == null || v.trim().isEmpty) {
                                         return 'Unit price is required';
@@ -9676,7 +10494,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       if (val == null || val < 0) {
                                         return 'Enter a valid non-negative amount';
                                       }
-                                      if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(clean)) {
+                                      if (!RegExp(
+                                        r'^\d+(\.\d{1,2})?$',
+                                      ).hasMatch(clean)) {
                                         return 'Decimal value cannot exceed 2 decimal places';
                                       }
                                       return null;
@@ -9815,7 +10635,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (result == true) _loadHomeVisitConsumablesCatalog();
   }
 
-  // Deactivate Procedure Master
+  // Remove Procedure Master
   Future<void> _deleteProcedureMaster(ProcedureMasterModel proc) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -9824,26 +10644,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Text(
-          'Deactivate Procedure',
+          'Remove Procedure',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: RichText(
-          text: TextSpan(
-            style: const TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 14,
-              height: 1.5,
+        content: SizedBox(
+          width: 440,
+          child: RichText(
+            softWrap: true,
+            text: TextSpan(
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 14,
+                height: 1.5,
+              ),
+              children: [
+                const TextSpan(text: 'Are you sure you want to remove '),
+                TextSpan(
+                  text: '"${proc.name}"',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text: ' from the procedure catalog? This cannot be undone.',
+                ),
+              ],
             ),
-            children: [
-              const TextSpan(text: 'Are you sure you want to deactivate '),
-              TextSpan(
-                text: '"${proc.name}"',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const TextSpan(
-                text: '? It will no longer be selectable during home visits.',
-              ),
-            ],
           ),
         ),
         actions: [
@@ -9855,7 +10679,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: AppTheme.dangerButton,
-            child: const Text('Deactivate'),
+            child: const Text('Remove'),
           ),
         ],
       ),
@@ -9867,7 +10691,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Procedure "${proc.name}" deactivated'),
+            content: Text('Procedure "${proc.name}" removed'),
             backgroundColor: Colors.green.shade600,
           ),
         );
@@ -9900,21 +10724,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           'Remove Consumable Item',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: RichText(
-          text: TextSpan(
-            style: const TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 14,
-              height: 1.5,
-            ),
-            children: [
-              const TextSpan(text: 'Remove '),
-              TextSpan(
-                text: '"${item.consumableName}"',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+        content: SizedBox(
+          width: 440,
+          child: RichText(
+            softWrap: true,
+            text: TextSpan(
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 14,
+                height: 1.5,
               ),
-              TextSpan(text: ' from procedure "${proc.name}"?'),
-            ],
+              children: [
+                const TextSpan(text: 'Remove '),
+                TextSpan(
+                  text: '"${item.consumableName}"',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                TextSpan(text: ' from procedure "${proc.name}"?'),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -10042,294 +10870,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: nameCtrl,
-                        maxLength: 150,
-                        decoration: AppTheme.standardInputDecoration(
-                          label: null,
-                          prefixIcon: Icons.home_repair_service_outlined,
-                          hintText:
-                              'e.g. Disposable Diaper L, Sterile Gauze Pack',
-                        ).copyWith(counterText: ''),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) {
-                            return 'Consumable item name is required';
-                          }
-                          if (v.trim().length < 2) {
-                            return 'Min 2 characters required';
-                          }
-                          final clean = v.trim().toLowerCase();
-                          final alreadyExists = _hvConsumablesMasterList.any(
-                            (c) =>
-                                (c['name']?.toString().trim().toLowerCase() ??
-                                    '') ==
-                                clean,
-                          );
-                          if (alreadyExists) {
-                            return 'Consumable item already exists in catalog';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 14),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: CustomDropdownSearch(
-                              label: 'Unit',
-                              requiredMark: true,
-                              hint: 'Select Unit',
-                              value: selectedUnit,
-                              dropdownItems: const [
-                                'Pc',
-                                'Pair',
-                                'Pack',
-                                'Roll',
-                                'Vial',
-                                'Box',
-                                'Strip',
-                                'ml',
-                              ],
-                              onChanged: (v) {
-                                if (v != null) setD(() => selectedUnit = v);
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text.rich(
-                                  TextSpan(
-                                    children: [
-                                      TextSpan(
-                                        text: 'Unit Price (₹) ',
-                                        style: TextStyle(
-                                          color: Colors.grey.shade700,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      const TextSpan(
-                                        text: '*',
-                                        style: TextStyle(
-                                          color: AppTheme.logoRed,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                 TextFormField(
-                                   controller: priceCtrl,
-                                   keyboardType:
-                                       const TextInputType.numberWithOptions(
-                                         decimal: true,
-                                       ),
-                                   inputFormatters: [
-                                     FilteringTextInputFormatter.allow(
-                                       RegExp(r'^\d*\.?\d{0,2}'),
-                                     ),
-                                     LengthLimitingTextInputFormatter(10),
-                                   ],
-                                   decoration: AppTheme.standardInputDecoration(
-                                     label: null,
-                                     prefixIcon: Icons.currency_rupee,
-                                     hintText: '0.00',
-                                   ).copyWith(counterText: ''),
-                                   validator: (v) {
-                                     if (v == null || v.trim().isEmpty) {
-                                       return 'Unit price is required';
-                                     }
-                                     final clean = v.trim();
-                                     if (clean.length > 10) {
-                                       return 'Price cannot exceed 10 characters';
-                                     }
-                                     final val = double.tryParse(clean);
-                                     if (val == null || val < 0) {
-                                       return 'Enter a valid non-negative amount';
-                                     }
-                                     if (!RegExp(r'^\d+(\.\d{1,2})?$').hasMatch(clean)) {
-                                       return 'Decimal value cannot exceed 2 decimal places';
-                                     }
-                                     return null;
-                                   },
-                                 ),
-                               ],
-                             ),
-                           ),
-                         ],
-                       ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                style: AppTheme.cancelButton,
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: isSaving
-                    ? null
-                    : () async {
-                        if (!formKey.currentState!.validate()) return;
-                        setD(() => isSaving = true);
-                        try {
-                          await HomeVisitService().createConsumableMaster({
-                            'name': nameCtrl.text.trim(),
-                            'unit': selectedUnit,
-                            'unit_price':
-                                double.tryParse(priceCtrl.text.trim()) ?? 0.0,
-                          });
-
-                          if (mounted) Navigator.pop(ctx, true);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Consumable "${nameCtrl.text.trim()}" saved successfully',
-                                ),
-                                backgroundColor: Colors.green.shade600,
-                              ),
-                            );
-                          }
-                        } catch (e) {
-                          setD(() => isSaving = false);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  e.toString().replaceFirst('Exception: ', ''),
-                                ),
-                                backgroundColor: AppTheme.dangerColor,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                style: AppTheme.primaryButton,
-                child: isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Save Consumable'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    if (result == true) _loadHomeVisitConsumablesCatalog();
-  }
-
-
-  // Modal Dialog: Edit Standalone Consumable Item
-  Future<void> _showEditStandaloneConsumableDialog(
-    Map<String, dynamic> item,
-    bool isMobile,
-  ) async {
-    final formKey = GlobalKey<FormState>();
-    final nameCtrl =
-        TextEditingController(text: item['name']?.toString() ?? '');
-    nameCtrl.selection = TextSelection.fromPosition(
-      TextPosition(offset: nameCtrl.text.length),
-    );
-    final priceCtrl = TextEditingController(
-      text: (double.tryParse(item['unit_price']?.toString() ?? '0') ?? 0.0)
-          .toStringAsFixed(2),
-    );
-    String selectedUnit = item['unit']?.toString() ?? 'Pc';
-    final itemId = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
-    bool isSaving = false;
-
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => StatefulBuilder(
-        builder: (dialogCtx, setD) {
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.edit_note_outlined,
-                    color: AppTheme.primaryColor,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Edit Consumable Item',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppTheme.textPrimaryColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: isMobile ? double.infinity : 440,
-              child: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text.rich(
-                        TextSpan(
-                          children: [
-                            TextSpan(
-                              text: 'Consumable Item Name ',
-                              style: TextStyle(
-                                color: Colors.grey.shade700,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const TextSpan(
-                              text: '*',
-                              style: TextStyle(
-                                color: AppTheme.logoRed,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: nameCtrl,
-                        keyboardType: TextInputType.text,
-                        autofocus: true,
+                        maxLength: 60,
                         inputFormatters: [
-                          LengthLimitingTextInputFormatter(150),
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9\s]'),
+                          ),
+                          LengthLimitingTextInputFormatter(60),
                         ],
                         decoration: AppTheme.standardInputDecoration(
                           label: null,
@@ -10341,18 +10887,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (v == null || v.trim().isEmpty) {
                             return 'Consumable item name is required';
                           }
-                          if (v.trim().length < 2) {
+                          final clean = v.trim();
+                          if (clean.length < 2) {
                             return 'Min 2 characters required';
                           }
-                          final clean = v.trim().toLowerCase();
+                          if (clean.length > 60) {
+                            return 'Consumable item name cannot exceed 60 characters';
+                          }
+                          if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
+                            return 'Consumable item name must contain alphabetical characters';
+                          }
+                          if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;%+]+$').hasMatch(clean)) {
+                            return 'Special characters are not allowed in consumable item name';
+                          }
+                          final cleanLower = clean.toLowerCase();
                           final alreadyExists = _hvConsumablesMasterList.any(
                             (c) =>
-                                (int.tryParse(c['id']?.toString() ?? '0') ??
-                                        0) !=
-                                    itemId &&
                                 (c['name']?.toString().trim().toLowerCase() ??
-                                        '') ==
-                                    clean,
+                                    '') ==
+                                cleanLower,
                           );
                           if (alreadyExists) {
                             return 'Consumable item already exists in catalog';
@@ -10442,8 +10995,316 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     if (val == null || val < 0) {
                                       return 'Enter a valid non-negative amount';
                                     }
-                                    if (!RegExp(r'^\d+(\.\d{1,2})?$')
-                                        .hasMatch(clean)) {
+                                    if (!RegExp(
+                                      r'^\d+(\.\d{1,2})?$',
+                                    ).hasMatch(clean)) {
+                                      return 'Decimal value cannot exceed 2 decimal places';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSaving
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setD(() => isSaving = true);
+                        try {
+                          await HomeVisitService().createConsumableMaster({
+                            'name': nameCtrl.text.trim(),
+                            'unit': selectedUnit,
+                            'unit_price':
+                                double.tryParse(priceCtrl.text.trim()) ?? 0.0,
+                          });
+
+                          if (mounted) Navigator.pop(ctx, true);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Consumable "${nameCtrl.text.trim()}" saved successfully',
+                                ),
+                                backgroundColor: Colors.green.shade600,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          setD(() => isSaving = false);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  e.toString().replaceFirst('Exception: ', ''),
+                                ),
+                                backgroundColor: AppTheme.dangerColor,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                style: AppTheme.primaryButton,
+                child: isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Save Consumable'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result == true) _loadHomeVisitConsumablesCatalog();
+  }
+
+  // Modal Dialog: Edit Standalone Consumable Item
+  Future<void> _showEditStandaloneConsumableDialog(
+    Map<String, dynamic> item,
+    bool isMobile,
+  ) async {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController(
+      text: item['name']?.toString() ?? '',
+    );
+    nameCtrl.selection = TextSelection.fromPosition(
+      TextPosition(offset: nameCtrl.text.length),
+    );
+    final priceCtrl = TextEditingController(
+      text: (double.tryParse(item['unit_price']?.toString() ?? '0') ?? 0.0)
+          .toStringAsFixed(2),
+    );
+    String selectedUnit = item['unit']?.toString() ?? 'Pc';
+    final itemId = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
+    bool isSaving = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setD) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.edit_note_outlined,
+                    color: AppTheme.primaryColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Edit Consumable Item',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppTheme.textPrimaryColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: isMobile ? double.infinity : 440,
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: 'Consumable Item Name ',
+                              style: TextStyle(
+                                color: Colors.grey.shade700,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const TextSpan(
+                              text: '*',
+                              style: TextStyle(
+                                color: AppTheme.logoRed,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: nameCtrl,
+                        keyboardType: TextInputType.text,
+                        autofocus: true,
+                        maxLength: 60,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9\s]'),
+                          ),
+                          LengthLimitingTextInputFormatter(60),
+                        ],
+                        decoration: AppTheme.standardInputDecoration(
+                          label: null,
+                          prefixIcon: Icons.home_repair_service_outlined,
+                          hintText:
+                              'e.g. Disposable Diaper L, Sterile Gauze Pack',
+                        ).copyWith(counterText: ''),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Consumable item name is required';
+                          }
+                          final clean = v.trim();
+                          if (clean.length < 2) {
+                            return 'Min 2 characters required';
+                          }
+                          if (clean.length > 60) {
+                            return 'Consumable item name cannot exceed 60 characters';
+                          }
+                          if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
+                            return 'Consumable item name must contain alphabetical characters';
+                          }
+                          if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;%+]+$').hasMatch(clean)) {
+                            return 'Special characters are not allowed in consumable item name';
+                          }
+                          final cleanLower = clean.toLowerCase();
+                          final alreadyExists = _hvConsumablesMasterList.any(
+                            (c) =>
+                                (int.tryParse(c['id']?.toString() ?? '0') ??
+                                        0) !=
+                                    itemId &&
+                                (c['name']?.toString().trim().toLowerCase() ??
+                                        '') ==
+                                    cleanLower,
+                          );
+                          if (alreadyExists) {
+                            return 'Consumable item already exists in catalog';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CustomDropdownSearch(
+                              label: 'Unit',
+                              requiredMark: true,
+                              hint: 'Select Unit',
+                              value: selectedUnit,
+                              dropdownItems: const [
+                                'Pc',
+                                'Pair',
+                                'Pack',
+                                'Roll',
+                                'Vial',
+                                'Box',
+                                'Strip',
+                                'ml',
+                              ],
+                              onChanged: (v) {
+                                if (v != null) setD(() => selectedUnit = v);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      TextSpan(
+                                        text: 'Unit Price (₹) ',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade700,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const TextSpan(
+                                        text: '*',
+                                        style: TextStyle(
+                                          color: AppTheme.logoRed,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: priceCtrl,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'^\d*\.?\d{0,2}'),
+                                    ),
+                                    LengthLimitingTextInputFormatter(10),
+                                  ],
+                                  decoration: AppTheme.standardInputDecoration(
+                                    label: null,
+                                    prefixIcon: Icons.currency_rupee,
+                                    hintText: '0.00',
+                                  ).copyWith(counterText: ''),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) {
+                                      return 'Unit price is required';
+                                    }
+                                    final clean = v.trim();
+                                    if (clean.length > 10) {
+                                      return 'Price cannot exceed 10 characters';
+                                    }
+                                    final val = double.tryParse(clean);
+                                    if (val == null || val < 0) {
+                                      return 'Enter a valid non-negative amount';
+                                    }
+                                    if (!RegExp(
+                                      r'^\d+(\.\d{1,2})?$',
+                                    ).hasMatch(clean)) {
                                       return 'Decimal value cannot exceed 2 decimal places';
                                     }
                                     return null;
@@ -10478,8 +11339,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               'name': nameCtrl.text.trim(),
                               'unit': selectedUnit,
                               'unit_price':
-                                  double.tryParse(priceCtrl.text.trim()) ??
-                                      0.0,
+                                  double.tryParse(priceCtrl.text.trim()) ?? 0.0,
                             },
                           );
 
@@ -10529,7 +11389,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (result == true) _loadHomeVisitConsumablesCatalog();
   }
 
-  // Deactivate Standalone Consumable Item
+  // Remove Standalone Consumable Item
   Future<void> _deleteConsumableMaster(Map<String, dynamic> item) async {
     final name = item['name']?.toString() ?? 'this consumable';
     final itemId = int.tryParse(item['id']?.toString() ?? '0') ?? 0;
@@ -10541,27 +11401,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: const Text(
-          'Deactivate Consumable Item',
+          'Remove Consumable Item',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        content: RichText(
-          text: TextSpan(
-            style: const TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 14,
-              height: 1.5,
+        content: SizedBox(
+          width: 440,
+          child: RichText(
+            softWrap: true,
+            text: TextSpan(
+              style: const TextStyle(
+                color: AppTheme.textPrimaryColor,
+                fontSize: 14,
+                height: 1.5,
+              ),
+              children: [
+                const TextSpan(text: 'Are you sure you want to remove '),
+                TextSpan(
+                  text: '"$name"',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const TextSpan(
+                  text: ' from the consumables catalog? This cannot be undone.',
+                ),
+              ],
             ),
-            children: [
-              const TextSpan(text: 'Are you sure you want to deactivate '),
-              TextSpan(
-                text: '"$name"',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const TextSpan(
-                text:
-                    '? It will no longer appear in the active master catalog or be selectable for procedures.',
-              ),
-            ],
           ),
         ),
         actions: [
@@ -10573,7 +11436,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: AppTheme.dangerButton,
-            child: const Text('Deactivate'),
+            child: const Text('Remove'),
           ),
         ],
       ),
@@ -10585,7 +11448,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Consumable "$name" deactivated'),
+            content: Text('Consumable "$name" removed'),
             backgroundColor: Colors.green.shade600,
           ),
         );
@@ -10658,306 +11521,192 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     _buildHVConsumablesHeaderTitle(),
                     const SizedBox(height: 12),
                     _buildHVConsumablesSearchBar(),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 44,
-                            child: ElevatedButton.icon(
-                              onPressed: () =>
-                                  _showAddProcedureDialog(isMobile),
-                              style: AppTheme.primaryButton.copyWith(
-                                padding: WidgetStateProperty.all(
-                                  const EdgeInsets.symmetric(horizontal: 10),
-                                ),
-                              ),
-                              icon: const Icon(Icons.add, size: 16),
-                              label: const Text(
-                                'Add Procedure',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: SizedBox(
-                            height: 44,
-                            child: OutlinedButton.icon(
-                              onPressed: () =>
-                                  _showAddStandaloneConsumableDialog(isMobile),
-                              style: AppTheme.outlinedButton.copyWith(
-                                padding: WidgetStateProperty.all(
-                                  const EdgeInsets.symmetric(horizontal: 10),
-                                ),
-                              ),
-                              icon: const Icon(
-                                Icons.add_shopping_cart,
-                                size: 16,
-                                color: AppTheme.secondaryColor,
-                              ),
-                              label: const Text(
-                                'Add Consumable',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppTheme.secondaryColor,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 )
-              : Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 460),
+                    Expanded(
                       child: _buildHVConsumablesHeaderTitle(),
                     ),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 220,
-                          child: _buildHVConsumablesSearchBar(),
-                        ),
-                        ElevatedButton.icon(
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 440,
+                      child: _buildHVConsumablesSearchBar(),
+                    ),
+                  ],
+                ),
+        ),
+        const SizedBox(height: 6),
+
+        // Sub-Tab Switcher Row
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        children: [
+                          _buildHVSubTabChip(
+                            icon: Icons.medical_services_outlined,
+                            color: AppTheme.primaryColor,
+                            label: 'Procedures',
+                            count: '${_hvProceduresMaster.length}',
+                            isSelected: _hvCatalogSelectedTab == 0,
+                            onTap: () =>
+                                setState(() => _hvCatalogSelectedTab = 0),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildHVSubTabChip(
+                            icon: Icons.inventory_2_outlined,
+                            color: AppTheme.secondaryColor,
+                            label: 'Consumables',
+                            count: '${_hvConsumablesMasterList.length}',
+                            isSelected: _hvCatalogSelectedTab == 1,
+                            onTap: () =>
+                                setState(() => _hvCatalogSelectedTab = 1),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    if (_hvCatalogSelectedTab == 0)
+                      SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                        child: ElevatedButton.icon(
                           onPressed: () => _showAddProcedureDialog(isMobile),
-                          style: AppTheme.primaryButton,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add Procedure'),
+                          style: AppTheme.primaryButton.copyWith(
+                            shape: WidgetStateProperty.all(
+                              RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text(
+                            'Add Procedure',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
-                        OutlinedButton.icon(
+                      )
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                        child: ElevatedButton.icon(
                           onPressed: () =>
                               _showAddStandaloneConsumableDialog(isMobile),
-                          style: AppTheme.outlinedButton,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.secondaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
                           icon: const Icon(
                             Icons.add_shopping_cart,
-                            size: 18,
-                            color: AppTheme.secondaryColor,
+                            size: 16,
+                            color: Colors.white,
                           ),
                           label: const Text(
                             'Add Consumable',
                             style: TextStyle(
-                              color: AppTheme.secondaryColor,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
                             ),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
                   ],
-                ),
-        ),
-
-        // Stats Row (Horizontal scrollable on mobile)
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildMedStatChip(
-                  Icons.medical_services_outlined,
-                  AppTheme.primaryColor,
-                  'Total Procedures',
-                  '${_hvProceduresMaster.length}',
-                ),
-                const SizedBox(width: 10),
-                _buildMedStatChip(
-                  Icons.home_repair_service_outlined,
-                  AppTheme.secondaryColor,
-                  'Master Consumable Items',
-                  '${_hvConsumablesMasterList.length}',
-                ),
-                const SizedBox(width: 10),
-                _buildMedStatChip(
-                  Icons.alt_route_outlined,
-                  const Color(0xFF8B5CF6),
-                  'Active Item Mappings',
-                  '$totalMappingsCount',
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Sub-Tab Switcher Row (Segmented on mobile, Chips on desktop)
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-          child: isMobile
-              ? Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(9),
-                          onTap: () => setState(() => _hvCatalogSelectedTab = 0),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: _hvCatalogSelectedTab == 0
-                                  ? Colors.white
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(9),
-                              boxShadow: _hvCatalogSelectedTab == 0
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.06),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.medical_services_outlined,
-                                    size: 15,
-                                    color: _hvCatalogSelectedTab == 0
-                                        ? AppTheme.primaryColor
-                                        : AppTheme.textSecondaryColor,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Procedures (${_hvProceduresMaster.length})',
-                                    style: TextStyle(
-                                      color: _hvCatalogSelectedTab == 0
-                                          ? AppTheme.primaryColor
-                                          : AppTheme.textSecondaryColor,
-                                      fontWeight: _hvCatalogSelectedTab == 0
-                                          ? FontWeight.bold
-                                          : FontWeight.w600,
-                                      fontSize: 12.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(9),
-                          onTap: () => setState(() => _hvCatalogSelectedTab = 1),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            decoration: BoxDecoration(
-                              color: _hvCatalogSelectedTab == 1
-                                  ? Colors.white
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(9),
-                              boxShadow: _hvCatalogSelectedTab == 1
-                                  ? [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.06),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            child: Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.inventory_2_outlined,
-                                    size: 15,
-                                    color: _hvCatalogSelectedTab == 1
-                                        ? AppTheme.secondaryColor
-                                        : AppTheme.textSecondaryColor,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Consumables (${_hvConsumablesMasterList.length})',
-                                    style: TextStyle(
-                                      color: _hvCatalogSelectedTab == 1
-                                          ? AppTheme.secondaryColor
-                                          : AppTheme.textSecondaryColor,
-                                      fontWeight: _hvCatalogSelectedTab == 1
-                                          ? FontWeight.bold
-                                          : FontWeight.w600,
-                                      fontSize: 12.5,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 )
               : Row(
                   children: [
-                    ChoiceChip(
-                      label: Text(
-                        'Procedures Catalog (${_hvProceduresMaster.length})',
-                      ),
-                      selected: _hvCatalogSelectedTab == 0,
-                      onSelected: (val) {
-                        if (val) setState(() => _hvCatalogSelectedTab = 0);
-                      },
-                      selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
-                      labelStyle: TextStyle(
-                        color: _hvCatalogSelectedTab == 0
-                            ? AppTheme.primaryColor
-                            : AppTheme.textSecondaryColor,
-                        fontWeight: _hvCatalogSelectedTab == 0
-                            ? FontWeight.bold
-                            : FontWeight.w600,
-                        fontSize: 13,
-                      ),
+                    _buildHVSubTabChip(
+                      icon: Icons.medical_services_outlined,
+                      color: AppTheme.primaryColor,
+                      label: 'Procedures Catalog',
+                      count: '${_hvProceduresMaster.length}',
+                      isSelected: _hvCatalogSelectedTab == 0,
+                      onTap: () => setState(() => _hvCatalogSelectedTab = 0),
                     ),
                     const SizedBox(width: 8),
-                    ChoiceChip(
-                      label: Text(
-                        'Master Consumable Items (${_hvConsumablesMasterList.length})',
-                      ),
-                      selected: _hvCatalogSelectedTab == 1,
-                      onSelected: (val) {
-                        if (val) setState(() => _hvCatalogSelectedTab = 1);
-                      },
-                      selectedColor:
-                          AppTheme.secondaryColor.withValues(alpha: 0.15),
-                      labelStyle: TextStyle(
-                        color: _hvCatalogSelectedTab == 1
-                            ? AppTheme.secondaryColor
-                            : AppTheme.textSecondaryColor,
-                        fontWeight: _hvCatalogSelectedTab == 1
-                            ? FontWeight.bold
-                            : FontWeight.w600,
-                        fontSize: 13,
-                      ),
+                    _buildHVSubTabChip(
+                      icon: Icons.inventory_2_outlined,
+                      color: AppTheme.secondaryColor,
+                      label: 'Master Consumable Items',
+                      count: '${_hvConsumablesMasterList.length}',
+                      isSelected: _hvCatalogSelectedTab == 1,
+                      onTap: () => setState(() => _hvCatalogSelectedTab = 1),
                     ),
+                    const Spacer(),
+                    if (_hvCatalogSelectedTab == 0)
+                      SizedBox(
+                        height: 34,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showAddProcedureDialog(isMobile),
+                          style: AppTheme.primaryButton.copyWith(
+                            padding: WidgetStateProperty.all(
+                              const EdgeInsets.symmetric(horizontal: 14),
+                            ),
+                            shape: WidgetStateProperty.all(
+                              RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text(
+                            'Add Procedure',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        height: 34,
+                        child: ElevatedButton.icon(
+                          onPressed: () =>
+                              _showAddStandaloneConsumableDialog(isMobile),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.secondaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.add_shopping_cart,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            'Add Consumable',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
         ),
@@ -11166,24 +11915,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               ),
                             ),
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.secondaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              item['status']?.toString() ?? 'Active',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: AppTheme.secondaryColor,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ],
@@ -11204,10 +11935,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         minWidth: 32,
                         minHeight: 32,
                       ),
-                      onPressed: () => _showEditStandaloneConsumableDialog(
-                        item,
-                        isMobile,
-                      ),
+                      onPressed: () =>
+                          _showEditStandaloneConsumableDialog(item, isMobile),
                     ),
                     IconButton(
                       icon: const Icon(
@@ -11215,7 +11944,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         size: 18,
                         color: AppTheme.dangerColor,
                       ),
-                      tooltip: 'Deactivate Consumable',
+                      tooltip: 'Remove',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 32,
@@ -11234,7 +11963,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final tableMinWidth = constraints.maxWidth > 650 ? constraints.maxWidth : 650.0;
+        final tableMinWidth = constraints.maxWidth > 650
+            ? constraints.maxWidth
+            : 650.0;
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -11278,7 +12009,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                           Expanded(
-                            flex: 4,
+                            flex: 5,
                             child: Text(
                               'Consumable Item Name',
                               style: TextStyle(
@@ -11310,22 +12041,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               ),
                             ),
                           ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              'Status',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textSecondaryColor,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
+                          SizedBox(
+                            width: 88,
                             child: Text(
                               'Actions',
-                              textAlign: TextAlign.end,
+                              textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -11338,16 +12058,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     Expanded(
                       child: ListView.separated(
-                        separatorBuilder: (_, __) =>
-                            const Divider(height: 1, color: AppTheme.borderColor),
+                        separatorBuilder: (_, __) => const Divider(
+                          height: 1,
+                          color: AppTheme.borderColor,
+                        ),
                         itemCount: items.length,
                         itemBuilder: (ctx, i) {
                           final item = items[i];
                           final price =
-                              double.tryParse(item['unit_price']?.toString() ?? '0') ??
+                              double.tryParse(
+                                item['unit_price']?.toString() ?? '0',
+                              ) ??
                               0.0;
                           return Container(
-                            color: i.isEven ? Colors.white : const Color(0xFFFAFBFC),
+                            color: i.isEven
+                                ? Colors.white
+                                : const Color(0xFFFAFBFC),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 20,
                               vertical: 14,
@@ -11366,7 +12092,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   ),
                                 ),
                                 Expanded(
-                                  flex: 4,
+                                  flex: 5,
                                   child: Text(
                                     item['name']?.toString() ?? '',
                                     style: const TextStyle(
@@ -11398,35 +12124,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     ),
                                   ),
                                 ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.secondaryColor
-                                            .withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        item['status']?.toString() ?? 'Active',
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: AppTheme.secondaryColor,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
+                                SizedBox(
+                                  width: 88,
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       IconButton(
                                         icon: const Icon(
@@ -11435,7 +12136,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                           color: AppTheme.primaryColor,
                                         ),
                                         tooltip: 'Edit Consumable',
-                                        padding: EdgeInsets.zero,
+                                        padding: const EdgeInsets.all(4),
                                         constraints: const BoxConstraints(),
                                         onPressed: () =>
                                             _showEditStandaloneConsumableDialog(
@@ -11443,15 +12144,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                               isMobile,
                                             ),
                                       ),
-                                      const SizedBox(width: 10),
+                                      const SizedBox(width: 8),
                                       IconButton(
                                         icon: const Icon(
                                           Icons.delete_outline,
                                           size: 18,
                                           color: AppTheme.dangerColor,
                                         ),
-                                        tooltip: 'Deactivate Consumable',
-                                        padding: EdgeInsets.zero,
+                                        tooltip: 'Remove',
+                                        padding: const EdgeInsets.all(4),
                                         constraints: const BoxConstraints(),
                                         onPressed: () =>
                                             _deleteConsumableMaster(item),
@@ -11589,7 +12290,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           }
                           final isDuplicate = _hvKitItemsMasterList.any(
                             (item) =>
-                                (item['name']?.toString().trim().toLowerCase() ?? '') ==
+                                (item['name']
+                                        ?.toString()
+                                        .trim()
+                                        .toLowerCase() ??
+                                    '') ==
                                 clean.toLowerCase(),
                           );
                           if (isDuplicate) {
@@ -11611,8 +12316,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         },
                         validator: (v) =>
                             v == null ||
-                            v.isEmpty ||
-                            !availableItemTypes.contains(v)
+                                v.isEmpty ||
+                                !availableItemTypes.contains(v)
                             ? 'Please select a valid item type'
                             : null,
                       ),
@@ -11736,7 +12441,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     bool isMobile,
   ) async {
     final formKey = GlobalKey<FormState>();
-    final nameCtrl = TextEditingController(text: item['name']?.toString() ?? '');
+    final nameCtrl = TextEditingController(
+      text: item['name']?.toString() ?? '',
+    );
     final descCtrl = TextEditingController(
       text: item['description']?.toString() ?? '',
     );
@@ -11849,7 +12556,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           }
                           final isDuplicate = _hvKitItemsMasterList.any(
                             (it) =>
-                                (it['id']?.toString() != item['id']?.toString()) &&
+                                (it['id']?.toString() !=
+                                    item['id']?.toString()) &&
                                 ((it['name']?.toString().trim().toLowerCase() ??
                                         '') ==
                                     clean.toLowerCase()),
@@ -11873,8 +12581,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         },
                         validator: (v) =>
                             v == null ||
-                            v.isEmpty ||
-                            !availableItemTypes.contains(v)
+                                v.isEmpty ||
+                                !availableItemTypes.contains(v)
                             ? 'Please select a valid item type'
                             : null,
                       ),
@@ -12003,20 +12711,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     final query = _hvKitItemsSearch.trim().toLowerCase();
     final filteredItems = _hvKitItemsMasterList.where((item) {
-      final nameMatch = (item['name']?.toString() ?? '')
-          .toLowerCase()
-          .contains(query);
+      final nameMatch = (item['name']?.toString() ?? '').toLowerCase().contains(
+        query,
+      );
       final typeMatch = (item['item_type']?.toString() ?? '')
           .toLowerCase()
           .contains(query);
       final descMatch = (item['description']?.toString() ?? '')
           .toLowerCase()
           .contains(query);
-      final matchesSearch = query.isEmpty || nameMatch || typeMatch || descMatch;
+      final matchesSearch =
+          query.isEmpty || nameMatch || typeMatch || descMatch;
 
       final type = item['item_type']?.toString() ?? '';
       final matchesCategory = () {
-        if (_selectedHVCatalogCategoryFilter == 'Total Master Items') return true;
+        if (_selectedHVCatalogCategoryFilter == 'Total Master Items')
+          return true;
         if (_selectedHVCatalogCategoryFilter == 'Medical Devices') {
           return type == 'Device' || type == 'Medical Devices';
         }
@@ -12024,7 +12734,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           return type == 'Equipment';
         }
         if (_selectedHVCatalogCategoryFilter == 'Kits & Accessories') {
-          return type != 'Device' && type != 'Equipment' && type != 'Medical Devices';
+          return type != 'Device' &&
+              type != 'Equipment' &&
+              type != 'Medical Devices';
         }
         return true;
       }();
@@ -12097,159 +12809,190 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: _hvKitItemsSearchController,
-                      decoration:
-                          AppTheme.standardInputDecoration(
-                            label: null,
-                            prefixIcon: Icons.search,
-                            hintText: 'Search kit items or equipment...',
-                          ).copyWith(
-                            suffixIcon: _hvKitItemsSearch.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear, size: 18),
-                                    onPressed: () {
-                                      _hvKitItemsSearchController.clear();
-                                      setState(() => _hvKitItemsSearch = '');
-                                      _loadHomeVisitKitItemsCatalog();
-                                    },
-                                  )
-                                : null,
-                          ),
-                      onChanged: (v) => setState(() => _hvKitItemsSearch = v),
-                      onSubmitted: (_) => _loadHomeVisitKitItemsCatalog(),
-                    ),
+                    _buildCarriedKitItemsSearchBar(),
                     const SizedBox(height: 10),
                     SizedBox(
                       width: double.infinity,
+                      height: 40,
                       child: ElevatedButton.icon(
                         onPressed: () => _showAddCarriedKitItemDialog(isMobile),
-                        style: AppTheme.primaryButton,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Carried Kit Item'),
+                        style: AppTheme.primaryButton.copyWith(
+                          shape: WidgetStateProperty.all(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text(
+                          'Add Carried Kit Item',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 )
-              : Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.inventory_outlined,
-                                color: AppTheme.primaryColor,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            const Text(
-                              'Carried Kit Items & Equipment Catalog',
-                              style: TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimaryColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Manage standard devices, medical equipment, and kits carried by nurses during home visits',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textSecondaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 240,
-                          child: TextField(
-                            controller: _hvKitItemsSearchController,
-                            decoration:
-                                AppTheme.standardInputDecoration(
-                                  label: null,
-                                  prefixIcon: Icons.search,
-                                  hintText: 'Search kit items or equipment...',
-                                ).copyWith(
-                                  suffixIcon: _hvKitItemsSearch.isNotEmpty
-                                      ? IconButton(
-                                          icon: const Icon(Icons.clear, size: 18),
-                                          onPressed: () {
-                                            _hvKitItemsSearchController.clear();
-                                            setState(() => _hvKitItemsSearch = '');
-                                            _loadHomeVisitKitItemsCatalog();
-                                          },
-                                        )
-                                      : null,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                            onChanged: (v) => setState(() => _hvKitItemsSearch = v),
-                            onSubmitted: (_) => _loadHomeVisitKitItemsCatalog(),
+                                child: const Icon(
+                                  Icons.inventory_outlined,
+                                  color: AppTheme.primaryColor,
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Text(
+                                'Carried Kit Items & Equipment Catalog',
+                                style: TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: () => _showAddCarriedKitItemDialog(isMobile),
-                          style: AppTheme.primaryButton,
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add Carried Kit Item'),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Manage standard devices, medical equipment, and kits carried by nurses during home visits',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 440,
+                      child: _buildCarriedKitItemsSearchBar(),
                     ),
                   ],
                 ),
         ),
 
-        // Summary Stats Row
+        // Summary Stats Row with Add Button
         Padding(
           padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _buildHVCatalogStatChip(
-                Icons.inventory_outlined,
-                AppTheme.primaryColor,
-                'Total Master Items',
-                '${_hvKitItemsMasterList.length}',
-              ),
-              _buildHVCatalogStatChip(
-                Icons.medical_information_outlined,
-                AppTheme.secondaryColor,
-                'Medical Devices',
-                '$deviceCount',
-              ),
-              _buildHVCatalogStatChip(
-                Icons.precision_manufacturing_outlined,
-                const Color(0xFF8B5CF6),
-                'Equipment',
-                '$equipmentCount',
-              ),
-              _buildHVCatalogStatChip(
-                Icons.home_repair_service_outlined,
-                const Color(0xFFE53E3E),
-                'Kits & Accessories',
-                '$kitCount',
-              ),
-            ],
-          ),
+          child: isMobile
+              ? SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    children: [
+                      _buildHVCatalogStatChip(
+                        Icons.inventory_outlined,
+                        AppTheme.primaryColor,
+                        'Total Master Items',
+                        '${_hvKitItemsMasterList.length}',
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHVCatalogStatChip(
+                        Icons.medical_information_outlined,
+                        AppTheme.secondaryColor,
+                        'Medical Devices',
+                        '$deviceCount',
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHVCatalogStatChip(
+                        Icons.precision_manufacturing_outlined,
+                        const Color(0xFF8B5CF6),
+                        'Equipment',
+                        '$equipmentCount',
+                      ),
+                      const SizedBox(width: 8),
+                      _buildHVCatalogStatChip(
+                        Icons.home_repair_service_outlined,
+                        const Color(0xFFE53E3E),
+                        'Kits & Accessories',
+                        '$kitCount',
+                      ),
+                    ],
+                  ),
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: [
+                            _buildHVCatalogStatChip(
+                              Icons.inventory_outlined,
+                              AppTheme.primaryColor,
+                              'Total Master Items',
+                              '${_hvKitItemsMasterList.length}',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildHVCatalogStatChip(
+                              Icons.medical_information_outlined,
+                              AppTheme.secondaryColor,
+                              'Medical Devices',
+                              '$deviceCount',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildHVCatalogStatChip(
+                              Icons.precision_manufacturing_outlined,
+                              const Color(0xFF8B5CF6),
+                              'Equipment',
+                              '$equipmentCount',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildHVCatalogStatChip(
+                              Icons.home_repair_service_outlined,
+                              const Color(0xFFE53E3E),
+                              'Kits & Accessories',
+                              '$kitCount',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      height: 34,
+                      child: ElevatedButton.icon(
+                        onPressed: () => _showAddCarriedKitItemDialog(isMobile),
+                        style: AppTheme.primaryButton.copyWith(
+                          padding: WidgetStateProperty.all(
+                            const EdgeInsets.symmetric(horizontal: 14),
+                          ),
+                          shape: WidgetStateProperty.all(
+                            RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text(
+                          'Add Carried Kit Item',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
         ),
         const SizedBox(height: 16),
 
@@ -12319,111 +13062,126 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   )
                 : isMobile
-                    ? ListView.separated(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 10),
-                        itemCount: filteredItems.length,
-                        itemBuilder: (ctx, i) {
-                          final item = filteredItems[i];
-                          final itemId =
-                              int.tryParse(item['id']?.toString() ?? '0') ?? 0;
-                          final typeStr =
-                              item['item_type']?.toString() ?? 'Device';
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppTheme.borderColor),
+                ? ListView.separated(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemCount: filteredItems.length,
+                    itemBuilder: (ctx, i) {
+                      final item = filteredItems[i];
+                      final itemId =
+                          int.tryParse(item['id']?.toString() ?? '0') ?? 0;
+                      final typeStr = item['item_type']?.toString() ?? 'Device';
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.borderColor),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${i + 1}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  width: 32,
-                                  height: 32,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppTheme.primaryColor.withOpacity(0.08),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    '${i + 1}',
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item['name']?.toString() ?? '',
                                     style: const TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                      fontSize: 14,
+                                      color: AppTheme.textPrimaryColor,
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                        WrapCrossAlignment.center,
                                     children: [
-                                      Text(
-                                        item['name']?.toString() ?? '',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                          color: AppTheme.textPrimaryColor,
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 3,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryColor
+                                              .withOpacity(0.08),
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          typeStr,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.primaryColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
-                                      const SizedBox(height: 6),
-                                      Wrap(
-                                        spacing: 8,
-                                        runSpacing: 4,
-                                        crossAxisAlignment:
-                                            WrapCrossAlignment.center,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 3,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.primaryColor
-                                                  .withOpacity(0.08),
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              typeStr,
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                color: AppTheme.primaryColor,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
+                                      if ((item['description']?.toString() ??
+                                              '')
+                                          .isNotEmpty)
+                                        Text(
+                                          item['description']?.toString() ?? '',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.textSecondaryColor,
                                           ),
-                                          if ((item['description']
-                                                      ?.toString() ??
-                                                  '')
-                                              .isNotEmpty)
-                                            Text(
-                                              item['description']?.toString() ??
-                                                  '',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color:
-                                                    AppTheme.textSecondaryColor,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                        ],
-                                      ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                     ],
                                   ),
+                                ],
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                  tooltip: 'Edit Kit Item',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 32,
+                                    minHeight: 32,
+                                  ),
+                                  onPressed: () =>
+                                      _showEditStandaloneKitItemDialog(
+                                        item,
+                                        isMobile,
+                                      ),
                                 ),
                                 IconButton(
                                   icon: const Icon(
                                     Icons.delete_outline,
                                     size: 18,
-                                    color: AppTheme.logoRed,
+                                    color: AppTheme.dangerColor,
                                   ),
                                   tooltip: 'Remove',
                                   padding: EdgeInsets.zero,
@@ -12435,18 +13193,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     final confirm = await showDialog<bool>(
                                       context: context,
                                       builder: (c) => AlertDialog(
+                                        backgroundColor: Colors.white,
+                                        surfaceTintColor: Colors.transparent,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(14),
+                                        ),
                                         title: const Text(
-                                          'Deactivate Kit Item',
+                                          'Remove Kit Item',
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
-                                        content: ConstrainedBox(
-                                          constraints: const BoxConstraints(
-                                            maxWidth: 400,
-                                          ),
+                                        content: SizedBox(
+                                          width: 440,
                                           child: Text(
-                                            'Are you sure you want to deactivate "${item['name']}"?',
+                                            'Are you sure you want to remove "${item['name']}"?',
                                             softWrap: true,
                                           ),
                                         ),
@@ -12457,10 +13218,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                             child: const Text('Cancel'),
                                           ),
                                           ElevatedButton(
-                                            onPressed: () =>
-                                                Navigator.pop(c, true),
+                                            onPressed: () => Navigator.pop(c, true),
                                             style: AppTheme.dangerButton,
-                                            child: const Text('Deactivate'),
+                                            child: const Text('Remove'),
                                           ),
                                         ],
                                       ),
@@ -12469,14 +13229,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       try {
                                         await HomeVisitService()
                                             .deleteKitItemMaster(itemId);
-                                        _loadHomeVisitKitItemsCatalog();
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Kit item "${item['name']}" removed',
+                                              ),
+                                              backgroundColor:
+                                                  Colors.green.shade600,
+                                            ),
+                                          );
+                                          _loadHomeVisitKitItemsCatalog();
+                                        }
                                       } catch (e) {
                                         if (mounted) {
                                           ScaffoldMessenger.of(
                                             context,
                                           ).showSnackBar(
                                             SnackBar(
-                                              content: Text(e.toString()),
+                                              content: Text(
+                                                e
+                                                    .toString()
+                                                    .replaceFirst('Exception: ', ''),
+                                              ),
                                               backgroundColor:
                                                   AppTheme.dangerColor,
                                             ),
@@ -12488,268 +13263,444 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ),
                               ],
                             ),
-                          );
-                        },
-                      )
-                    : ClipRRect(
+                          ],
+                        ),
+                      );
+                    },
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: AppTheme.borderColor),
                         borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(color: AppTheme.borderColor),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Column(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 14,
-                                ),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFF8FAFC),
-                                  border: Border(
-                                    bottom: BorderSide(color: AppTheme.borderColor),
-                                  ),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 1,
-                                      child: Text(
-                                        '#',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 4,
-                                      child: Text(
-                                        'Kit Item Name',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        'Type',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 4,
-                                      child: Text(
-                                        'Description / Specs',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        'Actions',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 14,
+                            ),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF8FAFC),
+                              border: Border(
+                                bottom: BorderSide(color: AppTheme.borderColor),
                               ),
-                              Expanded(
-                                child: ListView.separated(
-                                  separatorBuilder: (_, __) => const Divider(
-                                    height: 1,
-                                    color: AppTheme.borderColor,
+                            ),
+                            child: const Row(
+                              children: [
+                                Expanded(
+                                  flex: 1,
+                                  child: Text(
+                                    '#',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
                                   ),
-                                  itemCount: filteredItems.length,
-                                  itemBuilder: (ctx, i) {
-                                    final item = filteredItems[i];
-                                    final itemId =
-                                        int.tryParse(
-                                          item['id']?.toString() ?? '0',
-                                        ) ??
-                                        0;
-                                    final typeStr =
-                                        item['item_type']?.toString() ?? 'Device';
-                                    return Container(
-                                      color: i.isEven
-                                          ? Colors.white
-                                          : const Color(0xFFFAFBFC),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                        vertical: 14,
+                                ),
+                                Expanded(
+                                  flex: 4,
+                                  child: Text(
+                                    'Kit Item Name',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    'Type',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 4,
+                                  child: Text(
+                                    'Description / Specs',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 88,
+                                  child: Text(
+                                    'Actions',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: ListView.separated(
+                              separatorBuilder: (_, __) => const Divider(
+                                height: 1,
+                                color: AppTheme.borderColor,
+                              ),
+                              itemCount: filteredItems.length,
+                              itemBuilder: (ctx, i) {
+                                final item = filteredItems[i];
+                                final itemId =
+                                    int.tryParse(
+                                      item['id']?.toString() ?? '0',
+                                    ) ??
+                                    0;
+                                final typeStr =
+                                    item['item_type']?.toString() ?? 'Device';
+                                return Container(
+                                  color: i.isEven
+                                      ? Colors.white
+                                      : const Color(0xFFFAFBFC),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 14,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 1,
+                                        child: Text(
+                                          '${i + 1}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        ),
                                       ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            flex: 1,
-                                            child: Text(
-                                              '${i + 1}',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 12,
+                                      Expanded(
+                                        flex: 4,
+                                        child: Text(
+                                          item['name']?.toString() ?? '',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          typeStr,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.primaryColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 4,
+                                        child: Text(
+                                          item['description']?.toString() ??
+                                              '--',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.textSecondaryColor,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 88,
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.edit_outlined,
+                                                size: 18,
                                                 color: AppTheme.primaryColor,
                                               ),
+                                              tooltip: 'Edit Kit Item',
+                                              padding: const EdgeInsets.all(4),
+                                              constraints:
+                                                  const BoxConstraints(),
+                                              onPressed: () =>
+                                                  _showEditStandaloneKitItemDialog(
+                                                    item,
+                                                    isMobile,
+                                                  ),
                                             ),
-                                          ),
-                                          Expanded(
-                                            flex: 4,
-                                            child: Text(
-                                              item['name']?.toString() ?? '',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 13,
-                                                color: AppTheme.textPrimaryColor,
+                                            const SizedBox(width: 8),
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                size: 18,
+                                                color: AppTheme.dangerColor,
                                               ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              typeStr,
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                color: AppTheme.primaryColor,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 4,
-                                            child: Text(
-                                              item['description']?.toString() ??
-                                                  '--',
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                color: AppTheme.textSecondaryColor,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Align(
-                                              alignment: Alignment.centerLeft,
-                                              child: TextButton.icon(
-                                                onPressed: () async {
-                                                  final confirm =
-                                                      await showDialog<bool>(
-                                                        context: context,
-                                                        builder: (c) => AlertDialog(
-                                                          title: const Text(
-                                                            'Deactivate Kit Item',
-                                                            style: TextStyle(
-                                                              fontWeight: FontWeight.bold,
-                                                            ),
-                                                          ),
-                                                          content: ConstrainedBox(
-                                                            constraints: const BoxConstraints(
-                                                              maxWidth: 400,
-                                                            ),
-                                                            child: Text(
-                                                              'Are you sure you want to deactivate "${item['name']}"?',
-                                                              softWrap: true,
-                                                            ),
-                                                          ),
-                                                          actions: [
-                                                            TextButton(
-                                                              onPressed: () =>
-                                                                  Navigator.pop(
-                                                                    c,
-                                                                    false,
-                                                                  ),
-                                                              child: const Text(
-                                                                'Cancel',
+                                              tooltip: 'Remove',
+                                              padding: EdgeInsets.zero,
+                                              constraints:
+                                                  const BoxConstraints(),
+                                              onPressed: () async {
+                                                final confirm =
+                                                    await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (c) =>
+                                                          AlertDialog(
+                                                            backgroundColor:
+                                                                Colors.white,
+                                                            surfaceTintColor:
+                                                                Colors
+                                                                    .transparent,
+                                                            shape:
+                                                                RoundedRectangleBorder(
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        14,
+                                                                      ),
+                                                                ),
+                                                            title: const Text(
+                                                              'Remove Kit Item',
+                                                              style: TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
                                                               ),
                                                             ),
-                                                            ElevatedButton(
-                                                              onPressed: () =>
-                                                                  Navigator.pop(
-                                                                    c,
-                                                                    true,
-                                                                  ),
-                                                              style: AppTheme
-                                                                  .dangerButton,
-                                                              child: const Text(
-                                                                'Deactivate',
+                                                            content: SizedBox(
+                                                              width: 440,
+                                                              child: Text(
+                                                                'Are you sure you want to remove "${item['name']}"?',
+                                                                softWrap: true,
                                                               ),
                                                             ),
-                                                          ],
+                                                            actions: [
+                                                              TextButton(
+                                                                onPressed: () =>
+                                                                    Navigator.pop(
+                                                                      c,
+                                                                      false,
+                                                                    ),
+                                                                child:
+                                                                    const Text(
+                                                                      'Cancel',
+                                                                    ),
+                                                              ),
+                                                              ElevatedButton(
+                                                                onPressed: () =>
+                                                                    Navigator.pop(
+                                                                      c,
+                                                                      true,
+                                                                    ),
+                                                                style: AppTheme
+                                                                    .dangerButton,
+                                                                child:
+                                                                    const Text(
+                                                                      'Remove',
+                                                                    ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                    );
+                                                if (confirm == true &&
+                                                    itemId > 0) {
+                                                  try {
+                                                    await HomeVisitService()
+                                                        .deleteKitItemMaster(
+                                                          itemId,
+                                                        );
+                                                    if (mounted) {
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                            'Kit item "${item['name']}" removed',
+                                                          ),
+                                                          backgroundColor:
+                                                              Colors
+                                                                  .green
+                                                                  .shade600,
                                                         ),
                                                       );
-                                                  if (confirm == true &&
-                                                      itemId > 0) {
-                                                    try {
-                                                      await HomeVisitService()
-                                                          .deleteKitItemMaster(
-                                                            itemId,
-                                                          );
                                                       _loadHomeVisitKitItemsCatalog();
-                                                    } catch (e) {
-                                                      if (mounted) {
-                                                        ScaffoldMessenger.of(
-                                                          context,
-                                                        ).showSnackBar(
-                                                          SnackBar(
-                                                            content: Text(
-                                                              e.toString(),
-                                                            ),
-                                                            backgroundColor:
-                                                                AppTheme
-                                                                    .dangerColor,
+                                                    }
+                                                  } catch (e) {
+                                                    if (mounted) {
+                                                      ScaffoldMessenger.of(
+                                                        context,
+                                                      ).showSnackBar(
+                                                        SnackBar(
+                                                          content: Text(
+                                                            e
+                                                                .toString()
+                                                                .replaceFirst(
+                                                                  'Exception: ',
+                                                                  '',
+                                                                ),
                                                           ),
-                                                        );
-                                                      }
+                                                          backgroundColor:
+                                                              AppTheme
+                                                                  .dangerColor,
+                                                        ),
+                                                      );
                                                     }
                                                   }
-                                                },
-                                                icon: const Icon(
-                                                  Icons.delete_outline,
-                                                  size: 16,
-                                                  color: AppTheme.logoRed,
-                                                ),
-                                                label: const Text(
-                                                  'Remove',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: AppTheme.logoRed,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
+                                                }
+                                               },
+                                             ),
+                                           ],
+                                         ),
+                                       ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
                           ),
-                        ),
+                        ],
                       ),
+                    ),
+                  ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCarriedKitItemsSearchBar() {
+    return TextField(
+      controller: _hvKitItemsSearchController,
+      style: const TextStyle(fontSize: 13),
+      decoration:
+          AppTheme.standardInputDecoration(
+            label: null,
+            prefixIcon: Icons.search,
+            hintText: 'Search kit items or equipment...',
+          ).copyWith(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: AppTheme.primaryColor,
+                width: 1.4,
+              ),
+            ),
+            suffixIcon: _hvKitItemsSearch.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 16),
+                    onPressed: () {
+                      _hvKitItemsSearchController.clear();
+                      setState(() => _hvKitItemsSearch = '');
+                      _loadHomeVisitKitItemsCatalog();
+                    },
+                  )
+                : null,
+          ),
+      onChanged: (v) => setState(() => _hvKitItemsSearch = v),
+      onSubmitted: (_) => _loadHomeVisitKitItemsCatalog(),
+    );
+  }
+
+  Widget _buildHVSubTabChip({
+    required IconData icon,
+    required Color color,
+    required String label,
+    required String count,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? color : color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? color : color.withValues(alpha: 0.25),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.25),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1.5),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: isSelected ? Colors.white : color, size: 15),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                color: isSelected ? Colors.white : color,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 7),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.white.withValues(alpha: 0.25)
+                    : color,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                count,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -12769,7 +13720,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? color : color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
@@ -12790,11 +13741,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : color,
-              size: 16,
-            ),
+            Icon(icon, color: isSelected ? Colors.white : color, size: 16),
             const SizedBox(width: 8),
             Text(
               label,
@@ -12871,15 +13818,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildHVConsumablesSearchBar() {
     return TextField(
       controller: _hvSearchController,
+      style: const TextStyle(fontSize: 13),
       decoration:
           AppTheme.standardInputDecoration(
             label: null,
             prefixIcon: Icons.search,
             hintText: 'Search procedure or consumable item...',
           ).copyWith(
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Color(0xFFE2E8F0),
+                width: 1.0,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: AppTheme.primaryColor,
+                width: 1.4,
+              ),
+            ),
             suffixIcon: _hvConsumableSearch.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
+                    icon: const Icon(Icons.clear, size: 16),
                     onPressed: () {
                       _hvSearchController.clear();
                       setState(() => _hvConsumableSearch = '');
@@ -12950,9 +13925,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     color: const Color(0xFFF8FAFC),
                     borderRadius: !isExpanded
                         ? BorderRadius.circular(14)
-                        : const BorderRadius.vertical(
-                            top: Radius.circular(14),
-                          ),
+                        : const BorderRadius.vertical(top: Radius.circular(14)),
                     border: !isExpanded
                         ? null
                         : const Border(
@@ -12968,7 +13941,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryColor.withOpacity(0.1),
+                                    color: AppTheme.primaryColor.withOpacity(
+                                      0.1,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: const Icon(
@@ -13031,8 +14006,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.secondaryColor
-                                        .withOpacity(0.12),
+                                    color: AppTheme.secondaryColor.withOpacity(
+                                      0.12,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
@@ -13051,8 +14027,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor
-                                          .withOpacity(0.1),
+                                      color: AppTheme.primaryColor.withOpacity(
+                                        0.1,
+                                      ),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
@@ -13108,7 +14085,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                         size: 18,
                                         color: AppTheme.dangerColor,
                                       ),
-                                      tooltip: 'Deactivate Procedure',
+                                      tooltip: 'Remove Procedure',
                                       padding: EdgeInsets.zero,
                                       constraints: const BoxConstraints(
                                         minWidth: 32,
@@ -13159,7 +14136,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    'Status: ${proc.status}  •  ${proc.mappedConsumables.length} mapped consumable items',
+                                    '${proc.mappedConsumables.length} mapped consumable items',
                                     style: const TextStyle(
                                       fontSize: 11,
                                       color: AppTheme.textSecondaryColor,
@@ -13175,8 +14152,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color:
-                                    AppTheme.secondaryColor.withOpacity(0.12),
+                                color: AppTheme.secondaryColor.withOpacity(
+                                  0.12,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -13240,7 +14218,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 size: 20,
                                 color: AppTheme.dangerColor,
                               ),
-                              tooltip: 'Deactivate Procedure',
+                              tooltip: 'Remove Procedure',
                               onPressed: () => _deleteProcedureMaster(proc),
                             ),
                             // Minimize / Expand Toggle Icon
@@ -13294,8 +14272,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
                         TextButton.icon(
-                          onPressed: () =>
-                              _showAddConsumableToProcedureDialog(proc, isMobile),
+                          onPressed: () => _showAddConsumableToProcedureDialog(
+                            proc,
+                            isMobile,
+                          ),
                           icon: const Icon(
                             Icons.add,
                             size: 14,
@@ -13331,194 +14311,260 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                         ),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(minWidth: 550),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(color: AppTheme.borderColor),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 10,
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final double tableWidth = constraints.maxWidth < 650
+                                ? 650
+                                : constraints.maxWidth;
+                            return SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SizedBox(
+                                width: tableWidth,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    border: Border.all(
+                                      color: AppTheme.borderColor,
                                     ),
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.vertical(
-                                        top: Radius.circular(9),
-                                      ),
-                                    ),
-                                    child: const Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 3,
-                                          child: Text(
-                                            'Item Name',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.textSecondaryColor,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            'Unit Price',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.textSecondaryColor,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            'Qty / Procedure',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.textSecondaryColor,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            'Total Item Cost',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.textSecondaryColor,
-                                            ),
-                                          ),
-                                        ),
-                                        SizedBox(width: 36),
-                                      ],
-                                    ),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
-                                  Column(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
-                                      for (int cIdx = 0;
-                                          cIdx < proc.mappedConsumables.length;
-                                          cIdx++) ...[
-                                        if (cIdx > 0)
-                                          const Divider(
-                                            height: 1,
-                                            color: AppTheme.borderColor,
-                                          ),
-                                        Builder(
-                                          builder: (ctx) {
-                                            final item =
-                                                proc.mappedConsumables[cIdx];
-                                            final itemTotalCost =
-                                                item.unitPrice *
-                                                item.qtyPerProcedure;
-
-                                            return Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                horizontal: 14,
-                                                vertical: 10,
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    flex: 3,
-                                                    child: Text(
-                                                      '${cIdx + 1}.  ${item.consumableName}',
-                                                      style: const TextStyle(
-                                                        fontWeight: FontWeight.w600,
-                                                        fontSize: 13,
-                                                        color: AppTheme
-                                                            .textPrimaryColor,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    flex: 2,
-                                                    child: Text(
-                                                      '₹${item.unitPrice.toStringAsFixed(2)} / ${item.unit}',
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color: AppTheme
-                                                            .textSecondaryColor,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    flex: 2,
-                                                    child: Text(
-                                                      '${item.qtyPerProcedure} ${item.unit}',
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight: FontWeight.w600,
-                                                        color: AppTheme
-                                                            .textPrimaryColor,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    flex: 2,
-                                                    child: Text(
-                                                      '₹${itemTotalCost.toStringAsFixed(2)}',
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: AppTheme.primaryColor,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  SizedBox(
-                                                    width: 36,
-                                                    child: IconButton(
-                                                      icon: const Icon(
-                                                        Icons.close,
-                                                        size: 16,
-                                                        color: AppTheme.dangerColor,
-                                                      ),
-                                                      tooltip:
-                                                          'Remove consumable mapping',
-                                                      onPressed: () =>
-                                                          _removeConsumableMapping(
-                                                            proc,
-                                                            item,
-                                                          ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          },
+                                      Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16,
+                                          vertical: 12,
                                         ),
-                                      ],
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFFF8FAFC),
+                                          borderRadius: BorderRadius.vertical(
+                                            top: Radius.circular(9),
+                                          ),
+                                          border: Border(
+                                            bottom: BorderSide(
+                                              color: AppTheme.borderColor,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Row(
+                                          children: [
+                                            Expanded(
+                                              flex: 4,
+                                              child: Text(
+                                                'Item Name',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppTheme
+                                                      .textSecondaryColor,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 2,
+                                              child: Text(
+                                                'Unit Price',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppTheme
+                                                      .textSecondaryColor,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 2,
+                                              child: Text(
+                                                'Qty / Procedure',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppTheme
+                                                      .textSecondaryColor,
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 2,
+                                              child: Text(
+                                                'Total Item Cost',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppTheme
+                                                      .textSecondaryColor,
+                                                ),
+                                              ),
+                                            ),
+                                            SizedBox(
+                                              width: 36,
+                                              child: Center(
+                                                child: Text(
+                                                  '',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppTheme
+                                                        .textSecondaryColor,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.stretch,
+                                        children: [
+                                          for (
+                                            int cIdx = 0;
+                                            cIdx <
+                                                proc.mappedConsumables.length;
+                                            cIdx++
+                                          ) ...[
+                                            if (cIdx > 0)
+                                              const Divider(
+                                                height: 1,
+                                                color: AppTheme.borderColor,
+                                              ),
+                                            Builder(
+                                              builder: (ctx) {
+                                                final item = proc
+                                                    .mappedConsumables[cIdx];
+                                                final itemTotalCost =
+                                                    item.unitPrice *
+                                                    item.qtyPerProcedure;
+
+                                                return Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 16,
+                                                        vertical: 12,
+                                                      ),
+                                                  color: cIdx.isEven
+                                                      ? Colors.white
+                                                      : const Color(0xFFFAFAFA),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        flex: 4,
+                                                        child: Text(
+                                                          '${cIdx + 1}.  ${item.consumableName}',
+                                                          style: const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            fontSize: 13,
+                                                            color: AppTheme
+                                                                .textPrimaryColor,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: Text(
+                                                          '₹${item.unitPrice.toStringAsFixed(2)} / ${item.unit}',
+                                                          style: const TextStyle(
+                                                            fontSize: 12,
+                                                            color: AppTheme
+                                                                .textSecondaryColor,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: Text(
+                                                          '${item.qtyPerProcedure} ${item.unit}',
+                                                          style: const TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            color: AppTheme
+                                                                .textPrimaryColor,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: Text(
+                                                          '₹${itemTotalCost.toStringAsFixed(2)}',
+                                                          style: const TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: AppTheme
+                                                                .primaryColor,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      SizedBox(
+                                                        width: 36,
+                                                        child: IconButton(
+                                                          icon: const Icon(
+                                                            Icons.close,
+                                                            size: 16,
+                                                            color: AppTheme
+                                                                .dangerColor,
+                                                          ),
+                                                          padding:
+                                                              EdgeInsets.zero,
+                                                          constraints:
+                                                              const BoxConstraints(
+                                                                minWidth: 32,
+                                                                minHeight: 32,
+                                                              ),
+                                                          tooltip:
+                                                              'Remove consumable mapping',
+                                                          onPressed: () =>
+                                                              _removeConsumableMapping(
+                                                                proc,
+                                                                item,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ],
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
-                        const SizedBox(height: 10),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: [
-                            Text(
-                              'Estimated Consumables Total: ₹${totalConsumablesCost.toStringAsFixed(2)}  |  Total Procedure Billing: ₹${(proc.procedureCharge + totalConsumablesCost).toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimaryColor,
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppTheme.borderColor),
+                          ),
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              Text(
+                                'Estimated Consumables Total: ₹${totalConsumablesCost.toStringAsFixed(2)}  |  Total Procedure Billing: ₹${(proc.procedureCharge + totalConsumablesCost).toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -13528,6 +14574,1017 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class EditStaffDialog extends StatefulWidget {
+  final UserModel user;
+  final VoidCallback onSaved;
+
+  const EditStaffDialog({
+    Key? key,
+    required this.user,
+    required this.onSaved,
+  }) : super(key: key);
+
+  @override
+  State<EditStaffDialog> createState() => _EditStaffDialogState();
+}
+
+class _EditStaffDialogState extends State<EditStaffDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _mobileController;
+  final AdminController _adminController = AdminController();
+
+  final _emailFocusNode = FocusNode();
+  final _mobileFocusNode = FocusNode();
+
+  String? _selectedRole;
+  String? _selectedStatus;
+  int? _selectedSpecializationId;
+  List<Map<String, dynamic>> _specializations = [];
+  List<String> _roles = [];
+
+  bool _isSaving = false;
+  bool _isLoadingRoles = false;
+  bool _isLoadingSpecializations = false;
+  String? _dialogError;
+
+  String? _mobileDuplicateError;
+  String? _emailDuplicateError;
+  String _lastCheckedMobile = '';
+  String _lastCheckedEmail = '';
+  bool _isCheckingMobile = false;
+  bool _isCheckingEmail = false;
+  Map<String, dynamic>? _matchedMobileStaff;
+  Map<String, dynamic>? _matchedEmailStaff;
+  Timer? _emailDebounce;
+  Timer? _mobileDebounce;
+
+  late final String _initialName;
+  late final String _initialEmail;
+  late final String _initialMobile;
+  late final String _initialRole;
+  late final String _initialStatus;
+  late final int? _initialSpecializationId;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialName = (widget.user.rawFullname ?? '').trim();
+    _initialEmail = widget.user.email.trim();
+    _initialMobile = (widget.user.mobile ?? '').trim();
+    _initialRole = widget.user.role;
+    _initialStatus = widget.user.status;
+    _initialSpecializationId = widget.user.specializationId;
+
+    _nameController = TextEditingController(text: widget.user.rawFullname);
+    _emailController = TextEditingController(text: widget.user.email);
+    _mobileController = TextEditingController(text: widget.user.mobile ?? '');
+
+    _selectedRole = widget.user.role;
+    _selectedStatus = widget.user.status;
+    _selectedSpecializationId = widget.user.specializationId;
+
+    _lastCheckedEmail = _initialEmail;
+    _lastCheckedMobile = _initialMobile;
+
+    _loadSpecializations();
+    _loadRoles();
+
+    _mobileController.addListener(_onMobileChanged);
+    _emailController.addListener(_onEmailChanged);
+  }
+
+  bool _hasChanges() {
+    final currentName = _nameController.text.trim();
+    final currentEmail = _emailController.text.trim();
+    final currentMobile = _mobileController.text.trim();
+    final currentRole = _selectedRole;
+    final currentStatus = _selectedStatus;
+    final currentSpecId =
+        _selectedRole == 'Doctor' ? _selectedSpecializationId : null;
+    final origSpecId =
+        _initialRole == 'Doctor' ? _initialSpecializationId : null;
+
+    return currentName != _initialName ||
+        currentEmail != _initialEmail ||
+        currentMobile != _initialMobile ||
+        currentRole != _initialRole ||
+        currentStatus != _initialStatus ||
+        currentSpecId != origSpecId;
+  }
+
+  void _onMobileChanged() {
+    _mobileDebounce?.cancel();
+    final mobile = _mobileController.text.trim();
+    if (mobile == _initialMobile) {
+      if (_mobileDuplicateError != null || _matchedMobileStaff != null) {
+        setState(() {
+          _mobileDuplicateError = null;
+          _matchedMobileStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      return;
+    }
+
+    if (mobile.length == 10 && RegExp(r'^[6-9]\d{9}$').hasMatch(mobile)) {
+      _mobileDebounce = Timer(const Duration(milliseconds: 200), () {
+        if (mobile != _lastCheckedMobile) {
+          _lastCheckedMobile = mobile;
+          _checkExistingMobile(mobile);
+        }
+      });
+    } else {
+      if (_mobileDuplicateError != null || _matchedMobileStaff != null) {
+        setState(() {
+          _mobileDuplicateError = null;
+          _matchedMobileStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      if (mobile.length < 10) {
+        _lastCheckedMobile = '';
+      }
+    }
+  }
+
+  void _onEmailChanged() {
+    _emailDebounce?.cancel();
+    final email = _emailController.text.trim();
+    if (email.toLowerCase() == _initialEmail.toLowerCase()) {
+      if (_emailDuplicateError != null || _matchedEmailStaff != null) {
+        setState(() {
+          _emailDuplicateError = null;
+          _matchedEmailStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      return;
+    }
+
+    if (email.isNotEmpty &&
+        !email.contains(RegExp(r'[A-Z]')) &&
+        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      _emailDebounce = Timer(const Duration(milliseconds: 300), () {
+        if (email != _lastCheckedEmail) {
+          _lastCheckedEmail = email;
+          _checkExistingEmail(email);
+        }
+      });
+    } else {
+      if (_emailDuplicateError != null || _matchedEmailStaff != null) {
+        setState(() {
+          _emailDuplicateError = null;
+          _matchedEmailStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      if (email.isEmpty) {
+        _lastCheckedEmail = '';
+      }
+    }
+  }
+
+  Future<void> _checkExistingMobile(String mobile) async {
+    setState(() => _isCheckingMobile = true);
+    try {
+      final res = await _adminController.checkDuplicateStaff(
+        mobile: mobile,
+        excludeId: widget.user.id,
+      );
+      final mobileDup = res['mobileDuplicate'];
+      if (mobileDup != null && mounted) {
+        final name = mobileDup['fullname'] ?? 'Staff Member';
+        final staffId = mobileDup['staff_unique_id'] ?? '';
+        setState(() {
+          _matchedMobileStaff = mobileDup;
+          _mobileDuplicateError =
+              'This mobile number is already registered to $name${staffId.isNotEmpty ? " ($staffId)" : ""}.';
+        });
+        _formKey.currentState?.validate();
+        _showDuplicateStaffDialog(
+          title: 'Mobile Number Already Registered',
+          description:
+              'A staff member is already registered with this mobile number ($mobile). Only one staff account is permitted per mobile number.',
+          staff: mobileDup,
+          fieldType: 'mobile',
+        );
+      } else if (mounted) {
+        setState(() {
+          _matchedMobileStaff = null;
+          _mobileDuplicateError = null;
+        });
+        _formKey.currentState?.validate();
+      }
+    } catch (e) {
+      print('Error checking mobile duplicate: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingMobile = false);
+    }
+  }
+
+  Future<void> _checkExistingEmail(String email) async {
+    setState(() => _isCheckingEmail = true);
+    try {
+      final res = await _adminController.checkDuplicateStaff(
+        email: email,
+        excludeId: widget.user.id,
+      );
+      final emailDup = res['emailDuplicate'];
+      if (emailDup != null && mounted) {
+        final name = emailDup['fullname'] ?? 'Staff Member';
+        final staffId = emailDup['staff_unique_id'] ?? '';
+        setState(() {
+          _matchedEmailStaff = emailDup;
+          _emailDuplicateError =
+              'A staff member with this email already exists ($name${staffId.isNotEmpty ? ", $staffId" : ""}).';
+        });
+        _formKey.currentState?.validate();
+        _showDuplicateStaffDialog(
+          title: 'Email Address Already Registered',
+          description:
+              'A staff member is already registered with this email address ($email). Each staff account requires a unique email.',
+          staff: emailDup,
+          fieldType: 'email',
+        );
+      } else if (mounted) {
+        setState(() {
+          _matchedEmailStaff = null;
+          _emailDuplicateError = null;
+        });
+        _formKey.currentState?.validate();
+      }
+    } catch (e) {
+      print('Error checking email duplicate: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingEmail = false);
+    }
+  }
+
+  Widget _buildDialogDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDuplicateStaffDialog({
+    required String title,
+    required String description,
+    required Map<String, dynamic> staff,
+    required String fieldType,
+  }) {
+    final name = staff['fullname'] ?? 'Staff Member';
+    final staffId = staff['staff_unique_id'] ?? '';
+    final role = staff['role'] ?? 'N/A';
+    final value = fieldType == 'email'
+        ? (staff['email'] ?? '')
+        : (staff['mobile'] ?? '');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: Colors.white,
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppTheme.dangerColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Container(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF64748B),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (staffId.toString().isNotEmpty)
+                        _buildDialogDetailRow('Staff ID', staffId.toString()),
+                      _buildDialogDetailRow('Name', name.toString()),
+                      _buildDialogDetailRow('Role', role.toString()),
+                      if (value.toString().isNotEmpty)
+                        _buildDialogDetailRow(
+                          fieldType == 'email' ? 'Email' : 'Mobile',
+                          value.toString(),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  fieldType == 'email'
+                      ? 'Please enter a different email address to proceed.'
+                      : 'Please enter a different mobile number to proceed.',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                if (fieldType == 'email') {
+                  _emailDebounce?.cancel();
+                  _lastCheckedEmail = '';
+                  _emailController.clear();
+                  setState(() {
+                    _emailDuplicateError = null;
+                    _matchedEmailStaff = null;
+                  });
+                  Future.microtask(() {
+                    if (mounted) _emailFocusNode.requestFocus();
+                  });
+                } else {
+                  _mobileDebounce?.cancel();
+                  _lastCheckedMobile = '';
+                  _mobileController.clear();
+                  setState(() {
+                    _mobileDuplicateError = null;
+                    _matchedMobileStaff = null;
+                  });
+                  Future.microtask(() {
+                    if (mounted) _mobileFocusNode.requestFocus();
+                  });
+                }
+                _formKey.currentState?.validate();
+              },
+              style: AppTheme.primaryButton,
+              child: Text(
+                fieldType == 'email'
+                    ? 'Enter Different Email'
+                    : 'Enter Different Number',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _loadRoles() async {
+    setState(() => _isLoadingRoles = true);
+    try {
+      final rbacData = await _adminController.fetchRbacData();
+      final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
+      final currentUserRole = Provider.of<AuthProvider>(
+        context,
+        listen: false,
+      ).user?.role;
+
+      final orderedRoles = [
+        'Super Admin',
+        'Admin',
+        'Doctor',
+        'Nurse',
+        'Anaesthetist',
+        'Front Desk',
+        'Lab',
+        'Pharmacy',
+      ];
+      final rNames = rolesList
+          .map((r) => r['role_name']?.toString() ?? '')
+          .where((r) {
+            if (currentUserRole == 'Super Admin') return true;
+            return r == 'Doctor' ||
+                r == 'Nurse' ||
+                r == 'Front Desk' ||
+                r == 'Anaesthetist' ||
+                r == 'Lab' ||
+                r == 'Pharmacy' ||
+                r == _selectedRole;
+          })
+          .toList();
+      rNames.sort((a, b) {
+        int indexA = orderedRoles.indexOf(a);
+        int indexB = orderedRoles.indexOf(b);
+        if (indexA == -1 && indexB == -1) return a.compareTo(b);
+        if (indexA == -1) return 1;
+        if (indexB == -1) return -1;
+        return indexA.compareTo(indexB);
+      });
+
+      if (mounted) {
+        setState(() {
+          if (rNames.isNotEmpty) _roles = rNames;
+          if (_selectedRole != null && !_roles.contains(_selectedRole)) {
+            _roles.add(_selectedRole!);
+          }
+          _isLoadingRoles = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingRoles = false);
+      }
+    }
+  }
+
+  Future<void> _loadSpecializations() async {
+    setState(() => _isLoadingSpecializations = true);
+    try {
+      final specs = await _adminController.fetchSpecializations();
+      if (mounted) {
+        setState(() {
+          _specializations = specs;
+          _isLoadingSpecializations = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingSpecializations = false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _emailDebounce?.cancel();
+    _mobileDebounce?.cancel();
+    _emailFocusNode.dispose();
+    _mobileFocusNode.dispose();
+    _mobileController.removeListener(_onMobileChanged);
+    _emailController.removeListener(_onEmailChanged);
+    _nameController.dispose();
+    _emailController.dispose();
+    _mobileController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveChanges() async {
+    if (_mobileDuplicateError != null || _emailDuplicateError != null) {
+      setState(
+        () => _dialogError = _mobileDuplicateError ?? _emailDuplicateError,
+      );
+      return;
+    }
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isSaving = true);
+    try {
+      await _adminController.updateStaff(
+        id: widget.user.id,
+        fullname: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        mobile: _mobileController.text.trim(),
+        role: _selectedRole ?? widget.user.role,
+        status: _selectedStatus ?? widget.user.status,
+        medicalLicense: null,
+        specializationId: _selectedRole == 'Doctor'
+            ? _selectedSpecializationId
+            : null,
+      );
+      if (mounted) {
+        Navigator.pop(context);
+        widget.onSaved();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${_nameController.text.trim()} updated successfully!',
+            ),
+            backgroundColor: Colors.green.shade600,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        final errText = e.toString().replaceFirst('Exception: ', '');
+        setState(() {
+          _dialogError = errText;
+          if (errText.toLowerCase().contains('email')) {
+            _emailDuplicateError = errText;
+          }
+          if (errText.toLowerCase().contains('mobile')) {
+            _mobileDuplicateError = errText;
+          }
+        });
+        _formKey.currentState?.validate();
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(28),
+      ),
+      title: const Text(
+        'Edit Staff',
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width > 500
+            ? 450
+            : MediaQuery.of(context).size.width * 0.9,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_dialogError != null)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _dialogError!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (widget.user.staffUniqueId != null) ...[
+                  const Text(
+                    'Staff ID',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: TextFormField(
+                      initialValue: widget.user.staffUniqueId,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        hintText: 'Staff ID',
+                        prefixIcon: Icon(Icons.pin_outlined),
+                        fillColor: Color(0xFFE5E7EB),
+                        filled: true,
+                        helperText: 'Auto-generated ID',
+                      ),
+                    ),
+                  ),
+                ],
+                const Text(
+                  'Full Name',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _nameController,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  textCapitalization: TextCapitalization.words,
+                  onChanged: (_) {
+                    if (_dialogError != null) setState(() => _dialogError = null);
+                  },
+                  decoration: const InputDecoration(
+                    hintText: 'Enter full name',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z\s.]'),
+                    ),
+                    const CapitalizeWordsInputFormatter(),
+                    LengthLimitingTextInputFormatter(60),
+                  ],
+                  validator: (val) => val == null || val.trim().isEmpty
+                      ? 'Please enter a name'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Email Address',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _emailController,
+                  focusNode: _emailFocusNode,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  onChanged: (_) {
+                    if (_dialogError != null) setState(() => _dialogError = null);
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Enter email address',
+                    prefixIcon: const Icon(Icons.email_outlined),
+                    suffixIcon: _isCheckingEmail
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          )
+                        : null,
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor),
+                    ),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                    LengthLimitingTextInputFormatter(100),
+                  ],
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Please enter Email Address';
+                    }
+                    if (val.trim().contains(RegExp(r'[A-Z]'))) {
+                      return 'Please enter a valid email address';
+                    }
+                    if (!RegExp(
+                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                    ).hasMatch(val.trim())) {
+                      return 'Please enter a valid email address';
+                    }
+                    if (_emailDuplicateError != null) {
+                      return _emailDuplicateError;
+                    }
+                    return null;
+                  },
+                ),
+                if (_emailDuplicateError != null) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.dangerColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: AppTheme.dangerColor,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _matchedEmailStaff != null
+                                ? 'Registered to: ${_matchedEmailStaff!['fullname'] ?? "Staff"} (${_matchedEmailStaff!['staff_unique_id'] ?? "ID: N/A"}). Email already exists.'
+                                : _emailDuplicateError!,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.dangerColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                const Text(
+                  'Mobile Number',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _mobileController,
+                  focusNode: _mobileFocusNode,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  onChanged: (_) {
+                    if (_dialogError != null) setState(() => _dialogError = null);
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Enter mobile number',
+                    prefixIcon: const Icon(Icons.phone_outlined),
+                    counterText: "",
+                    errorMaxLines: 2,
+                    suffixIcon: _isCheckingMobile
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          )
+                        : null,
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor),
+                    ),
+                  ),
+                  keyboardType: TextInputType.phone,
+                  maxLength: 10,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  validator: (val) {
+                    if (val == null || val.trim().isEmpty) {
+                      return 'Please enter a mobile number';
+                    }
+                    final clean = val.trim();
+                    if (!RegExp(r'^[6-9]').hasMatch(clean)) {
+                      return 'Mobile number must start with 6, 7, 8, or 9';
+                    }
+                    if (clean.length != 10) {
+                      return 'Mobile number must be exactly 10 digits';
+                    }
+                    if (_mobileDuplicateError != null) {
+                      return _mobileDuplicateError;
+                    }
+                    return null;
+                  },
+                ),
+                if (_mobileDuplicateError != null) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppTheme.dangerColor.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          color: AppTheme.dangerColor,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _matchedMobileStaff != null
+                                ? 'Registered to: ${_matchedMobileStaff!['fullname'] ?? "Staff"} (${_matchedMobileStaff!['staff_unique_id'] ?? "ID: N/A"}). Mobile number already exists.'
+                                : _mobileDuplicateError!,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.dangerColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                if (_isLoadingRoles)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  const Text(
+                    'Role',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                const SizedBox(height: 10),
+                CustomDropdownSearch(
+                  label: '',
+                  value: _selectedRole,
+                  dropdownItems: _roles,
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedRole = val;
+                        if (_selectedRole != 'Doctor') {
+                          _selectedSpecializationId = null;
+                        }
+                      });
+                    }
+                  },
+                ),
+                if (_selectedRole == 'Doctor') ...[
+                  const SizedBox(height: 16),
+                  if (_isLoadingSpecializations)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    CustomDropdownSearch(
+                      label: 'Specialization',
+                      value: _selectedSpecializationId?.toString(),
+                      dropdownMap: {
+                        for (var s in _specializations)
+                          s['id'].toString(): s['name'].toString(),
+                      },
+                      onChanged: (val) {
+                        setState(() {
+                          _selectedSpecializationId =
+                              val != null ? int.tryParse(val) : null;
+                          _dialogError = null;
+                        });
+                      },
+                      validator: (val) {
+                        if (_selectedRole != 'Doctor') return null;
+                        if (val == null || val.isEmpty) {
+                          return 'Please select a specialization';
+                        }
+                        final validSpecIds = _specializations
+                            .map((s) => s['id'].toString())
+                            .toSet();
+                        if (!validSpecIds.contains(val)) {
+                          return 'Please select a valid specialization from the list';
+                        }
+                        return null;
+                      },
+                    ),
+                ],
+                const SizedBox(height: 16),
+                const Text(
+                  'Status',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                CustomDropdownSearch(
+                  label: '',
+                  value: _selectedStatus,
+                  dropdownMap: const {
+                    'active': 'Active',
+                    'inactive': 'Inactive',
+                    'suspended': 'Suspended',
+                  },
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedStatus = val;
+                      });
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        OutlinedButton(
+          onPressed: _isSaving ? null : () => Navigator.pop(context),
+          style: AppTheme.cancelButton,
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: (_isSaving || !_hasChanges()) ? null : _saveChanges,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.logoRed,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(120, 48),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 14,
+            ),
+          ),
+          child: _isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+              : const Text('Save'),
+        ),
+      ],
     );
   }
 }
@@ -13549,7 +15606,14 @@ class _AddUserDialogState extends State<AddUserDialog> {
   final AdminController _adminController = AdminController();
 
   String? _selectedRole;
-  List<String> _roles = ['Doctor', 'Nurse', 'Anaesthetist', 'Front Desk'];
+  List<String> _roles = [
+    'Doctor',
+    'Nurse',
+    'Anaesthetist',
+    'Front Desk',
+    'Lab',
+    'Pharmacy',
+  ];
   int? _selectedSpecializationId;
   List<Map<String, dynamic>> _specializations = [];
   bool _isLoading = false;
@@ -13558,12 +15622,322 @@ class _AddUserDialogState extends State<AddUserDialog> {
   String? _errorMessage;
   bool _obscurePassword = true;
 
+  String? _mobileDuplicateError;
+  String? _emailDuplicateError;
+  String _lastCheckedMobile = '';
+  String _lastCheckedEmail = '';
+  bool _isCheckingMobile = false;
+  bool _isCheckingEmail = false;
+  Map<String, dynamic>? _matchedMobileStaff;
+  Map<String, dynamic>? _matchedEmailStaff;
+  Timer? _emailDebounce;
+  Timer? _mobileDebounce;
+  final _emailFocusNode = FocusNode();
+  final _mobileFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
     _passwordController.text = PasswordPolicy.generateSecurePassword();
     _loadSpecializations();
     _loadRoles();
+    _mobileController.addListener(_onMobileChanged);
+    _emailController.addListener(_onEmailChanged);
+  }
+
+  void _onMobileChanged() {
+    _mobileDebounce?.cancel();
+    final mobile = _mobileController.text.trim();
+    if (mobile.length == 10 && RegExp(r'^[6-9]\d{9}$').hasMatch(mobile)) {
+      _mobileDebounce = Timer(const Duration(milliseconds: 200), () {
+        if (mobile != _lastCheckedMobile) {
+          _lastCheckedMobile = mobile;
+          _checkExistingMobile(mobile);
+        }
+      });
+    } else {
+      if (_mobileDuplicateError != null || _matchedMobileStaff != null) {
+        setState(() {
+          _mobileDuplicateError = null;
+          _matchedMobileStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      if (mobile.length < 10) {
+        _lastCheckedMobile = '';
+      }
+    }
+  }
+
+  void _onEmailChanged() {
+    _emailDebounce?.cancel();
+    final email = _emailController.text.trim();
+    if (email.isNotEmpty &&
+        !email.contains(RegExp(r'[A-Z]')) &&
+        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      _emailDebounce = Timer(const Duration(milliseconds: 300), () {
+        if (email != _lastCheckedEmail) {
+          _lastCheckedEmail = email;
+          _checkExistingEmail(email);
+        }
+      });
+    } else {
+      if (_emailDuplicateError != null || _matchedEmailStaff != null) {
+        setState(() {
+          _emailDuplicateError = null;
+          _matchedEmailStaff = null;
+        });
+        _formKey.currentState?.validate();
+      }
+      if (email.isEmpty) {
+        _lastCheckedEmail = '';
+      }
+    }
+  }
+
+  Future<void> _checkExistingMobile(String mobile) async {
+    setState(() => _isCheckingMobile = true);
+    try {
+      final res = await _adminController.checkDuplicateStaff(mobile: mobile);
+      final mobileDup = res['mobileDuplicate'];
+      if (mobileDup != null && mounted) {
+        final name = mobileDup['fullname'] ?? 'Staff Member';
+        final staffId = mobileDup['staff_unique_id'] ?? '';
+        setState(() {
+          _matchedMobileStaff = mobileDup;
+          _mobileDuplicateError =
+              'This mobile number is already registered to $name${staffId.isNotEmpty ? " ($staffId)" : ""}.';
+        });
+        _formKey.currentState?.validate();
+        _showDuplicateStaffDialog(
+          title: 'Mobile Number Already Registered',
+          description:
+              'A staff member is already registered with this mobile number ($mobile). Only one staff account is permitted per mobile number.',
+          staff: mobileDup,
+          fieldType: 'mobile',
+        );
+      } else if (mounted) {
+        setState(() {
+          _matchedMobileStaff = null;
+          _mobileDuplicateError = null;
+        });
+        _formKey.currentState?.validate();
+      }
+    } catch (e) {
+      print('Error checking mobile duplicate: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingMobile = false);
+    }
+  }
+
+  Future<void> _checkExistingEmail(String email) async {
+    setState(() => _isCheckingEmail = true);
+    try {
+      final res = await _adminController.checkDuplicateStaff(email: email);
+      final emailDup = res['emailDuplicate'];
+      if (emailDup != null && mounted) {
+        final name = emailDup['fullname'] ?? 'Staff Member';
+        final staffId = emailDup['staff_unique_id'] ?? '';
+        setState(() {
+          _matchedEmailStaff = emailDup;
+          _emailDuplicateError =
+              'A staff member with this email already exists ($name${staffId.isNotEmpty ? ", $staffId" : ""}).';
+        });
+        _formKey.currentState?.validate();
+        _showDuplicateStaffDialog(
+          title: 'Email Address Already Registered',
+          description:
+              'A staff member is already registered with this email address ($email). Each staff account requires a unique email.',
+          staff: emailDup,
+          fieldType: 'email',
+        );
+      } else if (mounted) {
+        setState(() {
+          _matchedEmailStaff = null;
+          _emailDuplicateError = null;
+        });
+        _formKey.currentState?.validate();
+      }
+    } catch (e) {
+      print('Error checking email duplicate: $e');
+    } finally {
+      if (mounted) setState(() => _isCheckingEmail = false);
+    }
+  }
+
+  Widget _buildDialogDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDuplicateStaffDialog({
+    required String title,
+    required String description,
+    required Map<String, dynamic> staff,
+    required String fieldType,
+  }) {
+    final name = staff['fullname'] ?? 'Staff Member';
+    final staffId = staff['staff_unique_id'] ?? '';
+    final role = staff['role'] ?? 'N/A';
+    final value = fieldType == 'email'
+        ? (staff['email'] ?? '')
+        : (staff['mobile'] ?? '');
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          backgroundColor: Colors.white,
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppTheme.dangerColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Container(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF64748B),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (staffId.toString().isNotEmpty)
+                        _buildDialogDetailRow('Staff ID', staffId.toString()),
+                      _buildDialogDetailRow('Name', name.toString()),
+                      _buildDialogDetailRow('Role', role.toString()),
+                      if (value.toString().isNotEmpty)
+                        _buildDialogDetailRow(
+                          fieldType == 'email' ? 'Email' : 'Mobile',
+                          value.toString(),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  fieldType == 'email'
+                      ? 'Please enter a different email address to proceed.'
+                      : 'Please enter a different mobile number to proceed.',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                if (fieldType == 'email') {
+                  _emailDebounce?.cancel();
+                  _lastCheckedEmail = '';
+                  _emailController.clear();
+                  setState(() {
+                    _emailDuplicateError = null;
+                    _matchedEmailStaff = null;
+                  });
+                  Future.microtask(() {
+                    if (mounted) _emailFocusNode.requestFocus();
+                  });
+                } else {
+                  _mobileDebounce?.cancel();
+                  _lastCheckedMobile = '';
+                  _mobileController.clear();
+                  setState(() {
+                    _mobileDuplicateError = null;
+                    _matchedMobileStaff = null;
+                  });
+                  Future.microtask(() {
+                    if (mounted) _mobileFocusNode.requestFocus();
+                  });
+                }
+                _formKey.currentState?.validate();
+              },
+              style: AppTheme.primaryButton,
+              child: Text(
+                fieldType == 'email'
+                    ? 'Enter Different Email'
+                    : 'Enter Different Number',
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _loadRoles() async {
@@ -13571,41 +15945,13 @@ class _AddUserDialogState extends State<AddUserDialog> {
     try {
       final rbacData = await _adminController.fetchRbacData();
       final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
-
+      final names = rolesList
+          .map((r) => r['name']?.toString() ?? '')
+          .where((name) => name.isNotEmpty && name != 'Super Admin')
+          .toList();
       if (mounted) {
-        final currentUserRole = Provider.of<AuthProvider>(
-          context,
-          listen: false,
-        ).user?.role;
         setState(() {
-          _roles = rolesList.map((r) => r['role_name'].toString()).where((r) {
-            if (currentUserRole == 'Super Admin') return true;
-            return r == 'Doctor' ||
-                r == 'Nurse' ||
-                r == 'Front Desk' ||
-                r == 'Anaesthetist';
-          }).toList();
-
-          final orderedRoles = [
-            'Super Admin',
-            'Admin',
-            'Doctor',
-            'Nurse',
-            'Anaesthetist',
-            'Front Desk',
-          ];
-          _roles.sort((a, b) {
-            int indexA = orderedRoles.indexOf(a);
-            int indexB = orderedRoles.indexOf(b);
-            if (indexA == -1 && indexB == -1) return a.compareTo(b);
-            if (indexA == -1) return 1;
-            if (indexB == -1) return -1;
-            return indexA.compareTo(indexB);
-          });
-
-          if (_selectedRole != null && !_roles.contains(_selectedRole)) {
-            _selectedRole = null;
-          }
+          if (names.isNotEmpty) _roles = names;
           _isLoadingRoles = false;
         });
       }
@@ -13645,6 +15991,12 @@ class _AddUserDialogState extends State<AddUserDialog> {
 
   @override
   void dispose() {
+    _emailDebounce?.cancel();
+    _mobileDebounce?.cancel();
+    _emailFocusNode.dispose();
+    _mobileFocusNode.dispose();
+    _mobileController.removeListener(_onMobileChanged);
+    _emailController.removeListener(_onEmailChanged);
     _nameController.dispose();
     _emailController.dispose();
     _mobileController.dispose();
@@ -13654,14 +16006,23 @@ class _AddUserDialogState extends State<AddUserDialog> {
   }
 
   Future<void> _createUser() async {
+    if (_mobileDuplicateError != null || _emailDuplicateError != null) {
+      setState(
+        () => _errorMessage = _mobileDuplicateError ?? _emailDuplicateError,
+      );
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
     if (_selectedRole == null || !_roles.contains(_selectedRole)) {
-      setState(() => _errorMessage = 'Please select a valid role from the list');
+      setState(
+        () => _errorMessage = 'Please select a valid role from the list',
+      );
       return;
     }
     if (_selectedRole == 'Doctor') {
-      final validSpecIds =
-          _specializations.map((s) => s['id'].toString()).toSet();
+      final validSpecIds = _specializations
+          .map((s) => s['id'].toString())
+          .toSet();
       if (_selectedSpecializationId == null ||
           !validSpecIds.contains(_selectedSpecializationId.toString())) {
         setState(
@@ -13695,9 +16056,17 @@ class _AddUserDialogState extends State<AddUserDialog> {
       Navigator.pop(context);
     } catch (e) {
       if (mounted) {
-        setState(
-          () => _errorMessage = e.toString().replaceFirst('Exception: ', ''),
-        );
+        final errText = e.toString().replaceFirst('Exception: ', '');
+        setState(() {
+          _errorMessage = errText;
+          if (errText.toLowerCase().contains('email')) {
+            _emailDuplicateError = errText;
+          }
+          if (errText.toLowerCase().contains('mobile')) {
+            _mobileDuplicateError = errText;
+          }
+        });
+        _formKey.currentState?.validate();
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -13719,19 +16088,19 @@ class _AddUserDialogState extends State<AddUserDialog> {
         const SizedBox(height: 10),
         TextFormField(
           controller: _nameController,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          textCapitalization: TextCapitalization.words,
           onChanged: (_) {
             if (_errorMessage != null) setState(() => _errorMessage = null);
           },
           inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
-            LengthLimitingTextInputFormatter(30),
+            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s.]')),
+            const CapitalizeWordsInputFormatter(),
+            LengthLimitingTextInputFormatter(60),
           ],
           decoration: InputDecoration(
             hintText: 'Enter full name',
-            hintStyle: const TextStyle(
-              color: Color(0xFFCBD5E0),
-              fontSize: 11,
-            ),
+            hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
             filled: true,
             fillColor: AppTheme.backgroundColor,
             border: OutlineInputBorder(
@@ -13748,11 +16117,11 @@ class _AddUserDialogState extends State<AddUserDialog> {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -13781,22 +16150,35 @@ class _AddUserDialogState extends State<AddUserDialog> {
         const SizedBox(height: 10),
         TextFormField(
           controller: _emailController,
+          focusNode: _emailFocusNode,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           onChanged: (_) {
             if (_errorMessage != null) setState(() => _errorMessage = null);
           },
           keyboardType: TextInputType.emailAddress,
-          maxLength: 254,
+          maxLength: 100,
           inputFormatters: [
             FilteringTextInputFormatter.deny(RegExp(r'\s')),
-            LengthLimitingTextInputFormatter(254),
+            LengthLimitingTextInputFormatter(100),
           ],
           decoration: InputDecoration(
             hintText: 'Enter email address',
-            hintStyle: const TextStyle(
-              color: Color(0xFFCBD5E0),
-              fontSize: 11,
-            ),
+            hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
             counterText: '',
+            errorMaxLines: 2,
+            suffixIcon: _isCheckingEmail
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  )
+                : null,
             filled: true,
             fillColor: AppTheme.backgroundColor,
             border: OutlineInputBorder(
@@ -13813,11 +16195,11 @@ class _AddUserDialogState extends State<AddUserDialog> {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -13828,14 +16210,58 @@ class _AddUserDialogState extends State<AddUserDialog> {
             if (val == null || val.trim().isEmpty) {
               return 'Please enter Email Address';
             }
+            if (val.trim().contains(RegExp(r'[A-Z]'))) {
+              return 'Please enter a valid email address';
+            }
             if (!RegExp(
               r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
             ).hasMatch(val.trim())) {
               return 'Please enter a valid email address';
             }
+            if (_emailDuplicateError != null) {
+              return _emailDuplicateError;
+            }
             return null;
           },
         ),
+        if (_emailDuplicateError != null) ...[
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.dangerColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppTheme.dangerColor.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: AppTheme.dangerColor,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _matchedEmailStaff != null
+                        ? 'Registered to: ${_matchedEmailStaff!['fullname'] ?? "Staff"} (${_matchedEmailStaff!['staff_unique_id'] ?? "ID: N/A"}). Email already exists.'
+                        : _emailDuplicateError!,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.dangerColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -13855,6 +16281,8 @@ class _AddUserDialogState extends State<AddUserDialog> {
         const SizedBox(height: 10),
         TextFormField(
           controller: _mobileController,
+          focusNode: _mobileFocusNode,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           onChanged: (_) {
             if (_errorMessage != null) setState(() => _errorMessage = null);
           },
@@ -13866,12 +16294,22 @@ class _AddUserDialogState extends State<AddUserDialog> {
           ],
           decoration: InputDecoration(
             hintText: 'Enter 10-digit number',
-            hintStyle: const TextStyle(
-              color: Color(0xFFCBD5E0),
-              fontSize: 11,
-            ),
+            hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
             counterText: '',
             errorMaxLines: 2,
+            suffixIcon: _isCheckingMobile
+                ? const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
+                  )
+                : null,
             filled: true,
             fillColor: AppTheme.backgroundColor,
             border: OutlineInputBorder(
@@ -13888,13 +16326,12 @@ class _AddUserDialogState extends State<AddUserDialog> {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
-            errorStyle: const TextStyle(fontSize: 11, color: Colors.red),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
@@ -13911,9 +16348,50 @@ class _AddUserDialogState extends State<AddUserDialog> {
             if (clean.length != 10) {
               return 'Mobile number must be exactly 10 digits';
             }
+            if (_mobileDuplicateError != null) {
+              return _mobileDuplicateError;
+            }
             return null;
           },
         ),
+        if (_mobileDuplicateError != null) ...[
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: AppTheme.dangerColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: AppTheme.dangerColor.withValues(alpha: 0.3),
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  color: AppTheme.dangerColor,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _matchedMobileStaff != null
+                        ? 'Registered to: ${_matchedMobileStaff!['fullname'] ?? "Staff"} (${_matchedMobileStaff!['staff_unique_id'] ?? "ID: N/A"}). Mobile number already exists.'
+                        : _mobileDuplicateError!,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.dangerColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -13933,21 +16411,17 @@ class _AddUserDialogState extends State<AddUserDialog> {
         const SizedBox(height: 10),
         TextFormField(
           controller: _passwordController,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           onChanged: (_) {
             if (_errorMessage != null) setState(() => _errorMessage = null);
           },
           obscureText: _obscurePassword,
           maxLength: 16,
-          inputFormatters: [
-            LengthLimitingTextInputFormatter(16),
-          ],
+          inputFormatters: [LengthLimitingTextInputFormatter(16)],
           decoration: InputDecoration(
             counterText: '',
             hintText: 'Enter password',
-            hintStyle: const TextStyle(
-              color: Color(0xFFCBD5E0),
-              fontSize: 11,
-            ),
+            hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -13975,8 +16449,12 @@ class _AddUserDialogState extends State<AddUserDialog> {
                     size: 20,
                   ),
                   onPressed: () {
-                    setState(() {
-                      _obscurePassword = !_obscurePassword;
+                    Future.microtask(() {
+                      if (mounted) {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      }
                     });
                   },
                 ),
@@ -13998,11 +16476,11 @@ class _AddUserDialogState extends State<AddUserDialog> {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Colors.red),
+              borderSide: const BorderSide(color: AppTheme.dangerColor),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -14046,8 +16524,9 @@ class _AddUserDialogState extends State<AddUserDialog> {
                 hintFontSize: 11,
                 onChanged: (val) {
                   setState(() {
-                    _selectedSpecializationId =
-                        val != null ? int.tryParse(val) : null;
+                    _selectedSpecializationId = val != null
+                        ? int.tryParse(val)
+                        : null;
                   });
                 },
                 validator: (val) {
@@ -14057,8 +16536,9 @@ class _AddUserDialogState extends State<AddUserDialog> {
                   if (val == null || val.isEmpty) {
                     return 'Please select a specialization';
                   }
-                  final validSpecIds =
-                      _specializations.map((s) => s['id'].toString()).toSet();
+                  final validSpecIds = _specializations
+                      .map((s) => s['id'].toString())
+                      .toSet();
                   if (!validSpecIds.contains(val)) {
                     return 'Please select a valid specialization from the list';
                   }
@@ -14090,10 +16570,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
           ],
           decoration: InputDecoration(
             hintText: 'Optional',
-            hintStyle: const TextStyle(
-              color: Color(0xFFCBD5E0),
-              fontSize: 11,
-            ),
+            hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 11),
             filled: true,
             fillColor: AppTheme.backgroundColor,
             border: OutlineInputBorder(
@@ -14269,7 +16746,8 @@ class _AddUserDialogState extends State<AddUserDialog> {
                                   }
                                 });
                               },
-                              validator: (val) => val == null ||
+                              validator: (val) =>
+                                  val == null ||
                                       val.isEmpty ||
                                       !_roles.contains(val)
                                   ? 'Please select a valid role'
@@ -14396,7 +16874,8 @@ class _AdminPatientManagementWrapperState
       initialSelectedPatient: widget.viewPatient,
       onCompleteProfile: widget.onCompleteProfile,
       onRefresh: _fetchPatients,
-      onRegisterPatient: ([prefilledPatient]) => widget.onRegister(prefilledPatient),
+      onRegisterPatient: ([prefilledPatient]) =>
+          widget.onRegister(prefilledPatient),
       onBookAppointment: (_) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -14460,39 +16939,79 @@ class DashedBorderPainter extends CustomPainter {
 
 class LineChartPainter extends CustomPainter {
   final List<double> data;
-  LineChartPainter(this.data);
+  final double maxY;
+  final int selectedIndex;
+  final int todayIndex;
+
+  LineChartPainter(
+    this.data, {
+    this.maxY = 20.0,
+    this.selectedIndex = -1,
+    this.todayIndex = -1,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double chartHeight = size.height - 20;
+    if (data.isEmpty) return;
+
+    final double topPadding = 24.0;
+    final double bottomPadding = 12.0;
+    final double plotHeight = math.max(10.0, size.height - topPadding - bottomPadding);
+    final double effectiveMaxY = maxY <= 0 ? 1.0 : maxY;
+    final double stepX = data.length <= 1 ? 0.0 : size.width / (data.length - 1);
+
+    double getX(int index) => index * stepX;
+    double getY(double value) =>
+        topPadding + plotHeight - ((value / effectiveMaxY).clamp(0.0, 1.0) * plotHeight);
+
+    // Horizontal grid lines
+    final gridPaint = Paint()
+      ..color = const Color(0xFFE2E8F0)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    for (int step = 0; step <= 4; step++) {
+      final y = topPadding + (plotHeight * (step / 4.0));
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Vertical indicator line for selected day
+    if (selectedIndex >= 0 && selectedIndex < data.length) {
+      final selX = getX(selectedIndex);
+      final selLinePaint = Paint()
+        ..color = AppTheme.primaryColor.withValues(alpha: 0.25)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      canvas.drawLine(
+        Offset(selX, topPadding - 6),
+        Offset(selX, topPadding + plotHeight + 6),
+        selLinePaint,
+      );
+    }
 
     final paint = Paint()
       ..color = AppTheme.primaryColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
     final fillPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          AppTheme.primaryColor.withOpacity(0.15),
-          AppTheme.primaryColor.withOpacity(0.0),
+          AppTheme.primaryColor.withValues(alpha: 0.18),
+          AppTheme.primaryColor.withValues(alpha: 0.01),
         ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, chartHeight))
+      ).createShader(Rect.fromLTWH(0, topPadding, size.width, plotHeight))
       ..style = PaintingStyle.fill;
 
     final path = Path();
     final fillPath = Path();
 
-    final double stepX = size.width / (data.length - 1);
-    final double maxY = 40.0;
-
-    double getX(int index) => index * stepX;
-    double getY(double value) => chartHeight - (value / maxY) * chartHeight;
-
     path.moveTo(getX(0), getY(data[0]));
-    fillPath.moveTo(getX(0), chartHeight);
+    fillPath.moveTo(getX(0), topPadding + plotHeight);
     fillPath.lineTo(getX(0), getY(data[0]));
 
     for (int i = 0; i < data.length - 1; i++) {
@@ -14510,27 +17029,105 @@ class LineChartPainter extends CustomPainter {
       fillPath.cubicTo(cx1, cy1, cx2, cy2, x2, y2);
     }
 
-    fillPath.lineTo(size.width, chartHeight);
+    fillPath.lineTo(size.width, topPadding + plotHeight);
     fillPath.close();
 
     canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
 
-    final pointPaint = Paint()
-      ..color = AppTheme.primaryColor
-      ..style = PaintingStyle.fill;
-    final borderPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
+    // Points and Value Pills
     for (int i = 0; i < data.length; i++) {
-      canvas.drawCircle(Offset(getX(i), getY(data[i])), 5, borderPaint);
-      canvas.drawCircle(Offset(getX(i), getY(data[i])), 3, pointPaint);
+      final pt = Offset(getX(i), getY(data[i]));
+      final bool isSelected = i == selectedIndex;
+      final bool isToday = i == todayIndex;
+
+      // Outer halo
+      if (isSelected) {
+        final haloPaint = Paint()
+          ..color = AppTheme.primaryColor.withValues(alpha: 0.22)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(pt, 11, haloPaint);
+      } else if (isToday) {
+        final haloPaint = Paint()
+          ..color = AppTheme.secondaryColor.withValues(alpha: 0.25)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(pt, 9, haloPaint);
+      }
+
+      // Point circle
+      final borderPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      final pointColor = isSelected
+          ? AppTheme.primaryColor
+          : (isToday ? AppTheme.secondaryColor : AppTheme.primaryColor);
+      final pointPaint = Paint()
+        ..color = pointColor
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(pt, 5.5, borderPaint);
+      canvas.drawCircle(pt, 3.5, pointPaint);
+
+      // Value pill above point
+      final countText = data[i].toInt().toString();
+      final textSpan = TextSpan(
+        text: countText,
+        style: TextStyle(
+          color: isSelected
+              ? Colors.white
+              : (isToday ? AppTheme.secondaryColor : AppTheme.textPrimaryColor),
+          fontSize: 10.5,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final pillWidth = math.max(18.0, textPainter.width + 10.0);
+      final pillHeight = 16.0;
+      final pillRect = Rect.fromCenter(
+        center: Offset(pt.dx, pt.dy - 16.0),
+        width: pillWidth,
+        height: pillHeight,
+      );
+
+      final pillBgPaint = Paint()
+        ..color = isSelected
+            ? AppTheme.primaryColor
+            : (isToday
+                ? AppTheme.secondaryColor.withValues(alpha: 0.15)
+                : const Color(0xFFF1F5F9))
+        ..style = PaintingStyle.fill;
+
+      final pillBorderPaint = Paint()
+        ..color = isSelected
+            ? AppTheme.primaryColor
+            : (isToday ? AppTheme.secondaryColor : const Color(0xFFCBD5E1))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+
+      final rrect = RRect.fromRectAndRadius(pillRect, const Radius.circular(8));
+      canvas.drawRRect(rrect, pillBgPaint);
+      canvas.drawRRect(rrect, pillBorderPaint);
+
+      textPainter.paint(
+        canvas,
+        Offset(
+          pillRect.center.dx - (textPainter.width / 2),
+          pillRect.center.dy - (textPainter.height / 2),
+        ),
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant LineChartPainter oldDelegate) =>
+      oldDelegate.data != data ||
+      oldDelegate.maxY != maxY ||
+      oldDelegate.selectedIndex != selectedIndex ||
+      oldDelegate.todayIndex != todayIndex;
 }
 
 class AdminHeaderDateTimeCard extends StatefulWidget {

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
@@ -19,16 +18,19 @@ import 'ipd_management.dart';
 import 'ot_management.dart';
 import 'home_visit_list_view.dart';
 import 'home_visit_execution_screen.dart';
-import '../controllers/home_visit_controller.dart';
 import '../widgets/access_denied_widget.dart';
 import '../controllers/appointment_controller.dart';
 import '../models/appointment_model.dart';
 import '../utils/logout_helper.dart';
 import '../models/user_model.dart';
 import '../controllers/nurse_shift_controller.dart';
+import '../controllers/notification_controller.dart';
 import '../widgets/user_profile_dialog.dart';
 import '../utils/modal_history_helper.dart';
-import '../utils/unsaved_changes_helper.dart';
+import '../config/nurse_nav_config.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/app_top_bar_actions.dart';
+import '../providers/language_provider.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -76,15 +78,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   bool _isLoadingAppointments = false;
 
   final NurseShiftController _shiftCtrl = NurseShiftController();
+  final NotificationController _notificationCtrl = NotificationController();
   Map<String, dynamic>? _activeShiftData;
   Map<String, dynamic>? _todayShiftData;
 
-  String _activeAdmissionsCount = '--';
-  String _patientVisitsCount = '--';
+  String _onDutyDoctorsCount = '--';
+  String _todayHomeVisitsCount = '--';
   bool _isLoadingDashboardStats = false;
   List<Map<String, dynamic>> _allWardsShiftData = [];
   bool _isLoadingShiftStatus = false;
   List<Map<String, dynamic>> _handovers = [];
+  List<Map<String, dynamic>> _liveNotifications = [];
+  final LanguageProvider _englishOnlyProvider = LanguageProvider();
 
   @override
   void initState() {
@@ -128,9 +133,14 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       final stats = await _shiftCtrl.fetchNurseStats();
       if (mounted) {
         setState(() {
-          _activeAdmissionsCount =
-              stats['activeAdmissions']?.toString() ?? '--';
-          _patientVisitsCount = stats['patientVisits']?.toString() ?? '--';
+          _onDutyDoctorsCount =
+              stats['onDutyDoctors']?.toString() ??
+              stats['activeDoctors']?.toString() ??
+              '--';
+          _todayHomeVisitsCount =
+              stats['todayHomeVisits']?.toString() ??
+              stats['homeVisits']?.toString() ??
+              '0';
         });
       }
     } catch (e) {
@@ -142,6 +152,19 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     }
   }
 
+  Future<void> _fetchNotifications() async {
+    try {
+      final list = await _notificationCtrl.fetchNotifications();
+      if (mounted) {
+        setState(() {
+          _liveNotifications = list;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching notifications: $e');
+    }
+  }
+
   Future<void> _fetchData() async {
     await Future.wait([
       _fetchPatients(),
@@ -149,6 +172,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       _fetchShiftStatus(),
       _fetchHandovers(),
       _fetchDashboardStats(),
+      _fetchNotifications(),
     ]);
   }
 
@@ -224,8 +248,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       await _shiftCtrl.acknowledgeHandover(handoverId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Handover acknowledged successfully'),
+          SnackBar(
+            content: Text(context.tr('handover_acknowledged_success', fallback: 'Handover acknowledged successfully')),
             backgroundColor: Colors.green,
           ),
         );
@@ -235,7 +259,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error acknowledging handover: $e'),
+            content: Text('${context.tr('error_acknowledging_handover', fallback: 'Error acknowledging handover')}: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -273,6 +297,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   @override
   void dispose() {
+    _englishOnlyProvider.dispose();
     _mainFocusNode.dispose();
     super.dispose();
   }
@@ -281,80 +306,121 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     if (_selectedHomeVisitId == null || _isReadOnlyHomeVisit) {
       return true;
     }
+    final langLocale = Provider.of<LanguageProvider>(context, listen: false).locale;
     final shouldLeave = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: Colors.white,
-        child: Container(
-          width: 440,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+      builder: (dialogCtx) => Localizations.override(
+        context: dialogCtx,
+        locale: langLocale,
+        child: Builder(
+          builder: (ctx) {
+        final isMobile = MediaQuery.of(ctx).size.width < 500;
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: AppTheme.getCardColor(ctx),
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 16 : 32,
+            vertical: 24,
+          ),
+          child: Container(
+            width: isMobile ? double.infinity : 440,
+            constraints: const BoxConstraints(maxWidth: 440),
+            padding: EdgeInsets.all(isMobile ? 18 : 24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerColor.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.warning_amber_rounded,
+                        color: AppTheme.dangerColor,
+                        size: 22,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.warning_amber_rounded,
-                      color: AppTheme.dangerColor,
-                      size: 22,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        context.tr('unsaved_clinical_data', fallback: 'Unsaved Clinical Session Data'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: AppTheme.getTextPrimaryColor(ctx),
+                          fontFamily: 'Inter',
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Unsaved Clinical Session Data',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppTheme.textPrimaryColor,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'An active Home Visit Care session is currently in progress. If you navigate away now, any unsaved inputs or form entries will be lost.\n\nDo you want to leave this clinical visit?',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  color: Color(0xFF64748B),
-                  height: 1.4,
-                  fontFamily: 'Inter',
+                  ],
                 ),
-              ),
-              const SizedBox(height: 22),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(
-                    style: AppTheme.cancelButton,
-                    onPressed: () => Navigator.of(ctx).pop(false),
-                    child: const Text('Stay on Page'),
+                const SizedBox(height: 14),
+                Text(
+                  context.tr('active_home_visit_body', fallback: 'An active Home Visit Care session is currently in progress. If you navigate away now, any unsaved inputs or form entries will be lost.\n\nDo you want to leave this clinical visit?'),
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: AppTheme.getTextSecondaryColor(ctx),
+                    height: 1.4,
+                    fontFamily: 'Inter',
                   ),
-                  const SizedBox(width: 10),
-                  ElevatedButton(
-                    style: AppTheme.dangerButton,
-                    onPressed: () {
-                      ModalHistoryHelper.skipNextHistoryBack();
-                      Navigator.of(ctx).pop(true);
-                    },
-                    child: const Text('Leave Page'),
+                ),
+                const SizedBox(height: 24),
+                if (isMobile)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton(
+                        style: AppTheme.dangerButton,
+                        onPressed: () {
+                          ModalHistoryHelper.skipNextHistoryBack();
+                          Navigator.of(ctx).pop(true);
+                        },
+                        child: Text(context.tr('leave_page', fallback: 'Leave Page')),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton(
+                        style: AppTheme.cancelButton,
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: Text(context.tr('stay_on_page', fallback: 'Stay on Page')),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        style: AppTheme.cancelButton,
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: Text(context.tr('stay_on_page', fallback: 'Stay on Page')),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        style: AppTheme.dangerButton,
+                        onPressed: () {
+                          ModalHistoryHelper.skipNextHistoryBack();
+                          Navigator.of(ctx).pop(true);
+                        },
+                        child: Text(context.tr('leave_page', fallback: 'Leave Page')),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
+    },
+  ),
+),
+);
     return shouldLeave == true;
   }
 
@@ -365,77 +431,111 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     final shouldLeave = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: Colors.white,
-        child: Container(
-          width: 440,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+      builder: (ctx) {
+        final isMobile = MediaQuery.of(ctx).size.width < 500;
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: AppTheme.getCardColor(ctx),
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 16 : 32,
+            vertical: 24,
+          ),
+          child: Container(
+            width: isMobile ? double.infinity : 440,
+            constraints: const BoxConstraints(maxWidth: 440),
+            padding: EdgeInsets.all(isMobile ? 18 : 24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerColor.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.warning_amber_rounded,
+                        color: AppTheme.dangerColor,
+                        size: 22,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.warning_amber_rounded,
-                      color: AppTheme.dangerColor,
-                      size: 22,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        context.tr('unsaved_patient_reg', fallback: 'Unsaved Patient Registration'),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: AppTheme.getTextPrimaryColor(ctx),
+                          fontFamily: 'Inter',
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Unsaved Patient Registration',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppTheme.textPrimaryColor,
-                      fontFamily: 'Inter',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'You are currently filling the patient registration form. If you navigate away now, any unsaved inputs will be lost.\n\nDo you want to leave this page?',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  color: Color(0xFF64748B),
-                  height: 1.4,
-                  fontFamily: 'Inter',
+                  ],
                 ),
-              ),
-              const SizedBox(height: 22),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton(
-                    style: AppTheme.cancelButton,
-                    onPressed: () => Navigator.of(ctx).pop(false),
-                    child: const Text('Stay on Page'),
+                const SizedBox(height: 14),
+                Text(
+                  context.tr('leave_registration_body', fallback: 'You are currently filling the patient registration form. If you navigate away now, any unsaved inputs will be lost.\n\nDo you want to leave this page?'),
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: AppTheme.getTextSecondaryColor(ctx),
+                    height: 1.4,
+                    fontFamily: 'Inter',
                   ),
-                  const SizedBox(width: 10),
-                  ElevatedButton(
-                    style: AppTheme.dangerButton,
-                    onPressed: () {
-                      ModalHistoryHelper.skipNextHistoryBack();
-                      Navigator.of(ctx).pop(true);
-                    },
-                    child: const Text('Leave Page'),
+                ),
+                const SizedBox(height: 24),
+                if (isMobile)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElevatedButton(
+                        style: AppTheme.dangerButton,
+                        onPressed: () {
+                          ModalHistoryHelper.skipNextHistoryBack();
+                          Navigator.of(ctx).pop(true);
+                        },
+                        child: Text(context.tr('leave_page', fallback: 'Leave Page')),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton(
+                        style: AppTheme.cancelButton,
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: Text(context.tr('stay_on_page', fallback: 'Stay on Page')),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        style: AppTheme.cancelButton,
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: Text(context.tr('stay_on_page', fallback: 'Stay on Page')),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        style: AppTheme.dangerButton,
+                        onPressed: () {
+                          ModalHistoryHelper.skipNextHistoryBack();
+                          Navigator.of(ctx).pop(true);
+                        },
+                        child: Text(context.tr('leave_page', fallback: 'Leave Page')),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
-    );
+      );
+    },
+  );
     return shouldLeave == true;
   }
 
@@ -528,16 +628,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return SearchOverlay(
           patients: _dbPatients.map((p) => p.toJson()).toList(),
           onNewPatient: () => _changePage(1, isRegistering: true),
-          onBookAppointment: (patientMap) {
-            if (patientMap != null) {
-              setState(
-                () => _selectedPatientForBooking = PatientModel.fromJson(
-                  patientMap,
-                ),
-              );
-            }
-            _changePage(2, forceBooking: true);
-          },
+          onBookAppointment: NurseNavConfig.showAppointments
+              ? (patientMap) {
+                  if (patientMap != null) {
+                    setState(
+                      () => _selectedPatientForBooking = PatientModel.fromJson(
+                        patientMap,
+                      ),
+                    );
+                  }
+                  _changePage(2, forceBooking: true);
+                }
+              : null,
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -556,14 +658,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     if (_isRegisteringPatient ||
         widget.isRegisteringPatient ||
         widget.isEditingProfile ||
-        _patientToComplete != null) {
+        _patientToComplete != null ||
+        _selectedHomeVisitId != null ||
+        _forceBookingForm ||
+        widget.forceBooking) {
       return true;
     }
     try {
       final loc = GoRouterState.of(context).matchedLocation;
       if (loc.contains('new-patient') ||
           loc.contains('edit-patient') ||
-          loc.contains('book-appointment')) {
+          loc.contains('book-appointment') ||
+          loc.contains('home-visits/execute')) {
         return true;
       }
     } catch (_) {}
@@ -576,11 +682,30 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     final bool isFormActive = _isFormActive();
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      resizeToAvoidBottomInset: false,
+      backgroundColor: AppTheme.getBackgroundColor(context),
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
-      floatingActionButton: isFormActive
-          ? null
-          : CustomSpeedDial(
+      floatingActionButton: null,
+      body: Stack(
+        children: [
+          Row(
+            children: [
+              // Sidebar (only on desktop)
+              if (!isMobile) _buildSidebar(context),
+
+              // Main Content Area
+              Expanded(
+                child: Column(
+                  children: [
+                    if (_selectedIndex != 0) _buildHeader(context, isMobile),
+                    Expanded(child: _buildMainContent(isMobile)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (!isFormActive)
+            CustomSpeedDial(
               isVisible: !isFormActive,
               children: [
                 if (Provider.of<AuthProvider>(
@@ -589,44 +714,85 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                     ).user?.hasPermission('add_patient') ??
                     false)
                   SpeedDialChild(
-                    label: 'New Patient',
+                    label: context.tr('new_patient', fallback: 'New Patient'),
                     icon: Icons.person_add_alt_1_outlined,
                     color: AppTheme.dangerColor,
                     onTap: () => _changePage(1, isRegistering: true),
                   ),
-                if (Provider.of<AuthProvider>(
-                      context,
-                      listen: false,
-                    ).user?.hasPermission('book_appointment') ??
-                    false)
+                if (NurseNavConfig.showAppointments &&
+                    (Provider.of<AuthProvider>(
+                          context,
+                          listen: false,
+                        ).user?.hasPermission('book_appointment') ??
+                        false))
                   SpeedDialChild(
-                    label: 'Book Appointment',
+                    label: context.tr('book_appointment', fallback: 'Book Appointment'),
                     icon: Icons.calendar_month_outlined,
                     color: const Color(0xFF0D5D9A),
                     onTap: () => _changePage(2, forceBooking: true),
                   ),
               ],
             ),
-      body: Row(
-        children: [
-          // Sidebar (only on desktop)
-          if (!isMobile) _buildSidebar(context),
-
-          // Main Content Area
-          Expanded(
-            child: Column(
-              children: [
-                if (_selectedIndex != 0) _buildHeader(context, isMobile),
-                Expanded(child: _buildMainContent(isMobile)),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
   Widget _buildMainContent(bool isMobile) {
+    if (_selectedIndex == 9 && !_isRegisteringPatient) {
+      final languageProvider = Provider.of<LanguageProvider>(context);
+      return Localizations.override(
+        context: context,
+        locale: languageProvider.locale,
+        child: _buildHomeVisitContent(),
+      );
+    }
+
+    return Localizations.override(
+      context: context,
+      locale: const Locale('en'),
+      child: ChangeNotifierProvider<LanguageProvider>.value(
+        value: _englishOnlyProvider,
+        child: _buildNonHomeVisitContent(isMobile),
+      ),
+    );
+  }
+
+  Widget _buildHomeVisitContent() {
+    if (_selectedHomeVisitId != null) {
+      return HomeVisitExecutionScreen(
+        key: ValueKey('nurse_home_visit_${_selectedHomeVisitId}_$_isReadOnlyHomeVisit'),
+        visitId: _selectedHomeVisitId!,
+        isReadOnlyView: _isReadOnlyHomeVisit,
+        onBack: () {
+          setState(() {
+            _selectedHomeVisitId = null;
+            _isReadOnlyHomeVisit = false;
+          });
+          context.go(AppRoutes.nurseHomeVisits);
+        },
+      );
+    }
+    return HomeVisitListView(
+      showScheduleButton: false,
+      onExecuteVisit: (visitId) {
+        setState(() {
+          _selectedHomeVisitId = visitId;
+          _isReadOnlyHomeVisit = false;
+        });
+        context.go('/nurse/home-visits/execute/$visitId');
+      },
+      onViewSummary: (visitId) {
+        setState(() {
+          _selectedHomeVisitId = visitId;
+          _isReadOnlyHomeVisit = true;
+        });
+        context.go('/nurse/home-visits/summary/$visitId');
+      },
+    );
+  }
+
+  Widget _buildNonHomeVisitContent(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
 
     if (_isRegisteringPatient) {
@@ -658,7 +824,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 0:
         return _buildDashboardView(isMobile);
       case 1:
-        if (user?.hasPermission('view_patients') ?? false) {
+        if (user?.role == 'Nurse' || (user?.hasPermission('view_patients') ?? false)) {
           return PatientsView(
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
@@ -674,15 +840,28 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               context.go(AppRoutes.nurseEditPatient, extra: patient);
             },
             onBookAppointment: (patient) {
-              setState(() => _selectedPatientForBooking = patient);
-              _changePage(2, forceBooking: true);
+              if (NurseNavConfig.showAppointments) {
+                setState(() => _selectedPatientForBooking = patient);
+                _changePage(2, forceBooking: true);
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      context.tr(
+                        'appointment_booking_disabled',
+                        fallback: 'Appointment section is currently disabled.',
+                      ),
+                    ),
+                  ),
+                );
+              }
             },
             onRefresh: _fetchPatients,
           );
         }
         return const AccessDeniedWidget();
       case 2:
-        if (user?.hasPermission('book_appointment') ?? false) {
+        if (user?.role == 'Nurse' || (user?.hasPermission('book_appointment') ?? false)) {
           return AppointmentsView(
             key: const ValueKey('nurse_appointments_tab_view'),
             startWithBookingForm: _forceBookingForm || widget.forceBooking,
@@ -693,10 +872,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return const AccessDeniedWidget();
       case 3:
         return DoctorsView(
-          onBookAppointment: (doctor) {
-            setState(() => _selectedDoctorForBooking = doctor);
-            _changePage(2, forceBooking: true);
-          },
+          onBookAppointment: NurseNavConfig.showAppointments
+              ? (doctor) {
+                  setState(() => _selectedDoctorForBooking = doctor);
+                  _changePage(2, forceBooking: true);
+                }
+              : null,
         );
       case 4:
         return NurseProfileView(isEditing: widget.isEditingProfile);
@@ -708,37 +889,6 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return OTManagementScreen(isMobile: isMobile);
       case 8:
         return const AppointmentsView(initialViewMode: 'Doctor');
-      case 9:
-        if (_selectedHomeVisitId != null) {
-          return HomeVisitExecutionScreen(
-            visitId: _selectedHomeVisitId!,
-            isReadOnlyView: _isReadOnlyHomeVisit,
-            onBack: () {
-              setState(() {
-                _selectedHomeVisitId = null;
-                _isReadOnlyHomeVisit = false;
-              });
-              context.go(AppRoutes.nurseHomeVisits);
-            },
-          );
-        }
-        return HomeVisitListView(
-          showScheduleButton: false,
-          onExecuteVisit: (visitId) {
-            setState(() {
-              _selectedHomeVisitId = visitId;
-              _isReadOnlyHomeVisit = false;
-            });
-            context.go('/nurse/home-visits/execute/$visitId');
-          },
-          onViewSummary: (visitId) {
-            setState(() {
-              _selectedHomeVisitId = visitId;
-              _isReadOnlyHomeVisit = true;
-            });
-            context.go('/nurse/home-visits/summary/$visitId');
-          },
-        );
       default:
         return _buildDashboardView(isMobile);
     }
@@ -766,18 +916,20 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user != null ? 'Hello, ${user.fullname}! 👋' : 'Dashboard',
-                  style: const TextStyle(
+                  user != null
+                      ? '${context.tr('hello', fallback: 'Hello')}, ${user.fullname}! 👋'
+                      : context.tr('dashboard', fallback: 'Dashboard'),
+                  style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
+                    color: AppTheme.getTextPrimaryColor(context),
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Welcome back! Here\'s your hospital overview',
+                Text(
+                  context.tr('welcome_hospital_overview', fallback: "Welcome back! Here's your hospital overview"),
                   style: TextStyle(
-                    color: AppTheme.textSecondaryColor,
+                    color: AppTheme.getTextSecondaryColor(context),
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
@@ -789,23 +941,43 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 const SizedBox(height: 20),
                 ..._buildPendingHandoverCards(isMobile),
                 const SizedBox(height: 4),
-                if (isMobile) ...[
-                  _buildAlertsSection(),
-                  const SizedBox(height: 20),
-                  _buildRecentPatients(),
-                  const SizedBox(height: 20),
-                  _buildUpcomingAppointments(),
-                ] else
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(flex: 5, child: _buildAlertsSection()),
-                      const SizedBox(width: 20),
-                      Expanded(flex: 5, child: _buildRecentPatients()),
-                      const SizedBox(width: 20),
-                      Expanded(flex: 4, child: _buildUpcomingAppointments()),
-                    ],
-                  ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final bool stackCards = isMobile || constraints.maxWidth < 850;
+                    if (stackCards) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildAlertsSection(),
+                          const SizedBox(height: 20),
+                          _buildRecentPatients(),
+                          if (NurseNavConfig.showAppointments) ...[
+                            const SizedBox(height: 20),
+                            _buildUpcomingAppointments(),
+                          ],
+                        ],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: NurseNavConfig.showAppointments ? 5 : 1,
+                          child: _buildAlertsSection(),
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          flex: NurseNavConfig.showAppointments ? 5 : 1,
+                          child: _buildRecentPatients(),
+                        ),
+                        if (NurseNavConfig.showAppointments) ...[
+                          const SizedBox(width: 20),
+                          Expanded(flex: 4, child: _buildUpcomingAppointments()),
+                        ],
+                      ],
+                    );
+                  },
+                ),
                 const SizedBox(height: 20),
               ],
             ),
@@ -816,22 +988,26 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Widget _buildSidebar(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return Consumer<AuthProvider>(
       builder: (context, auth, _) {
         final user = auth.user;
         return Container(
-          width: 260,
+          width: 275,
           margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppTheme.getCardColor(context),
             borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            border: Border.all(color: AppTheme.getBorderColor(context)),
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           ),
           child: Column(
             children: [
@@ -848,61 +1024,39 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 ),
               ),
 
-              // Navigation Items (Scrollable Area)
+              // Navigation Items (Scrollable Area driven by NurseNavConfig)
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSidebarItem(
-                        0,
-                        Icons.dashboard_outlined,
-                        'Dashboard',
-                      ),
-                      if (user?.hasPermission('view_patients') ?? false)
-                        _buildSidebarItem(1, Icons.people_outline, 'Patients'),
-                      if (user?.hasPermission('book_appointment') ?? false)
-                        _buildSidebarItem(
-                          2,
-                          Icons.calendar_today_outlined,
-                          'Appointments',
-                        ),
-                      _buildSidebarItem(
-                        3,
-                        Icons.medical_services_outlined,
-                        'Doctors',
-                      ),
-                      _buildSidebarItem(
-                        5,
-                        Icons.local_hospital_outlined,
-                        'OPD Assistance',
-                      ),
-                      _buildSidebarItem(
-                        6,
-                        Icons.bedroom_child_outlined,
-                        'IPD Management',
-                      ),
-                      _buildSidebarItem(
-                        7,
-                        Icons.healing_outlined,
-                        'OT Management',
-                      ),
-                      _buildSidebarItem(
-                        9,
-                        Icons.home_work_outlined,
-                        'Home Visit Care',
-                      ),
-                      _buildSidebarItem(4, Icons.person_outline, 'Profile'),
-                    ],
+                    children: NurseNavConfig.getVisibleNavItems(user)
+                        .map(
+                          (item) {
+                            String translatedLabel = item.label;
+                            final lower = item.label.toLowerCase();
+                            if (lower.contains('home visit')) {
+                              translatedLabel = Provider.of<LanguageProvider>(context).isTamil
+                                  ? 'வீட்டுப் பராமரிப்பு வருகை'
+                                  : item.label;
+                            }
+
+                            return _buildSidebarItem(
+                              item.index,
+                              item.icon,
+                              translatedLabel,
+                            );
+                          },
+                        )
+                        .toList(),
                   ),
                 ),
               ),
 
               Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   border: Border(
-                    top: BorderSide(color: AppTheme.borderColor, width: 1),
+                    top: BorderSide(color: AppTheme.getBorderColor(context), width: 1),
                   ),
                 ),
                 padding: const EdgeInsets.symmetric(
@@ -942,18 +1096,18 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                                       children: [
                                         Text(
                                           user.fullname,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontWeight: FontWeight.w600,
                                             fontSize: 13,
-                                            color: AppTheme.textPrimaryColor,
+                                            color: AppTheme.getTextPrimaryColor(context),
                                           ),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         Text(
-                                          user.role,
-                                          style: const TextStyle(
+                                          context.translateRole(user.role),
+                                          style: TextStyle(
                                             fontSize: 11,
-                                            color: AppTheme.textSecondaryColor,
+                                            color: AppTheme.getTextSecondaryColor(context),
                                             fontWeight: FontWeight.w600,
                                           ),
                                         ),
@@ -965,10 +1119,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.logout,
                               size: 18,
-                              color: AppTheme.textSecondaryColor,
+                              color: AppTheme.getTextSecondaryColor(context),
                             ),
                             onPressed: () =>
                                 LogoutHelper.showLogoutConfirmation(
@@ -988,60 +1142,91 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   Widget _buildSidebarItem(int index, IconData icon, String label) {
     bool isSelected = _selectedIndex == index;
-    return InkWell(
-      onTap: () => _changePage(index),
-      borderRadius: BorderRadius.circular(10),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : const Color(0xFF4A5568),
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : const Color(0xFF2D3748),
-                fontWeight: FontWeight.bold,
-                fontSize: 13.5,
+    return Tooltip(
+      message: label,
+      waitDuration: const Duration(milliseconds: 200),
+      preferBelow: false,
+      verticalOffset: 20,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      textStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w500,
+      ),
+      child: InkWell(
+        onTap: () => _changePage(index),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                size: 20,
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context, bool isMobile) {
-    return Container(
-      decoration: const BoxDecoration(color: Colors.transparent),
-      padding: EdgeInsets.only(
-        left: isMobile ? 16 : 24,
-        right: isMobile ? 16 : 24,
-        top: 20,
-        bottom: 0,
+    return Localizations.override(
+      context: context,
+      locale: const Locale('en'),
+      child: Container(
+        decoration: const BoxDecoration(color: Colors.transparent),
+        padding: EdgeInsets.only(
+          left: isMobile ? 16 : 24,
+          right: isMobile ? 16 : 24,
+          top: 20,
+          bottom: 0,
+        ),
+        child: _buildBannerTopBar(isMobile),
       ),
-      child: _buildBannerTopBar(isMobile),
     );
   }
 
   Widget _buildBannerTopBar(bool isMobile) {
+    final isDark = AppTheme.isDark(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (isMobile) ...[
           Builder(
             builder: (context) => IconButton(
-              icon: const Icon(Icons.menu, color: Color(0xFF4A5568)),
+              icon: Icon(Icons.menu, color: AppTheme.getTextPrimaryColor(context)),
               onPressed: () => Scaffold.of(context).openDrawer(),
             ),
           ),
@@ -1057,17 +1242,27 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppTheme.getCardColor(context),
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.getBorderColor(context), width: 1.2),
+                boxShadow: isDark
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
-                  SizedBox(width: 8),
+                  Icon(Icons.search, size: 18, color: AppTheme.getTextSecondaryColor(context)),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Search anything...',
-                      style: TextStyle(fontSize: 14, color: AppTheme.textSecondaryColor),
+                      context.tr('search_anything', fallback: 'Search anything...'),
+                      style: TextStyle(fontSize: 14, color: AppTheme.getTextSecondaryColor(context)),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
@@ -1078,160 +1273,158 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           ),
         ),
 
-        const SizedBox(width: 12),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            const Icon(Icons.notifications_none_outlined, color: Color(0xFF4A5568), size: 22),
-            Positioned(
-              right: -2,
-              top: -2,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(color: Color(0xFFE53E3E), shape: BoxShape.circle),
-                constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                child: const Text(
-                  '3',
-                  style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
+        const SizedBox(width: 8),
+        AppTopBarActions(
+          showClock: !isMobile,
+          liveClockWidget: const LiveClock(isDark: false),
+          showLanguageToggle: false,
+          showSettings: true,
         ),
-
-        if (!isMobile) ...[
-          const SizedBox(width: 16),
-          const Icon(Icons.settings_outlined, color: Color(0xFF4A5568), size: 22),
-          const SizedBox(width: 16),
-          const LiveClock(isDark: false),
-        ],
       ],
     );
   }
 
   Widget _buildStatsRow(bool isMobile) {
+    final bool isDark = AppTheme.isDark(context);
     final int totalPatients = _dbPatients.length;
-    final String today = DateFormat('dd/MM/yyyy').format(DateTime.now());
+    final DateTime now = DateTime.now();
+    final String todayUi = DateFormat('dd/MM/yyyy').format(now);
+    final String todayDb = DateFormat('yyyy-MM-dd').format(now);
+    final String todayDash = DateFormat('dd-MM-yyyy').format(now);
     final int todaysApptsCount = _dbAppointments
         .where(
-          (a) =>
-              (a.appointmentDate == today ||
-                  a.appointmentDate.startsWith(today)) &&
-              a.status.toLowerCase() != 'cancelled',
+          (a) {
+            final d = a.appointmentDate.trim();
+            final isToday = d == todayUi ||
+                d.startsWith(todayUi) ||
+                d == todayDb ||
+                d.startsWith(todayDb) ||
+                d == todayDash ||
+                d.startsWith(todayDash);
+            return isToday && a.status.toLowerCase() != 'cancelled';
+          },
         )
         .length;
 
-    if (isMobile) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+    final List<Widget> statItems = [
+      _buildStatItem(
+        'Total Patients',
+        totalPatients.toString(),
+        Icons.people_outline,
+        const Color(0xFF0C5D9A),
+        isCompact: isMobile,
+      ),
+      if (NurseNavConfig.showAppointments)
+        _buildStatItem(
+          'Today\'s Appointments',
+          todaysApptsCount.toString(),
+          Icons.calendar_today_outlined,
+          AppTheme.secondaryColor,
+          isCompact: isMobile,
         ),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            _buildStatItem(
-              'Total Patients',
-              totalPatients.toString(),
-              Icons.people_outline,
-              const Color(0xFF0C5D9A),
-            ),
-            _buildStatItem(
-              'Today\'s Appointments',
-              todaysApptsCount.toString(),
-              Icons.calendar_today_outlined,
-              AppTheme.secondaryColor,
-            ),
-            _buildStatItem(
-              'Active Admissions',
-              _activeAdmissionsCount,
-              Icons.bedroom_child_outlined,
-              const Color(0xFFDD3B3B),
-            ),
-            _buildStatItem(
-              'Patient Visits',
-              _patientVisitsCount,
-              Icons.monitor_heart_outlined,
-              const Color(0xFF7C5CBF),
-            ),
-          ],
-        ),
-      );
-    }
+      _buildStatItem(
+        'On-Duty Doctors',
+        _onDutyDoctorsCount,
+        Icons.medical_services_outlined,
+        const Color(0xFF065D96),
+        isCompact: isMobile,
+      ),
+      _buildStatItem(
+        'Today\'s Home Visits',
+        _todayHomeVisitsCount,
+        Icons.home_work_outlined,
+        const Color(0xFF7C5CBF),
+        isCompact: isMobile,
+      ),
+    ];
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return LayoutBuilder(
+      builder: (ctx, bc) {
+        final bool useGrid = isMobile || bc.maxWidth < 700;
+        if (useGrid) {
+          final bool singleCol = bc.maxWidth < 320;
+          final int step = singleCol ? 1 : 2;
+          final List<Widget> rows = [];
+          for (int i = 0; i < statItems.length; i += step) {
+            if (singleCol) {
+              rows.add(statItems[i]);
+            } else {
+              rows.add(
+                Row(
+                  children: [
+                    Expanded(child: statItems[i]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: i + 1 < statItems.length
+                          ? statItems[i + 1]
+                          : const SizedBox(),
+                    ),
+                  ],
+                ),
+              );
+            }
+            if (i + step < statItems.length) rows.add(const SizedBox(height: 8));
+          }
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.getCardColor(context),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: isDark
+                  ? []
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+              border: Border.all(color: AppTheme.getBorderColor(context)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: rows,
+            ),
+          );
+        }
+
+        final List<Widget> rowChildren = [];
+        for (int i = 0; i < statItems.length; i++) {
+          if (i > 0) {
+            rowChildren.add(_buildVerticalDivider());
+          }
+          rowChildren.add(Expanded(child: statItems[i]));
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+            border: Border.all(color: AppTheme.getBorderColor(context)),
           ),
-        ],
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            Expanded(
-              child: _buildStatItem(
-                'Total Patients',
-                totalPatients.toString(),
-                Icons.people_outline,
-                const Color(0xFF0C5D9A),
-              ),
-            ),
-            _buildVerticalDivider(),
-            Expanded(
-              child: _buildStatItem(
-                'Today\'s Appointments',
-                todaysApptsCount.toString(),
-                Icons.calendar_today_outlined,
-                AppTheme.secondaryColor,
-              ),
-            ),
-            _buildVerticalDivider(),
-            Expanded(
-              child: _buildStatItem(
-                'Active Admissions',
-                _activeAdmissionsCount,
-                Icons.bedroom_child_outlined,
-                const Color(0xFFDD3B3B),
-              ),
-            ),
-            _buildVerticalDivider(),
-            Expanded(
-              child: _buildStatItem(
-                'Patient Visits',
-                _patientVisitsCount,
-                Icons.monitor_heart_outlined,
-                const Color(0xFF7C5CBF),
-              ),
-            ),
-          ],
-        ),
-      ),
+          child: Row(
+            children: rowChildren,
+          ),
+        );
+      },
     );
   }
 
   Widget _buildVerticalDivider() {
     return Container(
       width: 1,
-      margin: const EdgeInsets.symmetric(vertical: 20),
-      color: AppTheme.borderColor.withOpacity(0.8),
+      height: 48,
+      margin: const EdgeInsets.symmetric(vertical: 14),
+      color: AppTheme.getBorderColor(context),
     );
   }
 
@@ -1239,19 +1432,40 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     String title,
     String value,
     IconData icon,
-    Color color,
-  ) {
+    Color color, {
+    bool isCompact = false,
+  }) {
+    String translatedTitle = title;
+    if (title == 'Total Patients') {
+      translatedTitle = context.tr('total_patients', fallback: title);
+    } else if (title == 'Today\'s Appointments') {
+      translatedTitle = context.tr('today_appointments', fallback: title);
+    } else if (title == 'On-Duty Doctors') {
+      translatedTitle = context.tr('on_duty_doctors', fallback: title);
+    } else if (title == 'Today\'s Home Visits') {
+      translatedTitle = context.tr('today_home_visits', fallback: title);
+    } else if (title == 'Active Admissions') {
+      translatedTitle = context.tr('active_admissions', fallback: title);
+    } else if (title == 'Patient Visits') {
+      translatedTitle = context.tr('patient_visits', fallback: title);
+    } else if (title == 'Pending Handovers') {
+      translatedTitle = context.tr('pending_handovers', fallback: title);
+    }
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 6 : 14,
+        vertical: isCompact ? 8 : 14,
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
-            radius: 22,
+            radius: isCompact ? 18 : 22,
             backgroundColor: color.withOpacity(0.12),
-            child: Icon(icon, color: color, size: 20),
+            child: Icon(icon, color: color, size: isCompact ? 16 : 20),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: isCompact ? 6 : 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1259,24 +1473,24 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               children: [
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 20,
+                  style: TextStyle(
+                    fontSize: isCompact ? 18 : 20,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
+                    color: AppTheme.getTextPrimaryColor(context),
                     height: 1.2,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondaryColor,
-                    fontSize: 11.5,
+                  translatedTitle,
+                  style: TextStyle(
+                    color: AppTheme.getTextSecondaryColor(context),
+                    fontSize: isCompact ? 11 : 11.5,
                     fontWeight: FontWeight.w500,
                     height: 1.2,
                   ),
                   overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
+                  maxLines: 2,
                 ),
               ],
             ),
@@ -1286,20 +1500,107 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     );
   }
 
+  String _formatTimeAgo(String? isoString) {
+    if (isoString == null || isoString.isEmpty) return 'Today';
+    try {
+      final dt = DateTime.tryParse(isoString)?.toLocal();
+      if (dt == null) return 'Today';
+      final diff = DateTime.now().difference(dt);
+      if (diff.inSeconds < 60) return 'Just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      if (diff.inDays == 1) return 'Yesterday';
+      return '${diff.inDays}d ago';
+    } catch (_) {
+      return 'Today';
+    }
+  }
+
   Widget _buildAlertsSection() {
+    final isDark = AppTheme.isDark(context);
+
+    // Build LIVE alerts list only
+    final List<Widget> liveAlertWidgets = [];
+
+    // 1. Live Active Shift Alert (Applicable only for IPD)
+    if (_activeShiftData != null) {
+      liveAlertWidgets.add(
+        _buildAlertItem(
+          isDark ? AppTheme.darkSurfaceColor : const Color(0xFFE8F5E9),
+          const Color(0xFF2E7D32),
+          context.tr(
+            'alert_active_shift_assigned_ipd',
+            fallback: 'Active Shift: Assigned to ${_activeShiftData?['ward_type'] ?? 'General Ward'} (Applicable only for IPD)',
+          ),
+          'Active',
+        ),
+      );
+    } else {
+      liveAlertWidgets.add(
+        _buildAlertItem(
+          isDark ? AppTheme.darkSurfaceColor : AppTheme.alertBgColor,
+          AppTheme.alertTextColor,
+          context.tr(
+            'alert_no_active_shift_ipd',
+            fallback: 'Active Shift: No active shift assignment today (Applicable only for IPD)',
+          ),
+          'Today',
+        ),
+      );
+    }
+
+    // 2. Live Pending Handovers
+    final pendingHandovers =
+        _handovers.where((h) => h['status'] != 'Acknowledged').toList();
+    if (pendingHandovers.isNotEmpty) {
+      liveAlertWidgets.add(
+        _buildAlertItem(
+          isDark ? AppTheme.darkSurfaceColor : AppTheme.alertBgColor,
+          AppTheme.alertTextColor,
+          'Pending Handover: ${pendingHandovers.length} incoming handover(s) require review & acknowledgement',
+          'Action Required',
+        ),
+      );
+    }
+
+    // 3. Live User Notifications from Database
+    for (final n in _liveNotifications.take(3)) {
+      final title =
+          n['title']?.toString() ?? n['message']?.toString() ?? 'Notification';
+      final timeStr = _formatTimeAgo(n['created_at']?.toString());
+      final isUnread = n['is_read'] != true;
+      liveAlertWidgets.add(
+        _buildAlertItem(
+          isDark
+              ? AppTheme.darkSurfaceColor
+              : (isUnread ? AppTheme.infoBgColor : const Color(0xFFF8FAFC)),
+          isUnread
+              ? AppTheme.infoColor
+              : AppTheme.getTextSecondaryColor(context),
+          title,
+          timeStr,
+        ),
+      );
+    }
+
+    final int totalCount = liveAlertWidgets.length;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppTheme.getBorderColor(context)),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1319,23 +1620,28 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 ),
               ),
               const SizedBox(width: 10),
-              const Flexible(
+              Expanded(
                 child: Text(
-                  'Alerts & Notifications',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  context.tr('critical_alerts', fallback: 'Alerts & Notifications'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: AppTheme.getTextPrimaryColor(context),
+                  ),
                   overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppTheme.dangerColor,
+                  color: totalCount > 0 ? AppTheme.dangerColor : AppTheme.secondaryColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Text(
-                  '2',
-                  style: TextStyle(
+                child: Text(
+                  totalCount.toString(),
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -1345,44 +1651,140 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          _buildAlertItem(
-            AppTheme.alertBgColor,
-            AppTheme.alertTextColor,
-            'Low inventory: Rice stock running low (5kg remaining)',
-            '10 mins ago',
-          ),
-          const SizedBox(height: 10),
-          _buildAlertItem(
-            AppTheme.infoBgColor,
-            AppTheme.infoColor,
-            '3 patients awaiting lab results',
-            '30 mins ago',
-          ),
-          const SizedBox(height: 12),
-          const Divider(height: 1, color: AppTheme.borderColor),
-          const SizedBox(height: 12),
+          if (liveAlertWidgets.isEmpty)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+              alignment: Alignment.center,
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.check_circle_outline_rounded,
+                    color: AppTheme.secondaryColor,
+                    size: 36,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No critical alerts at this time',
+                    style: TextStyle(
+                      color: AppTheme.getTextPrimaryColor(context),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'All shift operations and patient vitals are normal.',
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondaryColor(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ...List.generate(liveAlertWidgets.length, (i) {
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: i == liveAlertWidgets.length - 1 ? 0 : 12,
+                ),
+                child: liveAlertWidgets[i],
+              );
+            }),
+          const SizedBox(height: 16),
           InkWell(
-            onTap: () {
-              // Footer action to view alerts
-            },
+            onTap: _showAllAlertsDialog,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'View All Alerts',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: AppTheme.textPrimaryColor,
+                Expanded(
+                  child: Text(
+                    context.tr('view_all_alerts', fallback: 'View All Alerts'),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: AppTheme.getTextPrimaryColor(context),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Icon(
                   Icons.arrow_forward_rounded,
                   size: 16,
-                  color: AppTheme.textPrimaryColor.withOpacity(0.8),
+                  color: AppTheme.getTextPrimaryColor(context).withOpacity(0.8),
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAllAlertsDialog() {
+    final isDark = AppTheme.isDark(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: AppTheme.getCardColor(ctx),
+        title: Row(
+          children: [
+            const Icon(Icons.notifications_active_outlined, color: AppTheme.primaryColor),
+            const SizedBox(width: 8),
+            Text(
+              context.tr('critical_alerts', fallback: 'Alerts & Notifications'),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.getTextPrimaryColor(ctx),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: _liveNotifications.isEmpty && _handovers.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: Text(
+                    'No additional notifications.',
+                    style: TextStyle(color: AppTheme.getTextSecondaryColor(ctx)),
+                  ),
+                )
+              : ListView(
+                  shrinkWrap: true,
+                  children: [
+                    if (_activeShiftData == null)
+                      _buildAlertItem(
+                        isDark ? AppTheme.darkSurfaceColor : AppTheme.alertBgColor,
+                        AppTheme.alertTextColor,
+                        'Active Shift: No active shift assignment today (Applicable only for IPD)',
+                        'Today',
+                      ),
+                    ..._liveNotifications.map((n) {
+                      final title =
+                          n['title']?.toString() ?? n['message']?.toString() ?? '';
+                      final timeStr = _formatTimeAgo(n['created_at']?.toString());
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: _buildAlertItem(
+                          isDark ? AppTheme.darkSurfaceColor : AppTheme.infoBgColor,
+                          AppTheme.infoColor,
+                          title,
+                          timeStr,
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(context.tr('close', fallback: 'Close')),
           ),
         ],
       ),
@@ -1431,59 +1833,60 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.secondaryColor.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppTheme.getBorderColor(context)),
+        boxShadow: AppTheme.isDark(context)
+            ? []
+            : [
+                BoxShadow(
+                  color: AppTheme.secondaryColor.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.secondaryColor.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.people_outline,
-                        color: AppTheme.secondaryColor,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Recent Patients',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondaryColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.people_outline,
+                  color: AppTheme.secondaryColor,
+                  size: 18,
                 ),
               ),
               const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.tr('recent_patients', fallback: 'Recent Patients'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: AppTheme.getTextPrimaryColor(context),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              const SizedBox(width: 6),
               TextButton(
                 onPressed: () => _changePage(1),
                 style: TextButton.styleFrom(
                   foregroundColor: AppTheme.primaryColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text(
-                  'View All',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                child: Text(
+                  context.tr('view_all', fallback: 'View All'),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               ),
             ],
@@ -1497,22 +1900,30 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               ),
             )
           else if (_dbPatients.isEmpty)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
                 child: Text(
-                  'No patients found',
-                  style: TextStyle(color: Colors.grey),
+                  context.tr('no_patients_found', fallback: 'No patients found'),
+                  style: TextStyle(color: AppTheme.getTextSecondaryColor(context)),
                 ),
               ),
             )
           else
             ..._dbPatients.take(4).map((p) {
+              final genderStr = p.gender.toLowerCase() == 'male'
+                  ? context.tr('gender_male', fallback: 'Male')
+                  : (p.gender.toLowerCase() == 'female'
+                      ? context.tr('gender_female', fallback: 'Female')
+                      : p.gender);
+              final ageStr = '${p.age}${context.tr('years_short', fallback: 'y')} • $genderStr';
               return _buildPatientItem(
                 p.name,
-                '${p.age}y • ${p.gender}',
-                'Registered',
-                p.isQuickRegister ? 'Quick' : 'Standard',
+                ageStr,
+                context.tr('registered', fallback: 'Registered'),
+                p.isQuickRegister
+                    ? context.tr('quick', fallback: 'Quick')
+                    : context.tr('standard', fallback: 'Standard'),
                 p.isQuickRegister
                     ? const Color(0xFF6B7FD4)
                     : const Color(0xFF0EA5A0),
@@ -1553,10 +1964,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13.5,
-                    color: AppTheme.textPrimaryColor,
+                    color: AppTheme.getTextPrimaryColor(context),
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -1564,41 +1975,52 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                 const SizedBox(height: 2),
                 Text(
                   info,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondaryColor,
+                  style: TextStyle(
+                    color: AppTheme.getTextSecondaryColor(context),
                     fontSize: 12,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ],
             ),
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textSecondaryColor,
-                ),
-              ),
-              const SizedBox(height: 3),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  status,
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 110),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
                   style: TextStyle(
-                    color: statusColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    color: AppTheme.getTextSecondaryColor(context),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+                const SizedBox(height: 3),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    status,
+                    style: TextStyle(
+                      color: statusColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -1609,59 +2031,60 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryColor.withOpacity(0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: AppTheme.getBorderColor(context)),
+        boxShadow: AppTheme.isDark(context)
+            ? []
+            : [
+                BoxShadow(
+                  color: AppTheme.primaryColor.withOpacity(0.06),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Icon(
-                        Icons.calendar_month_outlined,
-                        color: AppTheme.primaryColor,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Text(
-                        'Upcoming Appointments',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_outlined,
+                  color: AppTheme.primaryColor,
+                  size: 18,
                 ),
               ),
               const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.tr('upcoming_appointments', fallback: 'Upcoming Appointments'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: AppTheme.getTextPrimaryColor(context),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              const SizedBox(width: 6),
               TextButton(
                 onPressed: () => _changePage(2),
                 style: TextButton.styleFrom(
                   foregroundColor: AppTheme.primaryColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text(
-                  'View All',
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                child: Text(
+                  context.tr('view_all', fallback: 'View All'),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                 ),
               ),
             ],
@@ -1675,12 +2098,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               ),
             )
           else if (_dbAppointments.isEmpty)
-            const Center(
+            Center(
               child: Padding(
-                padding: EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
                 child: Text(
-                  'No appointments found',
-                  style: TextStyle(color: Colors.grey),
+                  context.tr('no_appointments_found', fallback: 'No appointments found'),
+                  style: TextStyle(color: AppTheme.getTextSecondaryColor(context)),
                 ),
               ),
             )
@@ -1716,13 +2139,13 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                         Icon(
                           Icons.calendar_month_outlined,
                           size: 40,
-                          color: AppTheme.borderColor,
+                          color: AppTheme.getBorderColor(context),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'No appointments for today',
+                        Text(
+                          context.tr('no_appointments_today', fallback: 'No appointments for today'),
                           style: TextStyle(
-                            color: AppTheme.textSecondaryColor,
+                            color: AppTheme.getTextSecondaryColor(context),
                             fontSize: 13,
                           ),
                         ),
@@ -1765,9 +2188,10 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               Expanded(
                 child: Text(
                   name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
+                    color: AppTheme.getTextPrimaryColor(context),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1795,8 +2219,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           const SizedBox(height: 4),
           Text(
             doctor,
-            style: const TextStyle(
-              color: AppTheme.textSecondaryColor,
+            style: TextStyle(
+              color: AppTheme.getTextSecondaryColor(context),
               fontSize: 12,
             ),
           ),
@@ -1804,7 +2228,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
+              color: AppTheme.isDark(context)
+                  ? AppTheme.primaryColor.withOpacity(0.18)
+                  : const Color(0xFFEFF6FF),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
@@ -1817,7 +2243,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          const Divider(height: 1, color: AppTheme.borderColor),
+          Divider(height: 1, color: AppTheme.getBorderColor(context)),
         ],
       ),
     );
@@ -1843,35 +2269,41 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   // --- Shift Status Panel & Handover Cards ---
 
   Widget _buildShiftStatusPanel(bool isMobile) {
-    String currentShift = 'Active Shift';
-    String wardType = 'General Ward';
+    String currentShift = context.tr('active_shift', fallback: 'Active Shift');
+    String wardType = context.tr('general_ward', fallback: 'General Ward');
     String timings = '06:00 AM - 02:00 PM';
-    String assignedNurse = 'Not Assigned';
-    String status = 'Not Assigned';
-    String prevNurse = 'None';
-    String nextNurse = 'None';
-    String wardRoom = 'None';
+    String assignedNurse = context.tr('not_assigned', fallback: 'Not Assigned');
+    String status = context.tr('not_assigned', fallback: 'Not Assigned');
+    String prevNurse = context.tr('none', fallback: 'None');
+    String nextNurse = context.tr('none', fallback: 'None');
+    String wardRoom = context.tr('none', fallback: 'None');
 
     Map<String, dynamic>? dataToUse = _activeShiftData ?? _todayShiftData;
 
     if (dataToUse != null) {
-      currentShift =
-          '${dataToUse['shift_name'] ?? dataToUse['current_shift'] ?? 'Active'} Shift';
-      wardType = '${dataToUse['ward_type'] ?? 'General'} Ward';
+      final shiftRaw = dataToUse['shift_name'] ?? dataToUse['current_shift'];
+      currentShift = shiftRaw != null ? '$shiftRaw' : context.tr('active_shift', fallback: 'Active Shift');
+      final wardRaw = dataToUse['ward_type'];
+      wardType = wardRaw != null ? '$wardRaw' : context.tr('general_ward', fallback: 'General Ward');
       final startTime = dataToUse['start_time']?.toString();
       final endTime = dataToUse['end_time']?.toString();
       timings = '${_formatTo12Hour(startTime)} - ${_formatTo12Hour(endTime)}';
       assignedNurse =
           dataToUse['assigned_nurse']?.toString() ??
           dataToUse['nurse_name']?.toString() ??
-          'Not Assigned';
-      status = dataToUse['status']?.toString() ?? 'Assigned';
-      prevNurse = dataToUse['previous_nurse']?.toString() ?? 'None';
-      nextNurse = dataToUse['next_nurse']?.toString() ?? 'None';
-      wardRoom = dataToUse['ward_type']?.toString() ?? 'None';
+          context.tr('not_assigned', fallback: 'Not Assigned');
+      final rawStatus = dataToUse['status']?.toString();
+      status = rawStatus != null
+          ? (rawStatus.toLowerCase() == 'assigned'
+              ? context.tr('status_assigned', fallback: 'Assigned')
+              : rawStatus)
+          : context.tr('status_assigned', fallback: 'Assigned');
+      prevNurse = dataToUse['previous_nurse']?.toString() ?? context.tr('none', fallback: 'None');
+      nextNurse = dataToUse['next_nurse']?.toString() ?? context.tr('none', fallback: 'None');
+      wardRoom = dataToUse['ward_type']?.toString() ?? context.tr('none', fallback: 'None');
     }
 
-    final isAssigned = status.toLowerCase() == 'assigned';
+    final isAssigned = status.toLowerCase() == 'assigned' || status == context.tr('status_assigned', fallback: 'Assigned');
     final statusColor = isAssigned
         ? const Color(0xFF2E7D32)
         : const Color(0xFF92400E);
@@ -1879,206 +2311,296 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         ? const Color(0xFFE8F5E9)
         : const Color(0xFFFEF3C7);
 
-    return Container(
-      width: double.infinity,
-      clipBehavior: Clip.antiAlias, // Clip children to rounded corners
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.primaryColor,
-          width: 2.5,
-        ), // Outer blue border
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final bool useCompact = isMobile || constraints.maxWidth < 800;
+        return Container(
+          width: double.infinity,
+          clipBehavior: Clip.antiAlias, // Clip children to rounded corners
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppTheme.primaryColor,
+              width: 2.5,
+            ), // Outer blue border
+            boxShadow: AppTheme.isDark(context)
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header Bar
-          Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 16 : 20,
-              vertical: isMobile ? 12 : 14,
-            ),
-            color: AppTheme.primaryColor, // Logo Blue
-            child: isMobile
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Bar
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: useCompact ? 16 : 20,
+                  vertical: useCompact ? 12 : 14,
+                ),
+                color: AppTheme.primaryColor, // Logo Blue
+                child: useCompact
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.wb_sunny_outlined,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '$currentShift  ·  $wardType',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.22),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: Colors.white.withOpacity(0.35)),
+                                      ),
+                                      child: const Text(
+                                        'IPD Only',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.access_time,
+                                  size: 12,
+                                  color: Colors.white,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  timings,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
                         children: [
                           const Icon(
                             Icons.wb_sunny_outlined,
                             color: Colors.white,
-                            size: 18,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Text(
+                                  '$currentShift  ·  $wardType',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                                const SizedBox(width: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.22),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.white.withOpacity(0.35)),
+                                  ),
+                                  child: const Text(
+                                    'Applicable only for IPD',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          Expanded(
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
                             child: Text(
-                              '$currentShift  ·  $wardType',
+                              timings,
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 14.5,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.access_time,
-                              size: 12,
-                              color: AppTheme.primaryColor,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              timings,
-                              style: const TextStyle(
-                                color: AppTheme.primaryColor,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                : Row(
-                    children: [
-                      const Icon(
-                        Icons.wb_sunny_outlined,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          '$currentShift  ·  $wardType',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          timings,
-                          style: const TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
+              ),
 
-          // Body Columns
-          Container(
-            color: Colors.white,
-            padding: EdgeInsets.all(isMobile ? 16 : 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (isMobile) ...[
-                  _buildShiftInfoRowLight('Assigned Nurse', assignedNurse),
-                  const SizedBox(height: 10),
-                  _buildShiftInfoRowLight(
-                    'Status',
-                    status,
-                    isStatus: true,
-                    statusBg: statusBg,
-                    statusColor: statusColor,
+              // Body Columns
+              Container(
+                color: AppTheme.getCardColor(context),
+                padding: EdgeInsets.all(useCompact ? 16 : 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (useCompact) ...[
+                      _buildShiftInfoRowLight(context.tr('assigned_nurse', fallback: 'Assigned Nurse'), assignedNurse),
+                      const SizedBox(height: 10),
+                      _buildShiftInfoRowLight(
+                        context.tr('status', fallback: 'Status'),
+                        status,
+                        isStatus: true,
+                        statusBg: statusBg,
+                        statusColor: statusColor,
+                      ),
+                      const SizedBox(height: 10),
+                      _buildShiftInfoRowLight(context.tr('prev_nurse', fallback: 'Prev Nurse'), prevNurse),
+                      const SizedBox(height: 10),
+                      _buildShiftInfoRowLight(context.tr('next_nurse', fallback: 'Next Nurse'), nextNurse),
+                      const SizedBox(height: 10),
+                      _buildShiftInfoRowLight(context.tr('ward_room', fallback: 'Ward/Room'), wardRoom),
+                    ] else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildShiftInfoColumnWithIcon(
+                              Icons.person_outline,
+                              context.tr('assigned_nurse', fallback: 'Assigned Nurse'),
+                              assignedNurse,
+                            ),
+                          ),
+                          _buildShiftLightDivider(),
+                          Expanded(
+                            child: _buildShiftStatusBadgeColumnWithIcon(
+                              Icons.person_outline,
+                              context.tr('status', fallback: 'Status'),
+                              status,
+                              statusBg,
+                              statusColor,
+                            ),
+                          ),
+                          _buildShiftLightDivider(),
+                          Expanded(
+                            child: _buildShiftInfoColumnWithIcon(
+                              Icons.person_outline,
+                              context.tr('prev_nurse', fallback: 'Prev Nurse'),
+                              prevNurse,
+                            ),
+                          ),
+                          _buildShiftLightDivider(),
+                          Expanded(
+                            child: _buildShiftInfoColumnWithIcon(
+                              Icons.single_bed_outlined,
+                              context.tr('next_nurse', fallback: 'Next Nurse'),
+                              nextNurse,
+                            ),
+                          ),
+                          _buildShiftLightDivider(),
+                          Expanded(
+                            child: _buildShiftInfoColumnWithIcon(
+                              Icons.hub_outlined,
+                              context.tr('ward_room', fallback: 'Ward/Room'),
+                              wardRoom,
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+
+              // IPD Applicability Notice Bar
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.06),
+                  border: Border(
+                    top: BorderSide(
+                      color: AppTheme.getBorderColor(context).withOpacity(0.5),
+                    ),
                   ),
-                  const SizedBox(height: 10),
-                  _buildShiftInfoRowLight('Prev Nurse', prevNurse),
-                  const SizedBox(height: 10),
-                  _buildShiftInfoRowLight('Next Nurse', nextNurse),
-                  const SizedBox(height: 10),
-                  _buildShiftInfoRowLight('Ward/Room', wardRoom),
-                ] else
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildShiftInfoColumnWithIcon(
-                          Icons.person_outline,
-                          'Assigned Nurse',
-                          assignedNurse,
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline_rounded,
+                      size: 14,
+                      color: AppTheme.primaryColor,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        context.tr(
+                          'active_shift_ipd_notice',
+                          fallback: 'Active Shift schedules and ward allocations are applicable only for IPD (Inpatient Department).',
+                        ),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: AppTheme.getTextSecondaryColor(context),
                         ),
                       ),
-                      _buildShiftLightDivider(),
-                      Expanded(
-                        child: _buildShiftStatusBadgeColumnWithIcon(
-                          Icons.person_outline,
-                          'Status',
-                          status,
-                          statusBg,
-                          statusColor,
-                        ),
-                      ),
-                      _buildShiftLightDivider(),
-                      Expanded(
-                        child: _buildShiftInfoColumnWithIcon(
-                          Icons.person_outline,
-                          'Prev Nurse',
-                          prevNurse,
-                        ),
-                      ),
-                      _buildShiftLightDivider(),
-                      Expanded(
-                        child: _buildShiftInfoColumnWithIcon(
-                          Icons.single_bed_outlined,
-                          'Next Nurse',
-                          nextNurse,
-                        ),
-                      ),
-                      _buildShiftLightDivider(),
-                      Expanded(
-                        child: _buildShiftInfoColumnWithIcon(
-                          Icons.hub_outlined,
-                          'Ward/Room',
-                          wardRoom,
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -2105,20 +2627,23 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  color: AppTheme.textSecondaryColor,
+                style: TextStyle(
+                  color: AppTheme.getTextSecondaryColor(context),
                   fontSize: 11,
                 ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
               const SizedBox(height: 4),
               Text(
                 value,
-                style: const TextStyle(
-                  color: AppTheme.textPrimaryColor,
+                style: TextStyle(
+                  color: AppTheme.getTextPrimaryColor(context),
                   fontSize: 13.5,
                   fontWeight: FontWeight.bold,
                 ),
                 overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
             ],
           ),
@@ -2152,10 +2677,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
             children: [
               Text(
                 label,
-                style: const TextStyle(
-                  color: AppTheme.textSecondaryColor,
+                style: TextStyle(
+                  color: AppTheme.getTextSecondaryColor(context),
                   fontSize: 11,
                 ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
               const SizedBox(height: 4),
               Container(
@@ -2167,12 +2694,16 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                   color: bg,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
                   ),
                 ),
               ),
@@ -2193,36 +2724,56 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppTheme.textSecondaryColor,
-            fontSize: 13,
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: AppTheme.getTextSecondaryColor(context),
+              fontSize: 13,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
           ),
         ),
+        const SizedBox(width: 8),
         if (isStatus && statusBg != null && statusColor != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-            decoration: BoxDecoration(
-              color: statusBg,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              value,
-              style: TextStyle(
-                color: statusColor,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
+          Flexible(
+            flex: 3,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusBg,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
             ),
           )
         else
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppTheme.textPrimaryColor,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+          Expanded(
+            flex: 3,
+            child: Text(
+              value,
+              style: TextStyle(
+                color: AppTheme.getTextPrimaryColor(context),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              textAlign: TextAlign.end,
             ),
           ),
       ],
@@ -2234,7 +2785,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       width: 1,
       height: 36,
       margin: const EdgeInsets.symmetric(horizontal: 12),
-      color: AppTheme.borderColor,
+      color: AppTheme.getBorderColor(context),
     );
   }
 
@@ -2242,6 +2793,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user == null) return [];
 
+    final isDark = AppTheme.isDark(context);
     final pending = _handovers
         .where(
           (h) =>
@@ -2255,67 +2807,143 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       final ward = h['ward_type'] ?? '';
       final shift = h['shift_name'] ?? '';
 
-      return Container(
-        margin: const EdgeInsets.only(bottom: 24),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFFBEB),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFF59E0B)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B).withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.swap_horiz,
-                color: Color(0xFFD97706),
-                size: 22,
-              ),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final bool useMobileLayout = isMobile || constraints.maxWidth < 650;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 24),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF451A03).withOpacity(0.45) : const Color(0xFFFFFBEB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFF59E0B)),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Pending Shift Handover',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: Color(0xFF92400E),
-                    ),
+            child: useMobileLayout
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withOpacity(0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.swap_horiz,
+                              color: Color(0xFFD97706),
+                              size: 20,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              context.tr('pending_shift_handover', fallback: 'Pending Shift Handover'),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.tr(
+                          'incoming_shift_handover_desc',
+                          fallback: 'Shift handover from {nurse} for {ward} Ward ({shift} Shift). Please acknowledge.',
+                        )
+                            .replaceAll('{nurse}', outgoing)
+                            .replaceAll('{ward}', ward)
+                            .replaceAll('{shift}', shift),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? const Color(0xFFFCD34D) : const Color(0xFFB45309),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.check, size: 16),
+                          label: Text(context.tr('acknowledge', fallback: 'Acknowledge')),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFF59E0B),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () => _acknowledgeHandover(h['id']),
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.swap_horiz,
+                          color: Color(0xFFD97706),
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              context.tr('pending_shift_handover', fallback: 'Pending Shift Handover'),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: isDark ? const Color(0xFFFDE68A) : const Color(0xFF92400E),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              context.tr(
+                                'incoming_shift_handover_desc',
+                                fallback: 'Shift handover from {nurse} for {ward} Ward ({shift} Shift). Please acknowledge.',
+                              )
+                                  .replaceAll('{nurse}', outgoing)
+                                  .replaceAll('{ward}', ward)
+                                  .replaceAll('{shift}', shift),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? const Color(0xFFFCD34D) : const Color(0xFFB45309),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.check, size: 16),
+                        label: Text(context.tr('acknowledge', fallback: 'Acknowledge')),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF59E0B),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        onPressed: () => _acknowledgeHandover(h['id']),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'Incoming from $outgoing for $ward Ward ($shift Shift). Please acknowledge.',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFFB45309),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.check, size: 16),
-              label: const Text('Acknowledge'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF59E0B),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () => _acknowledgeHandover(h['id']),
-            ),
-          ],
-        ),
+          );
+        },
       );
     }).toList();
   }

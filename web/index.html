@@ -18,7 +18,8 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Sri Ponni Medical Center">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -31,8 +32,25 @@
 
   <title>sri_ponni</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+  </style>
 </head>
 <body>
+  <script>
+    // Ensure Flutter Web syncs immediately when DevTools device mode is toggled
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', function () {
+        window.dispatchEvent(new Event('resize'));
+      });
+    }
+  </script>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
@@ -42,51 +60,141 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script>
-    window.audioRecorder = {
-      mediaRecorder: null,
-      audioChunks: [],
-      
-      startRecording: async function(callback) {
-        this.audioChunks = [];
+    window.speechRecognizer = {
+      recognition: null,
+      isUserListening: false,
+      onResultCallback: null,
+      onStatusCallback: null,
+      onErrorCallback: null,
+      accumulatedFinal: '',
+      targetLang: 'en-US',
+
+      isSupported: function() {
+        return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+      },
+
+      start: function(onResult, onStatus, onError, lang) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          if (onError) onError("Speech recognition not supported in this browser");
+          return false;
+        }
+
+        this.onResultCallback = onResult;
+        this.onStatusCallback = onStatus;
+        this.onErrorCallback = onError;
+        this.isUserListening = true;
+        this.accumulatedFinal = '';
+        this.targetLang = lang || 'en-US';
+
+        this._createAndStartRecognition();
+        return true;
+      },
+
+      _createAndStartRecognition: function() {
+        if (!this.isUserListening) return;
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (this.recognition) {
+          try {
+            this.recognition.onend = null;
+            this.recognition.onerror = null;
+            this.recognition.onresult = null;
+            this.recognition.abort();
+          } catch(e) {}
+          this.recognition = null;
+        }
+
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          this.mediaRecorder = new MediaRecorder(stream);
-          this.mediaRecorder.ondataavailable = (event) => {
-            this.audioChunks.push(event.data);
+          const rec = new SpeechRecognition();
+          this.recognition = rec;
+          rec.continuous = true;
+          rec.interimResults = true;
+          rec.maxAlternatives = 1;
+          rec.lang = (this.targetLang && this.targetLang !== 'en-US') ? this.targetLang : (navigator.language || 'en-IN');
+
+          rec.onstart = () => {
+            if (this.onStatusCallback) this.onStatusCallback('listening');
           };
-          this.mediaRecorder.start();
-          if (callback) callback(true);
-        } catch (e) {
-          console.error("Error starting recording:", e);
-          if (callback) callback(false);
+
+          rec.onresult = (event) => {
+            let sessionText = '';
+            for (let i = 0; i < event.results.length; ++i) {
+              const piece = event.results[i][0].transcript.trim();
+              if (piece.length > 0) {
+                sessionText += (sessionText.length > 0 ? ' ' : '') + piece;
+              }
+            }
+            this._lastSessionText = sessionText;
+            const full = (this.accumulatedFinal + (sessionText.length > 0 ? (' ' + sessionText) : '')).trim();
+            if (this.onResultCallback && full.length > 0) {
+              this.onResultCallback(full);
+            }
+          };
+
+          rec.onerror = (event) => {
+            console.warn("Web Speech API recognition error:", event.error);
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+              if (this.onErrorCallback) this.onErrorCallback("Microphone permission denied or blocked. If using HTTP IP, please enable insecure origins flag in Chrome.");
+            } else if (event.error === 'network') {
+              if (this.onErrorCallback) this.onErrorCallback("Speech network error. Chrome requires HTTPS or chrome://flags insecure origin bypass for Web Speech.");
+            } else if (event.error !== 'no-speech' && event.error !== 'audio-capture') {
+              if (this.onErrorCallback) this.onErrorCallback("Speech error: " + event.error);
+            }
+          };
+
+          rec.onend = () => {
+            if (this.isUserListening) {
+              if (this._lastSessionText && this._lastSessionText.trim().length > 0) {
+                this.accumulatedFinal = (this.accumulatedFinal + ' ' + this._lastSessionText).trim();
+                this._lastSessionText = '';
+              }
+              setTimeout(() => {
+                if (this.isUserListening) {
+                  this._createAndStartRecognition();
+                }
+              }, 150);
+            } else {
+              if (this.onStatusCallback) this.onStatusCallback('notListening');
+            }
+          };
+
+          rec.start();
+        } catch(err) {
+          console.error("Failed to initialize Web Speech API:", err);
+          if (this.onErrorCallback) this.onErrorCallback(err.toString());
         }
       },
-      
-      stopRecording: function(callback) {
-        if (!this.mediaRecorder) {
-          if (callback) callback("");
-          return;
+
+      stop: function() {
+        this.isUserListening = false;
+        if (this.recognition) {
+          try {
+            this.recognition.stop();
+          } catch(e) {}
         }
-        this.mediaRecorder.onstop = () => {
-          const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const base64data = reader.result.split(',')[1];
-            if (callback) callback(base64data);
-          };
-          reader.readAsDataURL(audioBlob);
-          this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
-        };
-        this.mediaRecorder.stop();
+        if (this.onStatusCallback) this.onStatusCallback('notListening');
+      },
+
+      abort: function() {
+        this.isUserListening = false;
+        if (this.recognition) {
+          try {
+            this.recognition.abort();
+          } catch(e) {}
+        }
+        if (this.onStatusCallback) this.onStatusCallback('notListening');
       }
     };
 
     // ─── Global Unsaved Form Data Reload Protection ──────────────────────────
     window.unsavedChanges = {
       hasUnsavedData: false,
+
       setHasUnsavedData: function(flag) {
         this.hasUnsavedData = !!flag;
       },
+
       reset: function() {
         this.hasUnsavedData = false;
       }

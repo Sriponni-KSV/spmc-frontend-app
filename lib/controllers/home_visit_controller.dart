@@ -238,14 +238,24 @@ class HomeVisitController with ChangeNotifier {
 
   // Verify Visit & Generate Bill
   Future<Map<String, dynamic>?> verifyVisit(
-      int visitId, String attenderName, String attenderRelation, String signatureUrl) async {
+      int visitId, String attenderName, String attenderRelation, String signatureUrl,
+      {String? feedback}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final res = await _service.verifyAndGenerateBill(visitId, attenderName, attenderRelation, signatureUrl);
-      await fetchVisitDetails(visitId);
+      final res = await _service.verifyAndGenerateBill(
+        visitId,
+        attenderName,
+        attenderRelation,
+        signatureUrl,
+        feedback: feedback,
+      );
+      try {
+        await fetchVisitDetails(visitId);
+        await fetchVisits();
+      } catch (_) {}
       return res;
     } catch (e) {
       _errorMessage = e.toString().replaceAll("Exception: ", "");
@@ -360,5 +370,24 @@ class HomeVisitController with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // Parse voice dictation into structured fields
+  Future<Map<String, dynamic>?> parseDictation(String dictationText) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final parsedData = await _service.parseDictation(dictationText);
+      return parsedData;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }
+
 

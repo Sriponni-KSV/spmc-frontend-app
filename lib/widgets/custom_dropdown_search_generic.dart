@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import '../utils/app_theme.dart';
 
 class CustomDropdownSearch extends StatefulWidget {
   final String label;
@@ -68,10 +69,6 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   final FocusNode _mainFocusNode = FocusNode();
   final ScrollController _scrollController = ScrollController();
 
-  /// When true, the dropdown list is being actively scrolled on a touch
-  /// device. We use this to prevent accidental item selection.
-  bool _isScrolling = false;
-
   List<MapEntry<String, String>> _filteredItems = [];
   int _highlightedIndex = 0;
 
@@ -93,14 +90,6 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
 
     final displayValue = _allEntries[widget.value] ?? widget.value ?? '';
     _textEditingController = TextEditingController(text: displayValue);
-
-    // Track scroll activity so we can suppress accidental selection
-    // during a touch scroll.
-    _scrollController.addListener(() {
-      if (_scrollController.position.isScrollingNotifier.value) {
-        _isScrolling = true;
-      }
-    });
 
     _searchFocusNode.onKeyEvent = (node, event) => _handleKey(event);
     _mainFocusNode.onKeyEvent = (node, event) => _handleKey(event);
@@ -328,28 +317,28 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
             // Wrap overlay in TapRegion with the same groupId so
             // touches inside the dropdown are NOT treated as
             // "tap outside" the TextField, preventing focus loss.
-            child: TapRegion(
-              groupId: _groupId,
+            child: TapRegion(              groupId: _groupId,
               child: Material(
                 type: MaterialType.card,
                 elevation: 6,
                 borderRadius: BorderRadius.circular(12),
-                color: widget.popupBgColor ?? Colors.white,
+                color: widget.popupBgColor ?? (AppTheme.isDark(context) ? AppTheme.darkCardColor : Colors.white),
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
                   onTap: () {}, // absorb taps inside overlay
                   child: Container(
                     decoration: BoxDecoration(
-                      color: widget.popupBgColor ?? Colors.white,
+                      color: widget.popupBgColor ?? (AppTheme.isDark(context) ? AppTheme.darkCardColor : Colors.white),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         width: 1,
-                        color: const Color(0xFF302861).withValues(alpha: 0.1),
+                        color: AppTheme.isDark(context) ? AppTheme.darkBorderColor : const Color(0xFF302861).withValues(alpha: 0.1),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color:
-                              const Color(0xFF302861).withValues(alpha: 0.08),
+                          color: AppTheme.isDark(context)
+                              ? Colors.black.withOpacity(0.3)
+                              : const Color(0xFF302861).withValues(alpha: 0.08),
                           blurRadius: 16,
                           offset: const Offset(0, 4),
                         ),
@@ -368,123 +357,101 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                     'No results found',
                                     style: TextStyle(
                                       fontFamily: 'Inter',
-                                      color: Colors.grey.shade500,
+                                      color: AppTheme.isDark(context) ? AppTheme.darkTextSecondaryColor : Colors.grey.shade500,
                                       fontSize: 14,
                                     ),
                                     textAlign: TextAlign.center,
                                   ),
                                 )
-                              : NotificationListener<ScrollNotification>(
-                                  onNotification: (notification) {
-                                    if (notification
-                                        is ScrollStartNotification) {
-                                      _isScrolling = true;
-                                    } else if (notification
-                                        is ScrollEndNotification) {
-                                      // Small delay before clearing so tap-up at end
-                                      // of scroll doesn't accidentally select.
-                                      Future.delayed(
-                                        const Duration(milliseconds: 150),
-                                        () => _isScrolling = false,
-                                      );
+                              : Listener(
+                                  // Intercept pointer scroll signals (trackpad / mouse wheel)
+                                  // so they reach the ScrollController even when the
+                                  // TextField inside the field holds focus.
+                                  onPointerSignal: (event) {
+                                    if (event is PointerScrollEvent) {
+                                      _handlePointerScroll(event);
                                     }
-                                    return false;
                                   },
-                                  child: Listener(
-                                    // Intercept pointer scroll signals (trackpad / mouse wheel)
-                                    // so they reach the ScrollController even when the
-                                    // TextField inside the field holds focus.
-                                    onPointerSignal: (event) {
-                                      if (event is PointerScrollEvent) {
-                                        _handlePointerScroll(event);
-                                      }
-                                    },
-                                    child: ScrollConfiguration(
-                                      // Allow trackpad pan gestures to scroll the list.
-                                      behavior: _TrackpadAwareScrollBehavior(),
-                                      child: ListView.builder(
-                                        controller: _scrollController,
-                                        shrinkWrap: true,
-                                        physics: const ClampingScrollPhysics(),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 8,
-                                        ),
-                                        itemCount: _filteredItems.length,
-                                        itemBuilder: (context, index) {
-                                          final entry = _filteredItems[index];
-                                          final isHighlighted =
-                                              index == _highlightedIndex;
-                                          final isSelected =
-                                              entry.key == widget.value;
+                                  child: ScrollConfiguration(
+                                    // Allow trackpad pan gestures to scroll the list.
+                                    behavior: _TrackpadAwareScrollBehavior(),
+                                    child: ListView.builder(
+                                      controller: _scrollController,
+                                      shrinkWrap: true,
+                                      physics: const ClampingScrollPhysics(),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      itemCount: _filteredItems.length,
+                                      itemBuilder: (context, index) {
+                                        final entry = _filteredItems[index];
+                                        final isHighlighted =
+                                            index == _highlightedIndex;
+                                        final isSelected =
+                                            entry.key == widget.value;
 
-                                          return Material(
-                                            color: Colors.transparent,
-                                            child: InkWell(
-                                              splashFactory:
-                                                  NoSplash.splashFactory,
-                                              onTap: () {
-                                                // Guard: don't select during/after scroll.
-                                                if (_isScrolling) return;
-                                                if (_fieldKey.currentState !=
-                                                    null) {
-                                                  _selectItem(
-                                                    _fieldKey.currentState!,
-                                                    entry,
-                                                  );
-                                                }
-                                              },
-                                              child: Container(
-                                                width: double.infinity,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  vertical: 10,
-                                                  horizontal: 8,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(6),
-                                                  color: isSelected
-                                                      ? const Color(0xFF302861)
-                                                          .withValues(
-                                                              alpha: 0.06)
-                                                      : (isHighlighted
-                                                          ? Colors.grey.shade100
-                                                          : Colors.transparent),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Text(
-                                                        entry.value,
-                                                        style:
-                                                            TextStyle(
-                                                          fontFamily: 'Inter',
-                                                          color: isSelected
-                                                              ? const Color(
-                                                                  0xFF302861)
-                                                              : Colors.black87,
-                                                          fontSize: 14,
-                                                          fontWeight: isSelected
-                                                              ? FontWeight.w600
-                                                              : FontWeight.w400,
-                                                        ),
+                                        return Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            splashFactory:
+                                                NoSplash.splashFactory,
+                                            onTap: () {
+                                              if (_fieldKey.currentState !=
+                                                  null) {
+                                                _selectItem(
+                                                  _fieldKey.currentState!,
+                                                  entry,
+                                                );
+                                              }
+                                            },
+                                            child: Container(
+                                              width: double.infinity,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                vertical: 10,
+                                                horizontal: 8,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                                color: isSelected
+                                                    ? AppTheme.primaryColor.withOpacity(0.12)
+                                                    : (isHighlighted
+                                                        ? (AppTheme.isDark(context) ? Colors.white.withOpacity(0.06) : Colors.grey.shade100)
+                                                        : Colors.transparent),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      entry.value,
+                                                      style:
+                                                          TextStyle(
+                                                        fontFamily: 'Inter',
+                                                        color: isSelected
+                                                            ? AppTheme.primaryColor
+                                                            : (AppTheme.isDark(context) ? AppTheme.darkTextPrimaryColor : Colors.black87),
+                                                        fontSize: 14,
+                                                        fontWeight: isSelected
+                                                            ? FontWeight.w600
+                                                            : FontWeight.w400,
                                                       ),
                                                     ),
-                                                    if (isSelected)
-                                                      const Icon(
-                                                        Icons.check,
-                                                        size: 16,
-                                                        color:
-                                                            Color(0xFF302861),
-                                                      ),
-                                                  ],
-                                                ),
+                                                  ),
+                                                  if (isSelected)
+                                                    const Icon(
+                                                      Icons.check,
+                                                      size: 16,
+                                                      color:
+                                                          AppTheme.primaryColor,
+                                                    ),
+                                                ],
                                               ),
                                             ),
-                                          );
-                                        },
-                                      ),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ),
                                 ),
@@ -518,7 +485,6 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
       _closeActiveDropdown = null;
     }
     _highlightedIndex = 0;
-    _isScrolling = false;
     if (mounted) setState(() {});
   }
 
@@ -558,7 +524,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                     text: widget.label,
                     style: TextStyle(
                       fontFamily: 'Manrope',
-                      color: Colors.grey.shade700,
+                      color: AppTheme.isDark(context)
+                          ? AppTheme.darkTextPrimaryColor
+                          : Colors.grey.shade700,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -602,25 +570,34 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                         clipBehavior: Clip.none,
                         decoration: BoxDecoration(
                           color: widget.isEnabled
-                              ? (widget.fillColor ?? Colors.white)
-                              : const Color(0xFFF9FAFB),
+                              ? (widget.fillColor ??
+                                  (AppTheme.isDark(context)
+                                      ? AppTheme.darkInputFillColor
+                                      : Colors.white))
+                              : (AppTheme.isDark(context)
+                                  ? const Color(0xFF1E293B)
+                                  : const Color(0xFFF9FAFB)),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             width: field.hasError
                                 ? 1.5
                                 : _searchFocusNode.hasFocus
                                     ? (widget.focusedBorderWidth ?? 1.6)
-                                    : (widget.borderWidth ?? 1.2),
+                                    : (widget.borderWidth ?? (AppTheme.isDark(context) ? 1.0 : 1.2)),
                             color: field.hasError
                                 ? Colors.red
                                 : _searchFocusNode.hasFocus
                                     ? (widget.focusedBorderColor ??
-                                        const Color(0xFF302861))
+                                        AppTheme.primaryColor)
                                     : widget.isEnabled
                                         ? (widget.borderColor ??
-                                            const Color(0xFF302861)
-                                                .withValues(alpha: 0.15))
-                                        : const Color(0xFFE5E7EB),
+                                            (AppTheme.isDark(context)
+                                                ? AppTheme.darkBorderColor
+                                                : const Color(0xFF302861)
+                                                    .withValues(alpha: 0.15)))
+                                        : (AppTheme.isDark(context)
+                                            ? AppTheme.darkBorderColor
+                                            : const Color(0xFFE5E7EB)),
                           ),
                         ),
                         child: Row(
@@ -638,7 +615,9 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                   hintText: widget.hint ?? '',
                                   hintStyle: TextStyle(
                                     fontFamily: 'Inter',
-                                    color: Colors.grey.shade400,
+                                    color: AppTheme.isDark(context)
+                                        ? AppTheme.darkTextSecondaryColor.withOpacity(0.7)
+                                        : Colors.grey.shade400,
                                     fontSize: widget.hintFontSize ?? 13,
                                   ),
                                   border: InputBorder.none,
@@ -655,8 +634,12 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                 style: TextStyle(
                                   fontFamily: 'Inter',
                                   color: widget.isEnabled
-                                      ? Colors.black87
-                                      : Colors.grey.shade500,
+                                      ? (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextPrimaryColor
+                                          : Colors.black87)
+                                      : (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextSecondaryColor
+                                          : Colors.grey.shade500),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -684,8 +667,12 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                       : Icons.arrow_drop_down,
                                   size: 20,
                                   color: widget.isEnabled
-                                      ? const Color(0xFF302861)
-                                      : Colors.grey.shade400,
+                                      ? (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextSecondaryColor
+                                          : const Color(0xFF302861))
+                                      : (AppTheme.isDark(context)
+                                          ? AppTheme.darkTextSecondaryColor.withOpacity(0.5)
+                                          : Colors.grey.shade400),
                                 ),
                               ),
                             ),

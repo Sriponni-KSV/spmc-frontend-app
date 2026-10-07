@@ -9,6 +9,8 @@ import '../controllers/appointment_controller.dart';
 import '../models/user_model.dart';
 import '../models/appointment_model.dart';
 import '../providers/auth_provider.dart';
+import '../utils/capitalize_formatter.dart';
+import '../utils/app_localizations.dart';
 
 class DoctorsView extends StatefulWidget {
   final Function(UserModel)? onBookAppointment;
@@ -96,18 +98,18 @@ class _DoctorsViewState extends State<DoctorsView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Doctors',
+                context.tr('doctor_directory', fallback: 'Doctors'),
                 style: TextStyle(
                   fontSize: isMobile ? 24 : 32,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimaryColor,
+                  color: AppTheme.getTextPrimaryColor(context),
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Manage doctor profiles and schedules',
+              Text(
+                context.tr('doctor_directory_subtitle', fallback: 'Manage doctor profiles and schedules'),
                 style: TextStyle(
-                  color: AppTheme.textSecondaryColor,
+                  color: AppTheme.getTextSecondaryColor(context),
                   fontSize: 14,
                 ),
               ),
@@ -123,23 +125,37 @@ class _DoctorsViewState extends State<DoctorsView> {
           child: Container(
             height: 48,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppTheme.getCardColor(context),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              border: Border.all(color: AppTheme.getBorderColor(context)),
+              boxShadow: AppTheme.isDark(context)
+                  ? []
+                  : [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
             ),
             child: TextField(
               controller: _searchCtrl,
+              style: TextStyle(
+                color: AppTheme.getTextPrimaryColor(context),
+                fontSize: 14,
+              ),
               onChanged: (val) => setState(() => _searchQuery = val),
               decoration: InputDecoration(
-                hintText: 'Search doctors by name or specialization...',
-                prefixIcon: const Icon(Icons.search, size: 20),
+                hintText: context.tr('search_doctors_hint', fallback: 'Search doctors by name or specialization...'),
+                hintStyle: TextStyle(
+                  color: AppTheme.getTextSecondaryColor(context),
+                  fontSize: 13,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  size: 20,
+                  color: AppTheme.getTextSecondaryColor(context),
+                ),
                 suffixIcon: _searchCtrl.text.isNotEmpty
                     ? MouseRegion(
                         cursor: SystemMouseCursors.click,
@@ -228,9 +244,9 @@ class _DoctorsViewState extends State<DoctorsView> {
                   children: [
                     // Departments Section
                     if (dynamicDepartments.isNotEmpty) ...[
-                      const Text(
-                        'Departments',
-                        style: TextStyle(
+                      Text(
+                        context.tr('departments', fallback: 'Departments'),
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.textPrimaryColor,
@@ -243,10 +259,10 @@ class _DoctorsViewState extends State<DoctorsView> {
 
                     // Doctors Grid
                     if (filteredDoctors.isEmpty)
-                      const Center(
+                      Center(
                         child: Padding(
-                          padding: EdgeInsets.all(40.0),
-                          child: Text('No doctors found matching your criteria.'),
+                          padding: const EdgeInsets.all(40.0),
+                          child: Text(context.tr('no_doctors_found', fallback: 'No doctors found matching your criteria.')),
                         ),
                       )
                     else
@@ -538,9 +554,9 @@ class _DoctorsViewState extends State<DoctorsView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Specialization',
-                  style: TextStyle(
+                Text(
+                  context.tr('specialization', fallback: 'Specialization'),
+                  style: const TextStyle(
                     fontSize: 11,
                     color: AppTheme.textSecondaryColor,
                   ),
@@ -572,9 +588,9 @@ class _DoctorsViewState extends State<DoctorsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Experience',
-                        style: TextStyle(
+                      Text(
+                        context.tr('experience', fallback: 'Experience'),
+                        style: const TextStyle(
                           fontSize: 11,
                           color: AppTheme.textSecondaryColor,
                         ),
@@ -602,9 +618,9 @@ class _DoctorsViewState extends State<DoctorsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Patients',
-                        style: TextStyle(
+                      Text(
+                        context.tr('patients', fallback: 'Patients'),
+                        style: const TextStyle(
                           fontSize: 11,
                           color: AppTheme.textSecondaryColor,
                         ),
@@ -637,9 +653,9 @@ class _DoctorsViewState extends State<DoctorsView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Availability',
-                  style: TextStyle(
+                Text(
+                  context.tr('availability', fallback: 'Availability'),
+                  style: const TextStyle(
                     fontSize: 11,
                     color: Colors.redAccent,
                   ),
@@ -669,9 +685,9 @@ class _DoctorsViewState extends State<DoctorsView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Shift Timing',
-                  style: TextStyle(
+                Text(
+                  context.tr('shift_timing', fallback: 'Shift Timing'),
+                  style: const TextStyle(
                     fontSize: 11,
                     color: Colors.blueAccent,
                   ),
@@ -696,7 +712,7 @@ class _DoctorsViewState extends State<DoctorsView> {
               const Icon(Icons.calendar_today, size: 14, color: AppTheme.primaryColor),
               const SizedBox(width: 8),
               Text(
-                'Next available: $nextAvailable',
+                '${context.tr('next_available', fallback: 'Next available')}: $nextAvailable',
                 style: const TextStyle(
                   color: AppTheme.primaryColor,
                   fontWeight: FontWeight.w500,
@@ -725,7 +741,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     elevation: 0,
                   ),
-                  child: const Text('Book Appointment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  child: Text(context.tr('book_appointment', fallback: 'Book Appointment'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -736,7 +752,7 @@ class _DoctorsViewState extends State<DoctorsView> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   side: BorderSide(color: AppTheme.borderColor.withOpacity(0.5)),
                 ),
-                child: const Text('Profile', style: TextStyle(color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                child: Text(context.tr('profile', fallback: 'Profile'), style: const TextStyle(color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
               ),
             ],
           ),
@@ -902,12 +918,16 @@ class _DoctorsViewState extends State<DoctorsView> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: canEdit 
-                                    ? _buildModernField('Full Name', fullnameController,
-                                        maxLength: 50,
-                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))],
-                                      )
-                                    : _buildDetailItem('Full Name', fullnameController.text),
+                                   child: canEdit 
+                                     ? _buildModernField('Full Name', fullnameController,
+                                         maxLength: 60,
+                                         textCapitalization: TextCapitalization.words,
+                                         inputFormatters: [
+                                           FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s.]')),
+                                           const CapitalizeWordsInputFormatter(),
+                                         ],
+                                       )
+                                     : _buildDetailItem('Full Name', fullnameController.text),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
@@ -1308,7 +1328,7 @@ class _DoctorsViewState extends State<DoctorsView> {
     );
   }
 
-  Widget _buildModernField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true, List<TextInputFormatter>? inputFormatters, int? maxLength}) {
+  Widget _buildModernField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true, TextCapitalization textCapitalization = TextCapitalization.none, List<TextInputFormatter>? inputFormatters, int? maxLength}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Column(
@@ -1327,6 +1347,7 @@ class _DoctorsViewState extends State<DoctorsView> {
             controller: controller,
             readOnly: !enabled,
             keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+            textCapitalization: textCapitalization,
             maxLines: maxLines,
             maxLength: maxLength,
             inputFormatters: inputFormatters,

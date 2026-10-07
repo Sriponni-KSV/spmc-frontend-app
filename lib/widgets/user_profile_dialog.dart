@@ -2,18 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../models/user_model.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
 import '../core/routes/route_constants.dart';
+import 'app_settings_dialog.dart';
 
 class UserProfileDialog extends StatelessWidget {
   final UserModel user;
+  final BuildContext? parentContext;
 
-  const UserProfileDialog({super.key, required this.user});
+  const UserProfileDialog({super.key, required this.user, this.parentContext});
 
   static void show(BuildContext context, UserModel user) {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => UserProfileDialog(user: user),
+      builder: (dialogCtx) => UserProfileDialog(user: user, parentContext: context),
     );
   }
 
@@ -28,10 +31,14 @@ class UserProfileDialog extends StatelessWidget {
       elevation: 10,
       backgroundColor: Colors.transparent,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 400),
+        constraints: BoxConstraints(
+          maxWidth: 420,
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
+        ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.getCardColor(context),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.getBorderColor(context)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.1),
@@ -40,18 +47,21 @@ class UserProfileDialog extends StatelessWidget {
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             // Header with Avatar and Basic Info
             Stack(
               children: [
                 Container(
                   height: 120,
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primaryLight,
-                    borderRadius: BorderRadius.only(
+                  decoration: BoxDecoration(
+                    color: AppTheme.isDark(context)
+                        ? AppTheme.darkBorderColor.withValues(alpha: 0.5)
+                        : AppTheme.primaryLight,
+                    borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(16),
                       topRight: Radius.circular(16),
                     ),
@@ -61,7 +71,7 @@ class UserProfileDialog extends StatelessWidget {
                   top: 8,
                   right: 8,
                   child: IconButton(
-                    icon: const Icon(Icons.close, color: AppTheme.textSecondaryColor),
+                    icon: Icon(Icons.close, color: AppTheme.getTextSecondaryColor(context)),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
@@ -73,7 +83,10 @@ class UserProfileDialog extends StatelessWidget {
                       Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
+                          border: Border.all(
+                            color: AppTheme.getCardColor(context),
+                            width: 4,
+                          ),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.08),
@@ -111,10 +124,10 @@ class UserProfileDialog extends StatelessWidget {
                   Text(
                     user.rawFullname ?? user.fullname,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimaryColor,
+                      color: AppTheme.getTextPrimaryColor(context),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -125,7 +138,7 @@ class UserProfileDialog extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      user.role,
+                      context.translateRole(user.role),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -137,7 +150,7 @@ class UserProfileDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 24),
-            const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
+            Divider(height: 1, thickness: 1, color: AppTheme.getBorderColor(context)),
             // Detailed fields
             Padding(
               padding: const EdgeInsets.all(24.0),
@@ -145,115 +158,128 @@ class UserProfileDialog extends StatelessWidget {
                 children: [
                   _buildDetailRow(
                     icon: Icons.badge_outlined,
-                    label: 'Staff Unique ID',
+                    label: context.tr('staff_id', fallback: 'Staff Unique ID'),
                     value: user.staffUniqueId ?? 'N/A',
                   ),
                   const SizedBox(height: 16),
                   _buildDetailRow(
                     icon: Icons.email_outlined,
-                    label: 'Email Address',
+                    label: context.tr('email_address', fallback: 'Email Address'),
                     value: user.email,
                   ),
                   const SizedBox(height: 16),
                   _buildDetailRow(
                     icon: Icons.phone_android_outlined,
-                    label: 'Mobile Number',
+                    label: context.tr('mobile_number', fallback: 'Mobile Number'),
                     value: user.mobile ?? 'N/A',
                   ),
                   const SizedBox(height: 16),
                   _buildDetailRow(
+                    icon: Icons.calendar_today_outlined,
+                    label: context.tr('onboarded_date', fallback: 'Onboarded Date'),
+                    value: user.createdAt != null && user.createdAt!.isNotEmpty
+                        ? user.createdAt!
+                        : 'N/A',
+                  ),
+                  const SizedBox(height: 16),
+                  _buildDetailRow(
                     icon: Icons.info_outline,
-                    label: 'Status',
+                    label: context.tr('status', fallback: 'Status'),
                     value: user.status,
                     isStatus: true,
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
+            Divider(height: 1, thickness: 1, color: AppTheme.getBorderColor(context)),
             // Actions Row
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Builder(
                 builder: (context) {
                   final profileRoute = _getProfileRoute(user.role);
-                  if (profileRoute == null) {
-                    return ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'Close',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    );
-                  }
-
                   return Row(
                     children: [
+                      // Settings Button
+                      IconButton(
+                        onPressed: () {
+                          final targetCtx = parentContext ?? context;
+                          Navigator.of(context).pop();
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (targetCtx.mounted) {
+                              AppSettingsDialog.show(targetCtx);
+                            }
+                          });
+                        },
+                        icon: const Icon(Icons.settings_outlined),
+                        color: AppTheme.primaryColor,
+                        tooltip: context.tr('settings'),
+                      ),
+                      const SizedBox(width: 8),
+                      // Close Button
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => Navigator.of(context).pop(),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.textSecondaryColor,
-                            side: const BorderSide(color: AppTheme.borderColor),
+                            foregroundColor: AppTheme.getTextSecondaryColor(context),
+                            side: BorderSide(color: AppTheme.getBorderColor(context)),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
                             ),
                           ),
-                          child: const Text(
-                            'Close',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                          child: Text(
+                            context.tr('close'),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-                            Navigator.of(context).pop(); // dismiss dialog
-                            context.go(profileRoute); // navigate to profile
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'Profile',
-                                style: TextStyle(fontWeight: FontWeight.bold),
+                      if (profileRoute != null) ...[
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {
+                              final targetCtx = parentContext ?? context;
+                              Navigator.of(context).pop();
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (targetCtx.mounted) {
+                                  targetCtx.go(profileRoute);
+                                }
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              SizedBox(width: 4),
-                              Icon(Icons.arrow_forward_rounded, size: 16),
-                            ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  context.tr('profile'),
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.arrow_forward_rounded, size: 16),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   );
-                }
+                },
               ),
             ),
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   String? _getProfileRoute(String role) {
     final lowerRole = role.toLowerCase();
@@ -277,62 +303,69 @@ class UserProfileDialog extends StatelessWidget {
     required String value,
     bool isStatus = false,
   }) {
-    Widget valueWidget;
-    if (isStatus) {
-      final isSuccess = value.toLowerCase() == 'active';
-      valueWidget = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        decoration: BoxDecoration(
-          color: isSuccess ? AppTheme.successBg : AppTheme.dangerBg,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isSuccess
-                ? AppTheme.successColor.withValues(alpha: 0.3)
-                : AppTheme.dangerColor.withValues(alpha: 0.3),
-          ),
-        ),
-        child: Text(
-          value.toUpperCase(),
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: isSuccess ? AppTheme.successColor : AppTheme.dangerColor,
-          ),
-        ),
-      );
-    } else {
-      valueWidget = Text(
-        value,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: AppTheme.textPrimaryColor,
-        ),
-      );
-    }
+    return Builder(
+      builder: (context) {
+        final textPrimary = AppTheme.getTextPrimaryColor(context);
+        final textSecondary = AppTheme.getTextSecondaryColor(context);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: AppTheme.textSecondaryColor),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: AppTheme.textSecondaryColor,
-                ),
+        Widget valueWidget;
+        if (isStatus) {
+          final isSuccess = value.toLowerCase() == 'active';
+          valueWidget = Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: isSuccess ? AppTheme.successBg : AppTheme.dangerBg,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: isSuccess
+                    ? AppTheme.successColor.withValues(alpha: 0.3)
+                    : AppTheme.dangerColor.withValues(alpha: 0.3),
               ),
-              const SizedBox(height: 2),
-              valueWidget,
-            ],
-          ),
-        ),
-      ],
+            ),
+            child: Text(
+              value.toUpperCase(),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: isSuccess ? AppTheme.successColor : AppTheme.dangerColor,
+              ),
+            ),
+          );
+        } else {
+          valueWidget = Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: textPrimary,
+            ),
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: textSecondary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  valueWidget,
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

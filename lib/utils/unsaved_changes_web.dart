@@ -1,11 +1,18 @@
+// ignore_for_file: avoid_web_libraries_in_flutter, deprecated_member_use
 import 'dart:html' as html;
 import 'dart:js' as js;
 
-/// Web implementation for intercepting browser page reloads/closes when unsaved form data exists.
+/// Web implementation for intercepting browser page reloads/closes and
+/// browser Back-button navigation when unsaved form data exists.
 class UnsavedChangesHelper {
   static html.EventListener? _beforeUnloadListener;
 
-  /// Sets the global flag to trigger browser confirmation dialog on refresh/reload if [hasUnsavedData] is true.
+  // ───────────────────────────────────────────────────────────────────────────
+  // Unsaved Data Flag
+  // ───────────────────────────────────────────────────────────────────────────
+
+  /// Sets the global flag to trigger browser confirmation dialog on
+  /// refresh/reload if [hasUnsavedData] is true.
   static void setUnsavedChanges(bool hasUnsavedData) {
     try {
       if (js.context.hasProperty('unsavedChanges')) {
@@ -23,10 +30,17 @@ class UnsavedChangesHelper {
     }
   }
 
-  /// Clears the unsaved changes warning (e.g. after successful form submission).
+  /// Clears the unsaved-changes warning (e.g. after successful submission).
   static void clear() {
     setUnsavedChanges(false);
   }
+
+  static void registerBackPressedHandler(void Function() onBackPressed) {}
+  static void unregisterBackPressedHandler() {}
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // beforeunload listener (page reload / close guard)
+  // ───────────────────────────────────────────────────────────────────────────
 
   static void _enableDirectListener() {
     if (_beforeUnloadListener != null) return;
@@ -34,10 +48,13 @@ class UnsavedChangesHelper {
     _beforeUnloadListener = (html.Event event) {
       if (event is html.BeforeUnloadEvent) {
         event.preventDefault();
-        event.returnValue = 'Do you want to refresh? All unsaved data will be lost.';
+        event.returnValue =
+            'Do you want to refresh? All unsaved data will be lost.';
       } else {
         event.preventDefault();
-        (event as dynamic).returnValue = 'Do you want to refresh? All unsaved data will be lost.';
+        // ignore: avoid_dynamic_calls
+        (event as dynamic).returnValue =
+            'Do you want to refresh? All unsaved data will be lost.';
       }
     };
 

@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../services/api_service.dart';
 
+import '../config/api_config.dart';
+
 class IpdController {
-  String get baseUrl => dotenv.env['BASE_URL']!;
+  String get baseUrl => ApiEndpoints.baseUrl;
 
   /// Fetch all beds
   Future<List<Map<String, dynamic>>> fetchBeds() async {
@@ -15,6 +17,74 @@ class IpdController {
         return data.map((e) => Map<String, dynamic>.from(e)).toList();
       } else {
         throw Exception(body['message'] ?? 'Failed to fetch beds');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Add a new bed
+  Future<Map<String, dynamic>> createBed({
+    required String bedNumber,
+    required String wardType,
+    String status = 'Available',
+  }) async {
+    try {
+      final response = await ApiService.post(
+        '$baseUrl/ipd/beds',
+        {
+          'bed_number': bedNumber,
+          'ward_type': wardType,
+          'status': status,
+        },
+      );
+      final body = jsonDecode(response.body);
+      if ((response.statusCode == 200 || response.statusCode == 201) && body['success'] == true) {
+        return Map<String, dynamic>.from(body['data'] ?? {});
+      } else {
+        throw Exception(body['message'] ?? 'Failed to add bed');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Update an existing bed
+  Future<Map<String, dynamic>> updateBed({
+    required int id,
+    required String bedNumber,
+    required String wardType,
+    required String status,
+  }) async {
+    try {
+      final response = await ApiService.put(
+        '$baseUrl/ipd/beds/$id',
+        {
+          'bed_number': bedNumber,
+          'ward_type': wardType,
+          'status': status,
+        },
+      );
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        return Map<String, dynamic>.from(body['data'] ?? {});
+      } else {
+        throw Exception(body['message'] ?? 'Failed to update bed');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Delete a bed
+  Future<void> deleteBed(int id) async {
+    try {
+      final response = await ApiService.delete('$baseUrl/ipd/beds/$id');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        return;
+      } else {
+        throw Exception(body['message'] ?? 'Failed to delete bed');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));

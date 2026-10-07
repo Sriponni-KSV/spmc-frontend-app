@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
 import '../models/appointment_model.dart';
 import '../models/patient_model.dart';
 import '../models/user_model.dart';
@@ -242,7 +243,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               Container(
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: AppTheme.borderColor),
                 ),
@@ -261,6 +262,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         onChanged: (v) => setState(() => _search = v),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: EdgeInsets.zero,
                           hintText: 'Search patient name or ID...',
                           hintStyle: TextStyle(
                             fontSize: 13,
@@ -782,7 +788,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${app.patientName} marked as Waiting ✓'),
+            content: Text('${app.patientName} ${context.tr('patient_marked_waiting', fallback: 'marked as Waiting ✓')}'),
             backgroundColor: Colors.green,
           ),
         );
@@ -798,29 +804,143 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
 
   Future<void> _showCancelAppointmentDialog(AppointmentModel app) async {
     final cancelReasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
 
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Appointment'),
-        content: TextField(
-          controller: cancelReasonController,
-          decoration: const InputDecoration(
-            hintText: 'Enter cancellation reason (required)',
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.dangerColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.cancel_outlined,
+                color: AppTheme.dangerColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              context.tr('cancel_appointment', fallback: 'Cancel Appointment'),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: Form(
+            key: formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${context.tr('cancel_appointment_confirm', fallback: 'Are you sure you want to cancel the appointment for')} ${app.patientName}?',
+                  style: const TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  context.tr('reason_for_cancellation', fallback: 'Reason for Cancellation *'),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: cancelReasonController,
+                  maxLines: 3,
+                  maxLength: 200,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                      RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                    ),
+                    LengthLimitingTextInputFormatter(200),
+                  ],
+                  validator: (val) {
+                    final v = val?.trim() ?? '';
+                    if (v.isEmpty) {
+                      return context.tr('enter_cancellation_reason', fallback: 'Please enter a cancellation reason');
+                    }
+                    if (v.length < 3) {
+                      return context.tr('reason_min_3_chars', fallback: 'Reason must be at least 3 characters');
+                    }
+                    if (v.length > 200) {
+                      return context.tr('reason_max_200_chars', fallback: 'Reason cannot exceed 200 characters');
+                    }
+                    if (!RegExp(r'[a-zA-Z]').hasMatch(v)) {
+                      return context.tr('reason_must_contain_letters', fallback: 'Reason must contain alphabetic characters');
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: context.tr('cancel_reason_hint', fallback: 'e.g. Patient requested cancellation due to personal emergency'),
+                    hintStyle: const TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                    fillColor: const Color(0xFFF1F5F9),
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.borderColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                    ),
+                    focusedErrorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          maxLines: 2,
         ),
         actions: [
-          TextButton(
+          OutlinedButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Back'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.textSecondaryColor,
+              side: const BorderSide(color: AppTheme.borderColor),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(context.tr('keep_appointment', fallback: 'Keep Appointment')),
           ),
           ElevatedButton(
             onPressed: () async {
-              if (cancelReasonController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Reason is required')),
-                );
+              if (!formKey.currentState!.validate()) {
                 return;
               }
 
@@ -835,8 +955,8 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('${app.patientName} cancelled ✓'),
-                      backgroundColor: Colors.red,
+                      content: Text('${app.patientName} ${context.tr('appointment_cancelled_success', fallback: 'cancelled ✓')}'),
+                      backgroundColor: AppTheme.dangerColor,
                     ),
                   );
                 }
@@ -845,17 +965,20 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(e.toString()),
-                      backgroundColor: Colors.red,
+                      backgroundColor: AppTheme.dangerColor,
                     ),
                   );
                 }
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.dangerColor,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            child: const Text('Cancel Appointment'),
+            child: Text(context.tr('cancel_appointment', fallback: 'Cancel Appointment')),
           ),
         ],
       ),
@@ -863,6 +986,22 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
   }
 
   void _showTriageDialog(AppointmentModel app) {
+    final apptDt = DateFormatter.toDateTime(app.appointmentDate);
+    if (apptDt != null) {
+      final now = DateTime.now();
+      final todayMidnight = DateTime(now.year, now.month, now.day);
+      final apptMidnight = DateTime(apptDt.year, apptDt.month, apptDt.day);
+      if (apptMidnight.isAfter(todayMidnight)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr('vitals_future_disabled', fallback: 'Vitals collection is disabled for future-dated appointments.')),
+            backgroundColor: const Color(0xFFB45309),
+          ),
+        );
+        return;
+      }
+    }
+
     final sysCtrl = TextEditingController(
       text: app.bloodPressureSystolic?.toString() ?? '',
     );
@@ -909,9 +1048,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Capture Vitals',
-                      style: TextStyle(
+                    Text(
+                      context.tr('capture_vitals', fallback: 'Capture Vitals'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -940,9 +1079,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                     const SizedBox(height: 16),
 
                     // Blood Pressure
-                    const Text(
-                      'Blood Pressure (mmHg)',
-                      style: TextStyle(
+                    Text(
+                      context.tr('blood_pressure_label', fallback: 'Blood Pressure (mmHg)'),
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF1E40AF),
@@ -957,8 +1096,8 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             keyboardType: TextInputType.number,
                             maxLength: 3,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: const InputDecoration(
-                              labelText: 'Systolic',
+                            decoration: InputDecoration(
+                              labelText: context.tr('systolic', fallback: 'Systolic'),
                               hintText: '120',
                               isDense: true,
                               counterText: '',
@@ -967,12 +1106,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             validator: (val) {
                               final text = val?.trim() ?? '';
                               if (text.isEmpty) {
-                                return 'Please enter BP systolic';
+                                return context.tr('enter_bp_systolic', fallback: 'Please enter BP systolic');
                               }
                               final num = int.tryParse(text);
-                              if (num == null) return 'Enter a number';
-                              if (num == 0) return 'Cannot be 0';
-                              if (num < 90 || num > 300) return 'BP Systolic must be between 90 and 300 mmHg';
+                              if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                              if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                              if (num < 90 || num > 300) return context.tr('bp_systolic_range', fallback: 'BP Systolic must be between 90 and 300 mmHg');
                               return null;
                             },
                           ),
@@ -994,8 +1133,8 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             keyboardType: TextInputType.number,
                             maxLength: 3,
                             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: const InputDecoration(
-                              labelText: 'Diastolic',
+                            decoration: InputDecoration(
+                              labelText: context.tr('diastolic', fallback: 'Diastolic'),
                               hintText: '80',
                               isDense: true,
                               counterText: '',
@@ -1004,12 +1143,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             validator: (val) {
                               final text = val?.trim() ?? '';
                               if (text.isEmpty) {
-                                return 'Please enter BP diastolic';
+                                return context.tr('enter_bp_diastolic', fallback: 'Please enter BP diastolic');
                               }
                               final num = int.tryParse(text);
-                              if (num == null) return 'Enter a number';
-                              if (num == 0) return 'Cannot be 0';
-                              if (num < 50 || num > 180) return 'BP Diastolic must be between 50 and 180 mmHg';
+                              if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                              if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                              if (num < 50 || num > 180) return context.tr('bp_diastolic_range', fallback: 'BP Diastolic must be between 50 and 180 mmHg');
                               return null;
                             },
                           ),
@@ -1025,9 +1164,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Sugar Level (mg/dL)',
-                                style: TextStyle(
+                              Text(
+                                context.tr('sugar_level_label', fallback: 'Sugar Level (mg/dL)'),
+                                style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF991B1B),
@@ -1053,12 +1192,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                 validator: (val) {
                                   final text = val?.trim() ?? '';
                                   if (text.isEmpty) {
-                                    return 'Please enter sugar level';
+                                    return context.tr('enter_sugar_level', fallback: 'Please enter sugar level');
                                   }
                                   final num = double.tryParse(text);
-                                  if (num == null) return 'Enter a number';
-                                  if (num == 0) return 'Cannot be 0';
-                                  if (num < 30 || num > 600) return 'Sugar Level must be between 30 and 600 mg/dL';
+                                  if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                  if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                  if (num < 30 || num > 600) return context.tr('sugar_range', fallback: 'Sugar Level must be between 30 and 600 mg/dL');
                                   return null;
                                 },
                               ),
@@ -1070,9 +1209,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Temperature (°F)',
-                                style: TextStyle(
+                              Text(
+                                context.tr('temperature_label', fallback: 'Temperature (°F)'),
+                                style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                   color: Color(0xFF92400E),
@@ -1098,12 +1237,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                 validator: (val) {
                                   final text = val?.trim() ?? '';
                                   if (text.isEmpty) {
-                                    return 'Please enter temperature';
+                                    return context.tr('enter_temperature', fallback: 'Please enter temperature');
                                   }
                                   final num = double.tryParse(text);
-                                  if (num == null) return 'Enter a number';
-                                  if (num == 0) return 'Cannot be 0';
-                                  if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
+                                  if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                  if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                  if (num < 90 || num > 115) return context.tr('temperature_range', fallback: 'Temperature must be between 90 and 115 °F');
                                   return null;
                                 },
                               ),
@@ -1122,9 +1261,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
                         LengthLimitingTextInputFormatter(100),
                       ],
-                      decoration: const InputDecoration(
-                        labelText: 'Chief Complaint',
-                        hintText: 'Describe symptoms or reason for visit...',
+                      decoration: InputDecoration(
+                        labelText: context.tr('chief_complaint', fallback: 'Chief Complaint'),
+                        hintText: context.tr('chief_complaint_hint', fallback: 'Describe symptoms or reason for visit...'),
                       ),
                     ),
                   ],
@@ -1136,7 +1275,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
             OutlinedButton(
               onPressed: isSaving ? null : () => Navigator.pop(ctx),
               style: AppTheme.cancelButton,
-              child: const Text('Cancel'),
+              child: Text(context.tr('cancel', fallback: 'Cancel')),
             ),
             ElevatedButton.icon(
               onPressed: isSaving
@@ -1172,9 +1311,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         _tabController.animateTo(1);
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Vitals saved & patient triaged ✓'),
-                              backgroundColor: Color(0xFF0D9488),
+                            SnackBar(
+                              content: Text(context.tr('vitals_saved_triaged', fallback: 'Vitals saved & patient triaged ✓')),
+                              backgroundColor: const Color(0xFF0D9488),
                             ),
                           );
                         }
@@ -1233,17 +1372,107 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
     return DateTime(2026, 1, 1, hour, minute);
   }
 
+  String _cleanDoctorName(String? name) {
+    if (name == null) return '';
+    return name.replaceAll(RegExp(r'^(dr\.?|doctor)\s*', caseSensitive: false), '').trim().toLowerCase();
+  }
+
+  bool _isSameDoctor(String? doc1, String? doc2) {
+    if (doc1 == null || doc2 == null) return false;
+    final c1 = _cleanDoctorName(doc1);
+    final c2 = _cleanDoctorName(doc2);
+    return c1.isNotEmpty && (c1 == c2 || c1.contains(c2) || c2.contains(c1));
+  }
+
+  bool _isSameDate(dynamic date1, dynamic date2) {
+    if (date1 == null || date2 == null) return false;
+    DateTime? d1;
+    DateTime? d2;
+
+    if (date1 is DateTime) {
+      d1 = date1;
+    } else if (date1 is String) {
+      d1 = DateFormatter.toDateTime(date1);
+      if (d1 == null) {
+        final clean = date1.trim().split('T')[0];
+        final parts = clean.contains('/') ? clean.split('/') : clean.split('-');
+        if (parts.length == 3) {
+          if (parts[0].length == 4) {
+            d1 = DateTime.tryParse('$clean 00:00:00');
+          } else if (parts[2].length == 4) {
+            d1 = DateTime.tryParse('${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')} 00:00:00');
+          }
+        }
+      }
+    }
+
+    if (date2 is DateTime) {
+      d2 = date2;
+    } else if (date2 is String) {
+      d2 = DateFormatter.toDateTime(date2);
+      if (d2 == null) {
+        final clean = date2.trim().split('T')[0];
+        final parts = clean.contains('/') ? clean.split('/') : clean.split('-');
+        if (parts.length == 3) {
+          if (parts[0].length == 4) {
+            d2 = DateTime.tryParse('$clean 00:00:00');
+          } else if (parts[2].length == 4) {
+            d2 = DateTime.tryParse('${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')} 00:00:00');
+          }
+        }
+      }
+    }
+
+    if (d1 == null || d2 == null) return false;
+    return d1.year == d2.year && d1.month == d2.month && d1.day == d2.day;
+  }
+
+  String _normalizeTime(String? timeStr) {
+    if (timeStr == null || timeStr.trim().isEmpty) return '';
+    try {
+      final s = timeStr.trim().toUpperCase();
+      final hasAm = s.contains('AM');
+      final hasPm = s.contains('PM');
+      
+      final cleaned = s.replaceAll('AM', '').replaceAll('PM', '').trim();
+      final parts = cleaned.split(':');
+      if (parts.isEmpty) return timeStr.trim();
+      
+      int h = int.parse(parts[0]);
+      int m = parts.length > 1 ? int.parse(parts[1]) : 0;
+      
+      if (hasPm && h < 12) h += 12;
+      if (hasAm && h == 12) h = 0;
+      
+      final period = h >= 12 ? 'PM' : 'AM';
+      int h12 = h % 12;
+      if (h12 == 0) h12 = 12;
+      return '${h12.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period';
+    } catch (_) {
+      return timeStr.trim();
+    }
+  }
+
+  List<String> _generateDefaultSlots() {
+    List<String> slots = [];
+    DateTime mStart = DateTime(2026, 1, 1, 9, 0);
+    DateTime mEnd = DateTime(2026, 1, 1, 13, 0);
+    while (mStart.isBefore(mEnd)) {
+      slots.add(DateFormat('hh:mm a').format(mStart));
+      mStart = mStart.add(const Duration(minutes: 30));
+    }
+    DateTime aStart = DateTime(2026, 1, 1, 14, 0);
+    DateTime aEnd = DateTime(2026, 1, 1, 17, 0);
+    while (aStart.isBefore(aEnd)) {
+      slots.add(DateFormat('hh:mm a').format(aStart));
+      aStart = aStart.add(const Duration(minutes: 30));
+    }
+    return slots;
+  }
+
   List<String> _generateSlotsForDoctor(UserModel doctor) {
     if (doctor.slotStartTime == null || doctor.slotEndTime == null) {
-      // Default fallback slots
-      List<String> slots = [];
-      DateTime start = DateTime(2026, 1, 1, 9, 0); // 9 AM
-      DateTime end = DateTime(2026, 1, 1, 13, 0); // 1 PM
-      while (start.isBefore(end)) {
-        slots.add(DateFormat('hh:mm a').format(start));
-        start = start.add(const Duration(minutes: 30));
-      }
-      return slots;
+      return _generateDefaultSlots();
     }
 
     int duration = 30;
@@ -1261,9 +1490,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
         slots.add(DateFormat('hh:mm a').format(current));
         current = current.add(Duration(minutes: duration));
       }
+      if (slots.isEmpty) {
+        return _generateDefaultSlots();
+      }
       return slots;
     } catch (e) {
-      return [];
+      return _generateDefaultSlots();
     }
   }
 
@@ -1376,13 +1608,13 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             }
                           },
                           validator: (val) => val == null || val.isEmpty
-                              ? 'Please select patient'
+                              ? context.tr('please_select_patient', fallback: 'Please select patient')
                               : null,
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'Assign Doctor',
-                          style: TextStyle(
+                        Text(
+                          context.tr('assign_doctor_label', fallback: 'Assign Doctor'),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.textSecondaryColor,
@@ -1391,7 +1623,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         const SizedBox(height: 6),
                         CustomDropdownSearch(
                           label: '',
-                          hint: 'Select doctor...',
+                          hint: context.tr('select_doctor_hint', fallback: 'Select doctor...'),
                           value: selectedDoctor?.id.toString(),
                           dropdownMap: {
                             for (var d in allDoctors)
@@ -1444,48 +1676,51 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                   availableSlots = [];
                                 } else {
                                   availableSlots = _generateSlotsForDoctor(doc);
-                                  availableSlots = availableSlots.where((slot) {
-                                    // 1. Check if booked
-                                    bool isBooked = _appointments.any(
-                                      (a) =>
-                                          a.doctorName == doc.fullname &&
-                                          a.appointmentTime == slot &&
-                                          a.status != 'Cancelled' &&
-                                          a.status != 'No-Show',
-                                    );
-                                    if (isBooked) return false;
+                                  int duration = 30;
+                                  if (doc.slotDuration != null && doc.slotDuration!.trim().isNotEmpty) {
+                                    final digits = RegExp(r'\d+').firstMatch(doc.slotDuration!)?.group(0);
+                                    if (digits != null) {
+                                      duration = int.tryParse(digits) ?? 30;
+                                    }
+                                  }
+                                  if (duration <= 0) duration = 30;
 
-                                    // 2. Check if past time
+                                  availableSlots = availableSlots.where((slot) {
                                     try {
-                                      DateTime slotTime = DateFormat(
-                                        'hh:mm a',
-                                      ).parse(slot);
-                                      DateTime fullSlotTime = DateTime(
+                                      final slotDt = _parseTime(slot);
+                                      final slotEnd = DateTime(
                                         now.year,
                                         now.month,
                                         now.day,
-                                        slotTime.hour,
-                                        slotTime.minute,
-                                      );
-                                      // Only show slots that are strictly after current time
-                                      return fullSlotTime.isAfter(now);
-                                    } catch (e) {
-                                      return true;
-                                    }
+                                        slotDt.hour,
+                                        slotDt.minute,
+                                      ).add(Duration(minutes: duration));
+                                      if (slotEnd.isBefore(now)) return false;
+                                    } catch (_) {}
+
+                                    bool isBooked = _appointments.any(
+                                      (a) =>
+                                          _isSameDoctor(a.doctorName, doc.fullname) &&
+                                          _isSameDate(a.appointmentDate, now) &&
+                                          _normalizeTime(a.appointmentTime) == _normalizeTime(slot) &&
+                                          a.status != 'Cancelled' &&
+                                          a.status != 'No-Show',
+                                    );
+                                    return !isBooked;
                                   }).toList();
                                 }
                               });
                             }
                           },
                           validator: (val) => val == null || val.isEmpty
-                              ? 'Please select doctor'
+                              ? context.tr('please_select_doctor', fallback: 'Please select doctor')
                               : null,
                         ),
                         const SizedBox(height: 16),
                         if (selectedDoctor != null) ...[
-                          const Text(
-                            'Available Time Slots (Today)',
-                            style: TextStyle(
+                          Text(
+                            context.tr('available_time_slots_today', fallback: 'Available Time Slots (Today)'),
+                            style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.textSecondaryColor,
@@ -1493,9 +1728,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           ),
                           const SizedBox(height: 8),
                           if (availableSlots.isEmpty)
-                            const Text(
-                              'No slots available for this doctor today.',
-                              style: TextStyle(color: Colors.red, fontSize: 12),
+                            Text(
+                              context.tr('no_slots_available_today', fallback: 'No slots available for this doctor today.'),
+                              style: const TextStyle(color: Colors.red, fontSize: 12),
                             )
                           else
                             GridView.builder(
@@ -1546,11 +1781,11 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                               },
                             ),
                           if (selectedTime == null && availableSlots.isNotEmpty)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 8.0),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
                               child: Text(
-                                'Please select a time slot',
-                                style: TextStyle(
+                                context.tr('please_select_time_slot', fallback: 'Please select a time slot'),
+                                style: const TextStyle(
                                   color: Colors.red,
                                   fontSize: 11,
                                 ),
@@ -1558,9 +1793,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             ),
                         ],
                         const SizedBox(height: 18),
-                        const Text(
-                          'Patient Intake Vitals',
-                          style: TextStyle(
+                        Text(
+                          context.tr('patient_intake_vitals', fallback: 'Patient Intake Vitals'),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.textSecondaryColor,
@@ -1604,12 +1839,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     validator: (val) {
                                       final text = val?.trim() ?? '';
                                       if (text.isEmpty) {
-                                        return 'Please enter BP systolic';
+                                        return context.tr('enter_bp_systolic', fallback: 'Please enter BP systolic');
                                       }
                                       final num = int.tryParse(text);
-                                      if (num == null) return 'Enter a number';
-                                      if (num == 0) return 'Cannot be 0';
-                                      if (num < 90 || num > 300) return 'Must be 90 to 300';
+                                      if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                      if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                      if (num < 90 || num > 300) return context.tr('bp_systolic_range', fallback: 'BP Systolic must be between 90 and 300 mmHg');
                                       return null;
                                     },
                                   ),
@@ -1652,12 +1887,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     validator: (val) {
                                       final text = val?.trim() ?? '';
                                       if (text.isEmpty) {
-                                        return 'Please enter BP diastolic';
+                                        return context.tr('enter_bp_diastolic', fallback: 'Please enter BP diastolic');
                                       }
                                       final num = int.tryParse(text);
-                                      if (num == null) return 'Enter a number';
-                                      if (num == 0) return 'Cannot be 0';
-                                      if (num < 50 || num > 180) return 'Must be 50 to 180';
+                                      if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                      if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                      if (num < 50 || num > 180) return context.tr('bp_diastolic_range', fallback: 'BP Diastolic must be between 50 and 180 mmHg');
                                       return null;
                                     },
                                   ),
@@ -1709,12 +1944,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     validator: (val) {
                                       final text = val?.trim() ?? '';
                                       if (text.isEmpty) {
-                                        return 'Please enter sugar level';
+                                        return context.tr('enter_sugar_level', fallback: 'Please enter sugar level');
                                       }
                                       final num = double.tryParse(text);
-                                      if (num == null) return 'Enter a number';
-                                      if (num == 0) return 'Cannot be 0';
-                                      if (num < 30 || num > 600) return 'Must be 30 to 600';
+                                      if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                      if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                      if (num < 30 || num > 600) return context.tr('sugar_range', fallback: 'Sugar Level must be between 30 and 600 mg/dL');
                                       return null;
                                     },
                                   ),
@@ -1762,12 +1997,12 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                     validator: (val) {
                                       final text = val?.trim() ?? '';
                                       if (text.isEmpty) {
-                                        return 'Please enter temperature';
+                                        return context.tr('enter_temperature', fallback: 'Please enter temperature');
                                       }
                                       final num = double.tryParse(text);
-                                      if (num == null) return 'Enter a number';
-                                      if (num == 0) return 'Cannot be 0';
-                                      if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
+                                      if (num == null) return context.tr('enter_a_number', fallback: 'Enter a number');
+                                      if (num == 0) return context.tr('cannot_be_zero', fallback: 'Cannot be 0');
+                                      if (num < 90 || num > 115) return context.tr('temperature_range', fallback: 'Temperature must be between 90 and 115 °F');
                                       return null;
                                     },
                                   ),
@@ -1777,9 +2012,9 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           ],
                         ),
                         const SizedBox(height: 12),
-                        const Text(
-                          'Reason',
-                          style: TextStyle(
+                        Text(
+                          context.tr('chief_complaint', fallback: 'Chief Complaint'),
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1792,9 +2027,8 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
                             LengthLimitingTextInputFormatter(100),
                           ],
-                          decoration: const InputDecoration(
-                            hintText:
-                                'Describe symptoms or reason for visit...',
+                          decoration: InputDecoration(
+                            hintText: context.tr('chief_complaint_hint', fallback: 'Describe symptoms or reason for visit...'),
                           ),
                         ),
                       ],
@@ -1807,7 +2041,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               OutlinedButton(
                 onPressed: isSaving ? null : () => Navigator.pop(ctx),
                 style: AppTheme.cancelButton,
-                child: const Text('Cancel'),
+                child: Text(context.tr('cancel', fallback: 'Cancel')),
               ),
               ElevatedButton(
                 onPressed:
@@ -1832,6 +2066,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                             'reason_for_visit': complaintCtrl.text.trim(),
                           };
                           final newApp = AppointmentModel(
+                            doctorId: selectedDoctor?.id,
                             patientId: selectedPatient!.id!,
                             patientName: selectedPatient!.name,
                             department:
@@ -1854,23 +2089,25 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           await _ctrl.updateStatus(created.id!, 'Waiting');
                           Navigator.pop(ctx);
                           _load();
-                          if (mounted)
+                          if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
+                              SnackBar(
                                 content: Text(
-                                  'Walk-in registered and added to waiting!',
+                                  context.tr('walk_in_registered_waiting', fallback: 'Walk-in registered and added to waiting!'),
                                 ),
                                 backgroundColor: Colors.green,
                               ),
                             );
+                          }
                         } catch (e) {
-                          if (mounted)
+                          if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(e.toString()),
                                 backgroundColor: Colors.red,
                               ),
                             );
+                          }
                         } finally {
                           if (mounted) setDialogState(() => isSaving = false);
                         }
@@ -1896,7 +2133,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Register Walk-in'),
+                    : Text(context.tr('register_walk_in', fallback: 'Register Walk-in')),
               ),
             ],
           );

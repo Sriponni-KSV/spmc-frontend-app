@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
@@ -5,6 +6,7 @@ import '../widgets/custom_dropdown_search.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
 import '../models/patient_model.dart';
 import '../models/user_model.dart';
 import '../models/appointment_model.dart';
@@ -13,6 +15,10 @@ import '../controllers/admin_controller.dart';
 import '../controllers/appointment_controller.dart';
 import '../widgets/appointment_details_dialog.dart';
 import 'mocdoc_appointments_view.dart';
+import '../utils/date_formatter.dart';
+import '../utils/tamil_transliteration_helper.dart';
+import '../providers/language_provider.dart';
+import 'package:provider/provider.dart';
 
 class AppointmentsView extends StatefulWidget {
   final bool startWithBookingForm;
@@ -130,6 +136,75 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     if (mode.contains('Doctor')) return 'Doctor';
     if (mode.contains('Both') || mode.contains('Combo')) return 'Both';
     return 'Table';
+  }
+
+  String _getTranslatedApptType(String type) {
+    switch (type.toLowerCase().trim()) {
+      case 'routine':
+        return context.tr('appt_type_routine', fallback: 'Routine');
+      case 'follow up':
+        return context.tr('appt_type_follow_up', fallback: 'Follow Up');
+      case 'new visit':
+        return context.tr('appt_type_new_visit', fallback: 'New Visit');
+      case 'scheduled':
+        return context.tr('appt_type_scheduled', fallback: 'Scheduled');
+      case 'emergency':
+        return context.tr('appt_type_emergency', fallback: 'Emergency');
+      default:
+        return type;
+    }
+  }
+
+  String _getTranslatedDepartment(String dept) {
+    switch (dept.toLowerCase().trim()) {
+      case 'general medicine':
+        return context.tr('dept_gen_medicine', fallback: 'General Medicine');
+      case 'cardiology':
+        return context.tr('dept_cardiology', fallback: 'Cardiology');
+      case 'pediatrics':
+        return context.tr('dept_pediatrics', fallback: 'Pediatrics');
+      case 'orthopedics':
+        return context.tr('dept_orthopedics', fallback: 'Orthopedics');
+      case 'dermatology':
+        return context.tr('dept_dermatology', fallback: 'Dermatology');
+      case 'gynecology':
+        return context.tr('dept_gynecology', fallback: 'Gynecology');
+      case 'neurology':
+        return context.tr('dept_neurology', fallback: 'Neurology');
+      case 'ent':
+        return context.tr('dept_ent', fallback: 'ENT');
+      case 'ophthalmology':
+        return context.tr('dept_ophthalmology', fallback: 'Ophthalmology');
+      case 'dental':
+        return context.tr('dept_dental', fallback: 'Dental');
+      case 'psychiatry':
+        return context.tr('dept_psychiatry', fallback: 'Psychiatry');
+      case 'general surgery':
+      case 'surgery':
+        return context.tr('dept_surgery', fallback: 'General Surgery');
+      default:
+        return dept;
+    }
+  }
+
+  String _getTranslatedStatus(String status) {
+    final s = status.toLowerCase().replaceAll('-', ' ').replaceAll('_', ' ').trim();
+    switch (s) {
+      case 'confirmed':
+        return context.tr('status_confirmed', fallback: 'Confirmed');
+      case 'waiting':
+        return context.tr('status_waiting', fallback: 'Waiting');
+      case 'in consultation':
+        return context.tr('status_in_consultation', fallback: 'In Consultation');
+      case 'completed':
+        return context.tr('status_completed', fallback: 'Completed');
+      case 'no show':
+        return context.tr('status_no_show', fallback: 'No Show');
+      case 'cancelled':
+        return context.tr('status_cancelled', fallback: 'Cancelled');
+      default:
+        return status;
+    }
   }
 
   @override
@@ -312,6 +387,22 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   void _openVitalsEntryDialog(BuildContext context, AppointmentModel appt) {
+    final apptDt = DateFormatter.toDateTime(appt.appointmentDate);
+    if (apptDt != null) {
+      final now = DateTime.now();
+      final todayMidnight = DateTime(now.year, now.month, now.day);
+      final apptMidnight = DateTime(apptDt.year, apptDt.month, apptDt.day);
+      if (apptMidnight.isAfter(todayMidnight)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vitals collection is disabled for future-dated appointments.'),
+            backgroundColor: Color(0xFFB45309),
+          ),
+        );
+        _openViewDetailsDialog(context, appt);
+        return;
+      }
+    }
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -408,6 +499,69 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return sessionSlots;
   }
 
+  String _cleanDoctorName(String? name) {
+    if (name == null) return '';
+    return name
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'^dr\.?\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'[\s\u00A0]+'), ' ')
+        .trim();
+  }
+
+  bool _isSameDoctor(String? d1, String? d2) {
+    if (d1 == null || d2 == null) return false;
+    final c1 = _cleanDoctorName(d1);
+    final c2 = _cleanDoctorName(d2);
+    if (c1.isEmpty || c2.isEmpty) return false;
+    if (c1 == c2) return true;
+    return c1.contains(c2) || c2.contains(c1);
+  }
+
+  bool _isSameDate(dynamic date1, dynamic date2) {
+    final d1 = DateFormatter.toDateTime(date1);
+    final d2 = DateFormatter.toDateTime(date2);
+    if (d1 == null || d2 == null) return false;
+    return d1.year == d2.year && d1.month == d2.month && d1.day == d2.day;
+  }
+
+  String _normalizeTime(String timeStr) {
+    String clean = timeStr.trim();
+    if (clean.isEmpty) return '';
+    clean = clean.replaceAll(RegExp(r'[\s\u00A0]+'), ' ');
+    final matchAmPm = RegExp(
+      r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+      caseSensitive: false,
+    ).firstMatch(clean);
+    if (matchAmPm != null) {
+      int hour = int.parse(matchAmPm.group(1)!);
+      String min = matchAmPm.group(2)!;
+      String period = matchAmPm.group(3)!.toUpperCase();
+      if (hour == 0) hour = 12;
+      return '${hour.toString().padLeft(2, '0')}:$min $period';
+    }
+    final match24 = RegExp(r'^(\d{1,2}):(\d{2})(?::\d{2})?$').firstMatch(clean);
+    if (match24 != null) {
+      int hour = int.parse(match24.group(1)!);
+      String min = match24.group(2)!;
+      String period = hour >= 12 ? 'PM' : 'AM';
+      int h12 = hour % 12;
+      if (h12 == 0) h12 = 12;
+      return '${h12.toString().padLeft(2, '0')}:$min $period';
+    }
+    try {
+      if (clean.toUpperCase().contains('AM') || clean.toUpperCase().contains('PM')) {
+        DateTime dt = DateFormat('h:mm a').parse(clean);
+        return DateFormat('hh:mm a').format(dt);
+      } else {
+        DateTime dt = DateFormat('HH:mm').parse(clean);
+        return DateFormat('hh:mm a').format(dt);
+      }
+    } catch (_) {
+      return timeStr.trim();
+    }
+  }
+
   void _updateAvailableSlots() {
     if (_selectedDoctor == null || _bookingDate == null) {
       setState(() {
@@ -419,8 +573,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final dayName = weekDays[_bookingDate!.weekday - 1];
 
-    // 1. Check if day is available
-    if (_selectedDoctor!.availableDays == null ||
+    // 1. Check if day is available (if doctor specifies availableDays)
+    if (_selectedDoctor!.availableDays != null &&
+        _selectedDoctor!.availableDays!.isNotEmpty &&
         !_selectedDoctor!.availableDays!.contains(dayName)) {
       setState(() => _availableSlots = []);
       return;
@@ -428,6 +583,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
     // 2. Check for weekly off
     if (_selectedDoctor!.weeklyOffDays != null &&
+        _selectedDoctor!.weeklyOffDays!.isNotEmpty &&
         _selectedDoctor!.weeklyOffDays!.contains(dayName)) {
       setState(() => _availableSlots = []);
       return;
@@ -447,19 +603,21 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   bool _isDateSelectable(DateTime date) {
-    if (_selectedDoctor == null) return true; // Allow all days if no doctor is selected yet, or we could return false to force doctor selection. Returning true for better UX before validation.
+    if (_selectedDoctor == null) return true;
 
     final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final dayName = weekDays[date.weekday - 1];
     final dateStr = DateFormat('dd/MM/yyyy').format(date);
 
     bool isAvailable = false;
-    if (_selectedDoctor!.availableDays != null &&
+    if (_selectedDoctor!.availableDays == null ||
+        _selectedDoctor!.availableDays!.isEmpty ||
         _selectedDoctor!.availableDays!.contains(dayName)) {
       isAvailable = true;
     }
 
     if (_selectedDoctor!.weeklyOffDays != null &&
+        _selectedDoctor!.weeklyOffDays!.isNotEmpty &&
         _selectedDoctor!.weeklyOffDays!.contains(dayName)) {
       isAvailable = false;
     }
@@ -472,45 +630,80 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return isAvailable;
   }
 
+  DateTime? _parseSlotDateTime(String timeStr, DateTime date) {
+    try {
+      final clean = timeStr.trim();
+      if (clean.isEmpty) return null;
+      final matchAmPm = RegExp(
+        r'^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)$',
+        caseSensitive: false,
+      ).firstMatch(clean);
+      if (matchAmPm != null) {
+        int hour = int.parse(matchAmPm.group(1)!);
+        final int minute = int.parse(matchAmPm.group(2)!);
+        final bool isPm = matchAmPm.group(3)!.toUpperCase() == 'PM';
+        if (isPm && hour < 12) hour += 12;
+        if (!isPm && hour == 12) hour = 0;
+        return DateTime(date.year, date.month, date.day, hour, minute);
+      }
+      final match24 = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(clean);
+      if (match24 != null) {
+        final int hour = int.parse(match24.group(1)!);
+        final int minute = int.parse(match24.group(2)!);
+        return DateTime(date.year, date.month, date.day, hour, minute);
+      }
+    } catch (_) {}
+    return null;
+  }
+
   List<String> _getFilteredTimeSlots() {
     if (_bookingDate == null || _selectedDoctor == null) return [];
 
-    DateTime now = DateTime.now();
-    bool isToday =
-        _bookingDate!.year == now.year &&
+    List<String> baseSlots = _availableSlots;
+    if (baseSlots.isEmpty) {
+      baseSlots = _generateSlotsForDoctor(_selectedDoctor!);
+    }
+
+    final now = DateTime.now();
+    final bool isToday = _bookingDate!.year == now.year &&
         _bookingDate!.month == now.month &&
         _bookingDate!.day == now.day;
 
-    final dateStr = DateFormat('dd/MM/yyyy').format(_bookingDate!);
+    int duration = _intervalMinutes;
+    if (_selectedDoctor?.slotDuration != null) {
+      final digits =
+          RegExp(r'\d+').firstMatch(_selectedDoctor!.slotDuration!)?.group(0);
+      if (digits != null) {
+        duration = int.tryParse(digits) ?? _intervalMinutes;
+      }
+    }
+    if (duration <= 0) duration = 30;
 
-    return _availableSlots.where((slot) {
-      // 1. Check if already booked
-      bool isBooked = _appointments.any(
-        (a) =>
-            a.doctorName == _selectedDoctor!.fullname &&
-            a.appointmentDate == dateStr &&
-            a.appointmentTime == slot &&
-            a.status != 'Cancelled',
-      );
-
-      if (isBooked) return false;
-
-      // 2. If today, filter out past slots
+    return baseSlots.where((slot) {
+      // 1. If booking for today, display only current and upcoming slots (hide past slots)
       if (isToday) {
-        try {
-          DateTime slotTime = DateFormat('hh:mm a').parse(slot);
-          DateTime fullSlotTime = DateTime(
-            _bookingDate!.year,
-            _bookingDate!.month,
-            _bookingDate!.day,
-            slotTime.hour,
-            slotTime.minute,
-          );
-          return fullSlotTime.isAfter(now);
-        } catch (e) {
-          return true;
+        final slotStart = _parseSlotDateTime(slot, now);
+        if (slotStart != null) {
+          final slotEnd = slotStart.add(Duration(minutes: duration));
+          // If the slot has already concluded, exclude it
+          if (slotEnd.isBefore(now)) {
+            return false;
+          }
         }
       }
+
+      // 2. Check if already booked
+      bool isBooked = _appointments.any((a) {
+        if (a.status.toLowerCase() == 'cancelled') return false;
+        if (!_isSameDoctor(a.doctorName, _selectedDoctor!.fullname)) {
+          return false;
+        }
+        if (!_isSameDate(a.appointmentDate, _bookingDate)) return false;
+
+        return _normalizeTime(a.appointmentTime) == _normalizeTime(slot);
+      });
+
+      if (isBooked) return false;
 
       return true;
     }).toList();
@@ -592,14 +785,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               context.go(AppRoutes.frontDeskAppointments);
             }
           },
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.arrow_back, size: 16, color: AppTheme.primaryColor),
-              SizedBox(width: 8),
+              const Icon(Icons.arrow_back, size: 16, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
               Text(
-                'Back to Appointments',
-                style: TextStyle(
+                context.tr('back_to_appointments', fallback: 'Back to Appointments'),
+                style: const TextStyle(
                   color: AppTheme.primaryColor,
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
@@ -610,18 +803,18 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         ),
         const SizedBox(height: 20),
         // Title
-        const Text(
-          'Book Appointment',
-          style: TextStyle(
+        Text(
+          context.tr('book_appointment', fallback: 'Book Appointment'),
+          style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.bold,
             color: AppTheme.textPrimaryColor,
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Schedule a new appointment for a patient',
-          style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+        Text(
+          context.tr('book_appointment_sub', fallback: 'Schedule a new appointment for a patient'),
+          style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
         ),
       ],
     );
@@ -675,7 +868,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Select Patient *'),
+                      _buildFieldLabel(context.tr('select_patient_req', fallback: 'Select Patient *')),
                       _buildDropdown<PatientModel>(
                         hint: '',
                         value: _selectedPatient,
@@ -689,12 +882,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
                 const SizedBox(height: 24),
                 _buildFormCard(
-                  title: 'Patient Vitals',
+                  title: context.tr('patient_vitals_label', fallback: 'Patient Vitals'),
                   headerExtra: TextButton(
                     onPressed: () {},
-                    child: const Text(
-                      'Collect vitals',
-                      style: TextStyle(
+                    child: Text(
+                      context.tr('collect_vitals', fallback: 'Collect vitals'),
+                      style: const TextStyle(
                         fontSize: 11,
                         color: AppTheme.primaryColor,
                       ),
@@ -703,7 +896,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Blood Pressure'),
+                      _buildFieldLabel(context.tr('blood_pressure', fallback: 'Blood Pressure')),
                       Row(
                         children: [
                           Expanded(
@@ -759,7 +952,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Sugar Level'),
+                                _buildFieldLabel(context.tr('sugar_level_plain', fallback: 'Sugar Level')),
                                 _buildTextField(
                                   controller: _sugarController,
                                   hint: '100 mg/dL',
@@ -783,7 +976,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Temperature'),
+                                _buildFieldLabel(context.tr('temperature', fallback: 'Temperature')),
                                 _buildTextField(
                                   controller: _tempController,
                                   hint: '98.6°F',
@@ -809,49 +1002,75 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
                 const SizedBox(height: 24),
                 _buildFormCard(
-                  title: 'Visit Details',
+                  title: context.tr('visit_details', fallback: 'Visit Details'),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Appointment Type *'),
+                      _buildFieldLabel(context.tr('appointment_type_req', fallback: 'Appointment Type *')),
                       _buildDropdown<String>(
                         hint: '',
                         value: _selectedApptType,
                         items: _apptTypes,
-                        itemLabel: (s) => s,
+                        itemLabel: (s) => _getTranslatedApptType(s),
                         onChanged: (val) =>
-                            setState(() => _selectedApptType = val!),
+                            setState(() => _selectedApptType = val ?? ''),
                       ),
                       const SizedBox(height: 16),
-                      _buildFieldLabel('Reason *'),
+                      _buildFieldLabel(context.tr('reason_req', fallback: 'Reason *')),
                       _buildTextField(
                         controller: _reasonController,
-                        hint: 'e.g. Regular check-up, fever, etc.',
+                        hint: context.tr('reason_hint', fallback: 'e.g. Regular check-up, fever, etc.'),
                         isNumeric: false,
+                        maxLength: 500,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                          ),
+                          LengthLimitingTextInputFormatter(500),
+                        ],
+                        validator: (val) {
+                          final text = val?.trim() ?? '';
+                          if (text.isEmpty) {
+                            return 'Reason for visit is required';
+                          }
+                          if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
+                            return 'Reason must contain at least one alphabet character';
+                          }
+                          if (text.length > 500) {
+                            return 'Reason must not exceed 500 characters';
+                          }
+                          return null;
+                        },
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
                 _buildFormCard(
-                  title: 'Department & Doctor',
+                  title: context.tr('department_doctor', fallback: 'Department & Doctor'),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Department *'),
+                      _buildFieldLabel(context.tr('department_req', fallback: 'Department *')),
                       _buildDropdown<String>(
                         hint: '',
                         value: _selectedDept,
                         items: _departments,
-                        itemLabel: (s) => s,
-                        onChanged: (val) => setState(() {
-                          _selectedDept = val;
-                          _selectedDoctor = null;
-                        }),
+                        itemLabel: (s) => _getTranslatedDepartment(s),
+                        onChanged: (val) {
+                          if (val != _selectedDept) {
+                            setState(() {
+                              _selectedDept = val;
+                              _selectedDoctor = null;
+                              _selectedTime = null;
+                            });
+                            _updateAvailableSlots();
+                          }
+                        },
                       ),
                       if (_selectedDept != null) ...[
                         const SizedBox(height: 24),
-                        _buildFieldLabel('Select Doctor *'),
+                        _buildFieldLabel(context.tr('select_doctor_req', fallback: 'Select Doctor *')),
                         const SizedBox(height: 4),
                         SizedBox(
                           height: 76,
@@ -861,10 +1080,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     (d) => d.specialization == _selectedDept,
                                   )
                                   .isEmpty
-                              ? const Center(
+                              ? Center(
                                   child: Text(
-                                    'No doctors available',
-                                    style: TextStyle(
+                                    context.tr('no_doctors_available', fallback: 'No doctors available'),
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey,
                                     ),
@@ -887,9 +1106,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                               d.specialization == _selectedDept,
                                         )
                                         .toList()[index];
-                                    final isSelected =
-                                        _selectedDoctor?.fullname ==
-                                        doc.fullname;
+                                    final isSelected = (_selectedDoctor?.id != null && _selectedDoctor?.id == doc.id) ||
+                                        (_selectedDoctor?.fullname.trim().toLowerCase() ==
+                                            doc.fullname.trim().toLowerCase());
                                     return InkWell(
                                       onTap: () {
                                         setState(() {
@@ -973,11 +1192,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
                 const SizedBox(height: 24),
                 _buildFormCard(
-                  title: 'Date & Time',
+                  title: context.tr('date_and_time', fallback: 'Date & Time'),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildFieldLabel('Appointment Date *'),
+                      _buildFieldLabel(context.tr('appointment_date_req', fallback: 'Appointment Date *')),
                       TextField(
                         controller: _dateController,
                         readOnly: true,
@@ -1051,17 +1270,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       ),
                       if (_bookingDate != null) ...[
                         const SizedBox(height: 24),
-                        _buildFieldLabel('Available Time Slots *'),
+                        _buildFieldLabel(context.tr('available_time_slots_req', fallback: 'Available Time Slots *')),
                         const SizedBox(height: 8),
                         () {
                           final filteredSlots = _getFilteredTimeSlots();
                           if (filteredSlots.isEmpty) {
-                            return const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 20),
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 20),
                               child: Center(
                                 child: Text(
-                                  'No more slots available for today',
-                                  style: TextStyle(
+                                  context.tr('no_slots_today', fallback: 'No more slots available for today'),
+                                  style: const TextStyle(
                                     color: Colors.red,
                                     fontSize: 12,
                                   ),
@@ -1154,9 +1373,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Appointment Summary',
-                        style: TextStyle(
+                      Text(
+                        context.tr('appointment_summary', fallback: 'Appointment Summary'),
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                           color: AppTheme.textPrimaryColor,
@@ -1167,30 +1386,37 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       if (_selectedPatient != null)
                         _buildSummaryItem(
                           Icons.person_outline,
-                          'Patient',
+                          context.tr('patient_name_label', fallback: 'Patient'),
                           _selectedPatient!.name,
                         ),
 
                       if (_selectedDoctor != null)
                         _buildSummaryItem(
                           Icons.medical_services_outlined,
-                          'Doctor',
+                          context.tr('doctor_label', fallback: 'Doctor'),
                           _selectedDoctor!.fullname,
-                          subtitle: _selectedDept,
+                          subtitle: _selectedDept != null ? _getTranslatedDepartment(_selectedDept!) : null,
                         ),
 
                       if (_bookingDate != null)
                         _buildSummaryItem(
                           Icons.calendar_month_outlined,
-                          'Date',
+                          context.tr('date_heading', fallback: 'Date'),
                           DateFormat('dd/MM/yyyy').format(_bookingDate!),
                         ),
 
                       if (_selectedTime != null)
                         _buildSummaryItem(
                           Icons.access_time,
-                          'Time',
+                          context.tr('time_heading', fallback: 'Time'),
                           _selectedTime!,
+                        ),
+
+                      if (_selectedApptType.isNotEmpty)
+                        _buildSummaryItem(
+                          Icons.info_outline,
+                          context.tr('type_heading', fallback: 'Type'),
+                          _getTranslatedApptType(_selectedApptType),
                         ),
 
                       const SizedBox(height: 8),
@@ -1207,6 +1433,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       _bpSystolicController.text.trim().isNotEmpty &&
                                       _tempController.text.trim().isNotEmpty;
                                   final appointment = AppointmentModel(
+                                    doctorId: _selectedDoctor?.id,
                                     patientId: _selectedPatient!.id!,
                                     patientName: _selectedPatient!.name,
                                     department: _selectedDept!,
@@ -1246,9 +1473,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   }
 
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
+                                    SnackBar(
                                       content: Text(
-                                        'Appointment Booked Successfully!',
+                                        context.tr('appointment_booked_success', fallback: 'Appointment Booked Successfully!'),
                                       ),
                                       backgroundColor: Colors.green,
                                     ),
@@ -1278,12 +1505,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           minimumSize: const Size(0, 52),
                           elevation: 0,
                         ),
-                        child: const Row(
+                        child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
-                              'Book Appointment',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                            Text(
+                              context.tr('book_appointment', fallback: 'Book Appointment'),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -1353,7 +1580,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Select Patient *'),
+                                _buildFieldLabel(context.tr('select_patient_req', fallback: 'Select Patient *')),
                                 _buildDropdown<PatientModel>(
                                   hint: '',
                                   value: _selectedPatient,
@@ -1367,12 +1594,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           ),
                           const SizedBox(height: 24),
                           _buildFormCard(
-                            title: 'Patient Vitals',
+                            title: context.tr('patient_vitals_label', fallback: 'Patient Vitals'),
                             headerExtra: TextButton(
                               onPressed: () {},
-                              child: const Text(
-                                'Collect vitals during booking',
-                                style: TextStyle(
+                              child: Text(
+                                context.tr('collect_vitals', fallback: 'Collect vitals during booking'),
+                                style: const TextStyle(
                                   fontSize: 11,
                                   color: AppTheme.primaryColor,
                                 ),
@@ -1387,7 +1614,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      _buildFieldLabel('Blood Pressure'),
+                                      _buildFieldLabel(context.tr('blood_pressure', fallback: 'Blood Pressure')),
                                       Row(
                                         children: [
                                           Expanded(
@@ -1448,7 +1675,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      _buildFieldLabel('Sugar Level'),
+                                      _buildFieldLabel(context.tr('sugar_level_plain', fallback: 'Sugar Level')),
                                       _buildTextField(
                                         controller: _sugarController,
                                         hint: '100 mg/dL',
@@ -1474,7 +1701,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      _buildFieldLabel('Temperature'),
+                                      _buildFieldLabel(context.tr('temperature', fallback: 'Temperature')),
                                       _buildTextField(
                                         controller: _tempController,
                                         hint: '98.6°F',
@@ -1497,49 +1724,75 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             ),
                           ),
                           _buildFormCard(
-                            title: 'Visit Details',
+                            title: context.tr('visit_details', fallback: 'Visit Details'),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Appointment Type *'),
+                                _buildFieldLabel(context.tr('appointment_type_req', fallback: 'Appointment Type *')),
                                 _buildDropdown<String>(
                                   hint: '',
                                   value: _selectedApptType,
                                   items: _apptTypes,
-                                  itemLabel: (s) => s,
+                                  itemLabel: (s) => _getTranslatedApptType(s),
                                   onChanged: (val) =>
-                                      setState(() => _selectedApptType = val!),
+                                      setState(() => _selectedApptType = val ?? ''),
                                 ),
                                 const SizedBox(height: 16),
-                                _buildFieldLabel('Reason *'),
+                                _buildFieldLabel(context.tr('reason_req', fallback: 'Reason *')),
                                 _buildTextField(
                                   controller: _reasonController,
-                                  hint: 'e.g. Regular check-up, fever, etc.',
+                                  hint: context.tr('reason_hint', fallback: 'e.g. Regular check-up, fever, etc.'),
                                   isNumeric: false,
+                                  maxLength: 500,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                                    ),
+                                    LengthLimitingTextInputFormatter(500),
+                                  ],
+                                  validator: (val) {
+                                    final text = val?.trim() ?? '';
+                                    if (text.isEmpty) {
+                                      return 'Reason for visit is required';
+                                    }
+                                    if (!RegExp(r'[a-zA-Z]').hasMatch(text)) {
+                                      return 'Reason must contain at least one alphabet character';
+                                    }
+                                    if (text.length > 500) {
+                                      return 'Reason must not exceed 500 characters';
+                                    }
+                                    return null;
+                                  },
                                 ),
                               ],
                             ),
                           ),
                           const SizedBox(height: 24),
                           _buildFormCard(
-                            title: 'Department & Doctor',
+                            title: context.tr('department_doctor', fallback: 'Department & Doctor'),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Department *'),
+                                _buildFieldLabel(context.tr('department_req', fallback: 'Department *')),
                                 _buildDropdown<String>(
                                   hint: '',
                                   value: _selectedDept,
                                   items: _departments,
-                                  itemLabel: (s) => s,
-                                  onChanged: (val) => setState(() {
-                                    _selectedDept = val;
-                                    _selectedDoctor = null;
-                                  }),
+                                  itemLabel: (s) => _getTranslatedDepartment(s),
+                                  onChanged: (val) {
+                                    if (val != _selectedDept) {
+                                      setState(() {
+                                        _selectedDept = val;
+                                        _selectedDoctor = null;
+                                        _selectedTime = null;
+                                      });
+                                      _updateAvailableSlots();
+                                    }
+                                  },
                                 ),
                                 if (_selectedDept != null) ...[
                                   const SizedBox(height: 24),
-                                  _buildFieldLabel('Select Doctor *'),
+                                  _buildFieldLabel(context.tr('select_doctor_req', fallback: 'Select Doctor *')),
                                   const SizedBox(height: 4),
                                   SizedBox(
                                     height: 76,
@@ -1551,10 +1804,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                   _selectedDept,
                                             )
                                             .isEmpty
-                                        ? const Center(
+                                        ? Center(
                                             child: Text(
-                                              'No doctors available in this department',
-                                              style: TextStyle(
+                                              context.tr('no_doctors_available', fallback: 'No doctors available in this department'),
+                                              style: const TextStyle(
                                                 fontSize: 12,
                                                 color: Colors.grey,
                                               ),
@@ -1579,9 +1832,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                                         _selectedDept,
                                                   )
                                                   .toList()[index];
-                                              final isSelected =
-                                                  _selectedDoctor?.fullname ==
-                                                  doc.fullname;
+                                              final isSelected = (_selectedDoctor?.id != null && _selectedDoctor?.id == doc.id) ||
+                                                  (_selectedDoctor?.fullname.trim().toLowerCase() ==
+                                                      doc.fullname.trim().toLowerCase());
                                               return InkWell(
                                                 onTap: () {
                                                   setState(() {
@@ -1701,11 +1954,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           ),
                           const SizedBox(height: 24),
                           _buildFormCard(
-                            title: 'Date & Time',
+                            title: context.tr('date_and_time', fallback: 'Date & Time'),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildFieldLabel('Appointment Date *'),
+                                _buildFieldLabel(context.tr('appointment_date_req', fallback: 'Appointment Date *')),
                                 TextField(
                                   controller: _dateController,
                                   readOnly: true,
@@ -1779,20 +2032,20 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 ),
                                 if (_bookingDate != null) ...[
                                   const SizedBox(height: 24),
-                                  _buildFieldLabel('Available Time Slots *'),
+                                  _buildFieldLabel(context.tr('available_time_slots_req', fallback: 'Available Time Slots *')),
                                   const SizedBox(height: 8),
                                   () {
                                     final filteredSlots =
                                         _getFilteredTimeSlots();
                                     if (_selectedDoctor == null) {
-                                      return const Padding(
-                                        padding: EdgeInsets.symmetric(
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
                                           vertical: 20,
                                         ),
                                         child: Center(
                                           child: Text(
-                                            'Please select a doctor to see available time slots',
-                                            style: TextStyle(
+                                            context.tr('select_doctor_req', fallback: 'Please select a doctor to see available time slots'),
+                                            style: const TextStyle(
                                               color: Colors.red,
                                               fontSize: 12,
                                               fontWeight: FontWeight.bold,
@@ -1802,14 +2055,14 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       );
                                     }
                                     if (filteredSlots.isEmpty) {
-                                      return const Padding(
-                                        padding: EdgeInsets.symmetric(
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(
                                           vertical: 20,
                                         ),
                                         child: Center(
                                           child: Text(
-                                            'No more slots available for today',
-                                            style: TextStyle(
+                                            context.tr('no_slots_today', fallback: 'No more slots available for today'),
+                                            style: const TextStyle(
                                               color: Colors.red,
                                               fontSize: 12,
                                             ),
@@ -1914,9 +2167,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Appointment Summary',
-                              style: TextStyle(
+                            Text(
+                              context.tr('appointment_summary', fallback: 'Appointment Summary'),
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 14,
                                 color: AppTheme.textPrimaryColor,
@@ -1927,22 +2180,22 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             if (_selectedPatient != null)
                               _buildSummaryItem(
                                 Icons.person_outline,
-                                'Patient',
+                                context.tr('patient_name_label', fallback: 'Patient'),
                                 _selectedPatient!.name,
                               ),
 
                             if (_selectedDoctor != null)
                               _buildSummaryItem(
                                 Icons.medical_services_outlined,
-                                'Doctor',
+                                context.tr('doctor_label', fallback: 'Doctor'),
                                 _selectedDoctor!.fullname,
-                                subtitle: _selectedDept,
+                                subtitle: _selectedDept != null ? _getTranslatedDepartment(_selectedDept!) : null,
                               ),
 
                             if (_bookingDate != null)
                               _buildSummaryItem(
                                 Icons.calendar_month_outlined,
-                                'Date',
+                                context.tr('date_heading', fallback: 'Date'),
                                 DateFormat(
                                   'dd/MM/yyyy',
                                 ).format(_bookingDate!),
@@ -1951,15 +2204,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             if (_selectedTime != null)
                               _buildSummaryItem(
                                 Icons.access_time,
-                                'Time',
+                                context.tr('time_heading', fallback: 'Time'),
                                 _selectedTime!,
                               ),
 
-                            _buildSummaryItem(
-                              Icons.info_outline,
-                              'Type',
-                              _selectedApptType,
-                            ),
+                            if (_selectedApptType.isNotEmpty)
+                              _buildSummaryItem(
+                                Icons.info_outline,
+                                context.tr('type_heading', fallback: 'Type'),
+                                _getTranslatedApptType(_selectedApptType),
+                              ),
 
                             const SizedBox(height: 8),
                             ElevatedButton(
@@ -1975,6 +2229,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                             _bpSystolicController.text.trim().isNotEmpty &&
                                             _tempController.text.trim().isNotEmpty;
                                         final appointment = AppointmentModel(
+                                          doctorId: _selectedDoctor?.id,
                                           patientId: _selectedPatient!.id!,
                                           patientName: _selectedPatient!.name,
                                           department: _selectedDept!,
@@ -2017,9 +2272,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                         ScaffoldMessenger.of(
                                           context,
                                         ).showSnackBar(
-                                          const SnackBar(
+                                          SnackBar(
                                             content: Text(
-                                              'Appointment Booked Successfully!',
+                                              context.tr('appointment_booked_success', fallback: 'Appointment Booked Successfully!'),
                                             ),
                                             backgroundColor: Colors.green,
                                           ),
@@ -2051,12 +2306,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 minimumSize: const Size(0, 44),
                                 elevation: 0,
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Text(
-                                    'Book Appointment',
-                                    style: TextStyle(
+                                  Text(
+                                    context.tr('book_appointment', fallback: 'Book Appointment'),
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -2192,8 +2447,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           (isNumeric
               ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
               : [
-                  FilteringTextInputFormatter.deny(RegExp(r'[0-9]')),
-                  LengthLimitingTextInputFormatter(100),
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                  ),
+                  LengthLimitingTextInputFormatter(maxLength ?? 500),
                 ]),
     );
   }
@@ -2257,6 +2514,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   void _validateVitals() {
+    final reasonText = _reasonController.text.trim();
+    if (reasonText.isEmpty) {
+      throw 'Reason for visit is required';
+    }
+    if (!RegExp(r'[a-zA-Z]').hasMatch(reasonText)) {
+      throw 'Reason for visit must contain at least one alphabet character';
+    }
+    if (reasonText.length > 500) {
+      throw 'Reason for visit must not exceed 500 characters';
+    }
+
     final sysText = _bpSystolicController.text.trim();
     final diaText = _bpDiastolicController.text.trim();
     final sugarText = _sugarController.text.trim();
@@ -2390,10 +2658,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
   Widget _buildViewSwitcher() {
     final modes = [
-      {'key': 'Table', 'label': 'Table View'},
-      {'key': 'Hospital', 'label': 'Hospital View'},
-      {'key': 'Doctor', 'label': 'Doctor View'},
-      {'key': 'Both', 'label': 'Both View'},
+      {'key': 'Table', 'label': context.tr('table_view', fallback: 'Table View')},
+      {'key': 'Hospital', 'label': context.tr('hospital_view', fallback: 'Hospital View')},
+      {'key': 'Doctor', 'label': context.tr('doctor_view', fallback: 'Doctor View')},
+      {'key': 'Both', 'label': context.tr('hospital_doctor_view', fallback: 'Hospital & Doctor View')},
     ];
     return Container(
       padding: const EdgeInsets.all(4),
@@ -2449,9 +2717,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Appointments',
-            style: TextStyle(
+          Text(
+            context.tr('appointments', fallback: 'Appointments'),
+            style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: AppTheme.textPrimaryColor,
@@ -2459,7 +2727,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Manage and schedule patient appointments',
+            context.tr('manage_appointments_sub', fallback: 'Manage and schedule patient appointments'),
             style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
           ),
           const SizedBox(height: 12),
@@ -2468,28 +2736,57 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             child: _buildViewSwitcher(),
           ),
           const SizedBox(height: 12),
-          ElevatedButton.icon(
-            onPressed: () {
-              final path = GoRouterState.of(context).matchedLocation;
-              if (path.startsWith('/nurse')) {
-                context.go(AppRoutes.nurseBookAppointment);
-              } else if (path.startsWith('/reception')) {
-                context.go(AppRoutes.frontDeskBookAppointment);
-              } else {
-                setState(() => _isBookingAppointment = true);
-              }
-            },
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text('Book Appointment'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryColor,
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isLoadingData ? null : _fetchData,
+                  icon: _isLoadingData
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh, size: 18),
+                  label: Text(context.tr('refresh', fallback: 'Refresh')),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    side: const BorderSide(color: AppTheme.primaryColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    minimumSize: const Size(0, 44),
+                  ),
+                ),
               ),
-              elevation: 0,
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    final path = GoRouterState.of(context).matchedLocation;
+                    if (path.startsWith('/nurse')) {
+                      context.go(AppRoutes.nurseBookAppointment);
+                    } else if (path.startsWith('/reception')) {
+                      context.go(AppRoutes.frontDeskBookAppointment);
+                    } else {
+                      setState(() => _isBookingAppointment = true);
+                    }
+                  },
+                  icon: const Icon(Icons.add, size: 20),
+                  label: Text(context.tr('book_appointment', fallback: 'Book Appointment')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(0, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       );
@@ -2504,9 +2801,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Appointments',
-                  style: TextStyle(
+                Text(
+                  context.tr('appointments', fallback: 'Appointments'),
+                  style: const TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textPrimaryColor,
@@ -2514,7 +2811,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Manage and schedule patient appointments',
+                  context.tr('manage_appointments_sub', fallback: 'Manage and schedule patient appointments'),
                   style: TextStyle(
                     color: AppTheme.textSecondaryColor,
                     fontSize: 14,
@@ -2522,28 +2819,52 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 ),
               ],
             ),
-            ElevatedButton.icon(
-              onPressed: () {
-                final path = GoRouterState.of(context).matchedLocation;
-                if (path.startsWith('/nurse')) {
-                  context.go(AppRoutes.nurseBookAppointment);
-                } else if (path.startsWith('/reception')) {
-                  context.go(AppRoutes.frontDeskBookAppointment);
-                } else {
-                  setState(() => _isBookingAppointment = true);
-                }
-              },
-              icon: const Icon(Icons.add, size: 20),
-              label: const Text('Book Appointment'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(180, 44),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _isLoadingData ? null : _fetchData,
+                  icon: _isLoadingData
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh, size: 18),
+                  label: Text(context.tr('refresh', fallback: 'Refresh')),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    side: const BorderSide(color: AppTheme.primaryColor),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    minimumSize: const Size(120, 44),
+                  ),
                 ),
-                elevation: 0,
-              ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    final path = GoRouterState.of(context).matchedLocation;
+                    if (path.startsWith('/nurse')) {
+                      context.go(AppRoutes.nurseBookAppointment);
+                    } else if (path.startsWith('/reception')) {
+                      context.go(AppRoutes.frontDeskBookAppointment);
+                    } else {
+                      setState(() => _isBookingAppointment = true);
+                    }
+                  },
+                  icon: const Icon(Icons.add, size: 20),
+                  label: Text(context.tr('book_appointment', fallback: 'Book Appointment')),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size(180, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -2574,26 +2895,28 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        double cardWidth = (constraints.maxWidth - (16 * 2)) / 3;
+        if (constraints.maxWidth <= 0) return const SizedBox.shrink();
+        double cardWidth =
+            math.max(0.0, (constraints.maxWidth - (16 * 2)) / 3);
         if (isMobile) {
           return Wrap(
             spacing: 16,
             runSpacing: 16,
             children: [
               _buildStatCard(
-                'Total Today',
+                context.tr('total_today', fallback: 'Total Today'),
                 total.toString(),
                 icon: Icons.calendar_today_rounded,
                 accentColor: const Color(0xFF005691),
               ),
               _buildStatCard(
-                'Confirmed',
+                context.tr('confirmed', fallback: 'Confirmed'),
                 confirmed.toString(),
                 icon: Icons.check_circle_rounded,
                 accentColor: const Color(0xFF16A34A),
               ),
               _buildStatCard(
-                'Cancelled',
+                context.tr('cancelled', fallback: 'Cancelled'),
                 cancelled.toString(),
                 icon: Icons.cancel_rounded,
                 accentColor: const Color(0xFFDC2626),
@@ -2605,7 +2928,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             _buildStatCard(
-              'Total Today',
+              context.tr('total_today', fallback: 'Total Today'),
               total.toString(),
               icon: Icons.calendar_today_rounded,
               accentColor: const Color(0xFF005691),
@@ -2613,7 +2936,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
             const SizedBox(width: 16),
             _buildStatCard(
-              'Confirmed',
+              context.tr('confirmed', fallback: 'Confirmed'),
               confirmed.toString(),
               icon: Icons.check_circle_rounded,
               accentColor: const Color(0xFF16A34A),
@@ -2621,7 +2944,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
             const SizedBox(width: 16),
             _buildStatCard(
-              'Cancelled',
+              context.tr('cancelled', fallback: 'Cancelled'),
               cancelled.toString(),
               icon: Icons.cancel_rounded,
               accentColor: const Color(0xFFDC2626),
@@ -2707,35 +3030,44 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       margin: const EdgeInsets.only(bottom: 16),
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppTheme.borderColor),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.search,
             size: 20,
-            color: AppTheme.textSecondaryColor,
+            color: AppTheme.getTextSecondaryColor(context),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
               controller: _apptSearchController,
+              style: TextStyle(
+                color: AppTheme.getTextPrimaryColor(context),
+                fontSize: 14,
+              ),
               onChanged: (v) => setState(() {
                 _searchQuery = v;
                 _currentPage = 0;
               }),
-              decoration: const InputDecoration(
-                hintText: 'Search appointments by patient, doctor, or department...',
+              decoration: InputDecoration(
+                hintText: context.tr('search_appointments', fallback: 'Search appointments by patient, doctor, or department...'),
                 hintStyle: TextStyle(
                   fontSize: 14,
-                  color: AppTheme.textSecondaryColor,
+                  color: AppTheme.getTextSecondaryColor(context),
                 ),
+                filled: false,
+                fillColor: Colors.transparent,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
+                disabledBorder: InputBorder.none,
+                errorBorder: InputBorder.none,
+                focusedErrorBorder: InputBorder.none,
                 isDense: true,
               ),
             ),
@@ -2762,7 +3094,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           CustomDropdownSearch(
             label: '',
             value: _selectedStatus,
-            dropdownItems: const ['All Status', 'Confirmed', 'Cancelled'],
+            dropdownMap: {
+              'All Status': context.tr('all_status', fallback: 'All Status'),
+              'Confirmed': context.tr('status_confirmed', fallback: 'Confirmed'),
+              'Waiting': context.tr('status_waiting', fallback: 'Waiting'),
+              'In Consultation': context.tr('status_in_consultation', fallback: 'In Consultation'),
+              'Completed': context.tr('status_completed', fallback: 'Completed'),
+              'No Show': context.tr('status_no_show', fallback: 'No Show'),
+              'Cancelled': context.tr('status_cancelled', fallback: 'Cancelled'),
+            },
             height: 48,
             onChanged: (val) {
               if (val != null) {
@@ -2778,16 +3118,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: AppTheme.isDark(context) ? AppTheme.darkInputFillColor : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.borderColor),
+              border: Border.all(color: AppTheme.getBorderColor(context)),
             ),
             child: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.calendar_today,
                   size: 16,
-                  color: Color(0xFF64748B),
+                  color: AppTheme.getTextSecondaryColor(context),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -2812,7 +3152,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         _filterDate == null
                             ? 'Select Date'
                             : DateFormat('dd/MM/yyyy').format(_filterDate!),
-                        style: const TextStyle(fontSize: 14),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.getTextPrimaryColor(context),
+                        ),
                       ),
                     ),
                   ),
@@ -2844,7 +3187,15 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               child: CustomDropdownSearch(
                 label: '',
                 value: _selectedStatus,
-                dropdownItems: const ['All Status', 'Confirmed', 'Cancelled'],
+                dropdownMap: {
+                  'All Status': context.tr('all_status', fallback: 'All Status'),
+                  'Confirmed': context.tr('status_confirmed', fallback: 'Confirmed'),
+                  'Waiting': context.tr('status_waiting', fallback: 'Waiting'),
+                  'In Consultation': context.tr('status_in_consultation', fallback: 'In Consultation'),
+                  'Completed': context.tr('status_completed', fallback: 'Completed'),
+                  'No Show': context.tr('status_no_show', fallback: 'No Show'),
+                  'Cancelled': context.tr('status_cancelled', fallback: 'Cancelled'),
+                },
                 height: 48,
                 onChanged: (val) {
                   if (val != null) {
@@ -2860,16 +3211,16 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: AppTheme.isDark(context) ? AppTheme.darkInputFillColor : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.borderColor),
+                border: Border.all(color: AppTheme.getBorderColor(context)),
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.calendar_today,
                     size: 16,
-                    color: Color(0xFF64748B),
+                    color: AppTheme.getTextSecondaryColor(context),
                   ),
                   const SizedBox(width: 12),
                   InkWell(
@@ -2893,7 +3244,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         _filterDate == null
                             ? 'Select Date'
                             : DateFormat('dd/MM/yyyy').format(_filterDate!),
-                        style: const TextStyle(fontSize: 14),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.getTextPrimaryColor(context),
+                        ),
                       ),
                     ),
                   ),
@@ -2919,8 +3273,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       if (a.status.toLowerCase() == 'admitted') {
         return false;
       }
-      if (_selectedStatus != 'All Status' && a.status != _selectedStatus) {
-        return false;
+      if (_selectedStatus != 'All Status') {
+        final currentNormalized = a.status.toLowerCase().replaceAll('-', ' ').trim();
+        final filterNormalized = _selectedStatus.toLowerCase().replaceAll('-', ' ').trim();
+        if (currentNormalized != filterNormalized) {
+          return false;
+        }
       }
       if (_filterDate != null) {
         String apptDate = a.appointmentDate;
@@ -3018,17 +3376,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: const BoxDecoration(
-              color: Color(0xFFEDF2F7),
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: AppTheme.isDark(context) ? AppTheme.darkSurfaceColor : const Color(0xFFEDF2F7),
+              borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
@@ -3077,13 +3435,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     final statusBg = AppTheme.getStatusBgColor(appt.status);
     
     final bool hasVitals = appt.bloodPressureSystolic != null && appt.temperature != null;
+    final apptDt = DateFormatter.toDateTime(appt.appointmentDate);
+    final bool isFuture = apptDt != null &&
+        DateTime(apptDt.year, apptDt.month, apptDt.day)
+            .isAfter(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day));
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3116,7 +3478,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        appt.patientName,
+                        TamilTransliterationHelper.translate(context, appt.patientName),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -3140,7 +3502,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  appt.status,
+                  _getTranslatedStatus(appt.status),
                   style: TextStyle(
                     color: statusColor,
                     fontSize: 10,
@@ -3175,7 +3537,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   style: const TextStyle(fontSize: 13, color: Color(0xFF475569)),
                   children: [
                     if (appt.doctorDisplayId != null &&
-                        appt.doctorDisplayId!.isNotEmpty)
+                        appt.doctorDisplayId!.isNotEmpty &&
+                        !appt.doctorDisplayId!.startsWith('SPMC-AN'))
                       TextSpan(
                         text: ' (${appt.doctorDisplayId})',
                         style: const TextStyle(
@@ -3199,12 +3562,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               ),
               const SizedBox(width: 8),
               Text(
-                appt.department,
+                _getTranslatedDepartment(appt.department),
                 style: const TextStyle(fontSize: 13, color: Color(0xFF3B82F6)),
               ),
               const Spacer(),
               Text(
-                appt.appointmentType,
+                _getTranslatedApptType(appt.appointmentType),
                 style: TextStyle(
                   fontSize: 10,
                   color: appt.appointmentType == 'Emergency'
@@ -3224,9 +3587,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 color: const Color(0xFFF3E8FF),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
-                'Rescheduled',
-                style: TextStyle(
+              child: Text(
+                context.tr('rescheduled', fallback: 'Rescheduled'),
+                style: const TextStyle(
                   color: Color(0xFF9333EA),
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
@@ -3246,7 +3609,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     OutlinedButton.icon(
                       onPressed: () => _openViewDetailsDialog(context, appt),
                       icon: const Icon(Icons.visibility, size: 12),
-                      label: const Text('View Details', style: TextStyle(fontSize: 11)),
+                      label: Text(context.tr('view_details', fallback: 'View Details'), style: const TextStyle(fontSize: 11)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppTheme.primaryColor,
                         side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
@@ -3256,11 +3619,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       ),
                     ),
                     if (appt.status == 'Confirmed') ...[
-                      if (!hasVitals)
+                      if (!hasVitals && !isFuture)
                         ElevatedButton.icon(
                           onPressed: () => _openVitalsEntryDialog(context, appt),
                           icon: const Icon(Icons.monitor_heart, size: 12, color: Colors.white),
-                          label: const Text('Add Vitals', style: TextStyle(fontSize: 11)),
+                          label: Text(context.tr('add_vitals', fallback: 'Add Vitals'), style: const TextStyle(fontSize: 11)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0F766E),
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -3274,30 +3637,153 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           String? cancelReason;
                           await showDialog(
                             context: context,
-                            builder: (context) {
+                            builder: (dialogCtx) {
                               final ctrl = TextEditingController();
+                              final formKey = GlobalKey<FormState>();
                               return AlertDialog(
-                                title: const Text('Cancel Appointment'),
-                                content: TextField(
-                                  controller: ctrl,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Enter cancellation reason (required)',
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                title: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.dangerColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.cancel_outlined,
+                                        color: AppTheme.dangerColor,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Text(
+                                      'Cancel Appointment',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                content: SizedBox(
+                                  width: 400,
+                                  child: Form(
+                                    key: formKey,
+                                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Are you sure you want to cancel the appointment for ${appt.patientName}?',
+                                          style: const TextStyle(
+                                            color: AppTheme.textSecondaryColor,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        const Text(
+                                          'Reason for Cancellation *',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        TextFormField(
+                                          controller: ctrl,
+                                          maxLines: 3,
+                                          maxLength: 200,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                                            ),
+                                            LengthLimitingTextInputFormatter(200),
+                                          ],
+                                          validator: (val) {
+                                            final v = val?.trim() ?? '';
+                                            if (v.isEmpty) {
+                                              return 'Please enter a cancellation reason';
+                                            }
+                                            if (v.length < 3) {
+                                              return 'Reason must be at least 3 characters';
+                                            }
+                                            if (v.length > 200) {
+                                              return 'Reason cannot exceed 200 characters';
+                                            }
+                                            if (!RegExp(r'[a-zA-Z]').hasMatch(v)) {
+                                              return 'Reason must contain alphabetic characters';
+                                            }
+                                            return null;
+                                          },
+                                          decoration: InputDecoration(
+                                            hintText: 'e.g. Patient requested cancellation due to personal emergency',
+                                            hintStyle: const TextStyle(
+                                              fontSize: 13,
+                                              color: AppTheme.textSecondaryColor,
+                                            ),
+                                            fillColor: const Color(0xFFF1F5F9),
+                                            filled: true,
+                                            contentPadding: const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 14,
+                                            ),
+                                            border: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: AppTheme.borderColor),
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: AppTheme.borderColor),
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                                            ),
+                                            errorBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                                            ),
+                                            focusedErrorBorder: OutlineInputBorder(
+                                              borderRadius: BorderRadius.circular(10),
+                                              borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                                 actions: [
-                                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
+                                  OutlinedButton(
+                                    onPressed: () => Navigator.pop(dialogCtx),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.textSecondaryColor,
+                                      side: const BorderSide(color: AppTheme.borderColor),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Text('Keep Appointment'),
+                                  ),
                                   ElevatedButton(
                                     onPressed: () {
-                                      if (ctrl.text.trim().isNotEmpty) {
+                                      if (formKey.currentState!.validate()) {
                                         cancelReason = ctrl.text.trim();
-                                        Navigator.pop(context);
-                                      } else {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Reason is required')),
-                                        );
+                                        Navigator.pop(dialogCtx);
                                       }
                                     },
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.dangerColor,
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
                                     child: const Text('Cancel Appointment'),
                                   ),
                                 ],
@@ -3371,14 +3857,37 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     int flex = 1,
     double leftPadding = 0,
   }) {
+    String translated = label;
+    if (label == 'Time') {
+      translated = context.tr('time', fallback: label);
+    } else if (label == 'Date') {
+      translated = context.tr('date', fallback: label);
+    } else if (label == 'Patient') {
+      translated = context.tr('patient_name', fallback: label);
+    } else if (label == 'Department') {
+      translated = context.tr('department', fallback: label);
+    } else if (label == 'Doctor') {
+      translated = context.tr('doctor', fallback: label);
+    } else if (label == 'Type') {
+      translated = context.tr('type', fallback: label);
+    } else if (label == 'Reason') {
+      translated = context.tr('reason', fallback: label);
+    } else if (label == 'Status') {
+      translated = context.tr('status', fallback: label);
+    } else if (label == 'Actions') {
+      translated = context.tr('actions', fallback: label);
+    }
+
     return Expanded(
       flex: flex,
       child: Padding(
         padding: EdgeInsets.only(left: leftPadding),
         child: Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF64748B),
+          translated,
+          style: TextStyle(
+            color: AppTheme.isDark(context)
+                ? AppTheme.darkTextSecondaryColor
+                : const Color(0xFF64748B),
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -3397,7 +3906,21 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         ? appt.patientDisplayId!
         : appt.patientId.toString();
     final doctorName = appt.doctorName;
-    final doctorDisplayId = appt.doctorDisplayId;
+    UserModel? docModel;
+    try {
+      docModel = _doctors.firstWhere(
+        (d) => (appt.doctorId != null && d.id == appt.doctorId) || _isSameDoctor(d.fullname, appt.doctorName),
+      );
+    } catch (_) {}
+    final String? doctorDisplayId = (appt.doctorDisplayId != null &&
+            appt.doctorDisplayId!.isNotEmpty &&
+            !appt.doctorDisplayId!.startsWith('SPMC-AN'))
+        ? appt.doctorDisplayId
+        : (docModel?.staffUniqueId != null &&
+                docModel!.staffUniqueId!.isNotEmpty &&
+                !docModel.staffUniqueId!.startsWith('SPMC-AN')
+            ? docModel.staffUniqueId
+            : null);
     final type = appt.appointmentType;
     final department = appt.department;
     final reason = appt.reasonForVisit?.isNotEmpty == true ? appt.reasonForVisit! : 'N/A';
@@ -3406,6 +3929,10 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     final statusBg = AppTheme.getStatusBgColor(appt.status);
     final isRescheduled = appt.isRescheduled;
     final bool hasVitals = appt.bloodPressureSystolic != null && appt.temperature != null;
+    final apptDt = DateFormatter.toDateTime(appt.appointmentDate);
+    final bool isFuture = apptDt != null &&
+        DateTime(apptDt.year, apptDt.month, apptDt.day)
+            .isAfter(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day));
 
     final now = DateTime.now();
     bool isToday = false;
@@ -3468,7 +3995,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    isToday ? 'Today' : _formatDate(date),
+                    isToday ? context.tr('today', fallback: 'Today') : _formatDate(date),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -3486,9 +4013,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       color: const Color(0xFFF3E8FF),
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: const Text(
-                      'Resched',
-                      style: TextStyle(
+                    child: Text(
+                      context.tr('rescheduled', fallback: 'Resched'),
+                      style: const TextStyle(
                         color: Color(0xFF9333EA),
                         fontSize: 8,
                         fontWeight: FontWeight.bold,
@@ -3528,7 +4055,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        patientName,
+                        TamilTransliterationHelper.translate(context, patientName),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -3557,7 +4084,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             child: Padding(
               padding: const EdgeInsets.only(right: 12.0),
               child: Text(
-                department,
+                _getTranslatedDepartment(department),
                 style: const TextStyle(
                   fontSize: 13,
                   color: Color(0xFF3B82F6),
@@ -3617,7 +4144,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             child: Padding(
               padding: const EdgeInsets.only(right: 12.0),
               child: Text(
-                type,
+                _getTranslatedApptType(type),
                 style: TextStyle(
                   fontSize: 13,
                   color: type == 'Emergency'
@@ -3651,7 +4178,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                status,
+                _getTranslatedStatus(status),
                 style: TextStyle(
                   color: statusColor,
                   fontSize: 11,
@@ -3672,52 +4199,175 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 children: [
                   _buildActionLabel(
                     Icons.visibility_outlined,
-                    'View',
+                    context.tr('view', fallback: 'View'),
                     const Color(0xFF3182CE),
                     onTap: () => _openViewDetailsDialog(context, appt),
                   ),
                   if (status == 'Confirmed') ...[
-                    if (!hasVitals) ...[
+                    if (!hasVitals && !isFuture) ...[
                       _buildActionLabel(
                         Icons.monitor_heart_outlined,
-                        'Add Vitals',
+                        context.tr('add_vitals', fallback: 'Add Vitals'),
                         const Color(0xFF0F766E),
                         onTap: () => _openVitalsEntryDialog(context, appt),
                       ),
                     ],
                     _buildActionLabel(
                       Icons.cancel_outlined,
-                      'Cancel',
+                      context.tr('cancel', fallback: 'Cancel'),
                       Colors.redAccent,
                       onTap: () async {
                         String? cancelReason;
                         await showDialog(
                           context: context,
-                          builder: (context) {
+                          builder: (dialogCtx) {
                             final ctrl = TextEditingController();
+                            final formKey = GlobalKey<FormState>();
                             return AlertDialog(
-                              title: const Text('Cancel Appointment'),
-                              content: TextField(
-                                controller: ctrl,
-                                decoration: const InputDecoration(
-                                  hintText: 'Enter cancellation reason (required)',
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              title: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.dangerColor.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(
+                                      Icons.cancel_outlined,
+                                      color: AppTheme.dangerColor,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    'Cancel Appointment',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              content: SizedBox(
+                                width: 400,
+                                child: Form(
+                                  key: formKey,
+                                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Are you sure you want to cancel the appointment for ${appt.patientName}?',
+                                        style: const TextStyle(
+                                          color: AppTheme.textSecondaryColor,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text(
+                                        'Reason for Cancellation *',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      TextFormField(
+                                        controller: ctrl,
+                                        maxLines: 3,
+                                        maxLength: 200,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'[a-zA-Z0-9\s.,/#\-\(\):;]'),
+                                          ),
+                                          LengthLimitingTextInputFormatter(200),
+                                        ],
+                                        validator: (val) {
+                                          final v = val?.trim() ?? '';
+                                          if (v.isEmpty) {
+                                            return 'Please enter a cancellation reason';
+                                          }
+                                          if (v.length < 3) {
+                                            return 'Reason must be at least 3 characters';
+                                          }
+                                          if (v.length > 200) {
+                                            return 'Reason cannot exceed 200 characters';
+                                          }
+                                          if (!RegExp(r'[a-zA-Z]').hasMatch(v)) {
+                                            return 'Reason must contain alphabetic characters';
+                                          }
+                                          return null;
+                                        },
+                                        decoration: InputDecoration(
+                                          hintText: 'e.g. Patient requested cancellation due to personal emergency',
+                                          hintStyle: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppTheme.textSecondaryColor,
+                                          ),
+                                          fillColor: const Color(0xFFF1F5F9),
+                                          filled: true,
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 14,
+                                          ),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: AppTheme.borderColor),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: AppTheme.borderColor),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                                          ),
+                                          errorBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                                          ),
+                                          focusedErrorBorder: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                               actions: [
-                                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Back')),
+                                OutlinedButton(
+                                  onPressed: () => Navigator.pop(dialogCtx),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppTheme.textSecondaryColor,
+                                    side: const BorderSide(color: AppTheme.borderColor),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: const Text('Keep Appointment'),
+                                ),
                                 ElevatedButton(
                                   onPressed: () {
-                                    if (ctrl.text.trim().isNotEmpty) {
+                                    if (formKey.currentState!.validate()) {
                                       cancelReason = ctrl.text.trim();
-                                      Navigator.pop(context);
-                                    } else {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Reason is required')),
-                                      );
+                                      Navigator.pop(dialogCtx);
                                     }
                                   },
-                                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                                  child: const Text('Cancel'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.dangerColor,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: const Text('Cancel Appointment'),
                                 ),
                               ],
                             );
@@ -3757,7 +4407,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Text(
-            'Page ${_currentPage + 1} of $totalPages',
+            context.pageOfTotal(_currentPage + 1, totalPages),
             style: const TextStyle(
               fontSize: 13,
               color: AppTheme.textSecondaryColor,
@@ -3783,9 +4433,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.chevron_left, size: 18),
-                Text('Prev'),
+              children: [
+                const Icon(Icons.chevron_left, size: 18),
+                Text(context.tr('prev', fallback: 'Prev')),
               ],
             ),
           ),
@@ -3808,9 +4458,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Text('Next'),
-                Icon(Icons.chevron_right, size: 18),
+              children: [
+                Text(context.tr('next', fallback: 'Next')),
+                const Icon(Icons.chevron_right, size: 18),
               ],
             ),
           ),

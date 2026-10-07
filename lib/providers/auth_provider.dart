@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../controllers/auth_controller.dart';
@@ -20,12 +21,17 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
 
         // Then refresh with live data from backend (picks up profile changes & new fields)
-        final freshUser = await _authController.fetchMe();
-        if (freshUser != null) {
-          // Preserve the local token if backend doesn't return one
-          _user = freshUser.copyWith(token: freshUser.token ?? _user?.token);
-          await TokenService.saveUser(jsonEncode(_user!.toJson()));
-          notifyListeners();
+        try {
+          final freshUser = await _authController.fetchMe();
+          if (freshUser != null) {
+            // Preserve the local token if backend doesn't return one
+            _user = freshUser.copyWith(token: freshUser.token ?? _user?.token);
+            await TokenService.saveUser(jsonEncode(_user!.toJson()));
+            notifyListeners();
+          }
+        } on UnauthorizedSessionException {
+          // Token is expired or unauthorized -> log out cleanly so user can log in
+          await logout();
         }
       }
     } catch (e) {
@@ -62,11 +68,37 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
+    // On cold-start the first request can fail with a transient
+    // ServerUnavailableException / RequestTimeoutException because the
+    // browser or OS connection isn't warmed up yet.  We silently retry
+    // once after a short delay before surfacing an error to the user.
+    bool _retried = false;
+
+    Future<UserModel?> _attemptLogin() async {
+      try {
+        return await _authController.login(
+          email: email,
+          password: password,
+        );
+      } on ServerUnavailableException {
+        if (!_retried) {
+          _retried = true;
+          await Future.delayed(const Duration(seconds: 2));
+          return _attemptLogin();
+        }
+        rethrow;
+      } on RequestTimeoutException {
+        if (!_retried) {
+          _retried = true;
+          await Future.delayed(const Duration(seconds: 2));
+          return _attemptLogin();
+        }
+        rethrow;
+      }
+    }
+
     try {
-      final user = await _authController.login(
-        email: email,
-        password: password,
-      );
+      final user = await _attemptLogin();
 
       if (user != null) {
         _user = user;
@@ -157,5 +189,13 @@ class AuthProvider extends ChangeNotifier {
     _user = newUser;
     TokenService.saveUser(jsonEncode(newUser.toJson()));
     notifyListeners();
+  }
+
+  void updatePreferredLanguage(String lang) {
+    if (_user != null) {
+      _user = _user!.copyWith(preferredLanguage: lang);
+      TokenService.saveUser(jsonEncode(_user!.toJson()));
+      notifyListeners();
+    }
   }
 }

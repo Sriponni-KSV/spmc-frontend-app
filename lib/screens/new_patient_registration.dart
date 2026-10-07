@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
+import '../providers/language_provider.dart';
 import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../models/patient_model.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../utils/unsaved_changes_helper.dart';
+import '../utils/capitalize_formatter.dart';
 
 class NewPatientRegistrationView extends StatefulWidget {
   final VoidCallback onBack;
@@ -499,7 +502,7 @@ class _NewPatientRegistrationViewState
 
   @override
   void dispose() {
-    UnsavedChangesHelper.setUnsavedChanges(false);
+    UnsavedChangesHelper.clear();
     _nameController.dispose();
     _dobController.dispose();
     _ageController.dispose();
@@ -648,10 +651,10 @@ class _NewPatientRegistrationViewState
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Discard Unsaved Changes?',
-                      style: TextStyle(
+                      ctx.tr('discard_unsaved_changes', fallback: 'Discard Unsaved Changes?'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                         color: AppTheme.textPrimaryColor,
@@ -662,9 +665,9 @@ class _NewPatientRegistrationViewState
                 ],
               ),
               const SizedBox(height: 14),
-              const Text(
-                'You have unsaved form entries. Are you sure you want to discard changes and go back?',
-                style: TextStyle(
+              Text(
+                ctx.tr('discard_unsaved_body', fallback: 'You have unsaved form entries. Are you sure you want to discard changes and go back?'),
+                style: const TextStyle(
                   fontSize: 13.5,
                   color: Color(0xFF64748B),
                   height: 1.4,
@@ -685,10 +688,10 @@ class _NewPatientRegistrationViewState
                         ),
                       ),
                       onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text(
-                        'Stay on Form',
+                      child: Text(
+                        ctx.tr('stay_on_form', fallback: 'Stay on Form'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: 13),
                       ),
                     ),
                   ),
@@ -710,10 +713,10 @@ class _NewPatientRegistrationViewState
                           widget.onBack();
                         });
                       },
-                      child: const Text(
-                        'Discard & Leave',
+                      child: Text(
+                        ctx.tr('discard_and_leave', fallback: 'Discard & Leave'),
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 13),
+                        style: const TextStyle(fontSize: 13),
                       ),
                     ),
                   ),
@@ -741,7 +744,7 @@ class _NewPatientRegistrationViewState
         children: [
           // Fixed Top Section: Header & Stepper
           Container(
-            color: AppTheme.backgroundColor,
+            color: AppTheme.getBackgroundColor(context),
             padding: EdgeInsets.only(
               left: isMobile ? 16.0 : 48.0,
               right: isMobile ? 16.0 : 48.0,
@@ -754,18 +757,18 @@ class _NewPatientRegistrationViewState
                 // Back Button & Header
                 InkWell(
                   onTap: _showDiscardDialog,
-                  child: const Row(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.arrow_back_rounded,
                         size: 18,
                         color: AppTheme.primaryColor,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        'Back to Patients',
-                        style: TextStyle(
+                        context.tr('back_to_patients', fallback: 'Back to Patients'),
+                        style: const TextStyle(
                           color: AppTheme.primaryColor,
                           fontWeight: FontWeight.bold,
                         ),
@@ -788,24 +791,30 @@ class _NewPatientRegistrationViewState
                                           _matchedExistingPatient
                                               ?.isQuickRegister ??
                                           false))
-                                      ? 'Complete Patient Profile'
-                                      : 'Edit Patient Profile')
-                                : 'New Patient Registration',
-                            style: Theme.of(context).textTheme.displayLarge
-                                ?.copyWith(fontSize: isMobile ? 20 : 28),
+                                      ? context.tr('complete_patient_profile', fallback: 'Complete Patient Profile')
+                                      : context.tr('edit_patient_profile', fallback: 'Edit Patient Profile'))
+                                : context.tr('new_patient_registration', fallback: 'New Patient Registration'),
+                            style: TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: isMobile ? 20 : 28,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.getTextPrimaryColor(context),
+                              letterSpacing: -0.5,
+                            ),
                           ),
                           if (!isMobile) ...[
                             const SizedBox(height: 4),
                             Text(
                               (widget.existingPatient != null ||
                                       _matchedExistingPatient != null)
-                                  ? 'Update patient information and medical history'
-                                  : 'Fill in patient information and medical history',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 12,
-                                  ),
+                                  ? context.tr('update_patient_info_history', fallback: 'Update patient information and medical history')
+                                  : context.tr('fill_patient_info_history', fallback: 'Fill in patient information and medical history'),
+                              style: TextStyle(
+                                fontFamily: 'Inter',
+                                color: AppTheme.getTextSecondaryColor(context),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ],
                         ],
@@ -858,12 +867,16 @@ class _NewPatientRegistrationViewState
         vertical: isMobile ? 6 : 8,
         horizontal: isMobile ? 12 : 32,
       ),
-      decoration: AppTheme.cardDecoration,
+      decoration: BoxDecoration(
+        color: AppTheme.getCardColor(context),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
+      ),
       child: Row(
         children: [
           _buildStepItem(
             1,
-            'Basic Details',
+            context.tr('basic_details', fallback: 'Basic Details'),
             _currentStep >= 1,
             isCompleted: _currentStep > 1,
             isMobile: isMobile,
@@ -871,7 +884,7 @@ class _NewPatientRegistrationViewState
           _buildStepDivider(_currentStep > 1),
           _buildStepItem(
             2,
-            'Medical Intake',
+            context.tr('medical_intake', fallback: 'Medical Intake'),
             _currentStep >= 2,
             isCompleted: _currentStep > 2,
             isMobile: isMobile,
@@ -879,7 +892,7 @@ class _NewPatientRegistrationViewState
           _buildStepDivider(_currentStep > 2),
           _buildStepItem(
             3,
-            'Lifestyle Data',
+            context.tr('lifestyle_data', fallback: 'Lifestyle Data'),
             _currentStep >= 3,
             isCompleted: _currentStep > 3,
             isMobile: isMobile,
@@ -887,7 +900,7 @@ class _NewPatientRegistrationViewState
           _buildStepDivider(_currentStep > 3),
           _buildStepItem(
             4,
-            'Review',
+            context.tr('review', fallback: 'Review'),
             _currentStep >= 4,
             isCompleted: _currentStep > 4,
             isMobile: isMobile,
@@ -913,7 +926,7 @@ class _NewPatientRegistrationViewState
             decoration: BoxDecoration(
               color: (isActive || isCompleted)
                   ? AppTheme.infoColor
-                  : const Color(0xFFEDF2F7),
+                  : (AppTheme.isDark(context) ? const Color(0xFF334155) : const Color(0xFFEDF2F7)),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -928,7 +941,7 @@ class _NewPatientRegistrationViewState
                       style: TextStyle(
                         color: isActive
                             ? Colors.white
-                            : const Color(0xFF718096),
+                            : AppTheme.getTextSecondaryColor(context),
                         fontWeight: FontWeight.bold,
                         fontSize: isMobile ? 8 : 10,
                       ),
@@ -944,8 +957,8 @@ class _NewPatientRegistrationViewState
                   ? FontWeight.bold
                   : FontWeight.normal,
               color: (isActive || isCompleted)
-                  ? AppTheme.textPrimaryColor
-                  : const Color(0xFF718096),
+                  ? AppTheme.getTextPrimaryColor(context)
+                  : AppTheme.getTextSecondaryColor(context),
             ),
             textAlign: TextAlign.center,
             maxLines: 2,
@@ -960,7 +973,7 @@ class _NewPatientRegistrationViewState
     return Expanded(
       child: Container(
         height: 2,
-        color: isActive ? AppTheme.infoColor : const Color(0xFFE2E8F0),
+        color: isActive ? AppTheme.infoColor : AppTheme.getBorderColor(context),
         margin: const EdgeInsets.only(bottom: 16),
       ),
     );
@@ -972,9 +985,9 @@ class _NewPatientRegistrationViewState
       child: Container(
         padding: EdgeInsets.all(isMobile ? 16 : 32),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.getCardColor(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+          border: Border.all(color: AppTheme.getBorderColor(context)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -986,9 +999,9 @@ class _NewPatientRegistrationViewState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Basic Details',
-              style: TextStyle(
+            Text(
+              context.tr('basic_details', fallback: 'Basic Details'),
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.primaryColor,
@@ -1001,10 +1014,12 @@ class _NewPatientRegistrationViewState
               _buildTextField(
                 controller: _nameController,
                 hint: 'Enter patient\'s full name',
+                textCapitalization: TextCapitalization.words,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(
                     RegExp(r'[a-zA-Z\s.]'),
                   ),
+                  const CapitalizeWordsInputFormatter(),
                   LengthLimitingTextInputFormatter(60),
                 ],
                 validator: (val) {
@@ -1025,14 +1040,17 @@ class _NewPatientRegistrationViewState
                 hint: 'Enter Email Address',
                 keyboardType: TextInputType.emailAddress,
                 inputFormatters: [
-                  LengthLimitingTextInputFormatter(254),
+                  LengthLimitingTextInputFormatter(100),
                 ],
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
                     return 'Please enter Email Address';
                   }
-                  if (val.trim().length > 254) {
-                    return 'Email address cannot exceed 254 characters';
+                  if (val.trim().length > 100) {
+                    return 'Email address cannot exceed 100 characters';
+                  }
+                  if (val.trim().contains(RegExp(r'[A-Z]'))) {
+                    return 'Please enter a valid email address';
                   }
                   if (!RegExp(
                     r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
@@ -1156,10 +1174,12 @@ class _NewPatientRegistrationViewState
               _buildTextField(
                 controller: _emergencyContactNameController,
                 hint: 'Enter name',
+                textCapitalization: TextCapitalization.words,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(
                     RegExp(r'[a-zA-Z\s.]'),
                   ),
+                  const CapitalizeWordsInputFormatter(),
                   LengthLimitingTextInputFormatter(60),
                 ],
                 validator: (val) {
@@ -1178,10 +1198,12 @@ class _NewPatientRegistrationViewState
               _buildTextField(
                 controller: _emergencyContactRelationController,
                 hint: 'Enter Relationship',
+                textCapitalization: TextCapitalization.words,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(
                     RegExp(r'[a-zA-Z\s]'),
                   ),
+                  const CapitalizeWordsInputFormatter(),
                   LengthLimitingTextInputFormatter(20),
                 ],
                 validator: (val) {
@@ -1329,10 +1351,12 @@ class _NewPatientRegistrationViewState
                         _buildTextField(
                           controller: _nameController,
                           hint: 'Enter patient\'s full name',
+                          textCapitalization: TextCapitalization.words,
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
                               RegExp(r'[a-zA-Z\s.]'),
                             ),
+                            const CapitalizeWordsInputFormatter(),
                             LengthLimitingTextInputFormatter(60),
                           ],
                           validator: (val) {
@@ -1360,14 +1384,17 @@ class _NewPatientRegistrationViewState
                           hint: 'Enter Email Address',
                           keyboardType: TextInputType.emailAddress,
                           inputFormatters: [
-                            LengthLimitingTextInputFormatter(254),
+                            LengthLimitingTextInputFormatter(100),
                           ],
                           validator: (val) {
                             if (val == null || val.trim().isEmpty) {
                               return 'Please enter Email Address';
                             }
-                            if (val.trim().length > 254) {
-                              return 'Email address cannot exceed 254 characters';
+                            if (val.trim().length > 100) {
+                              return 'Email address cannot exceed 100 characters';
+                            }
+                            if (val.trim().contains(RegExp(r'[A-Z]'))) {
+                              return 'Please enter a valid email address';
                             }
                             if (!RegExp(
                               r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
@@ -1527,10 +1554,12 @@ class _NewPatientRegistrationViewState
                         _buildTextField(
                           controller: _emergencyContactNameController,
                           hint: 'Enter name',
+                          textCapitalization: TextCapitalization.words,
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
                               RegExp(r'[a-zA-Z\s.]'),
                             ),
+                            const CapitalizeWordsInputFormatter(),
                             LengthLimitingTextInputFormatter(60),
                           ],
                           validator: (val) {
@@ -1560,10 +1589,12 @@ class _NewPatientRegistrationViewState
                         _buildTextField(
                           controller: _emergencyContactRelationController,
                           hint: 'Enter Relationship',
+                          textCapitalization: TextCapitalization.words,
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
                               RegExp(r'[a-zA-Z\s]'),
                             ),
+                            const CapitalizeWordsInputFormatter(),
                             LengthLimitingTextInputFormatter(20),
                           ],
                           validator: (val) {
@@ -1758,15 +1789,15 @@ class _NewPatientRegistrationViewState
                   style: AppTheme.logoRedButton.copyWith(
                     minimumSize: MaterialStateProperty.all(const Size(0, 52)),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Next',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                        context.tr('next', fallback: 'Next'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      SizedBox(width: 12),
-                      Icon(Icons.arrow_forward_rounded, size: 18),
+                      const SizedBox(width: 12),
+                      const Icon(Icons.arrow_forward_rounded, size: 18),
                     ],
                   ),
                 ),
@@ -1790,15 +1821,15 @@ class _NewPatientRegistrationViewState
                         ),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Next',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          context.tr('next', fallback: 'Next'),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        SizedBox(width: 12),
-                        Icon(Icons.arrow_forward_rounded, size: 18),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.arrow_forward_rounded, size: 18),
                       ],
                     ),
                   ),
@@ -1816,9 +1847,9 @@ class _NewPatientRegistrationViewState
       child: Container(
         padding: EdgeInsets.all(isMobile ? 20 : 32),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.getCardColor(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+          border: Border.all(color: AppTheme.getBorderColor(context)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -1830,9 +1861,9 @@ class _NewPatientRegistrationViewState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Medical Intake',
-              style: TextStyle(
+            Text(
+              context.tr('medical_intake', fallback: 'Medical Intake'),
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.primaryColor,
@@ -1857,10 +1888,14 @@ class _NewPatientRegistrationViewState
                     child: _buildTextField(
                       controller: _heightController,
                       hint: 'Enter Height (cm)',
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                        LengthLimitingTextInputFormatter(6),
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d*\.?\d{0,2}'),
+                        ),
+                        LengthLimitingTextInputFormatter(5),
                       ],
                       validator: (val) {
                         final text = val?.trim() ?? '';
@@ -1868,6 +1903,9 @@ class _NewPatientRegistrationViewState
                         final num = double.tryParse(text);
                         if (num == null) return 'Height must be a valid number';
                         if (num <= 0) return 'Height must be greater than 0';
+                        if (num < 30 || num > 300) {
+                          return 'Height must be between 30 and 300 cm';
+                        }
                         return null;
                       },
                     ),
@@ -1877,10 +1915,14 @@ class _NewPatientRegistrationViewState
                     child: _buildTextField(
                       controller: _weightController,
                       hint: 'Enter Weight (kg)',
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                        LengthLimitingTextInputFormatter(6),
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d*\.?\d{0,2}'),
+                        ),
+                        LengthLimitingTextInputFormatter(5),
                       ],
                       validator: (val) {
                         final text = val?.trim() ?? '';
@@ -1888,6 +1930,9 @@ class _NewPatientRegistrationViewState
                         final num = double.tryParse(text);
                         if (num == null) return 'Weight must be a valid number';
                         if (num <= 0) return 'Weight must be greater than 0';
+                        if (num < 0.5 || num > 500) {
+                          return 'Weight must be between 0.5 and 500 kg';
+                        }
                         return null;
                       },
                     ),
@@ -2096,12 +2141,15 @@ class _NewPatientRegistrationViewState
                               child: _buildTextField(
                                 controller: _heightController,
                                 hint: 'Enter Height (cm)',
-                                keyboardType: TextInputType.number,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
-                                    RegExp(r'[0-9.]'),
+                                    RegExp(r'^\d*\.?\d{0,2}'),
                                   ),
-                                  LengthLimitingTextInputFormatter(6),
+                                  LengthLimitingTextInputFormatter(5),
                                 ],
                                 validator: (val) {
                                   final text = val?.trim() ?? '';
@@ -2109,6 +2157,9 @@ class _NewPatientRegistrationViewState
                                   final num = double.tryParse(text);
                                   if (num == null) return 'Height must be a valid number';
                                   if (num <= 0) return 'Height must be greater than 0';
+                                  if (num < 30 || num > 300) {
+                                    return 'Height must be between 30 and 300 cm';
+                                  }
                                   return null;
                                 },
                               ),
@@ -2118,12 +2169,15 @@ class _NewPatientRegistrationViewState
                               child: _buildTextField(
                                 controller: _weightController,
                                 hint: 'Enter Weight (kg)',
-                                keyboardType: TextInputType.number,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                      decimal: true,
+                                    ),
                                 inputFormatters: [
                                   FilteringTextInputFormatter.allow(
-                                    RegExp(r'[0-9.]'),
+                                    RegExp(r'^\d*\.?\d{0,2}'),
                                   ),
-                                  LengthLimitingTextInputFormatter(6),
+                                  LengthLimitingTextInputFormatter(5),
                                 ],
                                 validator: (val) {
                                   final text = val?.trim() ?? '';
@@ -2131,6 +2185,9 @@ class _NewPatientRegistrationViewState
                                   final num = double.tryParse(text);
                                   if (num == null) return 'Weight must be a valid number';
                                   if (num <= 0) return 'Weight must be greater than 0';
+                                  if (num < 0.5 || num > 500) {
+                                    return 'Weight must be between 0.5 and 500 kg';
+                                  }
                                   return null;
                                 },
                               ),
@@ -2450,15 +2507,15 @@ class _NewPatientRegistrationViewState
                         ),
                         minimumSize: const Size(0, 52),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            'Next',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                            context.tr('next', fallback: 'Next'),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          SizedBox(width: 12),
-                          Icon(Icons.arrow_forward_rounded, size: 18),
+                          const SizedBox(width: 12),
+                          const Icon(Icons.arrow_forward_rounded, size: 18),
                         ],
                       ),
                     ),
@@ -2471,10 +2528,10 @@ class _NewPatientRegistrationViewState
                   OutlinedButton.icon(
                     onPressed: () => setState(() => _currentStep = 1),
                     icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                    label: const Text('Back'),
+                    label: Text(context.tr('prev', fallback: 'Back')),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF4A5568),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      foregroundColor: AppTheme.getTextSecondaryColor(context),
+                      side: BorderSide(color: AppTheme.getBorderColor(context)),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 20,
@@ -2504,14 +2561,14 @@ class _NewPatientRegistrationViewState
                       ),
                       minimumSize: const Size(0, 52),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.arrow_forward_rounded, size: 18),
-                        SizedBox(width: 12),
+                        const Icon(Icons.arrow_forward_rounded, size: 18),
+                        const SizedBox(width: 12),
                         Text(
-                          'Next',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                          context.tr('next', fallback: 'Next'),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -2530,9 +2587,9 @@ class _NewPatientRegistrationViewState
       child: Container(
         padding: EdgeInsets.all(isMobile ? 20 : 32),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppTheme.getCardColor(context),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+          border: Border.all(color: AppTheme.getBorderColor(context)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.03),
@@ -2544,9 +2601,9 @@ class _NewPatientRegistrationViewState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Lifestyle & Behavioral Data',
-              style: TextStyle(
+            Text(
+              context.tr('lifestyle_data', fallback: 'Lifestyle & Behavioral Data'),
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.primaryColor,
@@ -2817,9 +2874,9 @@ class _NewPatientRegistrationViewState
                         }
                       },
                       icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                      label: const Text(
-                        'Next',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      label: Text(
+                        context.tr('next', fallback: 'Next'),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.logoRed,
@@ -2840,10 +2897,10 @@ class _NewPatientRegistrationViewState
                   OutlinedButton.icon(
                     onPressed: () => setState(() => _currentStep = 2),
                     icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                    label: const Text('Back'),
+                    label: Text(context.tr('prev', fallback: 'Back')),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF4A5568),
-                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      foregroundColor: AppTheme.getTextSecondaryColor(context),
+                      side: BorderSide(color: AppTheme.getBorderColor(context)),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 20,
@@ -2862,9 +2919,9 @@ class _NewPatientRegistrationViewState
                       }
                     },
                     icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                    label: const Text(
-                      'Next',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                    label: Text(
+                      context.tr('next', fallback: 'Next'),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.logoRed,
@@ -2892,16 +2949,23 @@ class _NewPatientRegistrationViewState
     return Container(
       padding: EdgeInsets.all(isMobile ? 20 : 32),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        border: Border.all(color: AppTheme.getBorderColor(context)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Review & Confirmation',
-            style: TextStyle(
+          Text(
+            context.tr('review', fallback: 'Review & Confirmation'),
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: AppTheme.primaryColor,
@@ -3309,9 +3373,9 @@ class _NewPatientRegistrationViewState
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text(
-                            'Confirm & Complete',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                        : Text(
+                            context.tr('confirm', fallback: 'Confirm & Complete'),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                   ),
                 ),
@@ -3323,10 +3387,10 @@ class _NewPatientRegistrationViewState
                 OutlinedButton.icon(
                   onPressed: () => setState(() => _currentStep = 3),
                   icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                  label: const Text('Back'),
+                  label: Text(context.tr('prev', fallback: 'Back')),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF4A5568),
-                    side: const BorderSide(color: Color(0xFFE2E8F0)),
+                    foregroundColor: AppTheme.getTextSecondaryColor(context),
+                    side: BorderSide(color: AppTheme.getBorderColor(context)),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 20,
@@ -3361,9 +3425,9 @@ class _NewPatientRegistrationViewState
                             strokeWidth: 2,
                           ),
                         )
-                      : const Text(
-                          'Confirm & Complete',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                      : Text(
+                          context.tr('confirm', fallback: 'Confirm & Complete'),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                 ),
               ],
@@ -3384,9 +3448,11 @@ class _NewPatientRegistrationViewState
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color,
+        color: AppTheme.isDark(context) ? const Color(0xFF1E293B) : color,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: borderColor),
+        border: Border.all(
+          color: AppTheme.isDark(context) ? AppTheme.darkBorderColor : borderColor,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3396,17 +3462,17 @@ class _NewPatientRegistrationViewState
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
-                  color: Color(0xFF2D3748),
+                  color: AppTheme.getTextPrimaryColor(context),
                 ),
               ),
               GestureDetector(
                 onTap: onEdit,
-                child: const Text(
-                  'Edit',
-                  style: TextStyle(
+                child: Text(
+                  context.tr('edit', fallback: 'Edit'),
+                  style: const TextStyle(
                     color: AppTheme.primaryColor,
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
@@ -3424,12 +3490,12 @@ class _NewPatientRegistrationViewState
 
   Widget _buildReviewField(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
+            _translateLabel(label),
             textAlign: TextAlign.left,
             style: const TextStyle(
               fontSize: 12,
@@ -3441,36 +3507,346 @@ class _NewPatientRegistrationViewState
           Text(
             value,
             textAlign: TextAlign.left,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF2D3748)),
+            style: TextStyle(
+              fontSize: 14,
+              color: AppTheme.getTextPrimaryColor(context),
+            ),
           ),
         ],
       ),
     );
   }
 
+  String _translateLabel(String rawLabel) {
+    final bool hasStar = rawLabel.endsWith(' *') || rawLabel.endsWith('*');
+    final String clean = rawLabel.replaceAll('*', '').trim();
+    final lower = clean.toLowerCase();
+
+    String translated = clean;
+    if (lower == 'full name') {
+      translated = context.tr('full_name', fallback: clean);
+    } else if (lower == 'email address') {
+      translated = context.tr('email_address', fallback: clean);
+    } else if (lower == 'date of birth') {
+      translated = context.tr('date_of_birth', fallback: clean);
+    } else if (lower == 'gender') {
+      translated = context.tr('gender', fallback: clean);
+    } else if (lower == 'mobile number') {
+      translated = context.tr('mobile_number', fallback: clean);
+    } else if (lower == 'emergency contact name') {
+      translated = context.tr('emergency_contact_name', fallback: clean);
+    } else if (lower == 'relation' || lower == 'relationship') {
+      translated = context.tr('relation', fallback: clean);
+    } else if (lower == 'emergency mobile number') {
+      translated = context.tr('emergency_mobile_number', fallback: clean);
+    } else if (lower == 'address line 1') {
+      translated = context.tr('address_line_1', fallback: clean);
+    } else if (lower == 'address line 2') {
+      translated = context.tr('address_line_2', fallback: clean);
+    } else if (lower == 'district') {
+      translated = context.tr('district', fallback: clean);
+    } else if (lower == 'pincode') {
+      translated = context.tr('pincode', fallback: clean);
+    } else if (lower.contains('height')) {
+      translated = context.tr('height_cm', fallback: clean);
+    } else if (lower.contains('weight')) {
+      translated = context.tr('weight_kg', fallback: clean);
+    } else if (lower.contains('systolic')) {
+      translated = context.tr('bp_systolic', fallback: clean);
+    } else if (lower.contains('diastolic')) {
+      translated = context.tr('bp_diastolic', fallback: clean);
+    } else if (lower.contains('sugar')) {
+      translated = context.tr('sugar_level', fallback: clean);
+    } else if (lower.contains('temp')) {
+      translated = context.tr('temperature_f', fallback: clean);
+    } else if (lower.contains('blood group')) {
+      translated = context.tr('blood_group', fallback: clean);
+    } else if (lower.contains('allerg')) {
+      translated = context.tr('allergies', fallback: clean);
+    } else if (lower.contains('chronic')) {
+      translated = context.tr('chronic_conditions', fallback: clean);
+    } else if (lower.contains('reason') || lower.contains('complaint')) {
+      translated = context.tr('reason_for_visit', fallback: clean);
+    } else if (lower.contains('history')) {
+      translated = context.tr('past_medical_history', fallback: clean);
+    } else if (lower.contains('smoking')) {
+      translated = context.tr('smoking_status', fallback: clean);
+    } else if (lower.contains('alcohol')) {
+      translated = context.tr('alcohol_status', fallback: clean);
+    } else if (lower.contains('occupat')) {
+      translated = context.tr('occupation', fallback: clean);
+    } else if (lower.contains('hobb')) {
+      translated = context.tr('hobbies', fallback: clean);
+    } else if (lower.contains('food')) {
+      translated = context.tr('food_habits', fallback: clean);
+    } else if (lower.contains('physical') || lower.contains('activity')) {
+      translated = context.tr('physical_activity', fallback: clean);
+    }
+
+    return hasStar ? '$translated *' : translated;
+  }
+
+  String _translateHint(String rawHint) {
+    final lower = rawHint.toLowerCase().trim();
+    if (lower.contains('full name')) return context.tr('enter_patient_full_name', fallback: rawHint);
+    if (lower.contains('email')) return context.tr('enter_email_address', fallback: rawHint);
+    if (lower.contains('mobile')) return context.tr('enter_mobile_number', fallback: rawHint);
+    if (lower == 'enter name') return context.tr('enter_name', fallback: rawHint);
+    if (lower.contains('relation')) return context.tr('enter_relation', fallback: rawHint);
+    if (lower.contains('address line 1')) return context.tr('enter_address_line_1', fallback: rawHint);
+    if (lower.contains('address line 2')) return context.tr('enter_address_line_2', fallback: rawHint);
+    if (lower.contains('district')) return context.tr('select_district', fallback: rawHint);
+    if (lower.contains('pincode')) return context.tr('enter_pincode', fallback: rawHint);
+    if (lower.contains('gender')) return context.tr('select_gender', fallback: rawHint);
+    if (lower.contains('blood')) return context.tr('select_blood_group', fallback: rawHint);
+    if (lower.contains('height')) return context.tr('enter_height_cm', fallback: rawHint);
+    if (lower.contains('weight')) return context.tr('enter_weight_kg', fallback: rawHint);
+    if (lower.contains('systolic')) return context.tr('enter_systolic_hint', fallback: rawHint);
+    if (lower.contains('diastolic')) return context.tr('enter_diastolic_hint', fallback: rawHint);
+    if (lower.contains('sugar')) return context.tr('enter_sugar_level_hint', fallback: rawHint);
+    if (lower.contains('temp')) return context.tr('enter_temperature_hint', fallback: rawHint);
+    if (lower.contains('allerg')) return context.tr('enter_allergies', fallback: rawHint);
+    if (lower.contains('pre-existing') || lower.contains('chronic')) {
+      return context.tr('enter_pre_existing_conditions', fallback: rawHint);
+    }
+    if (lower.contains('complaint') || lower.contains('describe current')) {
+      return context.tr('describe_health_complaints_hint', fallback: rawHint);
+    }
+    if (lower.contains('previous condition') ||
+        lower.contains('surgeries') ||
+        lower.contains('medication')) {
+      return context.tr('previous_medical_history_hint', fallback: rawHint);
+    }
+    if (lower.contains('occupat')) return context.tr('enter_occupation', fallback: rawHint);
+    if (lower.contains('physical activit')) return context.tr('enter_physical_activities', fallback: rawHint);
+    if (lower.contains('dietary') || lower.contains('eating pattern')) {
+      return context.tr('dietary_preferences_hint', fallback: rawHint);
+    }
+    if (lower == 'select status' || lower.contains('status')) {
+      return context.tr('select_status', fallback: rawHint);
+    }
+    if (lower == 'select frequency' || lower.contains('frequency')) {
+      return context.tr('select_frequency', fallback: rawHint);
+    }
+    if (lower.contains('describe daily')) {
+      return context.tr('describe_daily_physical_activities_hint', fallback: rawHint);
+    }
+    if (lower.contains('dd/mm/yyyy')) return context.tr('dob_hint', fallback: rawHint);
+    return rawHint;
+  }
+
+  String _translateError(String rawError) {
+    final clean = rawError.trim();
+
+    // Full Name
+    if (clean == 'Please enter Full Name') {
+      return context.tr('please_enter_full_name', fallback: clean);
+    }
+    if (clean == 'Name must be at least 3 characters') {
+      return context.tr('name_min_chars', fallback: clean);
+    }
+    if (clean == 'Full Name cannot exceed 60 characters') {
+      return context.tr('name_max_chars', fallback: clean);
+    }
+
+    // Email
+    if (clean == 'Please enter Email Address') {
+      return context.tr('please_enter_email', fallback: clean);
+    }
+    if (clean == 'Email address cannot exceed 100 characters') {
+      return context.tr('email_max_chars', fallback: clean);
+    }
+    if (clean == 'Please enter a valid email address') {
+      return context.tr('valid_email', fallback: clean);
+    }
+
+    // Date of Birth & Gender
+    if (clean == 'Please enter Date of Birth') {
+      return context.tr('please_enter_dob', fallback: clean);
+    }
+    if (clean == 'Please select gender') {
+      return context.tr('please_select_gender', fallback: clean);
+    }
+
+    // Mobile Number
+    if (clean == 'Please enter Mobile Number') {
+      return context.tr('please_enter_mobile', fallback: clean);
+    }
+    if (clean == 'Mobile number must start with 6, 7, 8, or 9') {
+      return context.tr('mobile_start_digit', fallback: clean);
+    }
+    if (clean == 'Mobile number must be exactly 10 digits') {
+      return context.tr('mobile_exact_10_digits', fallback: clean);
+    }
+
+    // Emergency Contact
+    if (clean == 'Please enter Emergency Contact Name') {
+      return context.tr('please_enter_emergency_contact_name', fallback: clean);
+    }
+    if (clean == 'Emergency Contact Name cannot exceed 60 characters') {
+      return context.tr('emergency_contact_name_max_chars', fallback: clean);
+    }
+    if (clean == 'Please enter Relation') {
+      return context.tr('please_enter_relation', fallback: clean);
+    }
+    if (clean == 'Relation cannot exceed 20 characters') {
+      return context.tr('relation_max_chars', fallback: clean);
+    }
+    if (clean == 'Please enter Emergency Mobile Number') {
+      return context.tr('please_enter_emergency_mobile', fallback: clean);
+    }
+    if (clean == 'Emergency mobile number must start with 6, 7, 8, or 9') {
+      return context.tr('emergency_mobile_start_digit', fallback: clean);
+    }
+    if (clean == 'Emergency mobile number must be exactly 10 digits') {
+      return context.tr('emergency_mobile_exact_10_digits', fallback: clean);
+    }
+
+    // Address Line 1 & Line 2
+    if (clean == 'Please enter Address Line 1') {
+      return context.tr('please_enter_address_1', fallback: clean);
+    }
+    if (clean == 'Address Line 1 contains invalid special characters') {
+      return context.tr('address_1_invalid_chars', fallback: clean);
+    }
+    if (clean == 'Address Line 1 cannot exceed 150 characters') {
+      return context.tr('address_1_max_chars', fallback: clean);
+    }
+    if (clean == 'Address Line 2 contains invalid special characters') {
+      return context.tr('address_2_invalid_chars', fallback: clean);
+    }
+    if (clean == 'Address Line 2 cannot exceed 120 characters') {
+      return context.tr('address_2_max_chars', fallback: clean);
+    }
+
+    // District & Pincode
+    if (clean == 'Please select a valid District') {
+      return context.tr('please_select_district', fallback: clean);
+    }
+    if (clean == 'Please enter Pincode') {
+      return context.tr('please_enter_pincode', fallback: clean);
+    }
+    if (clean == 'Pincode must be exactly 6 digits') {
+      return context.tr('pincode_exact_6_digits', fallback: clean);
+    }
+    if (clean == 'Please enter a valid Tamil Nadu Pincode (starts with 6)') {
+      return context.tr('pincode_valid_tamilnadu_6', fallback: clean);
+    }
+    if (clean == 'Please enter a valid Tamil Nadu Pincode (starts with 60-64)') {
+      return context.tr('pincode_valid_tamilnadu_60_64', fallback: clean);
+    }
+
+    // Vitals
+    if (clean == 'Height must be a valid number') {
+      return context.tr('height_valid_number', fallback: clean);
+    }
+    if (clean == 'Height must be greater than 0') {
+      return context.tr('height_greater_than_0', fallback: clean);
+    }
+    if (clean == 'Height must be between 30 and 300 cm') {
+      return context.tr('height_between_30_300', fallback: clean);
+    }
+    if (clean == 'Weight must be a valid number') {
+      return context.tr('weight_valid_number', fallback: clean);
+    }
+    if (clean == 'Weight must be greater than 0') {
+      return context.tr('weight_greater_than_0', fallback: clean);
+    }
+    if (clean == 'Weight must be between 0.5 and 500 kg') {
+      return context.tr('weight_between_05_500', fallback: clean);
+    }
+
+    // Blood Pressure
+    if (clean == 'Systolic BP must be an integer') {
+      return context.tr('systolic_integer', fallback: clean);
+    }
+    if (clean == 'Systolic BP cannot be 0') {
+      return context.tr('systolic_cannot_be_zero', fallback: clean);
+    }
+    if (clean == 'Systolic BP must be between 90 and 300 mmHg' ||
+        clean == 'BP Systolic must be between 90 and 300 mmHg') {
+      return context.tr('bp_systolic_range', fallback: clean);
+    }
+    if (clean == 'Diastolic BP must be an integer') {
+      return context.tr('diastolic_integer', fallback: clean);
+    }
+    if (clean == 'Diastolic BP cannot be 0') {
+      return context.tr('diastolic_cannot_be_zero', fallback: clean);
+    }
+    if (clean == 'Diastolic BP must be between 50 and 180 mmHg' ||
+        clean == 'BP Diastolic must be between 50 and 180 mmHg') {
+      return context.tr('bp_diastolic_range', fallback: clean);
+    }
+
+    // Sugar & Temperature
+    if (clean == 'Sugar Level must be a number') {
+      return context.tr('sugar_number', fallback: clean);
+    }
+    if (clean == 'Sugar Level cannot be 0') {
+      return context.tr('sugar_cannot_be_zero', fallback: clean);
+    }
+    if (clean == 'Sugar Level must be between 30 and 600 mg/dL') {
+      return context.tr('sugar_range', fallback: clean);
+    }
+    if (clean == 'Temperature must be a number') {
+      return context.tr('temp_number', fallback: clean);
+    }
+    if (clean == 'Temperature cannot be 0') {
+      return context.tr('temp_cannot_be_zero', fallback: clean);
+    }
+    if (clean == 'Temperature must be between 90 and 115 °F') {
+      return context.tr('temperature_range', fallback: clean);
+    }
+
+    // Blood Group
+    if (clean == 'Please select a valid Blood Group') {
+      return context.tr('please_select_blood_group', fallback: clean);
+    }
+
+    // Medical Intake / Lifestyle
+    if (clean == 'Must contain alphabetic characters') {
+      return context.tr('must_contain_alphabetic', fallback: clean);
+    }
+    if (clean == 'Contains invalid special characters') {
+      return context.tr('contains_invalid_special_chars', fallback: clean);
+    }
+    if (clean == 'Only letters, spaces, and hyphens (-) are allowed') {
+      return context.tr('only_letters_spaces_hyphens', fallback: clean);
+    }
+    if (clean == 'Please select a valid smoking status from the list') {
+      return context.tr('please_select_smoking_status', fallback: clean);
+    }
+    if (clean == 'Please select a valid alcohol status from the list') {
+      return context.tr('please_select_alcohol_status', fallback: clean);
+    }
+
+    return clean;
+  }
+
   Widget _buildLabel(String label) {
-    final bool hasStar = label.endsWith(' *');
+    final String translatedText = _translateLabel(label);
+    final bool hasStar = translatedText.endsWith(' *') || translatedText.endsWith('*');
     final String baseText = hasStar
-        ? label.substring(0, label.length - 2)
-        : label;
+        ? translatedText.replaceAll('*', '').trim()
+        : translatedText;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: RichText(
         text: TextSpan(
           text: baseText,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Colors.black,
-            fontFamily: 'Inter', // Ensuring consistency with theme
+            color: AppTheme.getTextPrimaryColor(context),
+            fontFamily: 'Inter',
           ),
           children: [
             if (hasStar)
               const TextSpan(
                 text: ' *',
                 style: TextStyle(
-                  color: Colors.red,
+                  color: AppTheme.dangerColor,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -3482,13 +3858,14 @@ class _NewPatientRegistrationViewState
 
   Widget _buildLabelAccent(String label) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0),
+      padding: const EdgeInsets.only(bottom: 8.0),
       child: Text(
-        label,
+        _translateLabel(label),
         style: const TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
           color: AppTheme.primaryColor,
+          fontFamily: 'Inter',
         ),
       ),
     );
@@ -3503,50 +3880,67 @@ class _NewPatientRegistrationViewState
     VoidCallback? onTap,
     bool readOnly = false,
     TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.none,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
     ValueChanged<String>? onChanged,
   }) {
     return TextFormField(
       controller: controller,
-      validator: validator,
+      validator: validator != null
+          ? (val) {
+              final err = validator(val);
+              return err != null ? _translateError(err) : null;
+            }
+          : null,
       onChanged: onChanged,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       maxLines: maxLines,
       readOnly: readOnly,
       onTap: onTap,
       keyboardType: keyboardType,
+      textCapitalization: textCapitalization,
       inputFormatters: inputFormatters,
+      style: TextStyle(
+        color: AppTheme.getTextPrimaryColor(context),
+        fontSize: 14,
+        fontFamily: 'Inter',
+      ),
       decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFCBD5E0), fontSize: 13),
+        hintText: _translateHint(hint),
+        hintStyle: TextStyle(
+          color: AppTheme.getTextSecondaryColor(context).withOpacity(0.6),
+          fontSize: 13,
+        ),
         suffixIcon:
             suffixIcon ??
             (icon != null
-                ? Icon(icon, color: const Color(0xFFCBD5E0), size: 18)
+                ? Icon(icon, color: AppTheme.getTextSecondaryColor(context), size: 18)
                 : null),
         filled: true,
-        fillColor: AppTheme.backgroundColor,
+        fillColor: AppTheme.isDark(context)
+            ? AppTheme.darkInputFillColor
+            : const Color(0xFFF1F5F9),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+          borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+          borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderSide: BorderSide(color: AppTheme.primaryColor, width: 1.5),
         ),
         errorMaxLines: 2,
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1),
+        errorBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderSide: BorderSide(color: AppTheme.dangerColor, width: 1),
         ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppTheme.dangerColor, width: 1.5),
+        focusedErrorBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+          borderSide: BorderSide(color: AppTheme.dangerColor, width: 1.5),
         ),
         errorStyle: const TextStyle(
           fontSize: 11,
@@ -3554,7 +3948,7 @@ class _NewPatientRegistrationViewState
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 16,
+          vertical: 14,
         ),
       ),
     );
@@ -3571,13 +3965,21 @@ class _NewPatientRegistrationViewState
 
     return CustomDropdownSearch(
       label: '', // Label is handled externally in this form via _buildLabel
-      hint: hint,
+      hint: _translateHint(hint),
       dropdownItems: safeItems,
       value: (value != null && safeItems.contains(value)) ? value : null,
       onChanged: onChanged,
-      validator: validator,
+      validator: validator != null
+          ? (val) {
+              final err = validator(val);
+              return err != null ? _translateError(err) : null;
+            }
+          : null,
       height: 52, // Match the height of text fields in the form
-      borderColor: const Color(0xFFE2E8F0),
+      fillColor: AppTheme.isDark(context)
+          ? AppTheme.darkInputFillColor
+          : const Color(0xFFF1F5F9),
+      borderColor: AppTheme.getBorderColor(context),
       focusedBorderColor: AppTheme.primaryColor,
     );
   }
@@ -3622,11 +4024,17 @@ class _NewPatientRegistrationViewState
       final val = double.tryParse(heightText);
       if (val == null) throw 'Height must be a valid number';
       if (val <= 0) throw 'Height must be greater than 0';
+      if (val < 30 || val > 300) {
+        throw 'Height must be between 30 and 300 cm';
+      }
     }
     if (weightText.isNotEmpty) {
       final val = double.tryParse(weightText);
       if (val == null) throw 'Weight must be a valid number';
       if (val <= 0) throw 'Weight must be greater than 0';
+      if (val < 0.5 || val > 500) {
+        throw 'Weight must be between 0.5 and 500 kg';
+      }
     }
   }
 
@@ -3876,9 +4284,19 @@ class _NewPatientRegistrationViewState
   }
 
   Future<void> _selectDate(BuildContext context) async {
+    DateTime initial = DateTime.now().subtract(const Duration(days: 365 * 30));
+    if (_dobController.text.trim().isNotEmpty) {
+      try {
+        final parsed = DateFormat('dd/MM/yyyy').parseStrict(_dobController.text.trim());
+        if (parsed.isAfter(DateTime(1900)) && parsed.isBefore(DateTime.now())) {
+          initial = parsed;
+        }
+      } catch (_) {}
+    }
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 365 * 30)),
+      initialDate: initial,
       firstDate: DateTime(1900),
       lastDate: DateTime.now(),
     );
