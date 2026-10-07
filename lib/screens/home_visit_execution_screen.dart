@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -1580,7 +1581,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                   ),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width - 60,
+                      maxWidth: math.max(120.0, MediaQuery.of(context).size.width - 60),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -5994,19 +5995,21 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 padding: EdgeInsets.only(top: isMobile ? 8.0 : 16.0),
                 child: Row(
                   children: [
-                    Container(
-                      padding: EdgeInsets.all(isMobile ? 6 : 8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
+                    if (!isMobile || widget.onBack == null) ...[
+                      Container(
+                        padding: EdgeInsets.all(isMobile ? 6 : 8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.home_work_rounded,
+                          color: AppTheme.primaryColor,
+                          size: isMobile ? 20 : 24,
+                        ),
                       ),
-                      child: Icon(
-                        Icons.home_work_rounded,
-                        color: AppTheme.primaryColor,
-                        size: isMobile ? 20 : 24,
-                      ),
-                    ),
-                    SizedBox(width: isMobile ? 8 : 12),
+                      SizedBox(width: isMobile ? 8 : 12),
+                    ],
                     Expanded(
                       child: Builder(
                         builder: (ctx) {
@@ -6025,16 +6028,18 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                '${ctx.tr('home_visit_care', fallback: 'Home Visit Care')}${isMobile ? '' : visitNum}',
-                                style: TextStyle(
-                                  fontSize: isMobile ? (isTamil ? 13.5 : 14.5) : 16.0,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimaryColor,
-                                  fontFamily: 'Inter',
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  '${ctx.tr('home_visit_care', fallback: 'Home Visit Care')}${isMobile ? '' : visitNum}',
+                                  style: TextStyle(
+                                    fontSize: isMobile ? (isTamil ? 13.5 : 14.5) : 16.0,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimaryColor,
+                                    fontFamily: 'Inter',
+                                  ),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 1),
                               Text(
@@ -6185,13 +6190,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       child: Container(
                         margin: EdgeInsets.only(top: isMobile ? 12.0 : 6.0),
                         child: TabBar(
-                      controller: _tabController,
-                      labelColor: AppTheme.primaryColor,
-                      unselectedLabelColor: const Color(0xFF64748B),
-                      indicatorColor: AppTheme.primaryColor,
-                      indicatorWeight: 3,
-                      isScrollable: true,
-                      tabs: [
+                          controller: _tabController,
+                          labelColor: AppTheme.primaryColor,
+                          unselectedLabelColor: const Color(0xFF64748B),
+                          indicatorColor: AppTheme.primaryColor,
+                          indicatorWeight: 3,
+                          isScrollable: true,
+                          tabAlignment: TabAlignment.start,
+                          padding: EdgeInsets.zero,
+                          tabs: [
                         Tab(
                           icon: const Icon(
                             Icons.medical_services_outlined,
@@ -6264,7 +6271,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       _buildLiveSessionSummaryTab(visit, controller),
                     ],
                   ),
-            floatingActionButton: (!isCompletedOrVerified &&
+            floatingActionButton: (!isMobile &&
+                    !isCompletedOrVerified &&
                     visit.status != 'Cancelled' &&
                     visit.status != 'Completed' &&
                     visit.status != 'Verified')
@@ -6680,17 +6688,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
           const SizedBox(height: 24),
 
           // Section 2 Header with Items Count Badge
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: _buildSectionHeader(
-                  context.tr('carried_used_kit_list', fallback: 'Carried & Used Kit Devices List'),
-                  Icons.assignment_turned_in_outlined,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Container(
+          LayoutBuilder(
+            builder: (context, hConstraints) {
+              final isCompact = hConstraints.maxWidth < 550;
+              final headerWidget = _buildSectionHeader(
+                context.tr('carried_used_kit_list', fallback: 'Carried & Used Kit Devices List'),
+                Icons.assignment_turned_in_outlined,
+              );
+              final badgeWidget = Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 4,
@@ -6709,8 +6714,28 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     color: Color(0xFF0369A1),
                   ),
                 ),
-              ),
-            ],
+              );
+
+              if (isCompact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    headerWidget,
+                    const SizedBox(height: 8),
+                    badgeWidget,
+                  ],
+                );
+              }
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(child: headerWidget),
+                  const SizedBox(width: 12),
+                  badgeWidget,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 12),
 
@@ -8706,7 +8731,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       children: [
                         entriesText,
                         const SizedBox(height: 10),
-                        Center(child: buttons),
+                        Center(child: FittedBox(fit: BoxFit.scaleDown, child: buttons)),
                       ],
                     );
                   }
@@ -13619,87 +13644,108 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                 const SizedBox(height: 16),
 
                 // Live Summary Counters Row (Today's Entries Only)
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
-                  children: [
-                    _liveSummaryChip(
-                      Icons.devices,
-                      context.tr('kit_devices_stat', fallback: 'Kit Devices'),
-                      visit.carriedItems.isEmpty
-                          ? '0 ${context.tr('added_suffix', fallback: 'Added')}'
-                          : visit.carriedItems
-                              .map((i) =>
-                                  '${_getTranslatedKitDevice(i.itemName)} (${context.tr('qty', fallback: 'Qty')}: ${i.quantityCarried})')
-                              .join(', '),
-                      AppTheme.primaryColor,
-                      customSubtitle: visit.carriedItems.isEmpty
-                          ? Text(
-                              '0 ${context.tr('added_suffix', fallback: 'Added')}',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            )
-                          : Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                for (final item in visit.carriedItems)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 1.0),
-                                    child: Text(
-                                      '${_getTranslatedKitDevice(item.itemName)} • ${context.tr('qty', fallback: 'Qty')}: ${item.quantityCarried}',
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxAvailableWidth = (constraints.maxWidth.isFinite && constraints.maxWidth > 0)
+                        ? constraints.maxWidth
+                        : math.max(120.0, MediaQuery.of(context).size.width - 48);
+                    final isMobileChip = maxAvailableWidth < 650;
+                    return Wrap(
+                      spacing: 16,
+                      runSpacing: 12,
+                      children: [
+                        _liveSummaryChip(
+                          Icons.devices,
+                          context.tr('kit_devices_stat', fallback: 'Kit Devices'),
+                          visit.carriedItems.isEmpty
+                              ? '0 ${context.tr('added_suffix', fallback: 'Added')}'
+                              : visit.carriedItems
+                                  .map((i) =>
+                                      '${_getTranslatedKitDevice(i.itemName)} (${context.tr('qty', fallback: 'Qty')}: ${i.quantityCarried})')
+                                  .join(', '),
+                          AppTheme.primaryColor,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                          customSubtitle: visit.carriedItems.isEmpty
+                              ? Text(
+                                  '0 ${context.tr('added_suffix', fallback: 'Added')}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
                                   ),
-                              ],
-                            ),
-                    ),
-                    _liveSummaryChip(
-                      Icons.monitor_heart_outlined,
-                      context.tr('vitals_log_stat', fallback: 'Vitals Log'),
-                      '${todayVitals.length} ${context.tr('today_entries_suffix', fallback: 'Today Entries')}',
-                      Colors.purple,
-                    ),
-                    _liveSummaryChip(
-                      Icons.edit_note,
-                      context.tr('care_notes_stat', fallback: 'Care Notes'),
-                      todayCare.isNotEmpty
-                          ? '${todayCare.length} ${context.tr('today_entries_suffix', fallback: 'Today Entries')}'
-                          : context.tr('pending_status', fallback: 'Pending'),
-                      Colors.orange,
-                    ),
-                    _liveSummaryChip(
-                      Icons.medication_liquid,
-                      context.tr('meds_procedures_stat', fallback: 'Meds & Procedures'),
-                      '${todayMedicines.length} ${context.tr('meds_short', fallback: 'Meds')} / ${todayProcedures.length} ${context.tr('procedures_short', fallback: 'Procedures')}',
-                      AppTheme.secondaryColor,
-                    ),
-                    _liveSummaryChip(
-                      Icons.camera_alt_outlined,
-                      context.tr('photos_stat', fallback: 'Photos'),
-                      '${todayPhotos.length} ${context.tr('today_photos_suffix', fallback: 'Today Photos')}',
-                      Colors.teal,
-                    ),
-                    _liveSummaryChip(
-                      Icons.verified_user_outlined,
-                      context.tr('attender_verification_stat', fallback: 'Attender Verification'),
-                      visit.attenderName != null &&
-                              visit.attenderName!.isNotEmpty
-                          ? '${context.tr('verified', fallback: 'Verified')} (${visit.attenderName})'
-                          : context.tr('pending_status', fallback: 'Pending'),
-                      visit.attenderName != null &&
-                              visit.attenderName!.isNotEmpty
-                          ? Colors.green
-                          : AppTheme.dangerColor,
-                    ),
-                  ],
+                                )
+                              : Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    for (final item in visit.carriedItems)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 1.0),
+                                        child: Text(
+                                          '${_getTranslatedKitDevice(item.itemName)} • ${context.tr('qty', fallback: 'Qty')}: ${item.quantityCarried}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                          softWrap: true,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                        ),
+                        _liveSummaryChip(
+                          Icons.monitor_heart_outlined,
+                          context.tr('vitals_log_stat', fallback: 'Vitals Log'),
+                          '${todayVitals.length} ${context.tr('today_entries_suffix', fallback: 'Today Entries')}',
+                          Colors.purple,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                        ),
+                        _liveSummaryChip(
+                          Icons.edit_note,
+                          context.tr('care_notes_stat', fallback: 'Care Notes'),
+                          todayCare.isNotEmpty
+                              ? '${todayCare.length} ${context.tr('today_entries_suffix', fallback: 'Today Entries')}'
+                              : context.tr('pending_status', fallback: 'Pending'),
+                          Colors.orange,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                        ),
+                        _liveSummaryChip(
+                          Icons.medication_liquid,
+                          context.tr('meds_procedures_stat', fallback: 'Meds & Procedures'),
+                          '${todayMedicines.length} ${context.tr('meds_short', fallback: 'Meds')} / ${todayProcedures.length} ${context.tr('procedures_short', fallback: 'Procedures')}',
+                          AppTheme.secondaryColor,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                        ),
+                        _liveSummaryChip(
+                          Icons.camera_alt_outlined,
+                          context.tr('photos_stat', fallback: 'Photos'),
+                          '${todayPhotos.length} ${context.tr('today_photos_suffix', fallback: 'Today Photos')}',
+                          Colors.teal,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                        ),
+                        _liveSummaryChip(
+                          Icons.verified_user_outlined,
+                          context.tr('attender_verification_stat', fallback: 'Attender Verification'),
+                          visit.attenderName != null &&
+                                  visit.attenderName!.isNotEmpty
+                              ? '${context.tr('verified', fallback: 'Verified')} (${visit.attenderName})'
+                              : context.tr('pending_status', fallback: 'Pending'),
+                          visit.attenderName != null &&
+                                  visit.attenderName!.isNotEmpty
+                              ? Colors.green
+                              : AppTheme.dangerColor,
+                          maxWidth: maxAvailableWidth,
+                          isFullWidth: isMobileChip,
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -13718,36 +13764,61 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildSectionHeader(
+                LayoutBuilder(
+                  builder: (context, sConstraints) {
+                    final isCompact = sConstraints.maxWidth < 550;
+                    final headerWidget = _buildSectionHeader(
                       context.tr('carried_used_kit_devices_title', fallback: '1. Carried & Used Kit Devices'),
                       Icons.devices,
-                    ),
-                    if (visit.carriedItems.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppTheme.primaryColor.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Text(
-                          '${context.tr('total_qty', fallback: 'Total Qty')}: ${visit.carriedItems.fold<int>(0, (sum, i) => sum + i.quantityCarried)}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                      ),
-                  ],
+                    );
+                    final badgeWidget = visit.carriedItems.isNotEmpty
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppTheme.primaryColor.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Text(
+                              '${context.tr('total_qty', fallback: 'Total Qty')}: ${visit.carriedItems.fold<int>(0, (sum, i) => sum + i.quantityCarried)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          )
+                        : null;
+
+                    if (isCompact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          headerWidget,
+                          if (badgeWidget != null) ...[
+                            const SizedBox(height: 8),
+                            badgeWidget,
+                          ],
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: headerWidget),
+                        if (badgeWidget != null) ...[
+                          const SizedBox(width: 8),
+                          badgeWidget,
+                        ],
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 12),
                 if (visit.carriedItems.isEmpty)
@@ -13950,12 +14021,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 color: AppTheme.secondaryColor,
                               ),
                               const SizedBox(width: 6),
-                              Text(
-                                '${context.tr('recorded_on', fallback: 'Recorded on')}: ${_formatRecordedAt(care.createdAt)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.secondaryColor,
+                              Expanded(
+                                child: Text(
+                                  '${context.tr('recorded_on', fallback: 'Recorded on')}: ${_formatRecordedAt(care.createdAt)}',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: AppTheme.secondaryColor,
+                                  ),
                                 ),
                               ),
                             ],
@@ -14056,6 +14129,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
+                          softWrap: true,
                         ),
                       ),
                   ] else if (todayConsumables.isNotEmpty) ...[
@@ -14074,6 +14148,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                         child: Text(
                           '• ${context.translateConsumable(c.itemName)} - ${context.tr('qty', fallback: 'Qty')}: ${c.quantityUsed} | ₹${(c.unitPrice * c.quantityUsed).toStringAsFixed(2)}',
                           style: const TextStyle(fontSize: 13),
+                          softWrap: true,
                         ),
                       ),
                   ],
@@ -14496,8 +14571,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     String subtitle,
     Color color, {
     Widget? customSubtitle,
+    double? maxWidth,
+    bool isFullWidth = false,
   }) {
     return Container(
+      width: (isFullWidth && maxWidth != null && maxWidth > 0) ? maxWidth : null,
+      constraints: (maxWidth != null && maxWidth > 0)
+          ? BoxConstraints(maxWidth: maxWidth)
+          : null,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: color.withOpacity(0.08),
@@ -14505,36 +14586,39 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(icon, size: 20, color: color),
           const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: color,
-                ),
-              ),
-              const SizedBox(height: 2),
-              if (customSubtitle != null)
-                customSubtitle
-              else
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
                 Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                  title,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: color,
                   ),
                 ),
-            ],
+                const SizedBox(height: 2),
+                if (customSubtitle != null)
+                  customSubtitle
+                else
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                    softWrap: true,
+                  ),
+              ],
+            ),
           ),
         ],
       ),
@@ -16142,12 +16226,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     color: AppTheme.primaryColor,
                                   ),
                                   const SizedBox(width: 6),
-                                  Text(
-                                    '${context.tr('recorded_on_label', fallback: 'Recorded on:')} ${_formatRecordedAt(care.createdAt)}',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
-                                      color: AppTheme.primaryColor,
+                                  Expanded(
+                                    child: Text(
+                                      '${context.tr('recorded_on_label', fallback: 'Recorded on:')} ${_formatRecordedAt(care.createdAt)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: AppTheme.primaryColor,
+                                      ),
                                     ),
                                   ),
                                 ],
