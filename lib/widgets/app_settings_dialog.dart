@@ -2,29 +2,131 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/language_provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/auth_provider.dart';
 import '../utils/app_theme.dart';
 import '../utils/app_localizations.dart';
 
 /// Application & Language Settings dialog.
 ///
 /// Allows configuring:
-/// 1. Language (English ↔ Tamil)
+/// 1. Language (English ↔ Tamil) — with a confirmation step before applying.
 /// 2. Appearance & Theme (Light, Dark, System Default)
-/// 3. Exit button labelled 'வெளியேறு' (veliyeru) in Tamil / 'Exit' in English.
-class AppSettingsDialog extends StatelessWidget {
+/// 3. A Close button to dismiss the dialog.
+class AppSettingsDialog extends StatefulWidget {
   final bool showThemeSelection;
 
   const AppSettingsDialog({
     super.key,
-    this.showThemeSelection = true,
+    this.showThemeSelection = false,
   });
 
-  static void show(BuildContext context, {bool showThemeSelection = true}) {
+  static void show(BuildContext context, {bool showThemeSelection = false}) {
     showDialog(
       context: context,
       barrierDismissible: true,
       builder: (context) => AppSettingsDialog(showThemeSelection: showThemeSelection),
     );
+  }
+
+  @override
+  State<AppSettingsDialog> createState() => _AppSettingsDialogState();
+}
+
+class _AppSettingsDialogState extends State<AppSettingsDialog> {
+  /// Asks the user to confirm a language change and, if confirmed, applies it.
+  Future<void> _confirmLanguageChange(
+    BuildContext context,
+    String newCode,
+  ) async {
+    final languageProvider = Provider.of<LanguageProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
+    // Already selected — nothing to do.
+    if ((newCode == 'ta') == languageProvider.isTamil) return;
+
+    final isDark = AppTheme.isDark(context);
+    final bool isSwitchingToTamil = newCode == 'ta';
+
+    final String titleText = isSwitchingToTamil
+        ? 'Switch to Tamil? / தமிழுக்கு மாற்றவா?'
+        : 'Switch to English?';
+
+    final String bodyText = isSwitchingToTamil
+        ? 'Home Visit Care section will be displayed in Tamil.\n'
+            'மற்ற அனைத்து பகுதிகளும் ஆங்கிலத்தில் இருக்கும்.'
+        : 'Home Visit Care section will switch back to English.\n'
+            'All other sections remain in English.';
+
+    final String confirmLabel = isSwitchingToTamil ? 'Switch / மாற்று' : 'Switch';
+    final String cancelLabel = isSwitchingToTamil ? 'Cancel / ரத்து' : 'Cancel';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: isDark ? AppTheme.darkCardColor : Colors.white,
+        icon: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.translate_rounded,
+            color: AppTheme.primaryColor,
+            size: 28,
+          ),
+        ),
+        title: Text(
+          titleText,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: isDark ? AppTheme.darkTextPrimaryColor : AppTheme.textPrimaryColor,
+          ),
+        ),
+        content: Text(
+          bodyText,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.5,
+            color: isDark ? AppTheme.darkTextSecondaryColor : AppTheme.textSecondaryColor,
+          ),
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  style: AppTheme.cancelButton,
+                  child: Text(cancelLabel),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  style: AppTheme.primaryButton,
+                  child: Text(confirmLabel),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      languageProvider.setLanguageCode(newCode, userId: auth.user?.id);
+      try {
+        auth.updatePreferredLanguage(newCode);
+      } catch (_) {}
+    }
   }
 
   @override
@@ -46,12 +148,16 @@ class AppSettingsDialog extends StatelessWidget {
       elevation: 16,
       backgroundColor: cardBg,
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 480),
+        constraints: BoxConstraints(
+          maxWidth: 480,
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
+        ),
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // ── Dialog Header ─────────────────────────────────────────────────
             Row(
               children: [
@@ -82,9 +188,13 @@ class AppSettingsDialog extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        languageProvider.isTamil
-                            ? 'மொழி மற்றும் தோற்ற அமைப்புகள்'
-                            : 'Language and appearance settings',
+                        widget.showThemeSelection
+                            ? (languageProvider.isTamil
+                                ? 'மொழி மற்றும் தோற்ற அமைப்புகள்'
+                                : 'Language and appearance settings')
+                            : (languageProvider.isTamil
+                                ? 'மொழி அமைப்புகள்'
+                                : 'Language settings'),
                         style: TextStyle(fontSize: 12, color: textSecondary),
                       ),
                     ],
@@ -129,45 +239,73 @@ class AppSettingsDialog extends StatelessWidget {
               ),
               style: TextStyle(fontSize: 12, color: textSecondary),
             ),
+            const SizedBox(height: 4),
+            // Scope note — always in English since non-home-visit UI is English
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.18),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    size: 14,
+                    color: AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Tamil applies to Home Visit Care only. All other sections stay in English.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: textSecondary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             const SizedBox(height: 12),
 
             // Language Options (English and Tamil)
-            Row(
+            Column(
               children: [
-                Expanded(
-                  child: _buildLanguageCard(
-                    context: context,
-                    code: 'en',
-                    title: 'English',
-                    subtitle: 'Default language',
-                    badge: 'EN',
-                    isSelected: !languageProvider.isTamil,
-                    onTap: () => languageProvider.setLanguageCode('en'),
-                    borderColor: borderColor,
-                    textPrimary: textPrimary,
-                    textSecondary: textSecondary,
-                  ),
+                _buildLanguageCard(
+                  context: context,
+                  code: 'en',
+                  title: 'English',
+                  subtitle: 'Default language',
+                  badge: 'EN',
+                  isSelected: !languageProvider.isTamil,
+                  onTap: () => _confirmLanguageChange(context, 'en'),
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildLanguageCard(
-                    context: context,
-                    code: 'ta',
-                    title: 'தமிழ்',
-                    subtitle: 'தமிழ் மொழி',
-                    badge: 'தமிழ்',
-                    isSelected: languageProvider.isTamil,
-                    onTap: () => languageProvider.setLanguageCode('ta'),
-                    borderColor: borderColor,
-                    textPrimary: textPrimary,
-                    textSecondary: textSecondary,
-                  ),
+                const SizedBox(height: 10),
+                _buildLanguageCard(
+                  context: context,
+                  code: 'ta',
+                  title: 'தமிழ்',
+                  subtitle: 'தமிழ் மொழி',
+                  badge: 'தமிழ்',
+                  isSelected: languageProvider.isTamil,
+                  onTap: () => _confirmLanguageChange(context, 'ta'),
+                  borderColor: borderColor,
+                  textPrimary: textPrimary,
+                  textSecondary: textSecondary,
                 ),
               ],
             ),
 
             // ── Section 2: Theme Mode Selection ───────────────────────────────
-            if (showThemeSelection) ...[
+            if (widget.showThemeSelection) ...[
               const SizedBox(height: 24),
               Divider(height: 1, thickness: 1, color: borderColor),
               const SizedBox(height: 20),
@@ -255,22 +393,21 @@ class AppSettingsDialog extends StatelessWidget {
 
             const SizedBox(height: 28),
 
-            // ── Exit / Veliyeru Button ─────────────────────────────────────────
+            // ── Close Button ───────────────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               height: 48,
-              child: ElevatedButton(
+              child: OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: textSecondary,
+                  side: BorderSide(color: borderColor),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  elevation: 0,
                 ),
                 child: Text(
-                  context.tr('exit', fallback: languageProvider.isTamil ? 'வெளியேறு' : 'Exit'),
+                  context.tr('close', fallback: 'Close'),
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -281,7 +418,8 @@ class AppSettingsDialog extends StatelessWidget {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildLanguageCard({
@@ -386,7 +524,7 @@ class AppSettingsDialog extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
         decoration: BoxDecoration(
           color: isSelected
               ? AppTheme.primaryColor.withValues(alpha: 0.08)
@@ -400,25 +538,26 @@ class AppSettingsDialog extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 26, color: isSelected ? AppTheme.primaryColor : iconColor),
-            const SizedBox(height: 8),
+            Icon(icon, size: 24, color: isSelected ? AppTheme.primaryColor : iconColor),
+            const SizedBox(height: 6),
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 color: isSelected ? AppTheme.primaryColor : textPrimary,
+                height: 1.2,
               ),
               textAlign: TextAlign.center,
-              maxLines: 1,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
             if (isSelected) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               const Icon(
                 Icons.check_circle_rounded,
                 color: AppTheme.primaryColor,
-                size: 16,
+                size: 15,
               ),
             ],
           ],

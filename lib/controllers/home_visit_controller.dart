@@ -370,5 +370,24 @@ class HomeVisitController with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // Parse voice dictation into structured fields
+  Future<Map<String, dynamic>?> parseDictation(String dictationText) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final parsedData = await _service.parseDictation(dictationText);
+      return parsedData;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }
+
 

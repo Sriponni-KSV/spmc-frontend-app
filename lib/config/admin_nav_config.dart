@@ -61,31 +61,31 @@ class AdminNavConfig {
   // Hidden Menus (Change to `true` whenever you want to display them)
   // -------------------------------------------------------------------------
 
-  /// Access Control / RBAC (Hidden - Change to true to display)
+  /// Access Control / RBAC (Visible)
   static const bool showAccessControl = false;
 
-  /// Appointments (Hidden)
+  /// Appointments (Visible)
   static const bool showAppointments = false;
 
-  /// OPD Management (Hidden)
+  /// OPD Management (Visible)
   static const bool showOpdManagement = false;
 
-  /// IPD Management (Hidden)
+  /// IPD Management (Visible)
   static const bool showIpdManagement = false;
 
-  /// OT Management (Hidden)
+  /// OT Management (Visible)
   static const bool showOtManagement = false;
 
   /// Shift Allocation (Visible)
   static const bool showShiftAllocation = false;
 
-  /// ICU & Emergency (Hidden - Change to true to display)
+  /// ICU & Emergency (Visible)
   static const bool showIcuEmergency = false;
 
-  /// Billing & Invoices (Hidden - Change to true to display)
+  /// Billing & Invoices (Visible)
   static const bool showBillingInvoices = false;
 
-  /// Inventory Management (Hidden - Change to true to display)
+  /// Inventory Management (Visible)
   static const bool showInventoryManagement = false;
 
   // =========================================================================
@@ -94,6 +94,7 @@ class AdminNavConfig {
   static const bool showMedicineCatalog = true;
   static const bool showHomeVisitConsumables = true;
   static const bool showCarriedKitItems = true;
+  static const bool showIpdBeds = true;
 
   // =========================================================================
   // HELPER METHODS TO FILTER AND RETURN ACTIVE MENU ITEMS
@@ -124,7 +125,6 @@ class AdminNavConfig {
         index: 3,
         icon: Icons.security_outlined,
         label: 'Access Control (RBAC)',
-        requiredRole: 'Super Admin',
         isVisible: showAccessControl,
       ),
       const AdminNavItem(
@@ -212,6 +212,12 @@ class AdminNavConfig {
         icon: Icons.inventory_outlined,
         label: 'Carried Kit Items',
         isVisible: showCarriedKitItems,
+      ),
+      const AdminCatalogSubItem(
+        index: 16,
+        icon: Icons.hotel_outlined,
+        label: 'IPD Beds',
+        isVisible: showIpdBeds,
       ),
     ];
 

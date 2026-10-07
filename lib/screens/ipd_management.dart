@@ -580,8 +580,8 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       final hasActiveShifts = _allWardsShiftData.isNotEmpty;
       return _buildEmptyState(
         hasActiveShifts
-            ? 'Access Denied: You do not have an active ward assignment today.'
-            : 'Access Denied: No shifts are currently active or defined by the Admin.',
+            ? 'Access Denied: You do not have an active ward assignment today. (Active Shift is applicable only for IPD)'
+            : 'Access Denied: No shifts are currently active or defined by the Admin. (Active Shift is applicable only for IPD)',
         Icons.lock_outline,
       );
     }

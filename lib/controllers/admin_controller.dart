@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 
@@ -87,7 +86,7 @@ class AdminController {
         final List data = body['data'] ?? [];
         return data.map((e) => UserModel.fromJson(e)).toList();
       } else {
-        throw Exception(body['message'] ?? 'Failed to fetch staff');
+        throw Exception(body['message'] ?? body['error'] ?? 'Failed to fetch staff');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
@@ -280,7 +279,7 @@ class AdminController {
       if (response.statusCode == 200 && body['success'] == true) {
         return Map<String, dynamic>.from(body['data'] ?? {});
       } else {
-        throw Exception(body['message'] ?? 'Failed to fetch dashboard stats');
+        throw Exception(body['message'] ?? body['error'] ?? 'Failed to fetch dashboard stats');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));

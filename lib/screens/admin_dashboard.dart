@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
@@ -43,6 +43,7 @@ import '../services/api_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
 import '../config/admin_nav_config.dart';
+import 'ipd_beds_catalog_view.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 import '../providers/language_provider.dart';
@@ -78,9 +79,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final AdminController _adminController = AdminController();
 
   String _totalStaffCount = '--';
-  String _activeSessionsCount = '--';
-  String _systemHealthPercent = '--';
-  String _securityAlertsCount = '--';
+  String _totalPatientsCount = '--';
+  String _todayAppointmentsCount = '--';
+  String _activeHomeVisitsCount = '--';
+  List<double> _weeklyStaffData = [0, 0, 0, 0, 0, 0, 0];
+  String _selectedStaffOverviewFilter = 'This Week';
+  int _selectedStaffOverviewDayIndex = (DateTime.now().weekday - 1).clamp(0, 6);
+  List<UserModel> _allStaffList = [];
   bool _isLoadingDashboardStats = false;
 
   Future<List<UserModel>>? _staffFuture;
@@ -245,7 +250,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _selectedHomeVisitId = widget.selectedHomeVisitId;
     _isCatalogMenuExpanded = widget.initialIndex == 13 ||
         widget.initialIndex == 14 ||
-        widget.initialIndex == 15;
+        widget.initialIndex == 15 ||
+        widget.initialIndex == 16;
     _loadStaff();
     _loadRbacData();
     _fetchPatients();
@@ -369,9 +375,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (mounted) {
         setState(() {
           _totalStaffCount = stats['totalStaff']?.toString() ?? '--';
-          _activeSessionsCount = stats['activeSessions']?.toString() ?? '--';
-          _systemHealthPercent = stats['systemHealth']?.toString() ?? '--';
-          _securityAlertsCount = stats['securityAlerts']?.toString() ?? '--';
+          _totalPatientsCount = stats['totalPatients']?.toString() ??
+              stats['activeSessions']?.toString() ??
+              '--';
+          _todayAppointmentsCount = stats['todayAppointments']?.toString() ?? '--';
+          _activeHomeVisitsCount = stats['activeHomeVisits']?.toString() ?? '--';
+          if (stats['weeklyStaffOverview'] != null &&
+              stats['weeklyStaffOverview'] is List) {
+            final List list = stats['weeklyStaffOverview'];
+            _weeklyStaffData =
+                list.map((e) => (e as num).toDouble()).toList();
+          }
         });
       }
     } catch (e) {
@@ -383,11 +397,176 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  void _loadStaff() {
+  void _loadStaff() async {
+    final future = _adminController.fetchStaff();
     setState(() {
-      _staffFuture = _adminController.fetchStaff();
+      _staffFuture = future;
     });
+    try {
+      final staff = await future;
+      if (mounted) {
+        setState(() {
+          _allStaffList = staff;
+        });
+        _computeWeeklyStaffData(staff);
+      }
+    } catch (_) {}
     _loadDashboardStats();
+  }
+
+  bool _isUserOnDutyOnDay(UserModel u, String day) {
+    if (u.status.toLowerCase() != 'active') return false;
+    final d = day.toLowerCase();
+
+    if (u.role.toLowerCase() == 'doctor') {
+      final avail = u.availableDays;
+      final off = u.weeklyOffDays;
+      if (avail != null && avail.isNotEmpty) {
+        return avail.any((x) => x.toLowerCase().startsWith(d));
+      } else if (off != null && off.isNotEmpty) {
+        return !off.any((x) => x.toLowerCase().startsWith(d));
+      } else {
+        return d != 'sun';
+      }
+    } else if (u.role.toLowerCase() == 'nurse') {
+      final working = u.workingDays;
+      final off = u.weeklyOffDays;
+      if (working != null && working.isNotEmpty) {
+        return working.any((x) => x.toLowerCase().startsWith(d));
+      } else if (off != null && off.isNotEmpty) {
+        return !off.any((x) => x.toLowerCase().startsWith(d));
+      } else {
+        return d != 'sun';
+      }
+    } else {
+      final off = u.weeklyOffDays;
+      if (off != null && off.isNotEmpty) {
+        return !off.any((x) => x.toLowerCase().startsWith(d));
+      } else {
+        return d != 'sun';
+      }
+    }
+  }
+
+  String _getUserOffReason(UserModel u, String day) {
+    final d = day.toLowerCase();
+    if (u.status.toLowerCase() != 'active') return 'Account Inactive';
+    if (d == 'sun') return 'Sunday Hospital Routine Off';
+
+    if (u.role.toLowerCase() == 'doctor') {
+      final avail = u.availableDays;
+      final off = u.weeklyOffDays;
+      if (avail != null && avail.isNotEmpty) {
+        return 'Available on ${avail.join(", ")} only';
+      } else if (off != null && off.isNotEmpty) {
+        return 'Scheduled Weekly Off';
+      }
+    } else if (u.role.toLowerCase() == 'nurse') {
+      final working = u.workingDays;
+      final off = u.weeklyOffDays;
+      if (working != null && working.isNotEmpty) {
+        return 'Available on ${working.join(", ")} only';
+      } else if (off != null && off.isNotEmpty) {
+        return 'Scheduled Weekly Off';
+      }
+    } else {
+      final off = u.weeklyOffDays;
+      if (off != null && off.isNotEmpty) {
+        return 'Scheduled Weekly Off';
+      }
+    }
+    return 'Off Duty';
+  }
+
+  void _computeWeeklyStaffData(List<UserModel> staff) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final activeStaff = staff
+        .where((u) => u.status.toLowerCase() == 'active')
+        .toList();
+    final counts = days.map((day) {
+      int count = 0;
+      for (final u in activeStaff) {
+        if (_isUserOnDutyOnDay(u, day)) count++;
+      }
+      return count.toDouble();
+    }).toList();
+
+    if (mounted) {
+      setState(() {
+        _weeklyStaffData = counts;
+      });
+    }
+  }
+
+  List<double> _getFilteredWeeklyStaffData() {
+    if (_allStaffList.isEmpty) {
+      return _weeklyStaffData.isNotEmpty
+          ? _weeklyStaffData
+          : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    }
+
+    final activeStaff = _allStaffList
+        .where((u) => u.status.toLowerCase() == 'active')
+        .where((u) {
+          if (_selectedStaffOverviewFilter == 'Doctors') {
+            return u.role.toLowerCase() == 'doctor';
+          } else if (_selectedStaffOverviewFilter == 'Nurses') {
+            return u.role.toLowerCase() == 'nurse';
+          } else if (_selectedStaffOverviewFilter == 'Admin & Support') {
+            return u.role.toLowerCase() != 'doctor' &&
+                u.role.toLowerCase() != 'nurse';
+          }
+          return true; // 'This Week' (All Staff)
+        })
+        .toList();
+
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days.map((day) {
+      int count = 0;
+      for (final u in activeStaff) {
+        if (_isUserOnDutyOnDay(u, day)) count++;
+      }
+      return count.toDouble();
+    }).toList();
+  }
+
+  Map<String, dynamic> _getDayStaffBreakdown(int dayIndex) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final day = days[dayIndex.clamp(0, 6)];
+
+    final activeStaff = _allStaffList
+        .where((u) => u.status.toLowerCase() == 'active')
+        .toList();
+
+    final onDutyDoctors = <UserModel>[];
+    final onDutyNurses = <UserModel>[];
+    final onDutySupport = <UserModel>[];
+    final offDutyStaff = <UserModel>[];
+
+    for (final u in activeStaff) {
+      if (_isUserOnDutyOnDay(u, day)) {
+        if (u.role.toLowerCase() == 'doctor') {
+          onDutyDoctors.add(u);
+        } else if (u.role.toLowerCase() == 'nurse') {
+          onDutyNurses.add(u);
+        } else {
+          onDutySupport.add(u);
+        }
+      } else {
+        offDutyStaff.add(u);
+      }
+    }
+
+    return {
+      'day': day,
+      'totalOnDuty': onDutyDoctors.length + onDutyNurses.length + onDutySupport.length,
+      'totalOffDuty': offDutyStaff.length,
+      'totalActive': activeStaff.length,
+      'doctors': onDutyDoctors,
+      'nurses': onDutyNurses,
+      'support': onDutySupport,
+      'offDuty': offDutyStaff,
+    };
   }
 
   void _loadRbacData() {
@@ -400,12 +579,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showAddUserDialog(BuildContext context) {
-    final currentUserRole =
-        Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AddUserDialog(currentUserRole: currentUserRole),
+      builder: (context) => const AddUserDialog(),
     ).then((_) => _loadStaff()); // Refresh list after dialog closes
   }
 
@@ -609,7 +786,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 3:
-        if (user?.role == 'Super Admin') {
+        if (user?.role == 'Super Admin' || user?.role == 'Admin') {
           return RbacManagementWidget(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
@@ -704,13 +881,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _buildStatsRow(isMobile),
                 const SizedBox(height: 24),
                 if (isMobile) ...[
-                  _buildAlertsSection(),
+                  _buildStaffOverviewChart(true),
                   const SizedBox(height: 24),
                   _buildQuickActions(isMobile),
                   const SizedBox(height: 24),
-                  _buildStaffOverviewChart(),
-                  const SizedBox(height: 24),
-                  _buildSystemStatus(),
+                  _buildAlertsSection(),
                 ] else
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -719,8 +894,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         flex: 1,
                         child: Column(
                           children: [
-                            _buildAlertsSection(),
-                            const SizedBox(height: 24),
                             _buildStaffOverviewChart(),
                           ],
                         ),
@@ -732,7 +905,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           children: [
                             _buildQuickActions(false),
                             const SizedBox(height: 24),
-                            _buildSystemStatus(),
+                            _buildAlertsSection(),
                           ],
                         ),
                       ),
@@ -2545,14 +2718,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildStatsRow(bool isMobile) {
-    final securityColor =
-        (_securityAlertsCount != '0' && _securityAlertsCount != '--')
-        ? AppTheme.logoRed
-        : AppTheme.secondaryColor;
-    final securitySub = (_securityAlertsCount == '0')
-        ? 'Safe'
-        : (_securityAlertsCount == '--' ? '' : 'Requires attention');
-
     final card1 = _buildStatCard(
       'Total Staff',
       _totalStaffCount,
@@ -2564,41 +2729,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
 
     final card2 = _buildStatCard(
-      'Active Sessions',
-      _activeSessionsCount,
-      _activeSessionsCount == '--' ? '' : 'Live',
-      Icons.monitor_heart_outlined,
+      'Total Patients',
+      _totalPatientsCount,
+      _totalPatientsCount == '--' ? '' : 'Registered',
+      Icons.personal_injury_outlined,
       AppTheme.secondaryColor,
       isMobile,
-      () => context.go(AppRoutes.adminUsers),
+      () => context.go(AppRoutes.adminPatients),
     );
 
     final card3 = _buildStatCard(
-      'System Health',
-      _systemHealthPercent,
-      _systemHealthPercent == '--' ? '' : 'Optimal',
-      Icons.health_and_safety_outlined,
-      Colors.indigo,
+      'Today\'s Appointments',
+      _todayAppointmentsCount,
+      _todayAppointmentsCount == '--' ? '' : 'Scheduled',
+      Icons.calendar_today_outlined,
+      AppTheme.nurseColor,
       isMobile,
-      () => {},
+      () => context.go(AppRoutes.adminAppointments),
     );
 
     final card4 = _buildStatCard(
-      'Security Alerts',
-      _securityAlertsCount,
-      securitySub,
-      Icons.security_outlined,
-      securityColor,
+      'Active Home Visits',
+      _activeHomeVisitsCount,
+      _activeHomeVisitsCount == '--' ? '' : 'Active / Scheduled',
+      Icons.home_work_outlined,
+      AppTheme.warningColor,
       isMobile,
-      () {
-        final currentUser = Provider.of<AuthProvider>(
-          context,
-          listen: false,
-        ).user;
-        if (currentUser?.role == 'Super Admin') {
-          context.go(AppRoutes.adminSettings);
-        }
-      },
+      () => context.go(AppRoutes.adminHomeVisits),
     );
 
     if (isMobile) {
@@ -2886,9 +3043,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     const SizedBox(width: 12),
                     _buildActionGridItem(
-                      Icons.settings_suggest_outlined,
-                      'System\nConfiguration',
-                      () {},
+                      Icons.person_add_alt_1_outlined,
+                      'Register\nNew Patient',
+                      () => context.go(AppRoutes.adminNewPatient),
                     ),
                   ],
                 ),
@@ -2896,15 +3053,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 Row(
                   children: [
                     _buildActionGridItem(
-                      Icons.storage_outlined,
-                      'Manual\nDatabase Backup',
-                      () {},
+                      Icons.receipt_long_outlined,
+                      'Billing &\nInvoices',
+                      () => context.go(AppRoutes.adminBilling),
                     ),
                     const SizedBox(width: 12),
                     _buildActionGridItem(
-                      Icons.receipt_long_outlined,
-                      'Audit\nLogs',
-                      () {},
+                      Icons.inventory_2_outlined,
+                      'Inventory\nManagement',
+                      () => context.go(AppRoutes.adminInventory),
                     ),
                   ],
                 ),
@@ -2920,21 +3077,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ),
                 const SizedBox(width: 12),
                 _buildActionGridItem(
-                  Icons.settings_suggest_outlined,
-                  'System\nConfiguration',
-                  () {},
-                ),
-                const SizedBox(width: 12),
-                _buildActionGridItem(
-                  Icons.storage_outlined,
-                  'Manual\nDatabase Backup',
-                  () {},
+                  Icons.person_add_alt_1_outlined,
+                  'Register\nNew Patient',
+                  () => context.go(AppRoutes.adminNewPatient),
                 ),
                 const SizedBox(width: 12),
                 _buildActionGridItem(
                   Icons.receipt_long_outlined,
-                  'Audit\nLogs',
-                  () {},
+                  'Billing &\nInvoices',
+                  () => context.go(AppRoutes.adminBilling),
+                ),
+                const SizedBox(width: 12),
+                _buildActionGridItem(
+                  Icons.inventory_2_outlined,
+                  'Inventory\nManagement',
+                  () => context.go(AppRoutes.adminInventory),
                 ),
               ],
             ),
@@ -2983,8 +3140,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
   }
+  Widget _buildStaffOverviewChart([bool isMobile = false]) {
+    final List<double> weeklyData = _getFilteredWeeklyStaffData();
+    const List<String> weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const Map<String, String> fullDayNames = {
+      'Mon': 'Monday',
+      'Tue': 'Tuesday',
+      'Wed': 'Wednesday',
+      'Thu': 'Thursday',
+      'Fri': 'Friday',
+      'Sat': 'Saturday',
+      'Sun': 'Sunday',
+    };
 
-  Widget _buildSystemStatus([bool isMobile = false]) {
+    final int todayIndex = (DateTime.now().weekday - 1).clamp(0, 6);
+    final double maxVal = weeklyData.isNotEmpty ? weeklyData.reduce(math.max) : 20.0;
+    final double maxY = maxVal <= 5.0
+        ? 5.0
+        : (maxVal <= 10.0
+            ? 10.0
+            : (maxVal <= 20.0 ? 20.0 : ((maxVal / 10.0).ceil() * 10.0)));
+    final double step = maxY / 4.0;
+    final List<String> yLabels = [
+      maxY.toInt().toString(),
+      (step * 3).toInt().toString(),
+      (step * 2).toInt().toString(),
+      step.toInt().toString(),
+      '0',
+    ];
+
+    final int selectedDayIndex = _selectedStaffOverviewDayIndex.clamp(0, 6);
+    final String selectedDayAbbr = weekdays[selectedDayIndex];
+    final String selectedDayFull = fullDayNames[selectedDayAbbr] ?? selectedDayAbbr;
+    final bool isSelectedToday = selectedDayIndex == todayIndex;
+    final int todayOnDutyCount = weeklyData.length > todayIndex ? weeklyData[todayIndex].toInt() : 0;
+    final breakdown = _getDayStaffBreakdown(selectedDayIndex);
+
     return Container(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
@@ -2995,214 +3186,295 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
+          // Header Row
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'System Status',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 6),
               Container(
-                width: 32,
-                height: 3,
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.groups_outlined,
                   color: AppTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(2),
+                  size: 22,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildSystemStatusItem(
-                      'Backend API',
-                      'All systems operational',
-                      'Online',
-                      AppTheme.secondaryColor,
+                    const Text(
+                      'Staff On-Duty Roster',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 17,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 16),
-                    _buildSystemStatusItem(
-                      'PostgreSQL DB',
-                      'Database connected',
-                      'Connected',
-                      AppTheme.secondaryColor,
+                    const SizedBox(height: 3),
+                    const Text(
+                      'Daily scheduled hospital duty presence (Mon – Sun)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryColor,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ),
-              ),
-              if (!isMobile) ...[
-                const SizedBox(width: 16),
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withValues(alpha: 0.06),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.show_chart,
-                        color: AppTheme.primaryColor,
-                        size: 40,
-                      ),
-                    ),
-                    Positioned(
-                      right: -2,
-                      bottom: -2,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.check_circle,
-                          color: AppTheme.secondaryColor,
-                          size: 24,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSystemStatusItem(
-    String title,
-    String subtitle,
-    String status,
-    Color color,
-  ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: AppTheme.textPrimaryColor,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: AppTheme.textSecondaryColor,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              status,
-              style: TextStyle(
-                color: color,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStaffOverviewChart([bool isMobile = false]) {
-    final List<double> weeklyData = [16, 24, 21, 32, 23, 12, 25];
-    final List<String> weekdays = [
-      'Mon',
-      'Tue',
-      'Wed',
-      'Thu',
-      'Fri',
-      'Sat',
-      'Sun',
-    ];
-
-    return Container(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppTheme.cardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Expanded(
-                child: Text(
-                  'Staff Overview',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               const SizedBox(width: 8),
+              // Today status pill
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.borderColor),
+                  color: AppTheme.secondaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: AppTheme.secondaryColor.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
-                  children: const [
-                    Text(
-                      'This Week',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimaryColor,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: AppTheme.secondaryColor,
+                        shape: BoxShape.circle,
                       ),
                     ),
-                    SizedBox(width: 6),
-                    Icon(
-                      Icons.keyboard_arrow_down,
-                      size: 16,
-                      color: AppTheme.textSecondaryColor,
+                    const SizedBox(width: 6),
+                    Text(
+                      'Today: $todayOnDutyCount On Duty',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.secondaryColor,
+                      ),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              // Filter Popup
+              PopupMenuButton<String>(
+                tooltip: 'Filter staff role',
+                initialValue: _selectedStaffOverviewFilter,
+                onSelected: (String val) {
+                  setState(() {
+                    _selectedStaffOverviewFilter = val;
+                  });
+                },
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: const BorderSide(color: AppTheme.borderColor),
+                ),
+                color: Colors.white,
+                elevation: 4,
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'This Week',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 16,
+                          color: AppTheme.primaryColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'All Staff',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'Doctors',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.medical_services_outlined,
+                          size: 16,
+                          color: AppTheme.primaryColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Doctors Only',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'Nurses',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.health_and_safety_outlined,
+                          size: 16,
+                          color: AppTheme.secondaryColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Nurses Only',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'Admin & Support',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.admin_panel_settings_outlined,
+                          size: 16,
+                          color: AppTheme.warningColor,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Admin & Support',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _selectedStaffOverviewFilter == 'This Week'
+                            ? 'All Roles'
+                            : _selectedStaffOverviewFilter,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 15,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 32),
+
+          const SizedBox(height: 14),
+
+          // Visual Legend / Helper Strip
+          Wrap(
+            spacing: 16,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 12,
+                    height: 3,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'On-Duty Count (Scheduled)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondaryColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: AppTheme.secondaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Today Indicator',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.textSecondaryColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Text(
+                    'Tap any day below for details',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          // Line Graph
           SizedBox(
             height: 180,
             child: Row(
@@ -3210,78 +3482,550 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 // Y-Axis labels
                 Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: const [
-                    Text(
-                      '40',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      '30',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      '20',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      '10',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      '0',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                  children: yLabels
+                      .map(
+                        (lbl) => Text(
+                          lbl,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.textSecondaryColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
-                const SizedBox(width: 16),
-                // Line Graph
+                const SizedBox(width: 14),
+                // Chart Canvas
                 Expanded(
                   child: CustomPaint(
-                    painter: LineChartPainter(weeklyData),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 155.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: List.generate(weekdays.length, (index) {
-                              return Text(
-                                weekdays[index],
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.textSecondaryColor,
-                                  fontWeight: FontWeight.bold,
+                    painter: LineChartPainter(
+                      weeklyData,
+                      maxY: maxY,
+                      selectedIndex: selectedDayIndex,
+                      todayIndex: todayIndex,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Weekday Interactive Selector Strip
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Row(
+                children: List.generate(weekdays.length, (index) {
+                  final day = weekdays[index];
+                  final bool isSelected = index == selectedDayIndex;
+                  final bool isToday = index == todayIndex;
+                  final int count = weeklyData.length > index ? weeklyData[index].toInt() : 0;
+
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2.5),
+                      child: InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedStaffOverviewDayIndex = index;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.primaryColor
+                                : (isToday
+                                    ? AppTheme.secondaryColor.withValues(alpha: 0.1)
+                                    : const Color(0xFFF8FAFC)),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppTheme.primaryColor
+                                  : (isToday
+                                      ? AppTheme.secondaryColor
+                                      : AppTheme.borderColor),
+                              width: isSelected || isToday ? 1.5 : 1.0,
+                            ),
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: AppTheme.primaryColor.withValues(alpha: 0.25),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    day,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : (isToday
+                                              ? AppTheme.secondaryColor
+                                              : AppTheme.textPrimaryColor),
+                                    ),
+                                  ),
+                                  if (isToday) ...[
+                                    const SizedBox(width: 3),
+                                    Container(
+                                      width: 5,
+                                      height: 5,
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? Colors.white : AppTheme.secondaryColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? Colors.white.withValues(alpha: 0.22)
+                                      : (isToday
+                                          ? AppTheme.secondaryColor.withValues(alpha: 0.2)
+                                          : Colors.white),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: isSelected
+                                        ? Colors.white.withValues(alpha: 0.3)
+                                        : AppTheme.borderColor.withValues(alpha: 0.7),
+                                    width: 0.8,
+                                  ),
                                 ),
-                              );
-                            }),
+                                child: Text(
+                                  '$count',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : (isToday
+                                            ? AppTheme.secondaryColor
+                                            : AppTheme.textPrimaryColor),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              );
+            },
+          ),
+
+          const SizedBox(height: 20),
+
+          // Detailed Selected Day Breakdown Card
+          _buildStaffDayBreakdownPanel(
+            selectedDayFull: selectedDayFull,
+            selectedDayAbbr: selectedDayAbbr,
+            isSelectedToday: isSelectedToday,
+            breakdown: breakdown,
+            isMobile: isMobile,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStaffDayBreakdownPanel({
+    required String selectedDayFull,
+    required String selectedDayAbbr,
+    required bool isSelectedToday,
+    required Map<String, dynamic> breakdown,
+    required bool isMobile,
+  }) {
+    final List<UserModel> allDoctors = (breakdown['doctors'] as List<UserModel>?) ?? [];
+    final List<UserModel> allNurses = (breakdown['nurses'] as List<UserModel>?) ?? [];
+    final List<UserModel> allSupport = (breakdown['support'] as List<UserModel>?) ?? [];
+    final List<UserModel> allOffDuty = (breakdown['offDuty'] as List<UserModel>?) ?? [];
+
+    final bool showDoctors = _selectedStaffOverviewFilter == 'This Week' ||
+        _selectedStaffOverviewFilter == 'Doctors';
+    final bool showNurses = _selectedStaffOverviewFilter == 'This Week' ||
+        _selectedStaffOverviewFilter == 'Nurses';
+    final bool showSupport = _selectedStaffOverviewFilter == 'This Week' ||
+        _selectedStaffOverviewFilter == 'Admin & Support';
+
+    final int totalOnDuty = (breakdown['totalOnDuty'] as int?) ?? 0;
+    final int totalOffDuty = (breakdown['totalOffDuty'] as int?) ?? 0;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Breakdown Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_outlined,
+                  size: 16,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '$selectedDayFull Roster ${isSelectedToday ? '(Today)' : ''}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              // On-duty badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondaryColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$totalOnDuty On Duty',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.secondaryColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Off-duty badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$totalOffDuty Off Duty',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // Sunday Hospital Notice Banner
+          if (selectedDayAbbr == 'Sun') ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    color: AppTheme.primaryColor,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sunday Hospital Operational Schedule',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          'Routine Outpatient Department (OPD) & administrative offices are closed on Sundays. Inpatient rounds, ICU nursing, and Emergency Room (ER) attendances operate under emergency on-call rotation.',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF334155),
+                            height: 1.35,
                           ),
                         ),
                       ],
                     ),
                   ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Doctors Section
+          if (showDoctors && allDoctors.isNotEmpty) ...[
+            _buildStaffRoleSectionHeader(
+              title: 'Doctors On Duty',
+              count: allDoctors.length,
+              icon: Icons.medical_services_outlined,
+              iconColor: AppTheme.primaryColor,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allDoctors.map((doc) {
+                final spec = doc.specialization != null && doc.specialization!.isNotEmpty
+                    ? doc.specialization!
+                    : 'General Physician';
+                return _buildStaffMemberBadge(
+                  name: 'Dr. ${doc.fullname}',
+                  subtitle: spec,
+                  role: 'Doctor',
+                  isOnDuty: true,
+                  roleColor: AppTheme.primaryColor,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Nurses Section
+          if (showNurses && allNurses.isNotEmpty) ...[
+            _buildStaffRoleSectionHeader(
+              title: 'Nurses On Duty',
+              count: allNurses.length,
+              icon: Icons.health_and_safety_outlined,
+              iconColor: AppTheme.secondaryColor,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allNurses.map((nurse) {
+                return _buildStaffMemberBadge(
+                  name: nurse.fullname,
+                  subtitle: nurse.shiftType != null && nurse.shiftType!.isNotEmpty
+                      ? '${nurse.shiftType} Shift'
+                      : 'Staff Nurse',
+                  role: 'Nurse',
+                  isOnDuty: true,
+                  roleColor: AppTheme.secondaryColor,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Admin & Support Staff Section
+          if (showSupport && allSupport.isNotEmpty) ...[
+            _buildStaffRoleSectionHeader(
+              title: 'Admin & Support Staff On Duty',
+              count: allSupport.length,
+              icon: Icons.admin_panel_settings_outlined,
+              iconColor: AppTheme.warningColor,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allSupport.map((staff) {
+                return _buildStaffMemberBadge(
+                  name: staff.fullname,
+                  subtitle: staff.role,
+                  role: staff.role,
+                  isOnDuty: true,
+                  roleColor: AppTheme.warningColor,
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 14),
+          ],
+
+          // Scheduled Off Section (only when not Sunday, as Sunday banner covers all)
+          if (selectedDayAbbr != 'Sun' && allOffDuty.isNotEmpty) ...[
+            _buildStaffRoleSectionHeader(
+              title: 'Scheduled Off Duty',
+              count: allOffDuty.length,
+              icon: Icons.event_busy_outlined,
+              iconColor: const Color(0xFF94A3B8),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: allOffDuty.map((staff) {
+                final reason = _getUserOffReason(staff, selectedDayAbbr);
+                return _buildStaffMemberBadge(
+                  name: staff.role == 'Doctor' ? 'Dr. ${staff.fullname}' : staff.fullname,
+                  subtitle: '${staff.role} • $reason',
+                  role: staff.role,
+                  isOnDuty: false,
+                  roleColor: const Color(0xFF64748B),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStaffRoleSectionHeader({
+    required String title,
+    required int count,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: iconColor),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.textPrimaryColor,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: iconColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStaffMemberBadge({
+    required String name,
+    required String subtitle,
+    required String role,
+    required bool isOnDuty,
+    required Color roleColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isOnDuty
+              ? AppTheme.borderColor
+              : const Color(0xFFCBD5E1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 12,
+            backgroundColor: isOnDuty
+                ? roleColor.withValues(alpha: 0.12)
+                : const Color(0xFFF1F5F9),
+            child: Text(
+              name.replaceAll('Dr. ', '').isNotEmpty
+                  ? name.replaceAll('Dr. ', '')[0].toUpperCase()
+                  : '?',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.bold,
+                color: isOnDuty ? roleColor : const Color(0xFF64748B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                name,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: isOnDuty ? AppTheme.textPrimaryColor : const Color(0xFF64748B),
                 ),
-              ],
+              ),
+              const SizedBox(height: 1),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isOnDuty ? AppTheme.textSecondaryColor : const Color(0xFF94A3B8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: isOnDuty
+                  ? AppTheme.secondaryColor.withValues(alpha: 0.1)
+                  : const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              isOnDuty ? 'On Duty' : 'Off',
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.bold,
+                color: isOnDuty ? AppTheme.secondaryColor : const Color(0xFF94A3B8),
+              ),
             ),
           ),
         ],
@@ -5547,24 +6291,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   // --- Home Visit Care Section (Admin Only Schedule) ---
 
   Widget _buildAdminHomeVisitCare(bool isMobile) {
+    final langProvider = Provider.of<LanguageProvider>(context);
     if (_selectedHomeVisitId != null) {
-      return HomeVisitExecutionScreen(
-        key: ValueKey('admin_home_visit_${_selectedHomeVisitId}'),
-        visitId: _selectedHomeVisitId!,
-        isReadOnlyView: true,
-        onBack: () {
-          setState(() {
-            _selectedHomeVisitId = null;
-          });
-          context.go(AppRoutes.adminHomeVisits);
-        },
+      return Localizations.override(
+        context: context,
+        locale: langProvider.locale,
+        child: HomeVisitExecutionScreen(
+          key: ValueKey('admin_home_visit_${_selectedHomeVisitId}'),
+          visitId: _selectedHomeVisitId!,
+          isReadOnlyView: true,
+          onBack: () {
+            setState(() {
+              _selectedHomeVisitId = null;
+            });
+            context.go(AppRoutes.adminHomeVisits);
+          },
+        ),
       );
     }
 
-    return Consumer<LanguageProvider>(
-      builder: (context, langProvider, child) {
-        return Container(
-          color: AppTheme.backgroundColor,
+    return Localizations.override(
+      context: context,
+      locale: langProvider.locale,
+      child: Consumer<LanguageProvider>(
+        builder: (context, langProvider, child) {
+          return Container(
+            color: AppTheme.backgroundColor,
           child: Column(
             children: [
               Container(
@@ -5739,9 +6491,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ],
           ),
         );
-      },
+        },
+      ),
     );
   }
+
 
   void _showAdminScheduleVisitDialog(BuildContext context) async {
     List<UserModel> availableNurses = _nurses;
@@ -5772,13 +6526,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     String selectedShiftKey = 'morning';
 
+    final _adminDialogLocale = Provider.of<LanguageProvider>(context, listen: false).locale;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogCtx) => Consumer<LanguageProvider>(
-        builder: (context, langProvider, child) => StatefulBuilder(
-          builder: (context, setDialogState) {
-            final bool isTamil = langProvider.isTamil;
+      builder: (dialogCtx) => Localizations.override(
+        context: dialogCtx,
+        locale: _adminDialogLocale,
+        child: Consumer<LanguageProvider>(
+          builder: (context, langProvider, child) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              final bool isTamil = langProvider.isTamil;
             final homeVisitCtrl = Provider.of<HomeVisitController>(
               context,
               listen: false,
@@ -5854,7 +6612,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                   InkWell(
                     onTap: () {
-                      langProvider.toggleLanguage();
+                      final auth = Provider.of<AuthProvider>(context, listen: false);
+                      langProvider.toggleLanguage(userId: auth.user?.id);
                     },
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
@@ -6303,10 +7062,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ],
             );
           },
+          ),
         ),
       ),
     );
   }
+
 
   // --- Helpers & Dialogs ---
 
@@ -8776,7 +9537,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                             if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
                                               return 'Consumable item name must contain alphabetical characters';
                                             }
-                                            if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(clean)) {
+                                            if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;%+]+$').hasMatch(clean)) {
                                               return 'Special characters are not allowed in consumable item name';
                                             }
                                             final cleanLower = clean.toLowerCase();
@@ -9610,7 +10371,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
                             return 'Consumable item name must contain alphabetical characters';
                           }
-                          if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(clean)) {
+                          if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;%+]+$').hasMatch(clean)) {
                             return 'Special characters are not allowed in consumable item name';
                           }
                           final cleanLower = clean.toLowerCase();
@@ -10136,7 +10897,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
                             return 'Consumable item name must contain alphabetical characters';
                           }
-                          if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(clean)) {
+                          if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;%+]+$').hasMatch(clean)) {
                             return 'Special characters are not allowed in consumable item name';
                           }
                           final cleanLower = clean.toLowerCase();
@@ -10440,7 +11201,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           if (!RegExp(r'[a-zA-Z]').hasMatch(clean)) {
                             return 'Consumable item name must contain alphabetical characters';
                           }
-                          if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(clean)) {
+                          if (!RegExp(r'^[a-zA-Z0-9\s.,/#\-\(\):;%+]+$').hasMatch(clean)) {
                             return 'Special characters are not allowed in consumable item name';
                           }
                           final cleanLower = clean.toLowerCase();
@@ -14829,8 +15590,7 @@ class _EditStaffDialogState extends State<EditStaffDialog> {
 }
 
 class AddUserDialog extends StatefulWidget {
-  final String currentUserRole;
-  const AddUserDialog({Key? key, required this.currentUserRole}) : super(key: key);
+  const AddUserDialog({Key? key}) : super(key: key);
 
   @override
   State<AddUserDialog> createState() => _AddUserDialogState();
@@ -14878,18 +15638,6 @@ class _AddUserDialogState extends State<AddUserDialog> {
   @override
   void initState() {
     super.initState();
-    if (widget.currentUserRole == 'Super Admin') {
-      _roles = [
-        'Super Admin',
-        'Admin',
-        'Doctor',
-        'Nurse',
-        'Anaesthetist',
-        'Front Desk',
-        'Lab',
-        'Pharmacy',
-      ];
-    }
     _passwordController.text = PasswordPolicy.generateSecurePassword();
     _loadSpecializations();
     _loadRoles();
@@ -15194,37 +15942,13 @@ class _AddUserDialogState extends State<AddUserDialog> {
 
   Future<void> _loadRoles() async {
     setState(() => _isLoadingRoles = true);
-    final isSuperAdmin = widget.currentUserRole == 'Super Admin';
     try {
       final rbacData = await _adminController.fetchRbacData();
       final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
-      final orderedRoles = [
-        'Super Admin',
-        'Admin',
-        'Doctor',
-        'Nurse',
-        'Anaesthetist',
-        'Front Desk',
-        'Lab',
-        'Pharmacy',
-      ];
       final names = rolesList
-          .map((r) => (r['role_name'] ?? r['name'])?.toString() ?? '')
-          .where((name) {
-            if (name.isEmpty) return false;
-            // Only Super Admin can create Super Admin or Admin accounts
-            if (name == 'Super Admin' || name == 'Admin') return isSuperAdmin;
-            return true;
-          })
+          .map((r) => r['name']?.toString() ?? '')
+          .where((name) => name.isNotEmpty && name != 'Super Admin')
           .toList();
-      names.sort((a, b) {
-        int indexA = orderedRoles.indexOf(a);
-        int indexB = orderedRoles.indexOf(b);
-        if (indexA == -1 && indexB == -1) return a.compareTo(b);
-        if (indexA == -1) return 1;
-        if (indexB == -1) return -1;
-        return indexA.compareTo(indexB);
-      });
       if (mounted) {
         setState(() {
           if (names.isNotEmpty) _roles = names;
@@ -16215,39 +16939,79 @@ class DashedBorderPainter extends CustomPainter {
 
 class LineChartPainter extends CustomPainter {
   final List<double> data;
-  LineChartPainter(this.data);
+  final double maxY;
+  final int selectedIndex;
+  final int todayIndex;
+
+  LineChartPainter(
+    this.data, {
+    this.maxY = 20.0,
+    this.selectedIndex = -1,
+    this.todayIndex = -1,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double chartHeight = size.height - 20;
+    if (data.isEmpty) return;
+
+    final double topPadding = 24.0;
+    final double bottomPadding = 12.0;
+    final double plotHeight = math.max(10.0, size.height - topPadding - bottomPadding);
+    final double effectiveMaxY = maxY <= 0 ? 1.0 : maxY;
+    final double stepX = data.length <= 1 ? 0.0 : size.width / (data.length - 1);
+
+    double getX(int index) => index * stepX;
+    double getY(double value) =>
+        topPadding + plotHeight - ((value / effectiveMaxY).clamp(0.0, 1.0) * plotHeight);
+
+    // Horizontal grid lines
+    final gridPaint = Paint()
+      ..color = const Color(0xFFE2E8F0)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
+
+    for (int step = 0; step <= 4; step++) {
+      final y = topPadding + (plotHeight * (step / 4.0));
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Vertical indicator line for selected day
+    if (selectedIndex >= 0 && selectedIndex < data.length) {
+      final selX = getX(selectedIndex);
+      final selLinePaint = Paint()
+        ..color = AppTheme.primaryColor.withValues(alpha: 0.25)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.0;
+      canvas.drawLine(
+        Offset(selX, topPadding - 6),
+        Offset(selX, topPadding + plotHeight + 6),
+        selLinePaint,
+      );
+    }
 
     final paint = Paint()
       ..color = AppTheme.primaryColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
     final fillPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [
-          AppTheme.primaryColor.withOpacity(0.15),
-          AppTheme.primaryColor.withOpacity(0.0),
+          AppTheme.primaryColor.withValues(alpha: 0.18),
+          AppTheme.primaryColor.withValues(alpha: 0.01),
         ],
-      ).createShader(Rect.fromLTWH(0, 0, size.width, chartHeight))
+      ).createShader(Rect.fromLTWH(0, topPadding, size.width, plotHeight))
       ..style = PaintingStyle.fill;
 
     final path = Path();
     final fillPath = Path();
 
-    final double stepX = size.width / (data.length - 1);
-    final double maxY = 40.0;
-
-    double getX(int index) => index * stepX;
-    double getY(double value) => chartHeight - (value / maxY) * chartHeight;
-
     path.moveTo(getX(0), getY(data[0]));
-    fillPath.moveTo(getX(0), chartHeight);
+    fillPath.moveTo(getX(0), topPadding + plotHeight);
     fillPath.lineTo(getX(0), getY(data[0]));
 
     for (int i = 0; i < data.length - 1; i++) {
@@ -16265,27 +17029,105 @@ class LineChartPainter extends CustomPainter {
       fillPath.cubicTo(cx1, cy1, cx2, cy2, x2, y2);
     }
 
-    fillPath.lineTo(size.width, chartHeight);
+    fillPath.lineTo(size.width, topPadding + plotHeight);
     fillPath.close();
 
     canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(path, paint);
 
-    final pointPaint = Paint()
-      ..color = AppTheme.primaryColor
-      ..style = PaintingStyle.fill;
-    final borderPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
+    // Points and Value Pills
     for (int i = 0; i < data.length; i++) {
-      canvas.drawCircle(Offset(getX(i), getY(data[i])), 5, borderPaint);
-      canvas.drawCircle(Offset(getX(i), getY(data[i])), 3, pointPaint);
+      final pt = Offset(getX(i), getY(data[i]));
+      final bool isSelected = i == selectedIndex;
+      final bool isToday = i == todayIndex;
+
+      // Outer halo
+      if (isSelected) {
+        final haloPaint = Paint()
+          ..color = AppTheme.primaryColor.withValues(alpha: 0.22)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(pt, 11, haloPaint);
+      } else if (isToday) {
+        final haloPaint = Paint()
+          ..color = AppTheme.secondaryColor.withValues(alpha: 0.25)
+          ..style = PaintingStyle.fill;
+        canvas.drawCircle(pt, 9, haloPaint);
+      }
+
+      // Point circle
+      final borderPaint = Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill;
+      final pointColor = isSelected
+          ? AppTheme.primaryColor
+          : (isToday ? AppTheme.secondaryColor : AppTheme.primaryColor);
+      final pointPaint = Paint()
+        ..color = pointColor
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(pt, 5.5, borderPaint);
+      canvas.drawCircle(pt, 3.5, pointPaint);
+
+      // Value pill above point
+      final countText = data[i].toInt().toString();
+      final textSpan = TextSpan(
+        text: countText,
+        style: TextStyle(
+          color: isSelected
+              ? Colors.white
+              : (isToday ? AppTheme.secondaryColor : AppTheme.textPrimaryColor),
+          fontSize: 10.5,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+      final textPainter = TextPainter(
+        text: textSpan,
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      final pillWidth = math.max(18.0, textPainter.width + 10.0);
+      final pillHeight = 16.0;
+      final pillRect = Rect.fromCenter(
+        center: Offset(pt.dx, pt.dy - 16.0),
+        width: pillWidth,
+        height: pillHeight,
+      );
+
+      final pillBgPaint = Paint()
+        ..color = isSelected
+            ? AppTheme.primaryColor
+            : (isToday
+                ? AppTheme.secondaryColor.withValues(alpha: 0.15)
+                : const Color(0xFFF1F5F9))
+        ..style = PaintingStyle.fill;
+
+      final pillBorderPaint = Paint()
+        ..color = isSelected
+            ? AppTheme.primaryColor
+            : (isToday ? AppTheme.secondaryColor : const Color(0xFFCBD5E1))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+
+      final rrect = RRect.fromRectAndRadius(pillRect, const Radius.circular(8));
+      canvas.drawRRect(rrect, pillBgPaint);
+      canvas.drawRRect(rrect, pillBorderPaint);
+
+      textPainter.paint(
+        canvas,
+        Offset(
+          pillRect.center.dx - (textPainter.width / 2),
+          pillRect.center.dy - (textPainter.height / 2),
+        ),
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant LineChartPainter oldDelegate) =>
+      oldDelegate.data != data ||
+      oldDelegate.maxY != maxY ||
+      oldDelegate.selectedIndex != selectedIndex ||
+      oldDelegate.todayIndex != todayIndex;
 }
 
 class AdminHeaderDateTimeCard extends StatefulWidget {

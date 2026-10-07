@@ -503,6 +503,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                               _tempController.text.trim().isNotEmpty;
 
                           final newAppt = AppointmentModel(
+                            doctorId: doctor.id,
                             patientId: _bookingPatient!.id!,
                             patientName: _bookingPatient!.name,
                             department: doctor.specialization ?? 'General',
@@ -1392,7 +1393,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       {'key': 'Table', 'label': 'Table View'},
       {'key': 'Hospital View', 'label': 'Hospital View'},
       {'key': 'Doctor View', 'label': 'Doctor View'},
-      {'key': 'Combo View', 'label': 'Both View'},
+      {'key': 'Combo View', 'label': 'Hospital & Doctor View'},
     ];
 
     final switcherWidget = Container(

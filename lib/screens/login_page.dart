@@ -4,12 +4,11 @@ import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../providers/auth_provider.dart';
 import '../core/routes/route_constants.dart';
-import '../utils/password_policy.dart';
 import 'package:flutter/services.dart';
 import '../controllers/auth_controller.dart';
 import '../utils/auth_nav_state.dart';
 import '../utils/app_localizations.dart';
-import '../widgets/app_top_bar_actions.dart';
+import '../providers/language_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -34,6 +33,14 @@ class _LoginScreenState extends State<LoginScreen> {
     if (email.isNotEmpty) {
       _emailController.text = email;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final langProvider = Provider.of<LanguageProvider>(context, listen: false);
+        if (langProvider.isTamil) {
+          langProvider.resetToDefault();
+        }
+      }
+    });
   }
 
   @override
@@ -59,9 +66,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted && success) {
         final user = authProvider.user!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
-        );
+        final langProvider = Provider.of<LanguageProvider>(context, listen: false);
+        // Explicitly sync language for this user from DB; other users default to English
+        await langProvider.syncFromUserDb(user.preferredLanguage, userId: user.id);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
+          );
+        }
       }
     } on RequiresPasswordChangeException catch (e) {
       if (mounted) {
@@ -79,8 +92,11 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isLoading = Provider.of<AuthProvider>(context).isLoading;
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
-      body: Stack(
-        children: [
+      body: Localizations.override(
+        context: context,
+        locale: const Locale('en'),
+        child: Stack(
+          children: [
           LayoutBuilder(
             builder: (context, constraints) {
               bool isDesktop = constraints.maxWidth > 900;
@@ -188,15 +204,11 @@ class _LoginScreenState extends State<LoginScreen> {
               );
             },
           ),
-          const Positioned(
-            top: 20,
-            right: 24,
-            child: AppTopBarActions(showClock: false),
-          ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildForm(BuildContext context, {required bool showMobileHeader, bool isLoading = false}) {
     return Form(

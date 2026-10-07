@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/language_provider.dart';
 import '../core/routes/route_constants.dart';
 import 'app_theme.dart';
 import 'app_localizations.dart';
@@ -81,6 +83,9 @@ class LogoutHelper {
                   child: ElevatedButton(
                     onPressed: () async {
                       Navigator.pop(dialogContext); // Close dialog
+                      try {
+                        Provider.of<LanguageProvider>(context, listen: false).resetToDefault();
+                      } catch (_) {}
                       await auth.logout();
                       if (context.mounted) {
                         context.go(AppRoutes.login);

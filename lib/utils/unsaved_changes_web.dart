@@ -33,44 +33,10 @@ class UnsavedChangesHelper {
   /// Clears the unsaved-changes warning (e.g. after successful submission).
   static void clear() {
     setUnsavedChanges(false);
-    unregisterBackPressedHandler();
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Browser Back-Button Guard
-  // ───────────────────────────────────────────────────────────────────────────
-
-  /// Registers [onBackPressed] as the callback the JS `popstate` guard will
-  /// invoke when the browser Back button is pressed while unsaved data exists.
-  ///
-  /// The [onBackPressed] closure must show the app's confirmation dialog.
-  /// Call [unregisterBackPressedHandler] when the form is disposed or submitted.
-  static void registerBackPressedHandler(void Function() onBackPressed) {
-    try {
-      if (js.context.hasProperty('unsavedChanges')) {
-        final unsavedObj = js.context['unsavedChanges'];
-        if (unsavedObj != null) {
-          // Wrap the Dart closure in a JsFunction so JS can call it.
-          final jsCallback = js.JsFunction.withThis((_) {
-            onBackPressed();
-          });
-          unsavedObj.callMethod('setOnBackPressed', [jsCallback]);
-        }
-      }
-    } catch (_) {}
-  }
-
-  /// Removes the previously registered back-pressed handler.
-  static void unregisterBackPressedHandler() {
-    try {
-      if (js.context.hasProperty('unsavedChanges')) {
-        final unsavedObj = js.context['unsavedChanges'];
-        if (unsavedObj != null) {
-          unsavedObj.callMethod('clearOnBackPressed', []);
-        }
-      }
-    } catch (_) {}
-  }
+  static void registerBackPressedHandler(void Function() onBackPressed) {}
+  static void unregisterBackPressedHandler() {}
 
   // ───────────────────────────────────────────────────────────────────────────
   // beforeunload listener (page reload / close guard)

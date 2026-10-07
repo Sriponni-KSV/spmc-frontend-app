@@ -293,7 +293,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     } else {
       field.didChange(entry.key);
       _textEditingController.text = entry.value;
-      _filterItems(entry.value);
+      _filteredItems = _allEntries.entries.toList();
     }
     widget.onChanged?.call(entry.key);
     _searchFocusNode.unfocus();
@@ -392,11 +392,8 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     }
     _closeActiveDropdown = _hideDropdown;
 
-    final currentText = _textEditingController.text.trim();
-    final selectedDisplay = _getDisplayValue(widget.value);
-    if (currentText.isEmpty || currentText == selectedDisplay) {
-      _filteredItems = _allEntries.entries.toList();
-    }
+    // Always show all options when opening the dropdown
+    _filteredItems = _allEntries.entries.toList();
 
     final RenderObject? renderObject = context.findRenderObject();
     if (renderObject == null || renderObject is! RenderBox || !renderObject.attached) {

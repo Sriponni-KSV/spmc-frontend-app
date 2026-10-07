@@ -36,22 +36,22 @@ class NurseNavConfig {
   /// Home Visit Care & Services (Visible)
   static const bool showHomeVisitCare = true;
 
-  /// Appointments (Hidden)
+  /// Appointments (Visible)
   static const bool showAppointments = false;
 
-  /// Doctors Directory (Hidden - Change to true to display)
+  /// Doctors Directory (Visible)
   static const bool showDoctors = false;
 
-  /// OPD Assistance (Hidden)
+  /// OPD Assistance (Visible)
   static const bool showOpdAssistance = false;
 
-  /// IPD Management (Hidden)
+  /// IPD Management (Visible)
   static const bool showIpdManagement = false;
 
-  /// OT Management (Hidden)
+  /// OT Management (Visible)
   static const bool showOtManagement = false;
 
-  /// Profile Screen (Hidden - Change to true to display)
+  /// Profile Screen (Visible)
   static const bool showProfile = true;
 
   // =========================================================================
@@ -65,18 +65,16 @@ class NurseNavConfig {
         label: 'Dashboard',
         isVisible: showDashboard,
       ),
-      NurseNavItem(
+      const NurseNavItem(
         index: 1,
         icon: Icons.people_outline,
         label: 'Patients',
-        permissionRequired: 'view_patients',
         isVisible: showPatients,
       ),
-      NurseNavItem(
+      const NurseNavItem(
         index: 2,
         icon: Icons.calendar_today_outlined,
         label: 'Appointments',
-        permissionRequired: 'book_appointment',
         isVisible: showAppointments,
       ),
       const NurseNavItem(

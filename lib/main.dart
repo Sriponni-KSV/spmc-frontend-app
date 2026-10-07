@@ -24,7 +24,10 @@ Future<void> main() async {
   await authProvider.initializeSession(); // Restore session prior to rendering
 
   final languageProvider = LanguageProvider();
-  await languageProvider.initialize();
+  await languageProvider.initialize(
+    userPreferredLanguage: authProvider.user?.preferredLanguage,
+    userId: authProvider.user?.id,
+  );
 
   final themeProvider = ThemeProvider();
   await themeProvider.initialize();
@@ -76,7 +79,12 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    final languageProvider = Provider.of<LanguageProvider>(context);
+    // Language provider is still read so the widget rebuilds when it changes,
+    // but the MaterialApp is pinned to English.  Tamil locale is applied only
+    // via Localizations.override inside the Home Visit subtree so that
+    // root-navigator dialogs (showDialog) also remain in English everywhere
+    // except where a Tamil override is explicitly provided.
+    Provider.of<LanguageProvider>(context); // subscribe to changes (for Home Visit subtree rebuilds)
 
     return MaterialApp.router(
       title: 'Sri Ponni Medical Center',
@@ -84,7 +92,7 @@ class _MyAppState extends State<MyApp> {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,
-      locale: languageProvider.locale,
+      locale: const Locale('en'), // always English at root level
       supportedLocales: LanguageProvider.supportedLocales,
       localizationsDelegates: const [
         AppLocalizations.delegate,

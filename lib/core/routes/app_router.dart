@@ -397,6 +397,13 @@ class AppRouter {
             child: AdminDashboardScreen(initialIndex: 15),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.adminIpdBeds,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 16),
+          ),
+        ),
 
         // --- Nurse Protected Routes ---
         GoRoute(
