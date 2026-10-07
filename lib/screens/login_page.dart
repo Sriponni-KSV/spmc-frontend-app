@@ -53,12 +53,18 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
-      final success = await authProvider.login(email: email, password: password);
+      final success = await authProvider.login(
+        email: email,
+        password: password,
+      );
 
       if (mounted && success) {
         final user = authProvider.user!;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Welcome back, ${user.fullname}!'), backgroundColor: AppTheme.primaryColor),
+          SnackBar(
+            content: Text('Welcome back, ${user.fullname}!'),
+            backgroundColor: AppTheme.primaryColor,
+          ),
         );
       }
     } on RequiresPasswordChangeException catch (e) {
@@ -67,7 +73,9 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(content: Text(e.message), backgroundColor: Colors.orange),
         );
         // Pass the email to the force change password screen
-        context.go('${AppRoutes.forceChangePassword}?email=${Uri.encodeComponent(email)}');
+        context.go(
+          '${AppRoutes.forceChangePassword}?email=${Uri.encodeComponent(email)}',
+        );
       }
     }
   }
@@ -136,12 +144,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   flex: 7,
                   child: Center(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 48.0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24.0,
+                        vertical: 48.0,
+                      ),
                       child: Container(
                         width: 550,
                         padding: const EdgeInsets.all(48.0),
                         decoration: AppTheme.cardDecoration,
-                        child: _buildForm(context, showMobileHeader: false, isLoading: isLoading),
+                        child: _buildForm(
+                          context,
+                          showMobileHeader: false,
+                          isLoading: isLoading,
+                        ),
                       ),
                     ),
                   ),
@@ -155,7 +170,10 @@ class _LoginScreenState extends State<LoginScreen> {
               Expanded(
                 child: Center(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24.0,
+                      vertical: 24.0,
+                    ),
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(32.0),
@@ -170,7 +188,11 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                      child: _buildForm(context, showMobileHeader: true, isLoading: isLoading),
+                      child: _buildForm(
+                        context,
+                        showMobileHeader: true,
+                        isLoading: isLoading,
+                      ),
                     ),
                   ),
                 ),
@@ -182,165 +204,181 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildForm(BuildContext context, {required bool showMobileHeader, bool isLoading = false}) {
+  Widget _buildForm(
+    BuildContext context, {
+    required bool showMobileHeader,
+    bool isLoading = false,
+  }) {
     return Form(
       key: _formKey,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-        if (showMobileHeader) ...[
-          Center(
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Image.asset(
-                'assets/image/sriPonniLogo.png',
-                width: 48,
-                height: 48,
+          if (showMobileHeader) ...[
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Image.asset(
+                  'assets/image/sriPonniLogo.png',
+                  width: 48,
+                  height: 48,
+                ),
               ),
             ),
+            const SizedBox(height: 24),
+          ],
+
+          Text(
+            'Welcome Back',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.displayLarge?.copyWith(
+              fontSize: showMobileHeader ? 28 : 36,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Sign in to access your dashboard',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppTheme.textSecondaryColor,
+            ),
+          ),
+          const SizedBox(height: 48),
+
+          _buildTextField(
+            context: context,
+            controller: _emailController,
+            focusNode: _emailFocus,
+            label: 'Email Address',
+            hint: 'Enter Email Address',
+            icon: Icons.email_outlined,
+            maxLength: 50,
+            textInputAction: TextInputAction.next,
+            onSubmitted: (_) =>
+                FocusScope.of(context).requestFocus(_passwordFocus),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter Email Address';
+              }
+              if (!RegExp(
+                r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+              ).hasMatch(value.trim())) {
+                return 'Please enter a valid email address';
+              }
+              return null;
+            },
           ),
           const SizedBox(height: 24),
-        ],
 
-        Text(
-          'Welcome Back',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.displayLarge?.copyWith(
-            fontSize: showMobileHeader ? 28 : 36,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Sign in to access your dashboard',
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppTheme.textSecondaryColor,
-              ),
-        ),
-        const SizedBox(height: 48),
-
-        _buildTextField(
-          context: context,
-          controller: _emailController,
-          focusNode: _emailFocus,
-          label: 'Email Address',
-          hint: 'Enter Email Address',
-          icon: Icons.email_outlined,
-          maxLength: 50,
-          textInputAction: TextInputAction.next,
-          onSubmitted: (_) => FocusScope.of(context).requestFocus(_passwordFocus),
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return 'Please enter Email Address';
-            }
-            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value.trim())) {
-              return 'Please enter a valid email address';
-            }
-            return null;
-          },
-        ),
-        const SizedBox(height: 24),
-
-        _buildTextField(
-          context: context,
-          controller: _passwordController,
-          focusNode: _passwordFocus,
-          label: 'Password',
-          hint: 'Enter Password',
-          icon: Icons.lock_outline,
-          isPassword: true,
-          maxLength: 16,
-          obscureText: _obscurePassword,
-          textInputAction: TextInputAction.done,
-          onToggleVisibility: () {
-            setState(() {
-              _obscurePassword = !_obscurePassword;
-            });
-          },
-          onSubmitted: (_) => _handleLogin(),
-          validator: PasswordPolicy.validatePassword,
-        ),
-        const SizedBox(height: 8),
-
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: () {
-              final email = _emailController.text.trim();
-              AuthNavState.setPendingEmail(email);
-              context.go(AppRoutes.forgotPassword);
+          _buildTextField(
+            context: context,
+            controller: _passwordController,
+            focusNode: _passwordFocus,
+            label: 'Password',
+            hint: 'Enter Password',
+            icon: Icons.lock_outline,
+            isPassword: true,
+            maxLength: 16,
+            obscureText: _obscurePassword,
+            textInputAction: TextInputAction.done,
+            onToggleVisibility: () {
+              setState(() {
+                _obscurePassword = !_obscurePassword;
+              });
             },
-            style: TextButton.styleFrom(
-              foregroundColor: AppTheme.primaryColor,
-              textStyle: const TextStyle(
-                fontFamily: AppTheme.fontFamily,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            child: const Text('Forgot Password?'),
+            onSubmitted: (_) => _handleLogin(),
+            validator: PasswordPolicy.validatePassword,
           ),
-        ),
-        const SizedBox(height: 32),
+          const SizedBox(height: 8),
 
-        const SizedBox(height: 16),
-        Consumer<AuthProvider>(
-          builder: (context, auth, child) {
-            if (auth.errorMessage == null) return const SizedBox.shrink();
-            
-            final isWarning = auth.errorCode == 'inactive';
-            final alertColor = isWarning ? Colors.orange : Colors.red;
-            final bgColor = isWarning ? Colors.orange.shade50 : Colors.red.shade50;
-            final borderColor = isWarning ? Colors.orange.shade200 : Colors.red.shade200;
-            final icon = isWarning ? Icons.info_outline : Icons.error_outline;
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 24),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: borderColor),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () {
+                final email = _emailController.text.trim();
+                AuthNavState.setPendingEmail(email);
+                context.go(AppRoutes.forgotPassword);
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: AppTheme.primaryColor,
+                textStyle: const TextStyle(
+                  fontFamily: AppTheme.fontFamily,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              child: Row(
-                children: [
-                  Icon(icon, color: alertColor, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      auth.errorMessage!,
-                      style: TextStyle(
-                        color: alertColor.withOpacity(0.9),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        height: 1.4,
+              child: const Text('Forgot Password?'),
+            ),
+          ),
+          const SizedBox(height: 32),
+
+          const SizedBox(height: 16),
+          Consumer<AuthProvider>(
+            builder: (context, auth, child) {
+              if (auth.errorMessage == null) return const SizedBox.shrink();
+
+              final isWarning = auth.errorCode == 'inactive';
+              final alertColor = isWarning ? Colors.orange : Colors.red;
+              final bgColor = isWarning
+                  ? Colors.orange.shade50
+                  : Colors.red.shade50;
+              final borderColor = isWarning
+                  ? Colors.orange.shade200
+                  : Colors.red.shade200;
+              final icon = isWarning ? Icons.info_outline : Icons.error_outline;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 24),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  children: [
+                    Icon(icon, color: alertColor, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        auth.errorMessage!,
+                        style: TextStyle(
+                          color: alertColor.withOpacity(0.9),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        ElevatedButton(
-          onPressed: isLoading ? null : _handleLogin,
-          style: AppTheme.primaryButton.copyWith(
-            minimumSize: MaterialStateProperty.all(const Size(double.infinity, 56)),
+                  ],
+                ),
+              );
+            },
           ),
-          child: isLoading 
-            ? const SizedBox(
-                width: 24, height: 24, 
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-              )
-            : const Text('Sign In'),
-        ),
-        const SizedBox(height: 32),
-
-      ],
+          ElevatedButton(
+            onPressed: isLoading ? null : _handleLogin,
+            style: AppTheme.primaryButton.copyWith(
+              minimumSize: MaterialStateProperty.all(
+                const Size(double.infinity, 56),
+              ),
+            ),
+            child: isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Text('Sign In'),
+          ),
+          const SizedBox(height: 32),
+        ],
       ),
     );
   }
@@ -386,7 +424,9 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           validator: validator,
           maxLength: maxLength,
-          inputFormatters: maxLength != null ? [LengthLimitingTextInputFormatter(maxLength)] : null,
+          inputFormatters: maxLength != null
+              ? [LengthLimitingTextInputFormatter(maxLength)]
+              : null,
           decoration: InputDecoration(
             counterText: '',
             hintText: hint,
@@ -400,7 +440,9 @@ class _LoginScreenState extends State<LoginScreen> {
             suffixIcon: isPassword
                 ? IconButton(
                     icon: Icon(
-                      obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                      obscureText
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
                       size: 22,
                     ),
                     onPressed: onToggleVisibility,
@@ -412,3 +454,5 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+
+// Test
