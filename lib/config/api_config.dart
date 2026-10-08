@@ -7,6 +7,10 @@ class ApiEndpoints {
   static const String productionBaseUrl =
       'https://hms.sriponnimedicalcentre.com/api';
 
+  /// Testing Backend API URL for Vercel Deployments (Hosted on Render)
+  static const String testingVercelBaseUrl =
+      'https://spmc-backend.onrender.com/api';
+
   /// Default local backend port
   static const String defaultLocalPort = '3000';
 
@@ -17,42 +21,48 @@ class ApiEndpoints {
   );
 
   /// Gets the active base URL dynamically:
-  /// - In Release mode (Production build / live deployment): ALWAYS uses the live Production backend.
-  /// - In Debug / Local development mode: Automatically routes to the Local backend without manual editing.
+  /// - On Localhost (Web/Desktop/Mobile): Routes to Local backend (http://localhost:3000/api).
+  /// - On Vercel (*.vercel.app): Routes to Testing backend (https://spmc-backend.onrender.com/api).
+  /// - On Live Domain (*.sriponnimedicalcentre.com) & Production APK: Routes to Production backend (https://hms.sriponnimedicalcentre.com/api).
   static String get baseUrl {
     // 1. Explicit compile-time override via --dart-define BASE_URL=...
     if (environmentBaseUrl.isNotEmpty) {
       return _normalizeUrl(environmentBaseUrl);
     }
 
-    // 2. Production Release Mode: ALWAYS connect to the live backend domain
-    if (kReleaseMode) {
-      return productionBaseUrl;
-    }
-
-    // 3. Flutter Web Platform (Browser)
+    // 2. Flutter Web Platform (Browser Domain Auto-Detection)
     if (kIsWeb) {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       final scheme = Uri.base.scheme.startsWith('https') ? 'https' : 'http';
 
-      // Running locally in browser (localhost / 127.0.0.1) -> route to local backend
+      // A. Running locally in browser (localhost / 127.0.0.1) -> route to local backend
       if (host == 'localhost' || host == '127.0.0.1') {
         return '$scheme://$host:$defaultLocalPort/api';
       }
 
-      // Hosted on live domain
+      // B. Testing server on Vercel (*.vercel.app) -> route to Render test backend
+      if (host.contains('vercel.app')) {
+        return testingVercelBaseUrl;
+      }
+
+      // C. Live Production Domain (*.sriponnimedicalcentre.com)
       if (host.contains('sriponnimedicalcentre.com')) {
         return productionBaseUrl;
       }
 
-      // Generic web hosting (reverse proxy /api on same host/port)
+      // D. Generic web hosting fallback (reverse proxy on same host/port)
       if (Uri.base.hasPort && Uri.base.port != 80 && Uri.base.port != 443) {
         return '$scheme://$host:${Uri.base.port}/api';
       }
       return '$scheme://$host/api';
     }
 
-    // 4. In Debug Mode on Mobile/Desktop: Check .env / assets/.env for local overrides
+    // 3. Mobile & Desktop Production Release Mode (Release APK / AppBundle)
+    if (kReleaseMode) {
+      return productionBaseUrl;
+    }
+
+    // 4. In Debug Mode on Mobile/Desktop: Check .env / assets/.env for custom local overrides
     try {
       final envUrl = dotenv.maybeGet('BASE_URL');
       if (envUrl != null && envUrl.trim().isNotEmpty) {
@@ -78,5 +88,3 @@ class ApiEndpoints {
         : trimmed;
   }
 }
-
-// Test branch trigger
