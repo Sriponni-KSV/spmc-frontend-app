@@ -7,68 +7,75 @@ class ApiEndpoints {
   static const String productionBaseUrl =
       'https://hms.sriponnimedicalcentre.com/api';
 
-  /// Fallback Production EC2 IP (if domain DNS is ever unreachable)
-  static const String fallbackProductionUrl = 'http://32.194.16.162/api';
+  /// Default local backend port
+  static const String defaultLocalPort = '3000';
 
-  /// Enables localhost routing for USB cable debugging or Desktop app.
-  static bool get useLocalhost => false;
-
-  /// Your laptop's local Wi-Fi IP address on the network for local testing
-  static const String backendIp = '192.168.1.35';
-
-  /// Backend server port for local development.
-  static const String port = '3000';
-
-  /// Production/API URL supplied through --dart-define.
+  /// Optional compile-time environment override (--dart-define=BASE_URL=...)
   static const String environmentBaseUrl = String.fromEnvironment(
     'BASE_URL',
     defaultValue: '',
   );
 
-  /// Gets the active base URL dynamically.
+  /// Gets the active base URL dynamically:
+  /// - In Release mode (Production build / live deployment): ALWAYS uses the live Production backend.
+  /// - In Debug / Local development mode: Automatically routes to the Local backend without manual editing.
   static String get baseUrl {
-    // 1. Check flutter_dotenv configuration (if explicitly set in .env / assets/.env)
-    try {
-      final envUrl = dotenv.maybeGet('BASE_URL');
-      if (envUrl != null && envUrl.trim().isNotEmpty) {
-        final trimmed = envUrl.trim();
-        return trimmed.endsWith('/')
-            ? trimmed.substring(0, trimmed.length - 1)
-            : trimmed;
-      }
-    } catch (_) {}
-
-    // 2. Explicit --dart-define BASE_URL
+    // 1. Explicit compile-time override via --dart-define BASE_URL=...
     if (environmentBaseUrl.isNotEmpty) {
-      return environmentBaseUrl.endsWith('/')
-          ? environmentBaseUrl.substring(0, environmentBaseUrl.length - 1)
-          : environmentBaseUrl;
+      return _normalizeUrl(environmentBaseUrl);
     }
 
-    // 3. Flutter Web Platform
+    // 2. Production Release Mode: ALWAYS connect to the live backend domain
+    if (kReleaseMode) {
+      return productionBaseUrl;
+    }
+
+    // 3. Flutter Web Platform (Browser)
     if (kIsWeb) {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       final scheme = Uri.base.scheme.startsWith('https') ? 'https' : 'http';
 
-      // Local development on localhost/127.0.0.1
+      // Running locally in browser (localhost / 127.0.0.1) -> route to local backend
       if (host == 'localhost' || host == '127.0.0.1') {
-        return '$scheme://$host:$port/api';
+        return '$scheme://$host:$defaultLocalPort/api';
       }
 
-      // Live deployment (e.g. hms.sriponnimedicalcentre.com or 32.194.16.162):
-      // Nginx reverse-proxies /api on the same web port
+      // Hosted on live domain
+      if (host.contains('sriponnimedicalcentre.com')) {
+        return productionBaseUrl;
+      }
+
+      // Generic web hosting (reverse proxy /api on same host/port)
       if (Uri.base.hasPort && Uri.base.port != 80 && Uri.base.port != 443) {
         return '$scheme://$host:${Uri.base.port}/api';
       }
       return '$scheme://$host/api';
     }
 
-    // 4. Mobile local development using adb reverse (explicitly opted in)
-    if (useLocalhost) {
-      return 'http://localhost:$port/api';
+    // 4. In Debug Mode on Mobile/Desktop: Check .env / assets/.env for local overrides
+    try {
+      final envUrl = dotenv.maybeGet('BASE_URL');
+      if (envUrl != null && envUrl.trim().isNotEmpty) {
+        return _normalizeUrl(envUrl);
+      }
+    } catch (_) {}
+
+    // 5. Mobile & Desktop Local Debug Defaults:
+    // - Android Emulator loopback: 10.0.2.2:3000
+    // - Physical Android device (via `adb reverse tcp:3000 tcp:3000`), iOS Simulator & Desktop: localhost:3000
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return 'http://10.0.2.2:$defaultLocalPort/api';
     }
 
-    // 5. Mobile Production Default (Release APK on Android / iOS)
-    return productionBaseUrl;
+    return 'http://localhost:$defaultLocalPort/api';
+  }
+
+  /// Removes trailing slashes for clean URL concatenations
+  static String _normalizeUrl(String url) {
+    final trimmed = url.trim();
+    return trimmed.endsWith('/')
+        ? trimmed.substring(0, trimmed.length - 1)
+        : trimmed;
   }
 }
+
