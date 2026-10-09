@@ -63,35 +63,33 @@ class AdminNavConfig {
   // -------------------------------------------------------------------------
 
   /// Access Control / RBAC (Visible)
-  static const bool showAccessControl = false;
+  static const bool showAccessControl = true;
 
   /// Appointments (Visible)
-  static const bool showAppointments = false;
+  static const bool showAppointments = true;
 
   /// OPD Management (Visible)
-  static const bool showOpdManagement = false;
+  static const bool showOpdManagement = true;
 
   /// IPD Management (Visible)
-  static const bool showIpdManagement = false;
+  static const bool showIpdManagement = true;
 
   /// OT Management (Visible)
-  static const bool showOtManagement = false;
+  static const bool showOtManagement = true;
 
   /// Shift Allocation (Visible)
-  static const bool showShiftAllocation = false;
+  static const bool showShiftAllocation = true;
 
   /// ICU & Emergency (Visible)
-  static const bool showIcuEmergency = false;
+  static const bool showIcuEmergency = true;
 
   /// Billing & Invoices (Visible)
   static const bool showBillingInvoices = false;
 
-  /// Inventory Management (Visible)
-  static const bool showInventoryManagement = false;
-
   // =========================================================================
   // CATALOG SUB-ITEM VISIBILITY TOGGLES
   // =========================================================================
+  static const bool showInventoryManagement = true;
   static const bool showMedicineCatalog = true;
   static const bool showHomeVisitConsumables = true;
   static const bool showCarriedKitItems = true;
@@ -171,12 +169,6 @@ class AdminNavConfig {
         isVisible: showBillingInvoices,
       ),
       const AdminNavItem(
-        index: 11,
-        icon: Icons.inventory_2_outlined,
-        label: 'Inventory Management',
-        isVisible: showInventoryManagement,
-      ),
-      const AdminNavItem(
         index: 12,
         icon: Icons.home_work_outlined,
         label: 'Home Visit Care',
@@ -196,6 +188,12 @@ class AdminNavConfig {
   /// Returns the list of visible catalog sub-items
   static List<AdminCatalogSubItem> getVisibleCatalogSubItems() {
     final List<AdminCatalogSubItem> subItems = [
+      const AdminCatalogSubItem(
+        index: 11,
+        icon: Icons.inventory_2_outlined,
+        label: 'Inventory Management',
+        isVisible: showInventoryManagement,
+      ),
       const AdminCatalogSubItem(
         index: 13,
         icon: Icons.medication_outlined,

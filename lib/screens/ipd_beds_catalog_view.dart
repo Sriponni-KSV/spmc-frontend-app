@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import '../utils/app_theme.dart';
+import '../utils/app_localizations.dart';
+import '../widgets/custom_dropdown_search.dart';
 import '../controllers/ipd_controller.dart';
 
 class IpdBedsCatalogView extends StatefulWidget {
@@ -104,12 +106,18 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
     String selectedWard = 'General';
     String selectedStatus = 'Available';
     bool isSaving = false;
+    String? dialogError;
+
+    final wards = List<String>.from(_availableWards);
+    if (!wards.contains(selectedWard)) {
+      wards.insert(0, selectedWard);
+    }
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) {
+        builder: (modalCtx, setDialogState) {
           return Dialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Container(
@@ -138,10 +146,10 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Add New IPD Bed',
-                            style: TextStyle(
+                            context.tr('add_new_bed', fallback: 'Add New IPD Bed'),
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.textPrimaryColor,
@@ -150,13 +158,43 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.close, size: 20),
-                          onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                          onPressed: isSaving ? null : () => Navigator.of(dialogCtx).pop(),
                         ),
                       ],
                     ),
                     const SizedBox(height: 18),
                     const Divider(height: 1),
                     const SizedBox(height: 18),
+
+                    // Inline Error Notice (if any)
+                    if (dialogError != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.error_outline, color: AppTheme.dangerColor, size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                dialogError!,
+                                style: const TextStyle(
+                                  color: AppTheme.dangerColor,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
 
                     // Bed Number Field
                     _buildLabel('Bed Number *'),
@@ -200,74 +238,50 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                     // Ward Category Dropdown
                     _buildLabel('Ward Category *'),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Select Ward Category',
                       value: selectedWard,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFF1F5F9),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: _availableWards.map((w) {
-                        return DropdownMenuItem<String>(
-                          value: w,
-                          child: Text(w),
-                        );
-                      }).toList(),
-                      onChanged: isSaving
-                          ? null
-                          : (val) {
-                              if (val != null) {
-                                setDialogState(() => selectedWard = val);
-                              }
-                            },
+                      dropdownItems: wards,
+                      isEnabled: !isSaving,
+                      onChanged: (val) {
+                        if (val != null && val.isNotEmpty) {
+                          setDialogState(() => selectedWard = val);
+                        }
+                      },
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Ward category is required';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
                     // Initial Status Dropdown
                     _buildLabel('Initial Status *'),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Select Initial Status',
                       value: selectedStatus,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFF1F5F9),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'Available',
-                          child: Text('Available (Ready for admission)'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Maintenance',
-                          child: Text('Under Maintenance'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'Cleaning',
-                          child: Text('Cleaning / Sanitizing'),
-                        ),
-                      ],
-                      onChanged: isSaving
-                          ? null
-                          : (val) {
-                              if (val != null) {
-                                setDialogState(() => selectedStatus = val);
-                              }
-                            },
+                      dropdownMap: const {
+                        'Available': 'Available (Ready for admission)',
+                        'Maintenance': 'Under Maintenance',
+                        'Cleaning': 'Cleaning / Sanitizing',
+                      },
+                      isEnabled: !isSaving,
+                      onChanged: (val) {
+                        if (val != null && val.isNotEmpty) {
+                          setDialogState(() => selectedStatus = val);
+                        }
+                      },
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Status is required';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 24),
 
@@ -276,9 +290,9 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         OutlinedButton(
-                          onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                          onPressed: isSaving ? null : () => Navigator.of(dialogCtx).pop(),
                           style: AppTheme.cancelButton,
-                          child: const Text('Cancel'),
+                          child: Text(context.tr('cancel', fallback: 'Cancel')),
                         ),
                         const SizedBox(width: 12),
                         ElevatedButton(
@@ -286,35 +300,34 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                               ? null
                               : () async {
                                   if (!formKey.currentState!.validate()) return;
-                                  setDialogState(() => isSaving = true);
+                                  setDialogState(() {
+                                    isSaving = true;
+                                    dialogError = null;
+                                  });
+                                  final nav = Navigator.of(dialogCtx);
+                                  final messenger = ScaffoldMessenger.of(context);
                                   try {
+                                    final newBedNum = bedNumController.text.trim().toUpperCase();
                                     await _ipdController.createBed(
-                                      bedNumber: bedNumController.text.trim().toUpperCase(),
+                                      bedNumber: newBedNum,
                                       wardType: selectedWard,
                                       status: selectedStatus,
                                     );
                                     if (mounted) {
-                                      Navigator.pop(dialogCtx);
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      nav.pop();
+                                      messenger.showSnackBar(
                                         SnackBar(
-                                          content: Text(
-                                            'Bed ${bedNumController.text.trim().toUpperCase()} added successfully',
-                                          ),
+                                          content: Text('Bed $newBedNum added successfully'),
                                           backgroundColor: AppTheme.secondaryColor,
                                         ),
                                       );
                                       _loadBeds();
                                     }
                                   } catch (e) {
-                                    setDialogState(() => isSaving = false);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(e.toString()),
-                                          backgroundColor: AppTheme.dangerColor,
-                                        ),
-                                      );
-                                    }
+                                    setDialogState(() {
+                                      isSaving = false;
+                                      dialogError = e.toString().replaceAll('Exception: ', '');
+                                    });
                                   }
                                 },
                           style: AppTheme.primaryButton,
@@ -327,7 +340,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text('Save Bed'),
+                              : Text(context.tr('save', fallback: 'Save Bed')),
                         ),
                       ],
                     ),
@@ -347,19 +360,32 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
     final formKey = GlobalKey<FormState>();
     final bedNumController =
         TextEditingController(text: bed['bed_number']?.toString() ?? '');
-    String selectedWard = (bed['ward_type']?.toString() ?? 'General');
-    if (!_availableWards.contains(selectedWard)) {
-      selectedWard = 'General';
+
+    String selectedWard = (bed['ward_type']?.toString() ?? 'General').trim();
+    if (selectedWard.isEmpty) selectedWard = 'General';
+    final wards = List<String>.from(_availableWards);
+    if (!wards.contains(selectedWard)) {
+      wards.add(selectedWard);
     }
-    String selectedStatus = (bed['status']?.toString() ?? 'Available');
+
+    String selectedStatus = (bed['status']?.toString() ?? 'Available').trim();
+    const validStatuses = ['Available', 'Occupied', 'Maintenance', 'Cleaning'];
+    if (!validStatuses.contains(selectedStatus)) {
+      selectedStatus = 'Available';
+    }
+
     final bool isCurrentlyOccupied = selectedStatus == 'Occupied';
     bool isSaving = false;
+    String? dialogError;
+
+    final rawId = bed['id'];
+    final int bedId = rawId is int ? rawId : (int.tryParse(rawId?.toString() ?? '') ?? 0);
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) {
+        builder: (modalCtx, setDialogState) {
           return Dialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             child: Container(
@@ -390,7 +416,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'Edit Bed: ${bed['bed_number']}',
+                            '${context.tr('edit_bed', fallback: 'Edit Bed')}: ${bed['bed_number']}',
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -400,13 +426,43 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.close, size: 20),
-                          onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                          onPressed: isSaving ? null : () => Navigator.of(dialogCtx).pop(),
                         ),
                       ],
                     ),
                     const SizedBox(height: 18),
                     const Divider(height: 1),
                     const SizedBox(height: 18),
+
+                    // Inline Error Notice (if any)
+                    if (dialogError != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.error_outline, color: AppTheme.dangerColor, size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                dialogError!,
+                                style: const TextStyle(
+                                  color: AppTheme.dangerColor,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
 
                     if (isCurrentlyOccupied) ...[
                       Container(
@@ -475,78 +531,51 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                     // Ward Category Dropdown
                     _buildLabel('Ward Category *'),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Select Ward Category',
                       value: selectedWard,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFF1F5F9),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: _availableWards.map((w) {
-                        return DropdownMenuItem<String>(
-                          value: w,
-                          child: Text(w),
-                        );
-                      }).toList(),
-                      onChanged: isSaving
-                          ? null
-                          : (val) {
-                              if (val != null) {
-                                setDialogState(() => selectedWard = val);
-                              }
-                            },
+                      dropdownItems: wards,
+                      isEnabled: !isSaving,
+                      onChanged: (val) {
+                        if (val != null && val.isNotEmpty) {
+                          setDialogState(() => selectedWard = val);
+                        }
+                      },
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Ward category is required';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
 
                     // Status Dropdown
                     _buildLabel('Status *'),
                     const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
+                    CustomDropdownSearch(
+                      label: '',
+                      hint: 'Select Status',
                       value: selectedStatus,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFF1F5F9),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: 'Available',
-                          child: Text('Available'),
-                        ),
-                        const DropdownMenuItem(
-                          value: 'Occupied',
-                          child: Text('Occupied'),
-                        ),
-                        const DropdownMenuItem(
-                          value: 'Maintenance',
-                          child: Text('Maintenance'),
-                        ),
-                        const DropdownMenuItem(
-                          value: 'Cleaning',
-                          child: Text('Cleaning'),
-                        ),
-                      ],
-                      onChanged: isSaving || isCurrentlyOccupied
-                          ? null
-                          : (val) {
-                              if (val != null) {
-                                setDialogState(() => selectedStatus = val);
-                              }
-                            },
+                      dropdownMap: const {
+                        'Available': 'Available (Ready for admission)',
+                        'Occupied': 'Occupied (Patient Admitted)',
+                        'Maintenance': 'Under Maintenance',
+                        'Cleaning': 'Cleaning / Sanitizing',
+                      },
+                      isEnabled: !isSaving && !isCurrentlyOccupied,
+                      onChanged: (val) {
+                        if (val != null && val.isNotEmpty) {
+                          setDialogState(() => selectedStatus = val);
+                        }
+                      },
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Status is required';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 24),
 
@@ -555,7 +584,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         OutlinedButton(
-                          onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
+                          onPressed: isSaving ? null : () => Navigator.of(dialogCtx).pop(),
                           style: AppTheme.cancelButton,
                           child: const Text('Cancel'),
                         ),
@@ -565,37 +594,35 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                               ? null
                               : () async {
                                   if (!formKey.currentState!.validate()) return;
-                                  setDialogState(() => isSaving = true);
+                                  setDialogState(() {
+                                    isSaving = true;
+                                    dialogError = null;
+                                  });
+                                  final nav = Navigator.of(dialogCtx);
+                                  final messenger = ScaffoldMessenger.of(context);
                                   try {
-                                    final bedId = bed['id'] as int;
+                                    final updatedBedNum = bedNumController.text.trim().toUpperCase();
                                     await _ipdController.updateBed(
                                       id: bedId,
-                                      bedNumber: bedNumController.text.trim().toUpperCase(),
+                                      bedNumber: updatedBedNum,
                                       wardType: selectedWard,
                                       status: selectedStatus,
                                     );
                                     if (mounted) {
-                                      Navigator.pop(dialogCtx);
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      nav.pop();
+                                      messenger.showSnackBar(
                                         SnackBar(
-                                          content: Text(
-                                            'Bed ${bedNumController.text.trim().toUpperCase()} updated successfully',
-                                          ),
+                                          content: Text('Bed $updatedBedNum updated successfully'),
                                           backgroundColor: AppTheme.secondaryColor,
                                         ),
                                       );
                                       _loadBeds();
                                     }
                                   } catch (e) {
-                                    setDialogState(() => isSaving = false);
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(e.toString()),
-                                          backgroundColor: AppTheme.dangerColor,
-                                        ),
-                                      );
-                                    }
+                                    setDialogState(() {
+                                      isSaving = false;
+                                      dialogError = e.toString().replaceAll('Exception: ', '');
+                                    });
                                   }
                                 },
                           style: AppTheme.primaryButton,
@@ -627,14 +654,16 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
   void _showDeleteBedConfirmation(Map<String, dynamic> bed) {
     final bool isOccupied = bed['status'] == 'Occupied';
     final bedNumber = bed['bed_number']?.toString() ?? '';
-    final bedId = bed['id'] as int?;
+    final rawId = bed['id'];
+    final int bedId = rawId is int ? rawId : (int.tryParse(rawId?.toString() ?? '') ?? 0);
     bool isDeleting = false;
+    String? deleteError;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (context, setDialogState) {
+        builder: (modalCtx, setDialogState) {
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
@@ -652,12 +681,14 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(
-                  isOccupied ? 'Cannot Delete Bed' : 'Delete Bed Confirmation',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
+                Expanded(
+                  child: Text(
+                    isOccupied ? 'Cannot Delete Bed' : 'Delete Bed Confirmation',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimaryColor,
+                    ),
                   ),
                 ),
               ],
@@ -666,6 +697,34 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (deleteError != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.error_outline, color: AppTheme.dangerColor, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            deleteError!,
+                            style: const TextStyle(
+                              color: AppTheme.dangerColor,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 if (isOccupied)
                   Text(
                     'Bed "$bedNumber" is currently occupied by an admitted patient.\n\nPlease discharge or transfer the patient before attempting to delete this bed from the catalog.',
@@ -688,21 +747,26 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
             ),
             actions: [
               OutlinedButton(
-                onPressed: isDeleting ? null : () => Navigator.pop(dialogCtx),
+                onPressed: isDeleting ? null : () => Navigator.of(dialogCtx).pop(),
                 style: AppTheme.cancelButton,
                 child: Text(isOccupied ? 'Close' : 'Cancel'),
               ),
-              if (!isOccupied && bedId != null)
+              if (!isOccupied && bedId > 0)
                 ElevatedButton(
                   onPressed: isDeleting
                       ? null
                       : () async {
-                          setDialogState(() => isDeleting = true);
+                          setDialogState(() {
+                            isDeleting = true;
+                            deleteError = null;
+                          });
+                          final nav = Navigator.of(dialogCtx);
+                          final messenger = ScaffoldMessenger.of(context);
                           try {
                             await _ipdController.deleteBed(bedId);
                             if (mounted) {
-                              Navigator.pop(dialogCtx);
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              nav.pop();
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text('Bed "$bedNumber" deleted successfully'),
                                   backgroundColor: AppTheme.secondaryColor,
@@ -711,15 +775,10 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                               _loadBeds();
                             }
                           } catch (e) {
-                            setDialogState(() => isDeleting = false);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(e.toString()),
-                                  backgroundColor: AppTheme.dangerColor,
-                                ),
-                              );
-                            }
+                            setDialogState(() {
+                              isDeleting = false;
+                              deleteError = e.toString().replaceAll('Exception: ', '');
+                            });
                           }
                         },
                   style: AppTheme.dangerButton,
@@ -841,21 +900,21 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
           ),
         ),
         const SizedBox(width: 14),
-        const Column(
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'IPD Beds Master Catalog',
-              style: TextStyle(
+              context.tr('ipd_bed_catalog', fallback: 'IPD Beds Master Catalog'),
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textPrimaryColor,
               ),
             ),
-            SizedBox(height: 2),
+            const SizedBox(height: 2),
             Text(
-              'Configure hospital beds, wards, and admission availability',
-              style: TextStyle(
+              context.tr('manage_ipd_beds_subtitle', fallback: 'Configure hospital beds, wards, and admission availability'),
+              style: const TextStyle(
                 fontSize: 12,
                 color: AppTheme.textSecondaryColor,
               ),
@@ -905,7 +964,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
     return ElevatedButton.icon(
       onPressed: _showAddBedDialog,
       icon: const Icon(Icons.add, size: 18),
-      label: const Text('Add Bed'),
+      label: Text(context.tr('add_bed', fallback: 'Add Bed')),
       style: AppTheme.primaryButton,
     );
   }
@@ -1243,7 +1302,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: paginatedItems.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (context, _) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final bed = paginatedItems[index];
                 return _buildMobileBedCard(bed, index);
@@ -1251,69 +1310,136 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
             )
           else
             // Desktop Table View
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-                headingTextStyle: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12.5,
-                  color: AppTheme.textPrimaryColor,
-                ),
-                dataTextStyle: const TextStyle(
-                  fontSize: 13,
-                  color: AppTheme.textPrimaryColor,
-                ),
-                columns: const [
-                  DataColumn(label: Text('S.No')),
-                  DataColumn(label: Text('Bed Number')),
-                  DataColumn(label: Text('Ward Category')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('Last Updated')),
-                  DataColumn(label: Text('Actions')),
-                ],
-                rows: List.generate(paginatedItems.length, (index) {
-                  final bed = paginatedItems[index];
-                  final sNo = (_currentPage * _itemsPerPage) + index + 1;
-                  final bedNum = (bed['bed_number'] ?? '--').toString();
-                  final ward = (bed['ward_type'] ?? '--').toString();
-                  final status = (bed['status'] ?? 'Available').toString();
-                  final updated = _formatDate(bed['updated_at']?.toString());
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+                      headingTextStyle: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12.5,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                      dataTextStyle: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                      columns: const [
+                        DataColumn(label: Text('S.No')),
+                        DataColumn(label: Text('Bed Number')),
+                        DataColumn(label: Text('Ward Category')),
+                        DataColumn(label: Text('Status')),
+                        DataColumn(label: Text('Last Updated')),
+                        DataColumn(label: Text('Actions')),
+                      ],
+                      rows: List.generate(paginatedItems.length, (index) {
+                        final bed = paginatedItems[index];
+                        final sNo = (_currentPage * _itemsPerPage) + index + 1;
+                        final bedNum = (bed['bed_number'] ?? '--').toString();
+                        final ward = (bed['ward_type'] ?? '--').toString();
+                        final status = (bed['status'] ?? 'Available').toString();
+                        final updated = _formatDate(bed['updated_at']?.toString());
+                        final bool isOccupied = status == 'Occupied';
 
-                  return DataRow(
-                    cells: [
-                      DataCell(Text('$sNo')),
-                      DataCell(_buildBedBadge(bedNum)),
-                      DataCell(_buildWardBadge(ward)),
-                      DataCell(_buildStatusBadge(status)),
-                      DataCell(Text(updated, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor))),
-                      DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              tooltip: 'Edit Bed',
-                              icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
-                              onPressed: () => _showEditBedDialog(bed),
-                            ),
-                            IconButton(
-                              tooltip: status == 'Occupied' ? 'Cannot delete occupied bed' : 'Delete Bed',
-                              icon: Icon(
-                                Icons.delete_outline,
-                                size: 18,
-                                color: status == 'Occupied'
-                                    ? Colors.grey.shade400
-                                    : AppTheme.dangerColor,
+                        return DataRow(
+                          cells: [
+                            DataCell(Text('$sNo')),
+                            DataCell(_buildBedBadge(bedNum)),
+                            DataCell(_buildWardBadge(ward)),
+                            DataCell(_buildStatusBadge(status)),
+                            DataCell(Text(updated, style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor))),
+                            DataCell(
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Tooltip(
+                                    message: 'Edit Bed Details',
+                                    child: InkWell(
+                                      onTap: () => _showEditBedDialog(bed),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: AppTheme.primaryColor.withValues(alpha: 0.25),
+                                          ),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(Icons.edit_outlined, size: 14, color: AppTheme.primaryColor),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              'Edit',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppTheme.primaryColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Tooltip(
+                                    message: isOccupied
+                                        ? 'Cannot delete bed while occupied by an admitted patient'
+                                        : 'Delete Bed',
+                                    child: InkWell(
+                                      onTap: () => _showDeleteBedConfirmation(bed),
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        decoration: BoxDecoration(
+                                          color: isOccupied
+                                              ? Colors.grey.shade100
+                                              : AppTheme.dangerColor.withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: isOccupied
+                                                ? Colors.grey.shade300
+                                                : AppTheme.dangerColor.withValues(alpha: 0.25),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.delete_outline,
+                                              size: 14,
+                                              color: isOccupied ? Colors.grey.shade500 : AppTheme.dangerColor,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Delete',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: isOccupied ? Colors.grey.shade500 : AppTheme.dangerColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              onPressed: () => _showDeleteBedConfirmation(bed),
                             ),
                           ],
-                        ),
-                      ),
-                    ],
-                  );
-                }),
-              ),
+                        );
+                      }),
+                    ),
+                  ),
+                );
+              },
             ),
 
           // Pagination Footer
@@ -1325,7 +1451,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Page ${_currentPage + 1} of $totalPages (${totalItems} total)',
+                    'Page ${_currentPage + 1} of $totalPages ($totalItems total)',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondaryColor,
@@ -1441,12 +1567,30 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   Widget _buildLabel(String label) {
-    return Text(
-      label,
-      style: const TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: AppTheme.textPrimaryColor,
+    final bool hasStar = label.endsWith(' *') || label.endsWith('*');
+    final String baseText = hasStar
+        ? label.replaceAll('*', '').trim()
+        : label;
+
+    return RichText(
+      text: TextSpan(
+        text: baseText,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textPrimaryColor,
+        ),
+        children: [
+          if (hasStar)
+            const TextSpan(
+              text: ' *',
+              style: TextStyle(
+                color: AppTheme.dangerColor,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+        ],
       ),
     );
   }

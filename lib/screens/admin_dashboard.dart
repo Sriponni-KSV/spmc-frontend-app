@@ -247,8 +247,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _patientToComplete = widget.existingPatient;
     _viewPatient = widget.viewPatient;
     _viewingStaffProfile = widget.viewingStaffProfile;
-    _selectedHomeVisitId = widget.selectedHomeVisitId;
-    _isCatalogMenuExpanded = widget.initialIndex == 13 ||
+    _isCatalogMenuExpanded = widget.initialIndex == 11 ||
+        widget.initialIndex == 13 ||
         widget.initialIndex == 14 ||
         widget.initialIndex == 15 ||
         widget.initialIndex == 16;
@@ -270,9 +270,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         widget.viewingStaffProfile != oldWidget.viewingStaffProfile ||
         widget.selectedHomeVisitId != oldWidget.selectedHomeVisitId) {
       _selectedIndex = widget.initialIndex;
-      if (widget.initialIndex == 13 ||
+      if (widget.initialIndex == 11 ||
+          widget.initialIndex == 13 ||
           widget.initialIndex == 14 ||
-          widget.initialIndex == 15) {
+          widget.initialIndex == 15 ||
+          widget.initialIndex == 16) {
         _isCatalogMenuExpanded = true;
       }
       _isRegisteringPatient = widget.isRegisteringPatient;
@@ -848,6 +850,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 15:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return _buildCarriedKitItemsCatalog(isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 16:
+        if (user?.role == 'Admin' ||
+            user?.role == 'Super Admin' ||
+            user?.role == 'Supervisor') {
+          return IpdBedsCatalogView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
 
@@ -2335,7 +2344,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildCatalogParentMenu() {
     bool isChildSelected =
-        _selectedIndex == 13 || _selectedIndex == 14 || _selectedIndex == 15;
+        _selectedIndex == 11 ||
+        _selectedIndex == 13 ||
+        _selectedIndex == 14 ||
+        _selectedIndex == 15 ||
+        _selectedIndex == 16;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2410,12 +2423,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   String _translateAdminLabel(BuildContext context, String label, {bool isSubItem = false}) {
     if (isSubItem) {
-      // Master Catalog items must ALWAYS stay strictly in English
+      // Master Catalog items stay strictly in English
       return label;
     }
-    final lower = label.toLowerCase();
+    final lower = label.trim().toLowerCase();
     if (lower == 'home visit care' || lower.contains('home visit') || lower.contains('home care')) {
-      return context.tr('home_visit_care', fallback: 'வீட்டுப் பராமரிப்பு சேவை');
+      final isTamil = Provider.of<LanguageProvider>(context).isTamil;
+      return isTamil ? 'வீட்டுப் பராமரிப்பு சேவை' : label;
     }
     return label;
   }
@@ -2501,6 +2515,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             break;
           case 15:
             context.go(AppRoutes.adminCarriedKitItems);
+            break;
+          case 16:
+            context.go(AppRoutes.adminIpdBeds);
             break;
 
           default:
@@ -2653,11 +2670,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const AppTopBarActions(
             showClock: true,
             liveClockWidget: AdminLiveClock(),
+            showLanguageToggle: false,
           ),
         ],
         if (isMobile) ...[
           const SizedBox(width: 8),
-          const AppTopBarActions(showClock: false),
+          const AppTopBarActions(
+            showClock: false,
+            showLanguageToggle: false,
+          ),
         ],
       ],
     );
@@ -2857,7 +2878,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 Flexible(
                   child: Text(
-                    'View details',
+                    context.tr('view_details', fallback: 'View details'),
                     style: TextStyle(
                       color: AppTheme.primaryColor,
                       fontSize: isMobile ? 11 : 12,
@@ -2911,10 +2932,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    const Flexible(
+                    Flexible(
                       child: Text(
-                        'System Alerts',
-                        style: TextStyle(
+                        context.tr('system_alerts', fallback: 'System Alerts'),
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -2927,9 +2948,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               const SizedBox(width: 8),
               InkWell(
                 onTap: () {},
-                child: const Text(
-                  'View all alerts',
-                  style: TextStyle(
+                child: Text(
+                  context.tr('view_all_alerts', fallback: 'View all alerts'),
+                  style: const TextStyle(
                     color: AppTheme.logoRed,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -3011,9 +3032,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Administrative Actions',
-                style: TextStyle(
+              Text(
+                context.tr('admin_actions', fallback: 'Administrative Actions'),
+                style: const TextStyle(
                   color: AppTheme.textPrimaryColor,
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -3038,13 +3059,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   children: [
                     _buildActionGridItem(
                       Icons.person_add_outlined,
-                      'Register\nNew Staff',
+                      context.tr('register_new_staff', fallback: 'Register\nNew Staff'),
                       () => _showAddUserDialog(context),
                     ),
                     const SizedBox(width: 12),
                     _buildActionGridItem(
                       Icons.person_add_alt_1_outlined,
-                      'Register\nNew Patient',
+                      context.tr('register_new_patient', fallback: 'Register\nNew Patient'),
                       () => context.go(AppRoutes.adminNewPatient),
                     ),
                   ],
@@ -3054,13 +3075,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   children: [
                     _buildActionGridItem(
                       Icons.receipt_long_outlined,
-                      'Billing &\nInvoices',
+                      context.tr('billing', fallback: 'Billing &\nInvoices'),
                       () => context.go(AppRoutes.adminBilling),
                     ),
                     const SizedBox(width: 12),
                     _buildActionGridItem(
                       Icons.inventory_2_outlined,
-                      'Inventory\nManagement',
+                      context.tr('inventory', fallback: 'Inventory\nManagement'),
                       () => context.go(AppRoutes.adminInventory),
                     ),
                   ],
@@ -3072,25 +3093,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 _buildActionGridItem(
                   Icons.person_add_outlined,
-                  'Register\nNew Staff',
+                  context.tr('register_new_staff', fallback: 'Register\nNew Staff'),
                   () => _showAddUserDialog(context),
                 ),
                 const SizedBox(width: 12),
                 _buildActionGridItem(
                   Icons.person_add_alt_1_outlined,
-                  'Register\nNew Patient',
+                  context.tr('register_new_patient', fallback: 'Register\nNew Patient'),
                   () => context.go(AppRoutes.adminNewPatient),
                 ),
                 const SizedBox(width: 12),
                 _buildActionGridItem(
                   Icons.receipt_long_outlined,
-                  'Billing &\nInvoices',
+                  context.tr('billing', fallback: 'Billing &\nInvoices'),
                   () => context.go(AppRoutes.adminBilling),
                 ),
                 const SizedBox(width: 12),
                 _buildActionGridItem(
                   Icons.inventory_2_outlined,
-                  'Inventory\nManagement',
+                  context.tr('inventory', fallback: 'Inventory\nManagement'),
                   () => context.go(AppRoutes.adminInventory),
                 ),
               ],
@@ -3207,9 +3228,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Staff On-Duty Roster',
-                      style: TextStyle(
+                    Text(
+                      context.tr('staff_roster', fallback: 'Staff On-Duty Roster'),
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 17,
                         color: AppTheme.textPrimaryColor,
@@ -3217,9 +3238,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 3),
-                    const Text(
-                      'Daily scheduled hospital duty presence (Mon – Sun)',
-                      style: TextStyle(
+                    Text(
+                      context.tr('staff_roster_sub', fallback: 'Daily scheduled hospital duty presence (Mon – Sun)'),
+                      style: const TextStyle(
                         fontSize: 12,
                         color: AppTheme.textSecondaryColor,
                         fontWeight: FontWeight.w500,
@@ -3253,7 +3274,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Today: $todayOnDutyCount On Duty',
+                      context.tr(
+                        'today_on_duty',
+                        fallback: 'Today: $todayOnDutyCount On Duty',
+                        params: {'count': '$todayOnDutyCount'},
+                      ),
                       style: const TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.bold,
@@ -4096,16 +4121,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Shift Allocation',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Shift Allocation',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: AppTheme.primaryColor.withOpacity(0.2),
+                            ),
+                          ),
+                          child: const Text(
+                            'IPD Only',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      'Define shift schedules and allocate nurses to active shifts',
+                    const Text(
+                      'Define shift schedules and allocate nurses to active shifts. Shift allocation is for IPD only.',
                       style: TextStyle(
                         color: AppTheme.textSecondaryColor,
                         fontSize: 12,
@@ -4156,16 +4205,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Shift Allocation',
-                            style: TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Text(
+                                'Shift Allocation',
+                                style: TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: AppTheme.primaryColor.withOpacity(0.2),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'IPD Only',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryColor,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            'Define shift schedules and allocate nurses to active shifts',
+                          const Text(
+                            'Define shift schedules and allocate nurses to active shifts. Shift allocation is for IPD only.',
                             style: TextStyle(
                               color: AppTheme.textSecondaryColor,
                               fontSize: 13,
@@ -4214,7 +4287,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   ],
                 ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          // Informational Notice Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: const Color(0xFFBFDBFE),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 18,
+                  color: AppTheme.primaryColor,
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Shift allocation is for IPD only.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
 
           if (isMobile) ...[
             _buildShiftDefinitionsCard(),
@@ -5897,7 +6002,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Divider(height: 16),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFBFDBFE)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline, size: 16, color: AppTheme.primaryColor),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Shift allocation is for IPD only.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
 
                       // Dropdown Nurse
                       const Text(
@@ -8221,6 +8351,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           const SizedBox(width: 8),
                           _buildMedStatChip(
+                            Icons.check_circle_outline,
+                            AppTheme.secondaryColor,
+                            'In Stock',
+                            '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) > 0).length}',
+                          ),
+                          const SizedBox(width: 8),
+                          _buildMedStatChip(
+                            Icons.remove_circle_outline,
+                            AppTheme.dangerColor,
+                            'Out of Stock',
+                            '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) == 0).length}',
+                          ),
+                          const SizedBox(width: 8),
+                          _buildMedStatChip(
                             Icons.lock_outline,
                             AppTheme.dangerColor,
                             'Controlled',
@@ -8290,6 +8434,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               const Color(0xFFF59E0B),
                               'Surgical Item',
                               '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
+                            ),
+                            _buildMedStatChip(
+                              Icons.check_circle_outline,
+                              AppTheme.secondaryColor,
+                              'In Stock',
+                              '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) > 0).length}',
+                            ),
+                            const SizedBox(width: 8),
+                            _buildMedStatChip(
+                              Icons.remove_circle_outline,
+                              AppTheme.dangerColor,
+                              'Out of Stock',
+                              '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) == 0).length}',
                             ),
                             const SizedBox(width: 8),
                             _buildMedStatChip(
@@ -8645,6 +8802,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                     ),
                   ),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      'Stock Availability',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                  ),
                   SizedBox(
                     width: 88,
                     child: Text(
@@ -8676,6 +8844,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       : category == 'ICU Consumable'
                       ? const Color(0xFF7C3AED)
                       : const Color(0xFFF59E0B);
+                  final stockQty = int.tryParse(med['stock_quantity']?.toString() ?? '0') ?? 0;
+                  final inStock = stockQty > 0;
                   return Container(
                     color: i.isEven ? Colors.white : const Color(0xFFFAFBFC),
                     padding: const EdgeInsets.symmetric(
@@ -8727,6 +8897,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             style: const TextStyle(
                               fontSize: 13,
                               color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: inStock
+                                    ? AppTheme.secondaryColor.withOpacity(0.1)
+                                    : AppTheme.dangerColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: inStock
+                                      ? AppTheme.secondaryColor.withOpacity(0.3)
+                                      : AppTheme.dangerColor.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Text(
+                                inStock ? 'In Stock ($stockQty)' : 'Out of Stock',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: inStock
+                                      ? AppTheme.secondaryColor
+                                      : AppTheme.dangerColor,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -8900,6 +9103,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     ],
                                   ),
                                 ),
+                              Builder(
+                                builder: (_) {
+                                  final stockQty = int.tryParse(med['stock_quantity']?.toString() ?? '0') ?? 0;
+                                  final inStock = stockQty > 0;
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: inStock
+                                          ? AppTheme.secondaryColor.withOpacity(0.1)
+                                          : AppTheme.dangerColor.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: inStock
+                                            ? AppTheme.secondaryColor.withOpacity(0.3)
+                                            : AppTheme.dangerColor.withOpacity(0.2),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      inStock ? 'In Stock ($stockQty)' : 'Out of Stock',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: inStock
+                                            ? AppTheme.secondaryColor
+                                            : AppTheme.dangerColor,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
                             ],
                           ),
                         ],

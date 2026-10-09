@@ -229,7 +229,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   Future<void> _loadMedicineCatalog() async {
     try {
       final baseUrl = ApiEndpoints.baseUrl;
-      final response = await ApiService.get('$baseUrl/inventory/medicine-catalog');
+      final response = await ApiService.get('$baseUrl/inventory/medicine-catalog?in_stock_only=true');
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] == true && mounted) {
         final data = body['data'] as List<dynamic>;

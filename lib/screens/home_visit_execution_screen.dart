@@ -2368,11 +2368,8 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                       _buildLabel(context.tr('medicine_name_req')),
                       CustomDropdownSearch(
                         label: '',
-                        hint: context.tr('select_medicine_hint'),
                         dropdownMap: {
-                          for (final m in (_dbMedicines.isNotEmpty
-                              ? _dbMedicines
-                              : _defaultMedicines))
+                          for (final m in _dbMedicines)
                             m: context.translateMedicine(m),
                         },
                         value: nameCtrl.text.isNotEmpty ? nameCtrl.text : null,
@@ -5066,7 +5063,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final baseUrl = ApiEndpoints.baseUrl;
     try {
       final medRes = await ApiService.get(
-        '$baseUrl/inventory/medicine-catalog',
+        '$baseUrl/inventory/medicine-catalog?in_stock_only=true',
       );
       final medBody = ApiService.decodeJsonResponse(medRes);
       if (medBody['success'] == true && medBody['data'] != null) {

@@ -47,12 +47,13 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
     const predefinedRoleNames = [
       'Super Admin',
       'Admin',
-      'Receptionist',
       'Doctor',
       'Nurse',
+      'Front Desk',
+      'Receptionist',
       'Anaesthetist',
-      'Lab Technician',
-      'Pharmacist',
+      'Lab',
+      'Pharmacy',
       'Billing Executive',
     ];
     final availableRoleNames = predefinedRoleNames
@@ -479,8 +480,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
     final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
     final bool isSuperAdmin =
         currentUser?.role == 'Super Admin' ||
-        currentUser?.role == 'Admin' ||
-        (currentUser?.hasPermission('Manage Roles') ?? false);
+        currentUser?.role == 'Admin';
 
     return FutureBuilder<Map<String, dynamic>>(
       future: _rbacFuture,
@@ -497,7 +497,17 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
         final data = snapshot.data ?? {};
         final rawRoles = (data['roles'] as List<dynamic>?) ?? [];
         final roles = List.from(rawRoles);
-        final orderedRoles = ['Super Admin', 'Admin', 'Doctor', 'Nurse', 'Anaesthetist', 'Front Desk'];
+        final orderedRoles = [
+          'Super Admin',
+          'Admin',
+          'Doctor',
+          'Nurse',
+          'Front Desk',
+          'Receptionist',
+          'Anaesthetist',
+          'Lab',
+          'Pharmacy',
+        ];
         roles.sort((a, b) {
           int indexA = orderedRoles.indexOf(a['role_name']);
           int indexB = orderedRoles.indexOf(b['role_name']);
