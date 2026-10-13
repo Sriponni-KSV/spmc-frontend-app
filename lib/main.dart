@@ -18,7 +18,9 @@ import 'config/api_config.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy(); // Clean URL paths without hashes (#)
-  await dotenv.load(fileName: "assets/.env");
+  try {
+    await dotenv.load(fileName: "assets/.env");
+  } catch (_) {}
 
   final authProvider = AuthProvider();
   await authProvider.initializeSession(); // Restore session prior to rendering
