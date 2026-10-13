@@ -1086,6 +1086,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   final TextEditingController _attenderNameCtrl = TextEditingController();
   final TextEditingController _attenderRelationCtrl = TextEditingController();
   final TextEditingController _feedbackCtrl = TextEditingController();
+  final TextEditingController _consultationFeeCtrl = TextEditingController(text: '500');
   final List<Offset?> _signaturePoints = [];
   bool _isSigningSignature = false;
 
@@ -4990,6 +4991,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     _attenderNameCtrl.clear();
     _attenderRelationCtrl.clear();
     _feedbackCtrl.clear();
+    _consultationFeeCtrl.text = '500';
     setState(() => _signaturePoints.clear());
   }
 
@@ -5157,6 +5159,9 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
     await ctrl.fetchVisitDetails(widget.visitId);
     await ctrl.fetchVisits();
+    if (ctrl.selectedVisit != null && ctrl.selectedVisit!.consultationFee != null) {
+      _consultationFeeCtrl.text = ctrl.selectedVisit!.consultationFee!.toStringAsFixed(0);
+    }
     _fetchInventoryCatalogs();
     if (!mounted || widget.isReadOnlyView || _isLeaving) return;
     if (ctrl.selectedVisit != null &&
@@ -5858,6 +5863,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     _attenderNameCtrl.dispose();
     _attenderRelationCtrl.dispose();
     _feedbackCtrl.dispose();
+    _consultationFeeCtrl.dispose();
     super.dispose();
   }
 
@@ -12769,6 +12775,34 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ],
                   ),
                   const SizedBox(height: 18),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel(context.tr('home_visit_consultation_fee', fallback: 'Home Visit Consultation Fee (₹)')),
+                      TextFormField(
+                        controller: _consultationFeeCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                        ],
+                        decoration: AppTheme.standardInputDecoration(
+                          hintText: '500',
+                          prefixIcon: Icons.currency_rupee,
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return context.tr('fee_required', fallback: 'Please enter consultation fee');
+                          }
+                          final parsed = double.tryParse(val.trim());
+                          if (parsed == null || parsed < 0 || parsed > 50000) {
+                            return context.tr('enter_valid_fee', fallback: 'Please enter a valid amount (₹0 - ₹50,000)');
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
                   _buildFeedbackVoiceField(
                     controller: _feedbackCtrl,
                     isModal: false,
@@ -12907,6 +12941,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 return;
                               }
 
+                              final feeVal = double.tryParse(_consultationFeeCtrl.text.trim()) ?? 500.0;
+                              if (feeVal < 0 || feeVal > 50000) {
+                                AppNotification.showError(
+                                  context,
+                                  context.tr('enter_valid_fee', fallback: 'Please enter a valid amount (₹0 - ₹50,000)'),
+                                );
+                                return;
+                              }
+
                               setState(() => _isVerifying = true);
                               final result = await controller.verifyVisit(
                                 visit.id,
@@ -12914,6 +12957,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 _attenderRelationCtrl.text.trim(),
                                 'signature_base64_data_valid',
                                 feedback: _feedbackCtrl.text.trim(),
+                                consultationFee: feeVal,
                               );
                               setState(() => _isVerifying = false);
 
@@ -12963,6 +13007,11 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
   ) {
     final nameCtrl = TextEditingController(text: _attenderNameCtrl.text);
     final relCtrl = TextEditingController(text: _attenderRelationCtrl.text);
+    final feeCtrl = TextEditingController(
+      text: _consultationFeeCtrl.text.isNotEmpty
+          ? _consultationFeeCtrl.text
+          : (visit.consultationFee?.toStringAsFixed(0) ?? '500'),
+    );
     final feedbackCtrl = TextEditingController(text: _feedbackCtrl.text);
     List<Offset?> sigPoints = List.from(_signaturePoints);
     bool isSubmitting = false;
@@ -13059,6 +13108,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     ],
                     decoration: AppTheme.standardInputDecoration(
                       hintText: context.tr('attender_relation_hint', fallback: 'e.g. Son, Spouse, Daughter'),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _buildLabel(context.tr('home_visit_consultation_fee', fallback: 'Home Visit Consultation Fee (₹)')),
+                  TextFormField(
+                    controller: feeCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                    ],
+                    decoration: AppTheme.standardInputDecoration(
+                      hintText: '500',
+                      prefixIcon: Icons.currency_rupee,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -13239,6 +13301,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                       relCtrl.text.trim(),
                                       'signature_base64_data_valid',
                                       feedback: feedbackCtrl.text.trim(),
+                                      consultationFee: double.tryParse(feeCtrl.text.trim()) ?? 500.0,
                                     );
                                     await controller.fetchVisits();
 

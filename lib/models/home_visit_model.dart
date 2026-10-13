@@ -322,6 +322,7 @@ class HomeVisitModel {
   final Map<String, dynamic>? invoice;
   final Map<String, dynamic>? sessionStartTimes;
   final bool? hasStartedTodayBackend;
+  final double? consultationFee;
 
   HomeVisitModel({
     required this.id,
@@ -359,6 +360,7 @@ class HomeVisitModel {
     this.invoice,
     this.sessionStartTimes,
     this.hasStartedTodayBackend,
+    this.consultationFee,
   });
 
   HomeVisitModel copyWith({
@@ -397,6 +399,7 @@ class HomeVisitModel {
     Map<String, dynamic>? invoice,
     Map<String, dynamic>? sessionStartTimes,
     bool? hasStartedTodayBackend,
+    double? consultationFee,
   }) {
     return HomeVisitModel(
       id: id ?? this.id,
@@ -434,6 +437,7 @@ class HomeVisitModel {
       invoice: invoice ?? this.invoice,
       sessionStartTimes: sessionStartTimes ?? this.sessionStartTimes,
       hasStartedTodayBackend: hasStartedTodayBackend ?? this.hasStartedTodayBackend,
+      consultationFee: consultationFee ?? this.consultationFee,
     );
   }
 
@@ -507,6 +511,9 @@ class HomeVisitModel {
       signedAt: json['signed_at'],
       notes: json['notes'],
       feedback: json['feedback'],
+      consultationFee: json['consultation_fee'] != null
+          ? double.tryParse(json['consultation_fee'].toString())
+          : null,
       carriedItems: (json['carried_items'] as List<dynamic>?)
               ?.map((item) => HomeVisitCarriedItem.fromJson(item))
               .toList() ??
