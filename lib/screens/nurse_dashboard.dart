@@ -686,7 +686,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       backgroundColor: AppTheme.getBackgroundColor(context),
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
       floatingActionButton: null,
-      body: Stack(
+      body: SafeArea(
+        child: Stack(
         children: [
           Row(
             children: [
@@ -734,6 +735,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               ],
             ),
         ],
+      ),
       ),
     );
   }
@@ -901,7 +903,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       children: [
         // Fixed Top Bar
         Container(
-          padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, 20, isMobile ? 16 : 24, 10),
+          padding: EdgeInsets.fromLTRB(
+            isMobile ? 16 : 24,
+            isMobile ? 18 : 20,
+            isMobile ? 16 : 24,
+            10,
+          ),
           color: Colors.transparent,
           child: _buildBannerTopBar(isMobile),
         ),
@@ -1210,8 +1217,8 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         padding: EdgeInsets.only(
           left: isMobile ? 16 : 24,
           right: isMobile ? 16 : 24,
-          top: 20,
-          bottom: 0,
+          top: isMobile ? 18 : 20,
+          bottom: isMobile ? 8 : 0,
         ),
         child: _buildBannerTopBar(isMobile),
       ),

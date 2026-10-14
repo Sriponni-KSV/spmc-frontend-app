@@ -23,6 +23,7 @@ import '../services/home_visit_service.dart';
 import '../utils/capitalize_formatter.dart';
 import '../utils/tamil_transliteration_helper.dart';
 import '../providers/language_provider.dart';
+import '../widgets/consultation_documents_view.dart';
 
 class PatientsView extends StatefulWidget {
   final List<PatientModel> patients;
@@ -3711,6 +3712,22 @@ class _PatientDetailViewState extends State<PatientDetailView>
   }
 
   void _showConsultationDialog(AppointmentModel appt) {
+    final dt = DateFormatter.toDateTime(appt.appointmentDate);
+    if (dt != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final apptDateOnly = DateTime(dt.year, dt.month, dt.day);
+      if (apptDateOnly.isAfter(today)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot start consultation before the appointment date'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+    }
+
     final existingConsul = _consultations.firstWhere(
       (c) => c['appointment_id'] == appt.id,
       orElse: () => {},
@@ -5646,15 +5663,10 @@ class _PatientDetailViewState extends State<PatientDetailView>
           if (docsList != null && docsList.isNotEmpty) ...[
             _buildGridRow(
               context.tr('documents_label', fallback: 'Documents'),
-              docsList
-                  .map((d) {
-                    if (d is Map) {
-                      return '${d['title']} (${d['file_name']})';
-                    }
-                    return '';
-                  })
-                  .where((str) => str.isNotEmpty)
-                  .join('\n'),
+              null,
+              customValueWidget: ConsultationDocumentsView(
+                documents: docsList,
+              ),
             ),
             const SizedBox(height: 12),
           ],

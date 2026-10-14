@@ -12,7 +12,7 @@ class ApiEndpoints {
       'https://spmc-backend.onrender.com/api';
 
   /// Default local backend port
-  static const String defaultLocalPort = '3000';
+  static const String defaultLocalPort = '3001';
 
   /// Optional compile-time environment override (--dart-define=BASE_URL=...)
   static const String environmentBaseUrl = String.fromEnvironment(
@@ -21,7 +21,7 @@ class ApiEndpoints {
   );
 
   /// Gets the active base URL dynamically:
-  /// - On Localhost (Web/Desktop/Mobile): Routes to Local backend (http://localhost:3000/api).
+  /// - On Localhost (Web/Desktop/Mobile): Routes to Local backend (http://localhost:3001/api).
   /// - On Vercel (*.vercel.app): Routes to Testing backend (https://spmc-backend.onrender.com/api).
   /// - On Live Domain (*.sriponnimedicalcentre.com) & Production APK: Routes to Production backend (https://hms.sriponnimedicalcentre.com/api).
   static String get baseUrl {
@@ -30,7 +30,24 @@ class ApiEndpoints {
       return _normalizeUrl(environmentBaseUrl);
     }
 
-    // 2. Flutter Web Platform (Browser Domain Auto-Detection)
+    // 2. Check local environment variable override via dotenv (if loaded)
+    try {
+      final envUrl = dotenv.maybeGet('BASE_URL');
+      if (envUrl != null && envUrl.trim().isNotEmpty) {
+        if (!kReleaseMode) {
+          if (kIsWeb) {
+            final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
+            if (host == 'localhost' || host == '127.0.0.1') {
+              return _normalizeUrl(envUrl);
+            }
+          } else {
+            return _normalizeUrl(envUrl);
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 3. Flutter Web Platform (Browser Domain Auto-Detection)
     if (kIsWeb) {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       final scheme = Uri.base.scheme.startsWith('https') ? 'https' : 'http';

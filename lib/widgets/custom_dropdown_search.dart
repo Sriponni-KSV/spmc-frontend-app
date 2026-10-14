@@ -700,7 +700,11 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   Widget build(BuildContext context) {
     if (!_searchFocusNode.hasFocus) {
       final expectedDisplay = _getDisplayValue(widget.value);
-      if (expectedDisplay.isNotEmpty &&
+      if (expectedDisplay.isEmpty &&
+          (widget.value == null || widget.value!.isEmpty) &&
+          _textEditingController.text.isNotEmpty) {
+        _textEditingController.text = '';
+      } else if (expectedDisplay.isNotEmpty &&
           _textEditingController.text != expectedDisplay &&
           (widget.value == null ||
               widget.value!.isEmpty ||

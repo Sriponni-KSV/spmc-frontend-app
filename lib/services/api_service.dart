@@ -40,7 +40,14 @@ class ApiService {
     // to support granular error messages from the backend (e.g. inactive, suspended).
     // 5xx errors are caught here and surfaced as ServerErrorException.
     if (response.statusCode >= 500) {
-      throw ServerErrorException(response.statusCode);
+      String? serverMsg;
+      try {
+        final body = jsonDecode(response.body);
+        if (body is Map && body['message'] != null) {
+          serverMsg = body['message'].toString();
+        }
+      } catch (_) {}
+      throw ServerErrorException(response.statusCode, serverMsg);
     }
   }
 

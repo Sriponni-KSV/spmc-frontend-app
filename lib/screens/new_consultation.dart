@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/app_theme.dart';
 import '../utils/app_localizations.dart';
+import '../utils/modal_history_helper.dart';
+import '../utils/date_formatter.dart';
 import '../models/appointment_model.dart';
 import '../models/user_model.dart';
 import '../controllers/patient_controller.dart';
@@ -15,8 +19,11 @@ import '../config/api_config.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/media_service.dart';
 import '../widgets/document_view_dialog.dart';
+import '../widgets/consultation_documents_view.dart';
 import '../utils/unsaved_changes_helper.dart';
 import 'dart:io' as io;
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/live_speech_service.dart';
 
 class NewConsultationView extends StatefulWidget {
@@ -51,6 +58,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   final TextEditingController _medNameController = TextEditingController();
   final TextEditingController _dosageController = TextEditingController();
+  String? _dosageError;
+  String? _durationError;
   final TextEditingController _freqController = TextEditingController(
     text: '1-0-1',
   );
@@ -73,6 +82,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   };
   final List<String> _customLabs = [];
   final TextEditingController _customLabController = TextEditingController();
+  String? _customLabError;
 
   // New Controllers
   final TextEditingController _historyController = TextEditingController();
@@ -123,6 +133,23 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
+        final ext = (file.extension ?? file.name.split('.').last).toLowerCase();
+        const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+
+        if (!allowedExtensions.contains(ext)) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Invalid file format. Only PDF, JPG, JPEG, and PNG files are supported.',
+                ),
+                backgroundColor: AppTheme.dangerColor,
+              ),
+            );
+          }
+          return;
+        }
+
         List<int>? fileBytes = file.bytes;
         
         // Fallback for mobile devices where file.bytes can be null
@@ -137,7 +164,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('File exceeds 5MB limit. Please choose a smaller file.'),
-                  backgroundColor: Colors.red,
+                  backgroundColor: AppTheme.dangerColor,
                 ),
               );
             }
@@ -148,11 +175,17 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             _selectedFileName = file.name;
             _selectedFileBytes = fileBytes;
             _selectedFileSizeStr = _formatFileSize(bytesCount);
+            if (_docTitleController.text.trim().isEmpty) {
+              final nameWithoutExt = file.name.contains('.')
+                  ? file.name.substring(0, file.name.lastIndexOf('.'))
+                  : file.name;
+              _docTitleController.text = nameWithoutExt;
+            }
           });
         }
       }
     } catch (e) {
-      print('Error picking file: $e');
+      debugPrint('Error picking file: $e');
     }
   }
 
@@ -160,14 +193,34 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     final title = _docTitleController.text.trim();
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a document title.')),
+        const SnackBar(
+          content: Text('Please enter a document title.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
       );
       return;
     }
 
     if (_selectedFileBytes == null || _selectedFileName == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a file to upload.')),
+        const SnackBar(
+          content: Text('Please select a file to upload.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    final ext = (_selectedFileName!.split('.').last).toLowerCase();
+    const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+    if (!allowedExtensions.contains(ext)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Invalid file format. Only PDF, JPG, JPEG, and PNG files are supported.',
+          ),
+          backgroundColor: AppTheme.dangerColor,
+        ),
       );
       return;
     }
@@ -224,7 +277,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   List<UserModel> _rawDoctors = [];
   List<String> _doctorsList = [];
-  List<String> _departmentsList = [];
   bool _isLoadingReferralData = false;
 
   late AppointmentModel _currentAppointment;
@@ -233,16 +285,194 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   bool _isSaving = false;
   int _currentStep = 0;
   List<Map<String, dynamic>> _previousConsultations = [];
+  int? _existingConsultationId;
+
+  Future<void> _saveDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draftData = {
+        'symptoms': _symptomsController.text,
+        'leading_questions': _leadingQuestionsController.text,
+        'history': _historyController.text,
+        'diagnosis': _diagnosisController.text,
+        'notes': _notesController.text,
+        'examination': _examinationController.text,
+        'family_history': _familyHistoryController.text,
+        'social': _socialHistoryController.text,
+        'comment': _commentController.text,
+        'procedure': _procedureController.text,
+        'allergy': _allergyController.text,
+        'plan': _planController.text,
+        'medications': _medications,
+        'lab_tests': getFinalOrderedLabs(),
+        'documents': _documents,
+        'referral': {
+          'referred_doctor': _referredDoctorController.text,
+          'referred_department': _referredDeptController.text,
+          'referral_notes': _referralNotesController.text,
+        },
+      };
+      await prefs.setString(
+        'consultation_draft_${widget.appointment.id}',
+        jsonEncode(draftData),
+      );
+    } catch (e) {
+      debugPrint('Error saving consultation draft: $e');
+    }
+  }
+
+  Future<void> _clearDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('consultation_draft_${widget.appointment.id}');
+    } catch (e) {
+      debugPrint('Error clearing consultation draft: $e');
+    }
+  }
+
+  Future<void> _loadDraft() async {
+    if (widget.initialConsultation != null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draftStr = prefs.getString('consultation_draft_${widget.appointment.id}');
+      if (draftStr != null && draftStr.isNotEmpty) {
+        final draft = jsonDecode(draftStr);
+        if (draft is Map<String, dynamic>) {
+          setState(() {
+            _symptomsController.text = draft['symptoms'] ?? '';
+            _leadingQuestionsController.text = draft['leading_questions'] ?? '';
+            _historyController.text = draft['history'] ?? '';
+            _diagnosisController.text = draft['diagnosis'] ?? '';
+            _notesController.text = draft['notes'] ?? '';
+            _examinationController.text = draft['examination'] ?? '';
+            _familyHistoryController.text = draft['family_history'] ?? '';
+            _socialHistoryController.text = draft['social'] ?? '';
+            _commentController.text = draft['comment'] ?? '';
+            _procedureController.text = draft['procedure'] ?? '';
+            _allergyController.text = draft['allergy'] ?? '';
+            _planController.text = draft['plan'] ?? '';
+
+            final meds = draft['medications'];
+            if (meds is List) {
+              _medications.clear();
+              for (var m in meds) {
+                if (m is Map) {
+                  _medications.add({
+                    'name': m['name']?.toString() ?? '',
+                    'dosage': m['dosage']?.toString() ?? '',
+                    'frequency': m['frequency']?.toString() ?? '',
+                    'duration': m['duration']?.toString() ?? '',
+                  });
+                }
+              }
+            }
+
+            final labs = draft['lab_tests'];
+            if (labs is List) {
+              for (var l in labs) {
+                final str = l.toString().trim();
+                if (str.isEmpty) continue;
+                if (_standardLabs.containsKey(str)) {
+                  _standardLabs[str] = true;
+                } else if (!_customLabs.any((c) => c.trim().toLowerCase() == str.toLowerCase())) {
+                  _customLabs.add(str);
+                }
+              }
+            }
+
+            final docs = draft['documents'];
+            if (docs is List) {
+              _documents.clear();
+              for (var d in docs) {
+                if (d is Map) {
+                  _documents.add({
+                    'title': d['title']?.toString() ?? '',
+                    'file_name': d['file_name']?.toString() ?? '',
+                    'file_url': d['file_url']?.toString() ?? '',
+                    'file_size': d['file_size']?.toString() ?? '',
+                    'date': d['date']?.toString() ?? '',
+                  });
+                }
+              }
+            }
+
+            final ref = draft['referral'];
+            if (ref is Map) {
+              _referredDoctorController.text =
+                  ref['referred_doctor']?.toString() ?? '';
+              _referredDeptController.text =
+                  ref['referred_department']?.toString() ?? '';
+              _referralNotesController.text =
+                  ref['referral_notes']?.toString() ?? '';
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading consultation draft: $e');
+    }
+  }
+
+  bool _isFutureAppointmentDate(String? dateStr) {
+    if (dateStr == null || dateStr.trim().isEmpty) return false;
+    final dt = DateFormatter.toDateTime(dateStr);
+    if (dt != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final apptDateOnly = DateTime(dt.year, dt.month, dt.day);
+      return apptDateOnly.isAfter(today);
+    }
+    final clean = dateStr.replaceAll('/', '-').trim();
+    final parts = clean.split('-');
+    if (parts.length == 3) {
+      int? y, m, d;
+      if (parts[0].length == 4) {
+        y = int.tryParse(parts[0]);
+        m = int.tryParse(parts[1]);
+        d = int.tryParse(parts[2].split(' ')[0]);
+      } else if (parts[2].split(' ')[0].length == 4) {
+        d = int.tryParse(parts[0]);
+        m = int.tryParse(parts[1]);
+        y = int.tryParse(parts[2].split(' ')[0]);
+      }
+      if (y != null && m != null && d != null) {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final apptDateOnly = DateTime(y, m, d);
+        return apptDateOnly.isAfter(today);
+      }
+    }
+    return false;
+  }
 
   @override
   void initState() {
     super.initState();
+    if (_isFutureAppointmentDate(widget.appointment.appointmentDate)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot start consultation before the appointment date'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+          widget.onBack();
+        }
+      });
+      return;
+    }
     UnsavedChangesHelper.setUnsavedChanges(true);
     _currentAppointment = widget.appointment;
+    if (widget.initialConsultation != null && widget.initialConsultation!['id'] != null) {
+      final rawId = widget.initialConsultation!['id'];
+      _existingConsultationId = rawId is int ? rawId : int.tryParse(rawId.toString());
+    }
     _initSpeech();
     _fetchLatestVitals();
     _fetchPreviousConsultations();
     _initializeData();
+    _loadDraft();
     _loadMedicineCatalog();
     _loadReferralDropdowns();
   }
@@ -250,7 +480,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   @override
   void dispose() {
     UnsavedChangesHelper.setUnsavedChanges(false);
-    _stopSpeech();
+    _stopSpeech(disposing: true);
     _symptomsController.dispose();
     _diagnosisController.dispose();
     _notesController.dispose();
@@ -413,13 +643,12 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     );
   }
 
-  Future<void> _stopSpeech() async {
-    if (mounted) {
-      setState(() {
-        _isSpeechPaused = false;
-        _speechBaseText = '';
-        _activeListeningController = null;
-      });
+  Future<void> _stopSpeech({bool disposing = false}) async {
+    _isSpeechPaused = false;
+    _speechBaseText = '';
+    _activeListeningController = null;
+    if (!disposing && mounted) {
+      setState(() {});
     }
     await LiveSpeechService().stopListening();
   }
@@ -428,7 +657,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     try {
       final baseUrl = ApiEndpoints.baseUrl;
       final response = await ApiService.get(
-        '$baseUrl/inventory/medicine-catalog',
+        '$baseUrl/inventory/medicine-catalog?in_stock_only=true',
       );
       final body = ApiService.decodeJsonResponse(response);
       if (body['success'] == true && mounted) {
@@ -450,24 +679,44 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     });
     try {
       final doctors = await _adminController.fetchStaff(role: 'Doctor');
-      final specs = await _adminController.fetchSpecializations();
       if (mounted) {
-        setState(() {
-          _rawDoctors = doctors
-              .where((d) => d.status.toLowerCase() == 'active' && !d.isDeleted)
-              .toList();
-          _doctorsList = _rawDoctors
-              .map((d) => d.fullname)
-              .toList();
-          _departmentsList = specs.map((s) => s['name'].toString()).toList();
+        UserModel? currentUser;
+        try {
+          currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+        } catch (_) {}
 
-          // Format existing doctor referral value if it exists and is plain text
+        final currentDocName = (currentUser?.fullname ?? widget.appointment.doctorName).trim().toLowerCase();
+        final currentDocId = currentUser?.id;
+        final apptDocId = widget.appointment.doctorId;
+        final apptDocName = widget.appointment.doctorName.trim().toLowerCase();
+
+        setState(() {
+          // Exclude the logged-in doctor / consulting doctor from self-referral
+          _rawDoctors = doctors.where((d) {
+            if (d.status.toLowerCase() != 'active' || d.isDeleted) return false;
+            if (currentDocId != null && d.id == currentDocId) return false;
+            if (apptDocId != null && d.id == apptDocId) return false;
+            if (currentDocName.isNotEmpty && d.fullname.trim().toLowerCase() == currentDocName) return false;
+            if (apptDocName.isNotEmpty && d.fullname.trim().toLowerCase() == apptDocName) return false;
+            return true;
+          }).toList();
+          _doctorsList = _getReferralDoctorDeptItems();
+
+          // Format existing doctor referral value if it exists or clear if self-referral
           if (_referredDoctorController.text.isNotEmpty) {
-            final docName = _referredDoctorController.text;
-            final matched = _rawDoctors.where((d) => d.fullname == docName).toList();
-            if (matched.isNotEmpty) {
-              final d = matched.first;
-              _referredDoctorController.text = d.fullname;
+            final docName = _referredDoctorController.text.trim().toLowerCase();
+            if (docName == currentDocName || docName == apptDocName) {
+              _referredDoctorController.clear();
+              _referredDeptController.clear();
+            } else {
+              final matched = _rawDoctors.where((d) => d.fullname.trim().toLowerCase() == docName).toList();
+              if (matched.isNotEmpty) {
+                final d = matched.first;
+                _referredDoctorController.text = d.fullname;
+                if (_referredDeptController.text.isEmpty && d.specialization != null && d.specialization!.isNotEmpty) {
+                  _referredDeptController.text = d.specialization!;
+                }
+              }
             }
           }
 
@@ -481,6 +730,168 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           _isLoadingReferralData = false;
         });
       }
+    }
+  }
+
+  List<String> _getReferralDoctorDeptItems() {
+    return _rawDoctors.map((d) {
+      if (d.specialization != null && d.specialization!.trim().isNotEmpty) {
+        return '${d.fullname} - ${d.specialization!.trim()}';
+      }
+      return d.fullname;
+    }).toList();
+  }
+
+  String? _getSelectedReferralDisplay() {
+    if (_referredDoctorController.text.trim().isEmpty) return null;
+    final docName = _referredDoctorController.text.trim();
+    final matched = _rawDoctors.where((d) => d.fullname.trim().toLowerCase() == docName.toLowerCase()).toList();
+    if (matched.isNotEmpty) {
+      final d = matched.first;
+      if (d.specialization != null && d.specialization!.trim().isNotEmpty) {
+        return '${d.fullname} - ${d.specialization!.trim()}';
+      }
+      return d.fullname;
+    }
+    if (_referredDeptController.text.trim().isNotEmpty) {
+      return '$docName - ${_referredDeptController.text.trim()}';
+    }
+    return docName;
+  }
+
+  Future<void> _confirmDeleteDocument(int idx) async {
+    final doc = _documents[idx];
+    final docTitle = doc['title'] ?? doc['file_name'] ?? 'this document';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor, size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Delete Document',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete "$docTitle"? This document will be removed from the consultation.',
+          style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(ctx).pop(false);
+            },
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(ctx).pop(true);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() {
+        _documents.removeAt(idx);
+      });
+      _saveDraft();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Document deleted successfully'),
+          backgroundColor: AppTheme.secondaryColor,
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteSelectedFile() async {
+    final fileName = _selectedFileName ?? 'this file';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor, size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Delete File',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to remove "$fileName"?',
+          style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(ctx).pop(false);
+            },
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.dangerColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(ctx).pop(true);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      final nameWithoutExt = fileName.contains('.')
+          ? fileName.substring(0, fileName.lastIndexOf('.'))
+          : fileName;
+      setState(() {
+        _selectedFileName = null;
+        _selectedFileBytes = null;
+        _selectedFileSizeStr = null;
+        if (_docTitleController.text.trim() == nameWithoutExt) {
+          _docTitleController.clear();
+        }
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selected file removed successfully'),
+          backgroundColor: AppTheme.secondaryColor,
+        ),
+      );
     }
   }
 
@@ -534,6 +945,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             _documents.add({
               'title': d['title']?.toString() ?? '',
               'file_name': d['file_name']?.toString() ?? '',
+              'file_url': d['file_url']?.toString() ?? '',
+              'file_size': d['file_size']?.toString() ?? '',
               'date': d['date']?.toString() ?? '',
             });
           }
@@ -547,6 +960,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 _documents.add({
                   'title': d['title']?.toString() ?? '',
                   'file_name': d['file_name']?.toString() ?? '',
+                  'file_url': d['file_url']?.toString() ?? '',
+                  'file_size': d['file_size']?.toString() ?? '',
                   'date': d['date']?.toString() ?? '',
                 });
               }
@@ -572,10 +987,11 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       final labs = widget.initialConsultation!['lab_tests'];
       if (labs is List) {
         for (var l in labs) {
-          final str = l.toString();
+          final str = l.toString().trim();
+          if (str.isEmpty) continue;
           if (_standardLabs.containsKey(str)) {
             _standardLabs[str] = true;
-          } else {
+          } else if (!_customLabs.any((c) => c.trim().toLowerCase() == str.toLowerCase())) {
             _customLabs.add(str);
           }
         }
@@ -584,10 +1000,11 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           final decoded = jsonDecode(labs);
           if (decoded is List) {
             for (var l in decoded) {
-              final str = l.toString();
+              final str = l.toString().trim();
+              if (str.isEmpty) continue;
               if (_standardLabs.containsKey(str)) {
                 _standardLabs[str] = true;
-              } else {
+              } else if (!_customLabs.any((c) => c.trim().toLowerCase() == str.toLowerCase())) {
                 _customLabs.add(str);
               }
             }
@@ -885,19 +1302,11 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                         const SizedBox(height: 16),
 
                         // ── Reason ──
-                        const Text.rich(
-                          TextSpan(
-                            text: 'Reason for Admission',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            children: [
-                              TextSpan(
-                                text: ' *',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ],
+                        const Text(
+                          'Reason for Admission',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -905,6 +1314,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                           controller: reasonController,
                           maxLines: 3,
                           maxLength: 100,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           decoration: InputDecoration(
                             hintText:
                                 'Enter medical reason for IPD admission...',
@@ -933,10 +1343,30 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                                 color: AppTheme.primaryColor,
                               ),
                             ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: AppTheme.dangerColor,
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: AppTheme.dangerColor,
+                              ),
+                            ),
                           ),
-                          validator: (v) => (v == null || v.trim().isEmpty)
-                              ? 'Please enter reason for admission'
-                              : null,
+                          validator: (v) {
+                            final val = v?.trim() ?? '';
+                            if (val.isEmpty) return null; // Not required!
+                            if (RegExp(r'[^a-zA-Z0-9\s.,/#\-\(\):;]').hasMatch(val)) {
+                              return 'Invalid special characters. Only letters, numbers and .,/#-():; are allowed';
+                            }
+                            if (!RegExp(r'[a-zA-Z]').hasMatch(val)) {
+                              return 'Reason must contain at least one letter';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 16),
 
@@ -953,6 +1383,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                           controller: diagnosisController,
                           maxLines: 2,
                           maxLength: 100,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           decoration: InputDecoration(
                             hintText:
                                 'e.g. Acute Appendicitis, Type 2 Diabetes...',
@@ -981,7 +1412,30 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                                 color: AppTheme.primaryColor,
                               ),
                             ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: AppTheme.dangerColor,
+                              ),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: const BorderSide(
+                                color: AppTheme.dangerColor,
+                              ),
+                            ),
                           ),
+                          validator: (v) {
+                            final val = v?.trim() ?? '';
+                            if (val.isEmpty) return null;
+                            if (RegExp(r'[^a-zA-Z0-9\s.,/#\-\(\):;]').hasMatch(val)) {
+                              return 'Invalid special characters. Only letters, numbers and .,/#-():; are allowed';
+                            }
+                            if (!RegExp(r'[a-zA-Z]').hasMatch(val)) {
+                              return 'Diagnosis must contain at least one letter';
+                            }
+                            return null;
+                          },
                         ),
                         const SizedBox(height: 16),
                       ],
@@ -1071,6 +1525,447 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     );
   }
 
+  Future<void> _showEnterVitalsDialog() async {
+    final formKey = GlobalKey<FormState>();
+    final systolicCtrl = TextEditingController(
+      text: _currentAppointment.bloodPressureSystolic?.toString() ?? '',
+    );
+    final diastolicCtrl = TextEditingController(
+      text: _currentAppointment.bloodPressureDiastolic?.toString() ?? '',
+    );
+    final sugarCtrl = TextEditingController(
+      text: _currentAppointment.sugarLevel != null
+          ? (_currentAppointment.sugarLevel! % 1 == 0
+              ? _currentAppointment.sugarLevel!.toInt().toString()
+              : _currentAppointment.sugarLevel!.toString())
+          : '',
+    );
+    final tempCtrl = TextEditingController(
+      text: _currentAppointment.temperature != null
+          ? (_currentAppointment.temperature! % 1 == 0
+              ? _currentAppointment.temperature!.toInt().toString()
+              : _currentAppointment.temperature!.toString())
+          : '',
+    );
+
+    bool isSaving = false;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              titlePadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+              actionsPadding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.monitor_heart,
+                      color: AppTheme.primaryColor,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Record Patient Vitals',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimaryColor,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Enter patient vitals observed during consultation',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                    onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 480,
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Blood Pressure (mmHg)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: systolicCtrl,
+                                keyboardType: TextInputType.number,
+                                autovalidateMode: AutovalidateMode.onUserInteraction,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(3),
+                                ],
+                                decoration: InputDecoration(
+                                  labelText: 'Systolic (e.g. 120)',
+                                  hintText: '90 - 300',
+                                  suffixText: 'mmHg',
+                                  filled: true,
+                                  fillColor: const Color(0xFFF1F5F9),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: AppTheme.primaryColor),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: AppTheme.dangerColor),
+                                  ),
+                                  focusedErrorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: AppTheme.dangerColor),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                ),
+                                validator: (v) {
+                                  final val = v?.trim() ?? '';
+                                  if (val.isEmpty) {
+                                    if (diastolicCtrl.text.trim().isNotEmpty) {
+                                      return 'Systolic is required when Diastolic is given';
+                                    }
+                                    return null;
+                                  }
+                                  final num = int.tryParse(val);
+                                  if (num == null || num < 90 || num > 300) {
+                                    return 'Enter 90 - 300 mmHg';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextFormField(
+                                controller: diastolicCtrl,
+                                keyboardType: TextInputType.number,
+                                autovalidateMode: AutovalidateMode.onUserInteraction,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(3),
+                                ],
+                                decoration: InputDecoration(
+                                  labelText: 'Diastolic (e.g. 80)',
+                                  hintText: '50 - 180',
+                                  suffixText: 'mmHg',
+                                  filled: true,
+                                  fillColor: const Color(0xFFF1F5F9),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: AppTheme.primaryColor),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: AppTheme.dangerColor),
+                                  ),
+                                  focusedErrorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(color: AppTheme.dangerColor),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                ),
+                                validator: (v) {
+                                  final val = v?.trim() ?? '';
+                                  if (val.isEmpty) {
+                                    if (systolicCtrl.text.trim().isNotEmpty) {
+                                      return 'Diastolic is required when Systolic is given';
+                                    }
+                                    return null;
+                                  }
+                                  final num = int.tryParse(val);
+                                  if (num == null || num < 50 || num > 180) {
+                                    return 'Enter 50 - 180 mmHg';
+                                  }
+                                  final sysVal = int.tryParse(systolicCtrl.text.trim());
+                                  if (sysVal != null && num >= sysVal) {
+                                    return 'Must be less than Systolic';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Sugar Level (mg/dL)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: sugarCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                            LengthLimitingTextInputFormatter(6),
+                          ],
+                          decoration: InputDecoration(
+                            labelText: 'Random / Fasting Blood Sugar',
+                            hintText: '30 - 600',
+                            suffixText: 'mg/dL',
+                            filled: true,
+                            fillColor: const Color(0xFFF1F5F9),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: AppTheme.primaryColor),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: AppTheme.dangerColor),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: AppTheme.dangerColor),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          ),
+                          validator: (v) {
+                            final val = v?.trim() ?? '';
+                            if (val.isEmpty) return null;
+                            final num = double.tryParse(val);
+                            if (num == null || num < 30 || num > 600) {
+                              return 'Enter 30 - 600 mg/dL';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Body Temperature (°F)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF334155),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: tempCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                            LengthLimitingTextInputFormatter(5),
+                          ],
+                          decoration: InputDecoration(
+                            labelText: 'Temperature',
+                            hintText: '90 - 115',
+                            suffixText: '°F',
+                            filled: true,
+                            fillColor: const Color(0xFFF1F5F9),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: AppTheme.primaryColor),
+                            ),
+                            errorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: AppTheme.dangerColor),
+                            ),
+                            focusedErrorBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: const BorderSide(color: AppTheme.dangerColor),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          ),
+                          validator: (v) {
+                            final val = v?.trim() ?? '';
+                            if (val.isEmpty) return null;
+                            final num = double.tryParse(val);
+                            if (num == null || num < 90 || num > 115) {
+                              return 'Enter 90 - 115 °F';
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                  style: AppTheme.cancelButton,
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          final sysText = systolicCtrl.text.trim();
+                          final diaText = diastolicCtrl.text.trim();
+                          final sugarText = sugarCtrl.text.trim();
+                          final tempText = tempCtrl.text.trim();
+
+                          if (sysText.isEmpty && diaText.isEmpty && sugarText.isEmpty && tempText.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please enter at least one vital parameter to save.'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isSaving = true);
+                          final nav = Navigator.of(ctx);
+                          final messenger = ScaffoldMessenger.of(context);
+
+                          final sysVal = sysText.isNotEmpty ? int.tryParse(sysText) : null;
+                          final diaVal = diaText.isNotEmpty ? int.tryParse(diaText) : null;
+                          final sugarVal = sugarText.isNotEmpty ? double.tryParse(sugarText) : null;
+                          final tempVal = tempText.isNotEmpty ? double.tryParse(tempText) : null;
+
+                          final vitalsData = <String, dynamic>{
+                            'blood_pressure_systolic': sysVal,
+                            'blood_pressure_diastolic': diaVal,
+                            'sugar_level': sugarVal,
+                            'temperature': tempVal,
+                          };
+
+                          try {
+                            await _appointmentController.updateVitals(
+                              widget.appointment.id!,
+                              vitalsData,
+                            );
+
+                            if (mounted) {
+                              setState(() {
+                                _currentAppointment = _currentAppointment.copyWith(
+                                  bloodPressureSystolic: sysVal ?? _currentAppointment.bloodPressureSystolic,
+                                  bloodPressureDiastolic: diaVal ?? _currentAppointment.bloodPressureDiastolic,
+                                  sugarLevel: sugarVal ?? _currentAppointment.sugarLevel,
+                                  temperature: tempVal ?? _currentAppointment.temperature,
+                                );
+                              });
+                            }
+
+                            nav.pop();
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Patient vitals saved successfully.'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } catch (e) {
+                            setDialogState(() => isSaving = false);
+                            messenger.showSnackBar(
+                              SnackBar(
+                                content: Text('Error saving vitals: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                  icon: isSaving
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check, size: 16, color: Colors.white),
+                  label: Text(
+                    isSaving ? 'Saving...' : 'Save Vitals',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    minimumSize: const Size(120, 44),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _fetchLatestVitals() async {
     try {
       final vitals = await _patientController.fetchLatestVitals(
@@ -1107,6 +2002,17 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       );
       if (mounted) {
         setState(() {
+          // Detect if a consultation already exists for this appointment
+          if (_existingConsultationId == null) {
+            final match = history.firstWhere(
+              (c) => c['appointment_id'] == widget.appointment.id,
+              orElse: () => {},
+            );
+            if (match.isNotEmpty && match['id'] != null) {
+              final rawId = match['id'];
+              _existingConsultationId = rawId is int ? rawId : int.tryParse(rawId.toString());
+            }
+          }
           // exclude current consultation if editing
           _previousConsultations = history
               .where((c) => c['appointment_id'] != widget.appointment.id)
@@ -1119,48 +2025,198 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
   }
 
-  void _addMedication() {
-    if (_medNameController.text.trim().isNotEmpty) {
-      setState(() {
-        _medications.add({
-          'name': _medNameController.text.trim(),
-          'dosage': _dosageController.text.trim(),
-          'frequency': _freqController.text.isEmpty
-              ? '1-0-1'
-              : _freqController.text,
-          'duration': _durController.text.trim(),
-        });
-        _medNameController.clear();
-        _dosageController.clear();
-        _freqController.text = '1-0-1';
-        _durController.clear();
-      });
+  String? _validateDosage(String? value) {
+    final val = value?.trim() ?? '';
+    if (val.isEmpty) {
+      return 'Dosage is required';
     }
+    if (val.length > 20) {
+      return 'Dosage cannot exceed 20 characters';
+    }
+    if (RegExp(r'[^a-zA-Z0-9\s./\-]').hasMatch(val)) {
+      return 'Special characters are not allowed in dosage';
+    }
+    if (!RegExp(r'\d').hasMatch(val)) {
+      return 'Dosage must contain a numeric value (e.g. 10mg, 5ml)';
+    }
+
+    // Check if numbers appear after the unit (e.g. 10mg5464654465)
+    final numbersAfterUnit = RegExp(
+      r'(?:mg|mcg|g|ml|iu|tab|tablets?|caps?|capsules?|drops?|puffs?|units?)\s*\d+',
+      caseSensitive: false,
+    );
+    if (numbersAfterUnit.hasMatch(val)) {
+      return 'Invalid dosage: numbers cannot follow the unit (e.g. 10mg)';
+    }
+
+    // Strict dosage pattern: <number/range/fraction> [optional space] [valid unit]
+    // e.g. 10mg, 500 mg, 0.5 ml, 1000 IU, 1-2 tabs, 1/2 tab, 5, 2.5ml
+    final dosagePattern = RegExp(
+      r'^\d+(?:\.\d+)?(?:\s*-\s*\d+(?:\.\d+)?)?(?:\s*\/\s*\d+)?\s*(?:mg(?:\/ml)?|mcg|g|ml|iu(?:\/ml)?|tabs?|tablets?|caps?|capsules?|drops?|puffs?|sachets?|units?|patches?)?$',
+      caseSensitive: false,
+    );
+    if (!dosagePattern.hasMatch(val)) {
+      return 'Invalid dosage format (e.g. 10mg, 500mg, 5ml)';
+    }
+    return null;
+  }
+
+  String? _validateDuration(String? value) {
+    final val = value?.trim() ?? '';
+    if (val.isEmpty) {
+      return 'Duration is required (e.g. 5 days)';
+    }
+    if (val.length > 20) {
+      return 'Duration cannot exceed 20 characters';
+    }
+    if (RegExp(r'[^a-zA-Z0-9\s\-]').hasMatch(val)) {
+      return 'Special characters are not allowed in duration';
+    }
+    if (!RegExp(r'\d').hasMatch(val)) {
+      return 'Duration must contain a number (e.g. 5 days)';
+    }
+
+    // Check if numbers appear after the duration unit (e.g. 5days123)
+    final numbersAfterUnit = RegExp(
+      r'(?:days?|weeks?|months?|d|w|m|hours?|hrs?)\s*\d+',
+      caseSensitive: false,
+    );
+    if (numbersAfterUnit.hasMatch(val)) {
+      return 'Invalid duration: numbers cannot follow the unit (e.g. 5 days)';
+    }
+
+    // Strict duration pattern: <number/range> [optional space] [valid unit]
+    // e.g. 5 days, 5days, 1 week, 2 weeks, 1 month, 3-5 days, 5 d, 5
+    final durationPattern = RegExp(
+      r'^\d+(?:\s*-\s*\d+)?\s*(?:days?|weeks?|months?|d|w|m|hours?|hrs?)?$',
+      caseSensitive: false,
+    );
+    if (!durationPattern.hasMatch(val)) {
+      return 'Invalid duration format (e.g. 5 days, 2 weeks)';
+    }
+    return null;
+  }
+
+  void _addMedication() {
+    final medName = _medNameController.text.trim();
+    final dosage = _dosageController.text.trim();
+    final duration = _durController.text.trim();
+
+    if (medName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select or enter a medication name.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    final dError = _validateDosage(dosage);
+    if (dError != null) {
+      setState(() {
+        _dosageError = dError;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(dError),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    final durError = _validateDuration(duration);
+    if (durError != null) {
+      setState(() {
+        _durationError = durError;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(durError),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _medications.add({
+        'name': medName,
+        'dosage': dosage,
+        'frequency': _freqController.text.isEmpty
+            ? '1-0-1'
+            : _freqController.text,
+        'duration': duration,
+      });
+      _medNameController.clear();
+      _dosageController.clear();
+      _durController.clear();
+      _dosageError = null;
+      _durationError = null;
+      _freqController.text = '1-0-1';
+    });
   }
 
   Future<bool> _onWillPop() async {
-    final bool? confirm = await showDialog<bool>(
+    final int? choice = await showDialog<int>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Exit Consultation?'),
-        content: const Text('Are you sure you want to exit? The consultation is not completed yet. You can resume it later.'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 10),
+            Text('Exit Consultation?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+          ],
+        ),
+        content: const Text(
+          'The consultation is not completed yet. Do you want to save as draft to resume later, or exit and discard your unsaved changes?',
+          style: TextStyle(fontSize: 14),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+          OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(0),
+            style: AppTheme.outlinedButton,
+            child: const Text('Stay'),
+          ),
+          OutlinedButton(
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(context).pop(1);
+            },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.dangerColor,
+              side: const BorderSide(color: AppTheme.dangerColor),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Discard & Exit'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Exit'),
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(context).pop(2);
+            },
+            style: AppTheme.primaryButton,
+            child: const Text('Save Draft & Exit'),
           ),
         ],
       ),
     );
-    return confirm ?? false;
+
+    if (choice == null || choice == 0) return false;
+
+    if (choice == 1) {
+      await _clearDraft();
+    } else if (choice == 2) {
+      await _saveDraft();
+    }
+    UnsavedChangesHelper.setUnsavedChanges(false);
+    UnsavedChangesHelper.clear();
+    widget.onBack();
+    return false;
   }
 
   List<String> getFinalOrderedLabs() {
@@ -1183,9 +2239,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           // Back Button above title
           InkWell(
             onTap: () async {
-              if (await _onWillPop()) {
-                widget.onBack();
-              }
+              await _onWillPop();
             },
             borderRadius: BorderRadius.circular(8),
             child: const Padding(
@@ -1342,6 +2396,11 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   }
 
   Widget _buildPatientInfoSummary() {
+    final bool hasMissingVitals = _currentAppointment.bloodPressureSystolic == null &&
+        _currentAppointment.bloodPressureDiastolic == null &&
+        _currentAppointment.sugarLevel == null &&
+        _currentAppointment.temperature == null;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1352,13 +2411,45 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.monitor_heart, color: AppTheme.primaryColor, size: 20),
-              SizedBox(width: 8),
-              Text(
+              const Icon(Icons.monitor_heart, color: AppTheme.primaryColor, size: 20),
+              const SizedBox(width: 8),
+              const Text(
                 'Nurse Vitals Intake',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              ),
+              const Spacer(),
+              InkWell(
+                onTap: _showEnterVitalsDialog,
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        hasMissingVitals ? Icons.add_circle_outline : Icons.edit_outlined,
+                        size: 13,
+                        color: AppTheme.primaryColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        hasMissingVitals ? 'Add Vitals' : 'Edit Vitals',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -1375,6 +2466,33 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               ),
             )
           else ...[
+            if (hasMissingVitals) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.35)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 15, color: Color(0xFFD97706)),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Vitals not recorded by nurse. Click "Add Vitals" to enter.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF92400E),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             _buildVitalRow(
               'Blood Pressure',
               '${_currentAppointment.bloodPressureSystolic ?? '--'}/${_currentAppointment.bloodPressureDiastolic ?? '--'} mmHg',
@@ -1441,32 +2559,114 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     );
   }
 
-  Widget _buildClinicalHistoryCard() {
+  Widget _buildHistoryDetailItem(String label, String value, IconData icon) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.history, color: AppTheme.primaryColor, size: 20),
-              SizedBox(width: 8),
+              Icon(icon, size: 12, color: AppTheme.primaryColor),
+              const SizedBox(width: 5),
               Text(
-                'Clinical History',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                label,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF64748B),
+                  letterSpacing: 0.3,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF1E293B),
+              fontWeight: FontWeight.w500,
+              height: 1.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClinicalHistoryCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.history_rounded,
+                  color: AppTheme.primaryColor,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Clinical History',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: Color(0xFF1E293B),
+                ),
+              ),
+              const Spacer(),
+              if (!_isLoadingHistory && _previousConsultations.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${_previousConsultations.length} ${_previousConsultations.length == 1 ? "record" : "records"}',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
           if (_isLoadingHistory)
             const Center(
               child: Padding(
-                padding: EdgeInsets.all(8.0),
+                padding: EdgeInsets.all(12.0),
                 child: SizedBox(
                   width: 20,
                   height: 20,
@@ -1475,9 +2675,32 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               ),
             )
           else if (_previousConsultations.isEmpty)
-            const Text(
-              'No previous consultations found.',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.folder_open_outlined,
+                    size: 28,
+                    color: Colors.blueGrey.shade300,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'No previous consultations found.',
+                    style: TextStyle(
+                      color: Colors.blueGrey.shade400,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
             )
           else
             ListView.builder(
@@ -1491,120 +2714,132 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                         'dd/MM/yyyy',
                       ).format(DateTime.parse(hist['created_at']))
                     : 'Past Visit';
-                return Card(
-                  elevation: 0,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  shape: RoundedRectangleBorder(
+                final diagnosis = hist['diagnosis']?.toString();
+                final hasDiagnosis = diagnosis != null && diagnosis.trim().isNotEmpty;
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(color: Colors.grey.shade200),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
-                  child: ExpansionTile(
-                    title: Text(
-                      dateStr,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
+                  clipBehavior: Clip.antiAlias,
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      dividerColor: Colors.transparent,
+                    ),
+                    child: ExpansionTile(
+                      tilePadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 2,
                       ),
+                      childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                      expandedAlignment: Alignment.topLeft,
+                      expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+                      shape: const RoundedRectangleBorder(
+                        side: BorderSide.none,
+                      ),
+                      collapsedShape: const RoundedRectangleBorder(
+                        side: BorderSide.none,
+                      ),
+                      leading: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.event_note_rounded,
+                          size: 15,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      title: Text(
+                        dateStr,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      subtitle: Text(
+                        hasDiagnosis ? diagnosis : 'General Consultation',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.blueGrey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      children: [
+                        if (hist['doctor_name'] != null &&
+                            hist['doctor_name'].toString().trim().isNotEmpty)
+                          _buildHistoryDetailItem(
+                            'DOCTOR',
+                            hist['doctor_name'].toString().trim(),
+                            Icons.person_outline_rounded,
+                          ),
+                        if (hist['symptoms'] != null &&
+                            hist['symptoms'].toString().trim().isNotEmpty)
+                          _buildHistoryDetailItem(
+                            'SYMPTOMS',
+                            hist['symptoms'].toString().trim(),
+                            Icons.sick_outlined,
+                          ),
+                        if (hist['leading_questions'] != null &&
+                            hist['leading_questions'].toString().trim().isNotEmpty)
+                          _buildHistoryDetailItem(
+                            'LEADING QUESTIONS',
+                            hist['leading_questions'].toString().trim(),
+                            Icons.help_outline_rounded,
+                          ),
+                        if (hist['diagnosis'] != null &&
+                            hist['diagnosis'].toString().trim().isNotEmpty)
+                          _buildHistoryDetailItem(
+                            'DIAGNOSIS',
+                            hist['diagnosis'].toString().trim(),
+                            Icons.assignment_outlined,
+                          ),
+                        if (hist['plan'] != null &&
+                            hist['plan'].toString().trim().isNotEmpty)
+                          _buildHistoryDetailItem(
+                            'PLAN',
+                            hist['plan'].toString().trim(),
+                            Icons.playlist_add_check_rounded,
+                          ),
+                        if (hist['notes'] != null &&
+                            hist['notes'].toString().trim().isNotEmpty)
+                          _buildHistoryDetailItem(
+                            'RECOMMENDATIONS',
+                            hist['notes'].toString().trim(),
+                            Icons.description_outlined,
+                          ),
+                        if (ConsultationDocumentsView.hasDocuments(hist['documents'])) ...[
+                          const SizedBox(height: 8),
+                          const Row(
+                            children: [
+                              Icon(Icons.attachment_rounded, size: 14, color: AppTheme.primaryColor),
+                              SizedBox(width: 6),
+                              Text(
+                                'ATTACHED DOCUMENTS',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          ConsultationDocumentsView(
+                            documents: hist['documents'],
+                            isCompact: true,
+                          ),
+                        ],
+                      ],
                     ),
-                    subtitle: Text(
-                      hist['diagnosis']?.toString() ?? 'No diagnosis recorded',
-                      style: const TextStyle(fontSize: 11),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    childrenPadding: const EdgeInsets.all(10),
-                    expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (hist['doctor_name'] != null &&
-                          hist['doctor_name'].toString().isNotEmpty) ...[
-                        const Text(
-                          'Doctor:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                        Text(
-                          hist['doctor_name'].toString(),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        const SizedBox(height: 6),
-                      ],
-                      if (hist['symptoms'] != null &&
-                          hist['symptoms'].toString().isNotEmpty) ...[
-                        const Text(
-                          'Symptoms:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                        Text(
-                          hist['symptoms'].toString(),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        const SizedBox(height: 6),
-                      ],
-                      if (hist['leading_questions'] != null &&
-                          hist['leading_questions'].toString().isNotEmpty) ...[
-                        const Text(
-                          'Leading Questions:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                        Text(
-                          hist['leading_questions'].toString(),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        const SizedBox(height: 6),
-                      ],
-                      if (hist['diagnosis'] != null &&
-                          hist['diagnosis'].toString().isNotEmpty) ...[
-                        const Text(
-                          'Diagnosis:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                        Text(
-                          hist['diagnosis'].toString(),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        const SizedBox(height: 6),
-                      ],
-                      if (hist['plan'] != null &&
-                          hist['plan'].toString().isNotEmpty) ...[
-                        const Text(
-                          'Plan:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                        Text(
-                          hist['plan'].toString(),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        const SizedBox(height: 6),
-                      ],
-                      if (hist['notes'] != null &&
-                          hist['notes'].toString().isNotEmpty) ...[
-                        const Text(
-                          'Recommendations:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                        ),
-                        Text(
-                          hist['notes'].toString(),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ],
                   ),
                 );
               },
@@ -1623,7 +2858,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           backgroundColor: Colors.orange,
         ),
       );
-      _formKey.currentState!.validate();
+      _formKey.currentState?.validate();
       return;
     }
 
@@ -1635,13 +2870,92 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           backgroundColor: Colors.orange,
         ),
       );
-      _formKey.currentState!.validate();
+      _formKey.currentState?.validate();
       return;
     }
 
-    if (!_formKey.currentState!.validate()) {
+    if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
       return;
     }
+
+    final referredDoc = _referredDoctorController.text.trim();
+    final referredDept = _referredDeptController.text.trim();
+    if (referredDoc.isNotEmpty) {
+      UserModel? currentUser;
+      try {
+        currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+      } catch (_) {}
+      final currentDocName = (currentUser?.fullname ?? widget.appointment.doctorName).trim().toLowerCase();
+      final apptDocName = widget.appointment.doctorName.trim().toLowerCase();
+
+      if ((currentDocName.isNotEmpty && referredDoc.toLowerCase() == currentDocName) ||
+          (apptDocName.isNotEmpty && referredDoc.toLowerCase() == apptDocName)) {
+        setState(() => _currentStep = 3);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('A doctor cannot refer a patient to himself. Please select another doctor or clear the referral.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+
+      if (referredDept.isNotEmpty) {
+        final matchedDocs = _rawDoctors.where((d) => d.fullname.trim().toLowerCase() == referredDoc.toLowerCase()).toList();
+        if (matchedDocs.isNotEmpty) {
+          final docSpec = matchedDocs.first.specialization?.trim().toLowerCase();
+          if (docSpec != null && docSpec.isNotEmpty && docSpec != referredDept.toLowerCase()) {
+            setState(() => _currentStep = 3);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Selected doctor "$referredDoc" belongs to department "$docSpec", not "$referredDept".'),
+                backgroundColor: AppTheme.dangerColor,
+              ),
+            );
+            return;
+          }
+        }
+      }
+    }
+
+    for (final med in _medications) {
+      final dError = _validateDosage(med['dosage']);
+      if (dError != null) {
+        setState(() => _currentStep = 6);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Prescription "${med['name']}": $dError'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+      final durError = _validateDuration(med['duration']);
+      if (durError != null) {
+        setState(() => _currentStep = 6);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Prescription "${med['name']}": $durError'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      }
+    }
+
+    if (_medNameController.text.trim().isNotEmpty ||
+        _dosageController.text.trim().isNotEmpty ||
+        _durController.text.trim().isNotEmpty) {
+      setState(() => _currentStep = 6);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please click "Add Drug" to add the pending medication or clear the medication fields before saving.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       final finalLabs = getFinalOrderedLabs();
@@ -1676,18 +2990,27 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         'documents': _documents,
       };
 
-      if (widget.initialConsultation != null) {
-        final int consulId = widget.initialConsultation!['id'];
+      final consulId = widget.initialConsultation?['id'] != null
+          ? (widget.initialConsultation!['id'] is int
+              ? widget.initialConsultation!['id'] as int
+              : int.tryParse(widget.initialConsultation!['id'].toString()))
+          : _existingConsultationId;
+
+      if (consulId != null) {
         await _appointmentController.updateConsultation(consulId, data);
       } else {
         await _appointmentController.saveConsultation(data);
       }
 
       if (mounted) {
+        await _clearDraft();
+        UnsavedChangesHelper.setUnsavedChanges(false);
+        UnsavedChangesHelper.clear();
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              widget.initialConsultation != null
+              consulId != null
                   ? 'Consultation Updated Successfully!'
                   : 'Consultation Completed & Saved!',
             ),
@@ -1698,8 +3021,12 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       }
     } catch (e) {
       if (mounted) {
+        final errText = e.toString().replaceAll('Exception: ', '').trim();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(errText.isNotEmpty ? errText : 'Failed to save consultation. Please try again.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
         );
       }
     } finally {
@@ -1907,12 +3234,16 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 _symptomsController,
                 'Describe clinical history, symptoms reported by patient...',
                 required: true,
+                validateContent: true,
+                maxLen: 500,
               ),
               const SizedBox(height: 16),
               _buildTextArea(
                 'Leading questions related to symptoms',
                 _leadingQuestionsController,
                 'Enter leading questions related to symptoms...',
+                validateContent: true,
+                maxLen: 500,
               ),
             ],
           ),
@@ -1924,6 +3255,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             'Clinical History',
             _historyController,
             'Enter clinical history, past medical history, surgery history...',
+            validateContent: true,
+            maxLen: 500,
           ),
         ),
         const SizedBox(height: 16),
@@ -1960,6 +3293,11 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   }
 
   Widget _buildExaminationTab() {
+    final bool hasMissingVitals = _currentAppointment.bloodPressureSystolic == null &&
+        _currentAppointment.bloodPressureDiastolic == null &&
+        _currentAppointment.sugarLevel == null &&
+        _currentAppointment.temperature == null;
+
     return Column(
       key: const ValueKey('examination_tab'),
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1969,13 +3307,44 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Recorded Nurse Vitals Intake',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: Colors.grey,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Recorded Nurse Vitals Intake',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  InkWell(
+                    onTap: _showEnterVitalsDialog,
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            hasMissingVitals ? Icons.add_circle_outline : Icons.edit_outlined,
+                            size: 13,
+                            color: AppTheme.primaryColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            hasMissingVitals ? 'Add Vitals' : 'Edit Vitals',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
               Container(
@@ -2096,7 +3465,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 child: Column(
                   children: [
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           flex: 2,
@@ -2118,53 +3487,90 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
-                                  color: Colors.black54,
+                                  color: Colors.black,
                                 ),
                               ),
                               const SizedBox(height: 6),
-                              OutlinedButton.icon(
-                                onPressed: _isUploadingFile ? null : _pickFile,
-                                icon: Icon(
-                                  _selectedFileName != null
-                                      ? Icons.check_circle_outline
-                                      : Icons.file_present_outlined,
-                                  size: 16,
+                              Container(
+                                height: 40,
+                                decoration: BoxDecoration(
                                   color: _selectedFileName != null
-                                      ? Colors.green
-                                      : AppTheme.primaryColor,
-                                ),
-                                label: Text(
-                                  _selectedFileName != null
-                                      ? _selectedFileName!
-                                      : context.tr('choose_file_pdf_image', fallback: 'Choose File (PDF/Image)'),
-                                  style: TextStyle(
-                                    fontSize: 12,
+                                      ? Colors.white
+                                      : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
                                     color: _selectedFileName != null
-                                        ? Colors.green.shade800
-                                        : AppTheme.textPrimaryColor,
-                                    fontWeight: _selectedFileName != null
-                                        ? FontWeight.bold
-                                        : FontWeight.normal,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(
-                                    color: _selectedFileName != null
-                                        ? Colors.green.shade300
+                                        ? Colors.green.shade400
                                         : AppTheme.borderColor,
+                                    width: 1.0,
                                   ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 14,
-                                  ),
-                                  shape: RoundedRectangleBorder(
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
                                     borderRadius: BorderRadius.circular(6),
+                                    onTap: _isUploadingFile ? null : _pickFile,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _selectedFileName != null
+                                                ? Icons.check_circle_outline
+                                                : Icons.file_present_outlined,
+                                            size: 16,
+                                            color: _selectedFileName != null
+                                                ? Colors.green
+                                                : AppTheme.primaryColor,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              _selectedFileName != null
+                                                  ? _selectedFileName!
+                                              : context.tr(
+                                                  'choose_file_pdf_image',
+                                                  fallback: 'Choose File (PDF/Image)',
+                                                ),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: _selectedFileName != null
+                                                    ? Colors.green.shade800
+                                                    : AppTheme.textPrimaryColor,
+                                                fontWeight: _selectedFileName != null
+                                                    ? FontWeight.w600
+                                                    : FontWeight.normal,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (_selectedFileName != null)
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                color: AppTheme.dangerColor,
+                                                size: 18,
+                                              ),
+                                              tooltip: 'Delete Selected File',
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(
+                                                minWidth: 28,
+                                                minHeight: 28,
+                                              ),
+                                              splashRadius: 16,
+                                              onPressed: _isUploadingFile
+                                                  ? null
+                                                  : _confirmDeleteSelectedFile,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                               if (_selectedFileName != null && _selectedFileSizeStr != null) ...[
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 4),
                                 Text(
                                   'Selected file size: $_selectedFileSizeStr',
                                   style: const TextStyle(
@@ -2253,69 +3659,117 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                   itemBuilder: (context, idx) {
                     final doc = _documents[idx];
                     final fileUrl = doc['file_url'];
+                    final fileName = doc['file_name'] ?? '';
                     final hasUrl = fileUrl != null && fileUrl.isNotEmpty;
+                    final isPdf = fileName.toLowerCase().endsWith('.pdf') || (fileUrl?.toLowerCase().endsWith('.pdf') ?? false);
+                    final isImage = fileName.toLowerCase().endsWith('.jpg') ||
+                        fileName.toLowerCase().endsWith('.jpeg') ||
+                        fileName.toLowerCase().endsWith('.png') ||
+                        fileName.toLowerCase().endsWith('.webp') ||
+                        (fileUrl?.toLowerCase().contains('/image/upload/') ?? false);
+                    final iconColor = isPdf
+                        ? AppTheme.dangerColor
+                        : isImage
+                            ? AppTheme.primaryColor
+                            : AppTheme.secondaryColor;
+                    final iconData = isPdf
+                        ? Icons.picture_as_pdf_rounded
+                        : isImage
+                            ? Icons.image_rounded
+                            : Icons.insert_drive_file_outlined;
+
                     return Container(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: Material(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.borderColor),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.insert_drive_file_outlined,
-                            color: hasUrl ? AppTheme.primaryColor : Colors.grey,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: hasUrl
+                              ? () => showDocumentViewer(
+                                    context,
+                                    fileUrl,
+                                    doc['title'] ?? 'Document',
+                                    fileName: fileName.isNotEmpty ? fileName : null,
+                                  )
+                              : null,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.borderColor),
+                            ),
+                            child: Row(
                               children: [
-                                Text(
-                                  doc['title']!,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: iconColor.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Icon(
+                                    iconData,
+                                    color: iconColor,
+                                    size: 20,
                                   ),
                                 ),
-                                Text(
-                                  '${doc['file_name']}${doc['file_size'] != null && doc['file_size']!.isNotEmpty ? ' (${doc['file_size']})' : ''} • Attached on: ${doc['date']}',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: AppTheme.textSecondaryColor,
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        doc['title'] ?? 'Document',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimaryColor,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${fileName}${doc['file_size'] != null && doc['file_size']!.isNotEmpty ? ' (${doc['file_size']})' : ''} • Attached on: ${doc['date']}',
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                      ),
+                                    ],
                                   ),
+                                ),
+                                if (hasUrl)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.remove_red_eye_outlined,
+                                      color: AppTheme.primaryColor,
+                                      size: 20,
+                                    ),
+                                    tooltip: 'View Document',
+                                    onPressed: () {
+                                      showDocumentViewer(
+                                        context,
+                                        fileUrl,
+                                        doc['title'] ?? 'Document',
+                                        fileName: fileName.isNotEmpty ? fileName : null,
+                                      );
+                                    },
+                                  ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: AppTheme.dangerColor,
+                                    size: 20,
+                                  ),
+                                  tooltip: 'Delete Document',
+                                  onPressed: () => _confirmDeleteDocument(idx),
                                 ),
                               ],
                             ),
                           ),
-                          if (hasUrl)
-                            IconButton(
-                              icon: const Icon(
-                                Icons.remove_red_eye_outlined,
-                                color: Colors.blue,
-                                size: 18,
-                              ),
-                              tooltip: 'View Document',
-                              onPressed: () {
-                                showDocumentViewer(context, fileUrl, doc['title'] ?? 'Document');
-                              },
-                            ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.red,
-                              size: 18,
-                            ),
-                            onPressed: () =>
-                                setState(() => _documents.removeAt(idx)),
-                          ),
-                        ],
+                        ),
                       ),
                     );
                   },
@@ -2329,55 +3783,160 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Doctor / Department Referral',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: AppTheme.primaryColor,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Doctor / Department Referral',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  if (_isLoadingReferralData)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Referred Doctor & Department',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF334155),
+                    ),
+                  ),
+                  if (_referredDoctorController.text.isNotEmpty)
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _referredDoctorController.clear();
+                          _referredDeptController.clear();
+                        });
+                      },
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        child: Row(
+                          children: [
+                            Icon(Icons.close, size: 14, color: AppTheme.dangerColor),
+                            SizedBox(width: 2),
+                            Text(
+                              'Clear Referral',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.dangerColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              CustomDropdownSearch(
+                label: '',
+                hint: 'Select Doctor & Department (e.g. Gayathri B - General Medicine)',
+                value: _getSelectedReferralDisplay(),
+                dropdownItems: _doctorsList.isNotEmpty ? _doctorsList : _getReferralDoctorDeptItems(),
+                onChanged: (val) {
+                  UserModel? currentUser;
+                  try {
+                    currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+                  } catch (_) {}
+                  final currentDocName = (currentUser?.fullname ?? widget.appointment.doctorName).trim().toLowerCase();
+                  final apptDocName = widget.appointment.doctorName.trim().toLowerCase();
+
+                  if (val == null || val.trim().isEmpty) {
+                    setState(() {
+                      _referredDoctorController.clear();
+                      _referredDeptController.clear();
+                    });
+                    return;
+                  }
+
+                  // Find matching doctor
+                  UserModel? matchedDoc;
+                  for (final d in _rawDoctors) {
+                    final itemText = (d.specialization != null && d.specialization!.trim().isNotEmpty)
+                        ? '${d.fullname} - ${d.specialization!.trim()}'
+                        : d.fullname;
+                    if (itemText == val || d.fullname == val) {
+                      matchedDoc = d;
+                      break;
+                    }
+                  }
+
+                  final chosenDocName = (matchedDoc?.fullname ?? val.split(' - ').first).trim();
+                  final chosenDept = (matchedDoc?.specialization ?? (val.contains(' - ') ? val.split(' - ').last : '')).trim();
+
+                  if ((currentDocName.isNotEmpty && chosenDocName.toLowerCase() == currentDocName) ||
+                      (apptDocName.isNotEmpty && chosenDocName.toLowerCase() == apptDocName)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('A doctor cannot refer a patient to himself.'),
+                        backgroundColor: AppTheme.dangerColor,
+                      ),
+                    );
+                    setState(() {
+                      _referredDoctorController.clear();
+                      _referredDeptController.clear();
+                    });
+                    return;
+                  }
+
+                  setState(() {
+                    _referredDoctorController.text = chosenDocName;
+                    _referredDeptController.text = chosenDept;
+                  });
+                },
+              ),
+              if (_referredDoctorController.text.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6, left: 2),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.person_outline, size: 13, color: AppTheme.primaryColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Doctor: ${_referredDoctorController.text}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                            ),
+                            if (_referredDeptController.text.isNotEmpty) ...[
+                              const SizedBox(width: 8),
+                              const Icon(Icons.local_hospital_outlined, size: 13, color: AppTheme.secondaryColor),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Dept: ${_referredDeptController.text}',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.secondaryColor),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              CustomDropdownSearch(
-                label: 'Referred Doctor Name',
-                hint: 'e.g. Dr. Gayathri',
-                value: _referredDoctorController.text.isEmpty
-                    ? null
-                    : _referredDoctorController.text,
-                dropdownItems: _doctorsList,
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _referredDoctorController.text = val;
-                      final matchedDocs = _rawDoctors
-                          .where((d) => d.fullname == val)
-                          .toList();
-                      if (matchedDocs.isNotEmpty) {
-                        final spec = matchedDocs.first.specialization;
-                        if (spec != null && spec.isNotEmpty) {
-                          _referredDeptController.text = spec;
-                        }
-                      }
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 16),
-              CustomDropdownSearch(
-                label: 'Referred Department',
-                hint: 'e.g. Cardiology, Paediatrics',
-                value: _referredDeptController.text.isEmpty
-                    ? null
-                    : _referredDeptController.text,
-                dropdownItems: _departmentsList,
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _referredDeptController.text = val;
-                    });
-                  }
-                },
-              ),
               const SizedBox(height: 16),
               _buildTextArea(
                 'Referral Reason & Clinical Notes',
@@ -2651,9 +4210,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                   flex: 1,
                   child: OutlinedButton(
                     onPressed: () async {
-                      if (await _onWillPop()) {
-                        widget.onBack();
-                      }
+                      await _onWillPop();
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textSecondaryColor,
@@ -2747,9 +4304,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             children: [
               OutlinedButton(
                 onPressed: () async {
-                  if (await _onWillPop()) {
-                    widget.onBack();
-                  }
+                  await _onWillPop();
                 },
                 style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
@@ -2874,10 +4429,35 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     TextEditingController controller,
     String hint, {
     bool required = false,
+    bool validateContent = false,
+    int maxLen = 500,
   }) {
     final isCurrentActive = _activeListeningController == controller;
     final isListening = isCurrentActive && !_isSpeechPaused;
     final isPaused = isCurrentActive && _isSpeechPaused;
+
+    // Regex for medical intake text fields
+    final medicalTextRegex = RegExp(r'^[a-zA-Z0-9 .,/#\-\(\):;\n\r]*$');
+    final hasAlphaRegex = RegExp(r'[a-zA-Z]');
+
+    String? fieldValidator(String? v) {
+      final trimmed = v?.trim() ?? '';
+      if (required && trimmed.isEmpty) {
+        return 'This field is required';
+      }
+      if (validateContent && trimmed.isNotEmpty) {
+        if (!medicalTextRegex.hasMatch(trimmed)) {
+          return 'Only letters, numbers and . , / # - ( ) : ; are allowed';
+        }
+        if (!hasAlphaRegex.hasMatch(trimmed)) {
+          return 'Must contain at least one letter';
+        }
+      }
+      if (trimmed.length > maxLen) {
+        return 'Maximum $maxLen characters allowed';
+      }
+      return null;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2928,12 +4508,19 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               TextFormField(
                 controller: controller,
                 maxLines: 3,
-                maxLength: 500,
-                validator: required
-                    ? (v) => (v == null || v.trim().isEmpty)
-                        ? 'This field is required'
-                        : null
-                    : null,
+                maxLength: maxLen,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                inputFormatters: validateContent
+                    ? [
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'[a-zA-Z0-9 .,/#\-\(\):;\n\r]'),
+                        ),
+                        LengthLimitingTextInputFormatter(maxLen),
+                      ]
+                    : [
+                        LengthLimitingTextInputFormatter(maxLen),
+                      ],
+                validator: fieldValidator,
                 decoration: InputDecoration(
                   hintText: hint,
                   counterText: '',
@@ -2942,6 +4529,12 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
+                  errorBorder: InputBorder.none,
+                  focusedErrorBorder: InputBorder.none,
+                  errorStyle: const TextStyle(
+                    color: AppTheme.dangerColor,
+                    fontSize: 12,
+                  ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 14,
                     vertical: 12,
@@ -3257,16 +4850,22 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       child: Column(
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 flex: 2,
                 child: CustomDropdownSearch(
                   label: 'Medication Name',
+                  requiredMark: true,
                   value: _medNameController.text.isEmpty
                       ? null
                       : _medNameController.text,
                   dropdownItems: _medicineCatalog,
                   height: 38,
+                  borderColor: const Color(0xFFE2E8F0),
+                  borderWidth: 1.0,
+                  focusedBorderColor: AppTheme.primaryColor,
+                  focusedBorderWidth: 1.4,
                   onChanged: (val) {
                     if (val != null) {
                       setState(() {
@@ -3278,6 +4877,9 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                         ).firstMatch(val);
                         if (match != null) {
                           _dosageController.text = match.group(0) ?? '';
+                          _dosageError = _validateDosage(_dosageController.text);
+                        } else if (_dosageController.text.isNotEmpty) {
+                          _dosageError = _validateDosage(_dosageController.text);
                         }
                       });
                     }
@@ -3290,6 +4892,17 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                   'Dosage',
                   _dosageController,
                   'e.g. 500mg',
+                  isRequired: true,
+                  maxLength: 20,
+                  height: 38,
+                  errorText: _dosageError,
+                  onChanged: (val) {
+                    setState(() {
+                      if (_dosageError != null || val.isNotEmpty) {
+                        _dosageError = _validateDosage(val);
+                      }
+                    });
+                  },
                 ),
               ),
               const SizedBox(width: 8),
@@ -3310,6 +4923,10 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                     'As needed (PRN)',
                   ],
                   height: 38,
+                  borderColor: const Color(0xFFE2E8F0),
+                  borderWidth: 1.0,
+                  focusedBorderColor: AppTheme.primaryColor,
+                  focusedBorderWidth: 1.4,
                   onChanged: (v) {
                     if (v != null) setState(() => _freqController.text = v);
                   },
@@ -3321,6 +4938,17 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                   'Duration',
                   _durController,
                   'e.g. 5 days',
+                  isRequired: true,
+                  maxLength: 20,
+                  height: 38,
+                  errorText: _durationError,
+                  onChanged: (val) {
+                    setState(() {
+                      if (_durationError != null || val.isNotEmpty) {
+                        _durationError = _validateDuration(val);
+                      }
+                    });
+                  },
                 ),
               ),
             ],
@@ -3357,134 +4985,159 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     TextEditingController controller,
     String hint, {
     bool enableVoice = false,
+    bool isRequired = false,
+    String? errorText,
+    int? maxLength,
+    double height = 38,
+    List<TextInputFormatter>? inputFormatters,
+    ValueChanged<String>? onChanged,
+    ValueChanged<String>? onSubmitted,
   }) {
     final isCurrentActive = _activeListeningController == controller;
     final isListening = isCurrentActive && !_isSpeechPaused;
     final isPaused = isCurrentActive && _isSpeechPaused;
+    final hasError = errorText != null && errorText.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          style: const TextStyle(fontSize: 13),
-          decoration: InputDecoration(
-            hintText: hint,
-            isDense: true,
-            fillColor: isListening
-                ? Colors.red.withValues(alpha: 0.03)
-                : (isPaused
-                    ? Colors.amber.withValues(alpha: 0.03)
-                    : Colors.white),
-            filled: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 10,
-              vertical: 10,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                color: AppTheme.isDark(context)
+                    ? AppTheme.darkTextPrimaryColor
+                    : Colors.grey.shade700,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-            suffixIcon: enableVoice
-                ? (isCurrentActive
-                    ? Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isListening)
-                            IconButton(
-                              icon: const Icon(
-                                Icons.pause_rounded,
-                                size: 16,
-                                color: Colors.orange,
-                              ),
-                              tooltip: 'Pause voice input',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 26,
-                                minHeight: 26,
-                              ),
-                              onPressed: _pauseSpeech,
-                            ),
-                          if (isPaused)
-                            IconButton(
-                              icon: const Icon(
-                                Icons.play_arrow_rounded,
-                                size: 16,
-                                color: AppTheme.primaryColor,
-                              ),
-                              tooltip: 'Resume voice input',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(
-                                minWidth: 26,
-                                minHeight: 26,
-                              ),
-                              onPressed: _resumeSpeech,
-                            ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.stop_rounded,
-                              size: 16,
-                              color: Colors.red,
-                            ),
-                            tooltip: 'Stop voice input',
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: 26,
-                              minHeight: 26,
-                            ),
-                            onPressed: _stopSpeech,
+            if (isRequired)
+              const Text(
+                ' *',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Focus(
+          child: Builder(
+            builder: (fContext) {
+              final isFocused = Focus.of(fContext).hasFocus;
+              return Container(
+                height: height,
+                decoration: BoxDecoration(
+                  color: hasError
+                      ? AppTheme.dangerColor.withValues(alpha: 0.05)
+                      : (isListening
+                          ? Colors.red.withValues(alpha: 0.04)
+                          : (isPaused
+                              ? Colors.amber.withValues(alpha: 0.04)
+                              : const Color(0xFFF1F5F9))),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    width: hasError ? 1.5 : (isFocused ? 1.4 : 1.0),
+                    color: hasError
+                        ? AppTheme.dangerColor
+                        : (isFocused
+                            ? AppTheme.primaryColor
+                            : const Color(0xFFE2E8F0)),
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                alignment: Alignment.center,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        maxLength: maxLength,
+                        inputFormatters: inputFormatters,
+                        onChanged: onChanged,
+                        onSubmitted: onSubmitted,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF1E293B),
+                          fontWeight: FontWeight.w500,
+                        ),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          counterText: '',
+                          contentPadding: EdgeInsets.zero,
+                          hintText: hint,
+                          hintStyle: const TextStyle(
+                            fontFamily: 'Inter',
+                            color: Color(0xFF9CA3AF),
+                            fontSize: 13,
                           ),
-                        ],
-                      )
-                    : IconButton(
-                        icon: const Icon(
-                          Icons.mic_none_rounded,
-                          size: 16,
-                          color: AppTheme.primaryColor,
                         ),
-                        tooltip: 'Start Voice Input',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 28,
-                          minHeight: 28,
+                      ),
+                    ),
+                    if (enableVoice) ...[
+                      if (isCurrentActive) ...[
+                        if (isListening)
+                          IconButton(
+                            icon: const Icon(Icons.pause_rounded, size: 16, color: Colors.orange),
+                            tooltip: 'Pause voice input',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                            onPressed: _pauseSpeech,
+                          ),
+                        if (isPaused)
+                          IconButton(
+                            icon: const Icon(Icons.play_arrow_rounded, size: 16, color: AppTheme.primaryColor),
+                            tooltip: 'Resume voice input',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                            onPressed: _resumeSpeech,
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.stop_rounded, size: 16, color: Colors.red),
+                          tooltip: 'Stop voice input',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                          onPressed: _stopSpeech,
                         ),
-                        onPressed: () => _startSpeech(controller, label),
-                      ))
-                : null,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(
-                color: isListening
-                    ? Colors.red
-                    : (isPaused ? Colors.orange : AppTheme.borderColor),
-                width: (isListening || isPaused) ? 1.5 : 1.0,
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(
-                color: isListening
-                    ? Colors.red
-                    : (isPaused ? Colors.orange : AppTheme.borderColor),
-                width: (isListening || isPaused) ? 1.5 : 1.0,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(
-                color: isListening
-                    ? Colors.red
-                    : (isPaused ? Colors.orange : AppTheme.primaryColor),
-                width: 1.5,
+                      ] else
+                        IconButton(
+                          icon: const Icon(Icons.mic_none_rounded, size: 16, color: AppTheme.primaryColor),
+                          tooltip: 'Start Voice Input',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                          onPressed: () => _startSpeech(controller, label),
+                        ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        if (hasError)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 2),
+            child: Text(
+              errorText,
+              style: const TextStyle(
+                color: AppTheme.dangerColor,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -3536,6 +5189,116 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         );
       }).toList(),
     );
+  }
+
+  void _addCustomLabTest() {
+    final rawText = _customLabController.text.trim();
+    if (rawText.isEmpty) {
+      setState(() => _customLabError = 'Please enter a test or scan name');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a custom lab test or scan name.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    if (rawText.length < 2) {
+      setState(() => _customLabError = 'Test name must be at least 2 characters');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Custom lab test name must be at least 2 characters.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    if (rawText.length > 80) {
+      setState(() => _customLabError = 'Test name cannot exceed 80 characters');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Custom lab test name cannot exceed 80 characters.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    if (RegExp(r'[^a-zA-Z0-9\s.,/#\-\(\):;%+]').hasMatch(rawText)) {
+      setState(() => _customLabError = 'Special characters are not allowed');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Special characters are not allowed in test name.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    if (!RegExp(r'[a-zA-Z]').hasMatch(rawText)) {
+      setState(() => _customLabError = 'Must contain at least one letter');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Custom lab test name must contain alphabetic characters.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    // 1. Prevent duplicate custom test entries (case-insensitive check)
+    final isDuplicate = _customLabs.any(
+      (item) => item.trim().toLowerCase() == rawText.toLowerCase(),
+    );
+    if (isDuplicate) {
+      setState(() => _customLabError = 'This test has already been added');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Custom lab test "$rawText" has already been added.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    // 2. Prevent duplicate with standard investigations
+    final standardMatch = _standardLabs.keys.firstWhere(
+      (item) => item.trim().toLowerCase() == rawText.toLowerCase(),
+      orElse: () => '',
+    );
+    if (standardMatch.isNotEmpty) {
+      if (_standardLabs[standardMatch] == true) {
+        setState(() => _customLabError = '"$standardMatch" has already been selected');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$standardMatch" has already been selected under Standard Investigations.'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+        return;
+      } else {
+        setState(() {
+          _standardLabs[standardMatch] = true;
+          _customLabError = null;
+          _customLabController.clear();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"$standardMatch" selected under Standard Investigations.'),
+            backgroundColor: AppTheme.secondaryColor,
+          ),
+        );
+        return;
+      }
+    }
+
+    setState(() {
+      _customLabs.add(rawText);
+      _customLabError = null;
+      _customLabController.clear();
+    });
   }
 
   Widget _buildLabOrdersSection() {
@@ -3592,17 +5355,18 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                       _customLabController,
                       'e.g. Liver Function Test (LFT)',
                       enableVoice: true,
+                      errorText: _customLabError,
+                      onChanged: (val) {
+                        if (_customLabError != null) {
+                          setState(() => _customLabError = null);
+                        }
+                      },
+                      onSubmitted: (_) => _addCustomLabTest(),
                     ),
                   ),
                   const SizedBox(width: 12),
                   ElevatedButton(
-                    onPressed: () {
-                      if (_customLabController.text.trim().isEmpty) return;
-                      setState(() {
-                        _customLabs.add(_customLabController.text.trim());
-                        _customLabController.clear();
-                      });
-                    },
+                    onPressed: _addCustomLabTest,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
