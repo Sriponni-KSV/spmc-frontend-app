@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/unsaved_changes_helper.dart';
 import '../utils/app_localizations.dart';
+import '../widgets/consultation_documents_view.dart';
 
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -3695,43 +3696,11 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             'Attached Documents:',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
           ),
-          const SizedBox(height: 4),
-          ...docsList.map((d) {
-            if (d is Map) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 4),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  border: Border.all(color: Colors.grey.shade200),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.picture_as_pdf,
-                      size: 14,
-                      color: Colors.red,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${d['title']} (${d['file_name']})',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-            return const SizedBox.shrink();
-          }).toList(),
+          const SizedBox(height: 6),
+          ConsultationDocumentsView(
+            documents: docsList,
+            isCompact: true,
+          ),
           const SizedBox(height: 8),
         ],
         if (medsList.isNotEmpty) ...[

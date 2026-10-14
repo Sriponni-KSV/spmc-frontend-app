@@ -28,17 +28,23 @@ import '../controllers/notification_controller.dart';
 import '../config/doctor_nav_config.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
+import '../widgets/consultation_documents_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/unsaved_changes_helper.dart';
+import '../utils/modal_history_helper.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
   final int initialIndex;
   final bool isEditingProfile;
   final AppointmentModel? activeAppointment;
+  final int? initialOtTab;
   const DashboardScreen({
     Key? key,
     this.initialIndex = 0,
     this.isEditingProfile = false,
     this.activeAppointment,
+    this.initialOtTab,
   }) : super(key: key);
 
   @override
@@ -62,6 +68,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isEditingProfile = false;
   String? _selectedPatientName;
   String _selectedConsultationYearFilter = 'All';
+  String _selectedConsultationPeriodFilter = 'All';
+  DateTime? _consultationFilterDate;
+  int _consultationsCurrentPage = 0;
+  final int _consultationsItemsPerPage = 10;
   String _consultationSearchQuery = '';
   late TextEditingController _consultationSearchController;
   List<Map<String, dynamic>> _labReports = [];
@@ -135,12 +145,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  bool _isFutureAppointmentDate(String? dateStr) {
+    if (dateStr == null || dateStr.trim().isEmpty) return false;
+    final dt = DateFormatter.toDateTime(dateStr);
+    if (dt != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final apptDateOnly = DateTime(dt.year, dt.month, dt.day);
+      return apptDateOnly.isAfter(today);
+    }
+    final clean = dateStr.replaceAll('/', '-').trim();
+    final parts = clean.split('-');
+    if (parts.length == 3) {
+      int? y, m, d;
+      if (parts[0].length == 4) {
+        y = int.tryParse(parts[0]);
+        m = int.tryParse(parts[1]);
+        d = int.tryParse(parts[2].split(' ')[0]);
+      } else if (parts[2].split(' ')[0].length == 4) {
+        d = int.tryParse(parts[0]);
+        m = int.tryParse(parts[1]);
+        y = int.tryParse(parts[2].split(' ')[0]);
+      }
+      if (y != null && m != null && d != null) {
+        final now = DateTime.now();
+        final today = DateTime(now.year, now.month, now.day);
+        final apptDateOnly = DateTime(y, m, d);
+        return apptDateOnly.isAfter(today);
+      }
+    }
+    return false;
+  }
+
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
     _isEditingProfile = widget.isEditingProfile;
-    _activeAppointment = widget.activeAppointment;
+    if (widget.activeAppointment != null && _isFutureAppointmentDate(widget.activeAppointment!.appointmentDate)) {
+      _activeAppointment = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot start consultation before the appointment date'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+          context.go(AppRoutes.doctorDashboard);
+        }
+      });
+    } else {
+      _activeAppointment = widget.activeAppointment;
+    }
+    if (widget.initialOtTab != null) {
+      _otInitialTab = widget.initialOtTab;
+    }
 
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final hasTimings = user?.role != 'Doctor' || (
@@ -172,11 +232,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialIndex != oldWidget.initialIndex ||
         widget.isEditingProfile != oldWidget.isEditingProfile ||
-        widget.activeAppointment != oldWidget.activeAppointment) {
+        widget.activeAppointment != oldWidget.activeAppointment ||
+        widget.initialOtTab != oldWidget.initialOtTab) {
       setState(() {
         _selectedIndex = widget.initialIndex;
         _isEditingProfile = widget.isEditingProfile;
-        _activeAppointment = widget.activeAppointment;
+        if (widget.activeAppointment != null && _isFutureAppointmentDate(widget.activeAppointment!.appointmentDate)) {
+          _activeAppointment = null;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Cannot start consultation before the appointment date'),
+                  backgroundColor: AppTheme.dangerColor,
+                ),
+              );
+              context.go(AppRoutes.doctorDashboard);
+            }
+          });
+        } else {
+          _activeAppointment = widget.activeAppointment;
+        }
+        _otInitialTab = widget.initialOtTab;
       });
     }
   }
@@ -236,6 +313,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       text: user?.consultationFee ?? '',
     );
     _consultationSearchController = TextEditingController();
+    _consultationSearchController.addListener(() {
+      if (_consultationSearchQuery != _consultationSearchController.text) {
+        setState(() {
+          _consultationSearchQuery = _consultationSearchController.text;
+          _consultationsCurrentPage = 0;
+        });
+      }
+    });
     _labSearchController = TextEditingController();
     _appointmentsSearchCtrl.addListener(() {
       setState(() {
@@ -475,11 +560,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   bool _isDoctorMatch(AppointmentModel appt, UserModel? user) {
     if (user == null) return false;
+    if (appt.doctorId != null && user.id != null && appt.doctorId == user.id) {
+      return true;
+    }
     if (appt.doctorDisplayId != null &&
         appt.doctorDisplayId!.isNotEmpty &&
         user.staffUniqueId != null &&
         user.staffUniqueId!.isNotEmpty) {
-      return appt.doctorDisplayId == user.staffUniqueId;
+      if (appt.doctorDisplayId == user.staffUniqueId) return true;
     }
     String clean(String s) {
       s = s.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -495,8 +583,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return cDoc == cUser;
   }
 
+  bool _isDoctorNameMatch(dynamic docName, UserModel? user) {
+    if (user == null) return false;
+    if (user.role == 'Admin' || user.role == 'Super Admin') return true;
+    if (docName == null) return false;
+    final String sDoc = docName.toString().trim();
+    if (sDoc.isEmpty) return false;
+
+    String clean(String s) {
+      s = s.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (s.startsWith('dr.')) s = s.substring(3).trim();
+      if (s.startsWith('dr ')) s = s.substring(2).trim();
+      if (s.contains(' - ')) s = s.split(' - ')[0].trim();
+      return s;
+    }
+
+    final cDoc = clean(sDoc);
+    final cUser = clean(user.rawFullname ?? user.fullname);
+    if (cDoc.isEmpty || cUser.isEmpty) return false;
+    return cDoc == cUser || cDoc.contains(cUser) || cUser.contains(cDoc);
+  }
+
   bool _isSameDay(String apptDateStr, DateTime date) {
     try {
+      final dt = DateFormatter.toDateTime(apptDateStr);
+      if (dt != null) {
+        return dt.year == date.year && dt.month == date.month && dt.day == date.day;
+      }
       final cleanAppt = apptDateStr.replaceAll('-', '/').trim();
       final target = DateFormat('dd/MM/yyyy').format(date);
       if (cleanAppt == target || cleanAppt.startsWith(target)) return true;
@@ -527,6 +640,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _fetchDoctorData() async {
+    if (!mounted) return;
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user == null) {
       if (mounted) setState(() => _isLoading = false);
@@ -574,6 +688,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         });
       }
 
+      if (!mounted) return;
       // Also fetch consultations
       _fetchConsultations();
     } catch (e) {
@@ -583,6 +698,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _startConsultation(AppointmentModel appointment) async {
+    if (_isFutureAppointmentDate(appointment.appointmentDate)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot start consultation before the appointment date'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+      }
+      return;
+    }
+
     if (appointment.id == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -632,13 +759,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final updatedAppt = appointment.copyWith(
         status: 'In Consultation',
       );
+      setState(() => _activeAppointment = updatedAppt);
       context.go(AppRoutes.doctorDashboardConsultation, extra: updatedAppt);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceAll('Exception: ', '')),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.dangerColor,
           ),
         );
       }
@@ -648,11 +776,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _resumeConsultation(AppointmentModel appointment) {
+    if (_isFutureAppointmentDate(appointment.appointmentDate)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot start consultation before the appointment date'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+      }
+      return;
+    }
     if (!mounted) return;
+    setState(() => _activeAppointment = appointment);
     context.go(AppRoutes.doctorDashboardConsultation, extra: appointment);
   }
 
   Future<void> _fetchConsultations() async {
+    if (!mounted) return;
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user == null || user.role == 'Anaesthetist' || (user.role != 'Admin' && user.role != 'Doctor')) {
       debugPrint('[_fetchConsultations] Bypassing fetch: user is null, Anaesthetist, or not Admin/Doctor');
@@ -760,15 +901,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
         appointment: _activeAppointment!,
         initialConsultation: existingConsul.isNotEmpty ? existingConsul : null,
         onBack: () {
-          setState(() => _activeAppointment = null);
+          if (mounted) {
+            setState(() => _activeAppointment = null);
+          }
           if (_selectedIndex == 0) {
             context.go(AppRoutes.doctorDashboard);
           } else {
             context.go(AppRoutes.doctorPatients);
           }
-          _fetchConsultations(); // Refresh after potentially saving/updating
-          _fetchDoctorData(); // Refresh appointment list status
-          _fetchLabReports(); // Refresh lab reports list to show newly ordered tests instantly
+          if (mounted) {
+            _fetchConsultations(); // Refresh after potentially saving/updating
+            _fetchDoctorData(); // Refresh appointment list status
+            _fetchLabReports(); // Refresh lab reports list to show newly ordered tests instantly
+          }
         },
       );
     }
@@ -794,10 +939,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           initialTab: _otInitialTab,
         );
       case 5:
-        if (isAnaesthetist) {
-          return _buildAnaesthetistDashboardView(isMobile);
-        }
-        return OtDictationDashboardView(isMobile: isMobile);
+        return OTManagementScreen(
+          isMobile: isMobile,
+          initialSelectedCase: _otInitialSelectedCase,
+          initialTab: 4,
+        );
       case 6:
         return _buildLabReportsView(isMobile);
       default:
@@ -834,11 +980,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _fetchLabReports() async {
-    if (mounted) {
-      setState(() {
-        _isLoadingLabReports = true;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _isLoadingLabReports = true;
+    });
     try {
       final List<Map<String, dynamic>> requests = await LabController().fetchLabRequests();
       if (mounted) {
@@ -865,59 +1010,268 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: CircularProgressIndicator(),
         ),
       );
-    } else if (_consultations.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(40.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.history_edu_outlined,
-                size: 64,
-                color: Colors.grey.withOpacity(0.3),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'No consultations found',
-                style: TextStyle(color: AppTheme.textSecondaryColor),
-              ),
-            ],
-          ),
-        ),
-      );
     }
 
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    final grouped = _getGroupedConsultationsByPatient();
-    final sortedPatients = (user == null || user.role == 'Admin')
-        ? (grouped.keys.toList()..sort())
-        : (grouped.keys.where((pName) {
-            final patientConsuls = _consultations
-                .where((c) => (c['patient_name'] ?? 'Unknown Patient') == pName)
-                .toList();
-            return patientConsuls.any((c) => c['doctor_name'] == user.fullname);
-          }).toList()..sort());
+
+    // 1. Filter consultations for the current doctor (or all if admin)
+    final doctorConsuls = _consultations.where((c) {
+      return _isDoctorNameMatch(c['doctor_name'], user);
+    }).toList();
+
+    // 2. Filter consultations by Search Query (patient name, UHID, phone, symptoms, diagnosis, meds, etc.)
+    final searchedConsuls = doctorConsuls.where((c) {
+      if (_consultationSearchQuery.isEmpty) return true;
+      final q = _consultationSearchQuery.toLowerCase().trim();
+      final pName = (c['patient_name'] ?? '').toString().toLowerCase();
+      final pPhone = (c['patient_phone'] ?? '').toString().toLowerCase();
+      final pId = (c['patient_display_id'] ?? '').toString().toLowerCase();
+      final symptoms = (c['symptoms'] ?? '').toString().toLowerCase();
+      final diagnosis = (c['diagnosis'] ?? '').toString().toLowerCase();
+      final dept = (c['department'] ?? '').toString().toLowerCase();
+      final doc = (c['doctor_name'] ?? '').toString().toLowerCase();
+      final notes = (c['notes'] ?? '').toString().toLowerCase();
+      final history = (c['history'] ?? '').toString().toLowerCase();
+      final date = _formatConsultationDateText(c).toLowerCase();
+      final time = _formatConsultationTimeText(c).toLowerCase();
+      final meds = (c['medications'] != null ? jsonEncode(c['medications']) : '').toLowerCase();
+      final lab = (c['lab_tests'] != null ? jsonEncode(c['lab_tests']) : '').toLowerCase();
+
+      return pName.contains(q) ||
+          pPhone.contains(q) ||
+          pId.contains(q) ||
+          symptoms.contains(q) ||
+          diagnosis.contains(q) ||
+          dept.contains(q) ||
+          doc.contains(q) ||
+          notes.contains(q) ||
+          history.contains(q) ||
+          date.contains(q) ||
+          time.contains(q) ||
+          meds.contains(q) ||
+          lab.contains(q);
+    }).toList();
+
+    // 3. Filter consultations by Period / Date Filter
+    final now = DateTime.now();
+    final filteredConsuls = searchedConsuls.where((c) {
+      final dt = _getConsultationDateTime(c);
+
+      // Custom picked date
+      if (_consultationFilterDate != null) {
+        return dt.year == _consultationFilterDate!.year &&
+            dt.month == _consultationFilterDate!.month &&
+            dt.day == _consultationFilterDate!.day;
+      }
+
+      if (_selectedConsultationPeriodFilter == 'Today') {
+        return dt.year == now.year && dt.month == now.month && dt.day == now.day;
+      } else if (_selectedConsultationPeriodFilter == 'This Week') {
+        final monday = now.subtract(Duration(days: now.weekday - 1));
+        final startOfWeek = DateTime(monday.year, monday.month, monday.day);
+        final endOfWeek = startOfWeek.add(const Duration(days: 7));
+        return !dt.isBefore(startOfWeek) && dt.isBefore(endOfWeek);
+      } else if (_selectedConsultationPeriodFilter == 'This Month') {
+        return dt.year == now.year && dt.month == now.month;
+      } else if (_selectedConsultationPeriodFilter == 'This Year') {
+        return dt.year == now.year;
+      }
+      return true; // 'All'
+    }).toList();
+
+    // 4. Group by patient
+    final Map<String, List<Map<String, dynamic>>> patientMap = {};
+    for (var c in filteredConsuls) {
+      final pName = (c['patient_name'] ?? 'Unknown Patient').toString();
+      patientMap.putIfAbsent(pName, () => []).add(c);
+    }
+
+    final sortedPatients = patientMap.keys.toList()..sort();
+
+    // 5. Pagination
+    final int totalPatients = sortedPatients.length;
+    final int totalPages = totalPatients == 0 ? 1 : (totalPatients / _consultationsItemsPerPage).ceil();
+    if (_consultationsCurrentPage >= totalPages && totalPages > 0) {
+      _consultationsCurrentPage = totalPages - 1;
+    }
+    final int startIndex = totalPatients == 0 ? 0 : _consultationsCurrentPage * _consultationsItemsPerPage;
+    final int endIndex = math.min(startIndex + _consultationsItemsPerPage, totalPatients);
+    final pagedPatients = totalPatients == 0 ? <String>[] : sortedPatients.sublist(startIndex, endIndex);
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'My Consultations',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+          // Header Row
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 16,
+            runSpacing: 12,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'My Consultations',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'History of all consultations performed by you.',
+                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+                ),
+                child: Text(
+                  '${filteredConsuls.length} Consultation${filteredConsuls.length != 1 ? "s" : ""} • ${sortedPatients.length} Patient${sortedPatients.length != 1 ? "s" : ""}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          const Text(
-            'History of all consultations performed by you.',
-            style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 14),
+          const SizedBox(height: 20),
+
+          // Search & Filter Bar Card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Search Row
+                if (isMobile)
+                  Column(
+                    children: [
+                      _buildConsultationSearchBar(),
+                      const SizedBox(height: 10),
+                      _buildConsultationDatePicker(),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Expanded(child: _buildConsultationSearchBar()),
+                      const SizedBox(width: 12),
+                      _buildConsultationDatePicker(),
+                    ],
+                  ),
+                const SizedBox(height: 14),
+
+                // Period Filter Chips Row
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Period:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ...['All', 'Today', 'This Week', 'This Month', 'This Year'].map((period) {
+                        final isActive = _selectedConsultationPeriodFilter == period && _consultationFilterDate == null;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8.0),
+                          child: InkWell(
+                            onTap: () {
+                              setState(() {
+                                _selectedConsultationPeriodFilter = period;
+                                _consultationFilterDate = null;
+                                _consultationsCurrentPage = 0;
+                              });
+                            },
+                            borderRadius: BorderRadius.circular(16),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isActive ? AppTheme.primaryColor : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isActive ? AppTheme.primaryColor : const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: Text(
+                                period,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                  color: isActive ? Colors.white : const Color(0xFF475569),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      if (_consultationSearchQuery.isNotEmpty ||
+                          _selectedConsultationPeriodFilter != 'All' ||
+                          _consultationFilterDate != null) ...[
+                        const SizedBox(width: 8),
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _consultationSearchQuery = '';
+                              _consultationSearchController.clear();
+                              _selectedConsultationPeriodFilter = 'All';
+                              _consultationFilterDate = null;
+                              _consultationsCurrentPage = 0;
+                            });
+                          },
+                          icon: const Icon(Icons.refresh, size: 14, color: AppTheme.logoRed),
+                          label: const Text(
+                            'Reset',
+                            style: TextStyle(fontSize: 12, color: AppTheme.logoRed, fontWeight: FontWeight.bold),
+                          ),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          if (sortedPatients.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 80.0),
-              child: Center(
+          const SizedBox(height: 20),
+
+          // Patients List or Empty State
+          if (_consultations.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -928,162 +1282,370 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'No consultations performed by you yet',
+                      'No consultations found',
                       style: TextStyle(color: AppTheme.textSecondaryColor),
                     ),
                   ],
                 ),
               ),
             )
-          else
+          else if (sortedPatients.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.search_off_outlined,
+                      size: 56,
+                      color: Colors.grey.withOpacity(0.3),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No consultations match your filter or search criteria',
+                      style: TextStyle(
+                        color: Color(0xFF334155),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Try adjusting your search terms or resetting the date filter.',
+                      style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _consultationSearchQuery = '';
+                          _consultationSearchController.clear();
+                          _selectedConsultationPeriodFilter = 'All';
+                          _consultationFilterDate = null;
+                          _consultationsCurrentPage = 0;
+                        });
+                      },
+                      style: AppTheme.outlinedButton,
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Reset Filters'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else ...[
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: sortedPatients.length,
+              itemCount: pagedPatients.length,
               itemBuilder: (context, pIndex) {
-              final patientName = sortedPatients[pIndex];
-              final yearsMap = grouped[patientName]!;
+                final patientName = pagedPatients[pIndex];
+                final patientConsuls = patientMap[patientName] ?? [];
 
-              int totalConsultations = 0;
-              for (var year in yearsMap.keys) {
-                for (var month in yearsMap[year]!.keys) {
-                  totalConsultations += yearsMap[year]![month]!.length;
-                }
-              }
-
-              // Selected Patient details inline
-              final patientConsuls = _consultations
-                  .where((c) => (c['patient_name'] ?? 'Unknown Patient') == patientName)
-                  .toList();
-
-              final Set<int> uniqueYears = {};
-              for (var c in patientConsuls) {
-                final dt = _getConsultationDateTime(c);
-                uniqueYears.add(dt.year);
-              }
-              final sortedYears = uniqueYears.toList()..sort((a, b) => b.compareTo(a));
-
-              // If this patient is expanded, calculate filtered consultations
-              List<Map<String, dynamic>> filtered = [];
-              if (_selectedPatientName == patientName) {
-                filtered = patientConsuls.where((c) {
+                final Set<int> uniqueYears = {};
+                for (var c in patientConsuls) {
                   final dt = _getConsultationDateTime(c);
-                  final yr = dt.year;
-                  if (_selectedConsultationYearFilter != 'All' &&
-                      yr.toString() != _selectedConsultationYearFilter) {
-                    return false;
-                  }
-                  if (_consultationSearchQuery.isNotEmpty) {
-                    final q = _consultationSearchQuery.toLowerCase();
-                    final symptoms = (c['symptoms'] ?? '').toString().toLowerCase();
-                    final history = (c['history'] ?? '').toString().toLowerCase();
-                    final diagnosis = (c['diagnosis'] ?? '').toString().toLowerCase();
-                    final dept = (c['department'] ?? '').toString().toLowerCase();
-                    final doc = (c['doctor_name'] ?? '').toString().toLowerCase();
-                    final date = _formatConsultationDateText(c).toLowerCase();
-                    final time = _formatConsultationTimeText(c).toLowerCase();
-                    if (!symptoms.contains(q) &&
-                        !history.contains(q) &&
-                        !diagnosis.contains(q) &&
-                        !dept.contains(q) &&
-                        !doc.contains(q) &&
-                        !date.contains(q) &&
-                        !time.contains(q)) {
+                  uniqueYears.add(dt.year);
+                }
+                final sortedYears = uniqueYears.toList()..sort((a, b) => b.compareTo(a));
+
+                // If this patient is expanded, calculate filtered consultations
+                List<Map<String, dynamic>> filtered = [];
+                if (_selectedPatientName == patientName) {
+                  filtered = patientConsuls.where((c) {
+                    final dt = _getConsultationDateTime(c);
+                    final yr = dt.year;
+                    if (_selectedConsultationYearFilter != 'All' &&
+                        yr.toString() != _selectedConsultationYearFilter) {
                       return false;
                     }
-                  }
-                  return true;
-                }).toList();
-              }
+                    return true;
+                  }).toList();
+                }
 
-              return Card(
-                elevation: 0,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: AppTheme.borderColor.withOpacity(0.5),
+                final firstC = patientConsuls.isNotEmpty ? patientConsuls.first : null;
+                final uhid = firstC?['patient_display_id'];
+                final phone = firstC?['patient_phone'];
+
+                return Card(
+                  elevation: 0,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: AppTheme.borderColor.withOpacity(0.5),
+                    ),
                   ),
-                ),
-                child: Theme(
-                  data: Theme.of(context).copyWith(
-                    dividerColor: Colors.transparent,
-                  ),
-                  child: ExpansionTile(
-                    key: Key('patient_${patientName}_${_selectedPatientName == patientName}'),
-                    initiallyExpanded: _selectedPatientName == patientName,
-                    onExpansionChanged: (isExpanded) {
-                      setState(() {
-                        if (isExpanded) {
-                          _selectedPatientName = patientName;
-                          _selectedConsultationYearFilter = 'All';
-                          _consultationSearchQuery = '';
-                          _consultationSearchController.clear();
-                        } else if (_selectedPatientName == patientName) {
-                          _selectedPatientName = null;
-                        }
-                      });
-                    },
-                    leading: CircleAvatar(
-                      backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                      child: Text(
-                        patientName.isNotEmpty ? patientName[0].toUpperCase() : 'P',
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      dividerColor: Colors.transparent,
+                    ),
+                    child: ExpansionTile(
+                      key: Key('patient_${patientName}_${_selectedPatientName == patientName}'),
+                      initiallyExpanded: _selectedPatientName == patientName,
+                      onExpansionChanged: (isExpanded) {
+                        setState(() {
+                          if (isExpanded) {
+                            _selectedPatientName = patientName;
+                            _selectedConsultationYearFilter = 'All';
+                          } else if (_selectedPatientName == patientName) {
+                            _selectedPatientName = null;
+                          }
+                        });
+                      },
+                      leading: CircleAvatar(
+                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                        child: Text(
+                          patientName.isNotEmpty ? patientName[0].toUpperCase() : 'P',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                          ),
+                        ),
+                      ),
+                      title: Text(
+                        patientName,
                         style: const TextStyle(
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
+                          color: Color(0xFF2D3748),
                         ),
                       ),
-                    ),
-                    title: Text(
-                      patientName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF2D3748),
-                      ),
-                    ),
-                    subtitle: Text(
-                      '$totalConsultations consultation${totalConsultations > 1 ? "s" : ""}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
-                    childrenPadding: const EdgeInsets.all(16.0),
-                    expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Divider(height: 1, color: AppTheme.borderColor),
-                      const SizedBox(height: 16),
-                      if (isMobile)
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _buildMobileFilterChips(patientConsuls, sortedYears),
-                            const SizedBox(height: 16),
-                            _buildSearchAndDetailsPanel(filtered, patientConsuls, isMobile: true),
-                          ],
-                        )
-                      else
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              width: 220,
-                              child: _buildFilterSidebar(patientConsuls, sortedYears),
+                      subtitle: Row(
+                        children: [
+                          Text(
+                            '${patientConsuls.length} consultation${patientConsuls.length > 1 ? "s" : ""}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryColor,
                             ),
-                            const SizedBox(width: 24),
-                            Expanded(
-                              child: _buildSearchAndDetailsPanel(filtered, patientConsuls, isMobile: false),
+                          ),
+                          if (uhid != null && uhid.toString().isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '• ID: $uhid',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryColor,
+                              ),
                             ),
                           ],
-                        ),
-                    ],
+                          if (phone != null && phone.toString().isNotEmpty) ...[
+                            const SizedBox(width: 8),
+                            Text(
+                              '• $phone',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      childrenPadding: const EdgeInsets.all(16.0),
+                      expandedCrossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Divider(height: 1, color: AppTheme.borderColor),
+                        const SizedBox(height: 16),
+                        if (isMobile)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildMobileFilterChips(patientConsuls, sortedYears),
+                              const SizedBox(height: 16),
+                              _buildSearchAndDetailsPanel(filtered, patientConsuls, isMobile: true),
+                            ],
+                          )
+                        else
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 220,
+                                child: _buildFilterSidebar(patientConsuls, sortedYears),
+                              ),
+                              const SizedBox(width: 24),
+                              Expanded(
+                                child: _buildSearchAndDetailsPanel(filtered, patientConsuls, isMobile: false),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
+                );
+              },
+            ),
+
+            // Pagination Controls
+            if (sortedPatients.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-              );
-            },
-          ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      context.showingEntries(start: startIndex + 1, end: endIndex, total: totalPatients),
+                      style: const TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left),
+                          onPressed: _consultationsCurrentPage > 0
+                              ? () => setState(() => _consultationsCurrentPage--)
+                              : null,
+                        ),
+                        Text(
+                          context.pageOfTotal(_consultationsCurrentPage + 1, totalPages),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right),
+                          onPressed: _consultationsCurrentPage < totalPages - 1
+                              ? () => setState(() => _consultationsCurrentPage++)
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildConsultationSearchBar() {
+    return Container(
+      height: 42,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFCBD5E1), width: 1.0),
+      ),
+      child: TextField(
+        controller: _consultationSearchController,
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          hintText: 'Search by patient name, UHID, phone, symptoms, diagnosis, meds...',
+          hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+          prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+          suffixIcon: _consultationSearchQuery.isNotEmpty
+              ? MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () {
+                      _consultationSearchController.clear();
+                    },
+                    child: const Icon(
+                      Icons.close,
+                      size: 16,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                )
+              : null,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          filled: false,
+        ),
+        style: const TextStyle(fontSize: 13),
+      ),
+    );
+  }
+
+  Widget _buildConsultationDatePicker() {
+    return InkWell(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: _consultationFilterDate ?? DateTime.now(),
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2101),
+          builder: (context, child) {
+            return Theme(
+              data: Theme.of(context).copyWith(
+                colorScheme: const ColorScheme.light(
+                  primary: AppTheme.primaryColor,
+                ),
+              ),
+              child: child!,
+            );
+          },
+        );
+        if (picked != null) {
+          setState(() {
+            _consultationFilterDate = picked;
+            _selectedConsultationPeriodFilter = 'Custom';
+            _consultationsCurrentPage = 0;
+          });
+        }
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: _consultationFilterDate != null ? AppTheme.primaryColor.withOpacity(0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: _consultationFilterDate != null ? AppTheme.primaryColor : const Color(0xFFCBD5E1),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.calendar_today,
+              size: 15,
+              color: _consultationFilterDate != null ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              _consultationFilterDate == null
+                  ? 'Filter Date'
+                  : DateFormat('dd/MM/yyyy').format(_consultationFilterDate!),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: _consultationFilterDate != null ? FontWeight.bold : FontWeight.w500,
+                color: _consultationFilterDate != null ? AppTheme.primaryColor : const Color(0xFF334155),
+              ),
+            ),
+            if (_consultationFilterDate != null) ...[
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _consultationFilterDate = null;
+                    _selectedConsultationPeriodFilter = 'All';
+                    _consultationsCurrentPage = 0;
+                  });
+                },
+                child: const Icon(Icons.close, size: 14, color: AppTheme.primaryColor),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -1752,12 +2314,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (docsList != null && docsList.isNotEmpty) ...[
           _buildGridRow(
             'Documents',
-            docsList.map((d) {
-              if (d is Map) {
-                return '${d['title']} (${d['file_name']})';
-              }
-              return '';
-            }).where((str) => str.isNotEmpty).join('\n'),
+            null,
+            customValueWidget: ConsultationDocumentsView(
+              documents: docsList,
+            ),
           ),
           const SizedBox(height: 12),
         ],
@@ -4268,10 +4828,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               size: 18,
                               color: AppTheme.getTextSecondaryColor(context),
                             ),
-                            onPressed: () => LogoutHelper.showLogoutConfirmation(
-                              context,
-                              auth,
-                            ),
+                            onPressed: () async {
+                              if (_activeAppointment != null) {
+                                final canLeave = await _confirmLeaveConsultation();
+                                if (!canLeave) return;
+                              }
+                              LogoutHelper.showLogoutConfirmation(
+                                context,
+                                auth,
+                              );
+                            },
                           ),
                         ],
                       );
@@ -4283,14 +4849,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Future<bool> _confirmLeaveConsultation() async {
+    if (_activeAppointment == null) return true;
+    final int? choice = await showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            SizedBox(width: 10),
+            Text(
+              'Exit Consultation?',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+          ],
+        ),
+        content: const Text(
+          'You have an active consultation in progress. If you leave now, any unsaved consultation details will not be saved. Are you sure you want to exit without saving?',
+          style: TextStyle(fontSize: 14),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(ctx).pop(0), // Cancel / Stay
+            style: AppTheme.outlinedButton,
+            child: const Text('Stay on Consultation'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(ctx).pop(1); // Leave / Exit
+            },
+            style: AppTheme.dangerButton,
+            child: const Text('Exit Without Saving'),
+          ),
+        ],
+      ),
+    );
+
+    if (choice == 1) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('consultation_draft_${_activeAppointment!.id}');
+      } catch (_) {}
+      UnsavedChangesHelper.clear();
+      if (mounted) {
+        setState(() {
+          _activeAppointment = null;
+        });
+      }
+      return true;
+    }
+    return false;
+  }
+
   String _translateDoctorLabel(String label) {
     final lower = label.toLowerCase();
     if (lower == 'dashboard') return context.tr('dashboard', fallback: label);
     if (lower == 'patients' || lower.contains('patient')) return context.tr('patients', fallback: label);
     if (lower == 'profile' || lower.contains('profile')) return context.tr('profile', fallback: label);
     if (lower.contains('ipd')) return context.tr('ipd_management', fallback: label);
+    if (lower.contains('speech') || lower.contains('dictation')) return 'Speech-to-Text (OT)';
     if (lower.contains('ot')) return context.tr('ot_management', fallback: label);
-    if (lower.contains('dictation')) return context.tr('ot_management', fallback: label);
     if (lower.contains('lab')) return context.tr('laboratory', fallback: label);
     if (lower.contains('home visit') || lower.contains('home care')) return context.tr('home_visit_care', fallback: label);
     return label;
@@ -4312,7 +4934,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
 
     return InkWell(
-      onTap: () {
+      onTap: () async {
         if (!hasTimings) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -4322,6 +4944,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
           return;
         }
+
+        if (_activeAppointment != null) {
+          final canLeave = await _confirmLeaveConsultation();
+          if (!canLeave) return;
+        }
+
         _isEditingProfile = false;
         if (index == 0) {
           context.go(AppRoutes.doctorDashboard);
@@ -4577,20 +5205,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final now = DateTime.now();
 
     final int todayCount = _doctorAppointments
-        .where((a) => _isSameDay(a.appointmentDate, now))
+        .where((a) =>
+            _isSameDay(a.appointmentDate, now) &&
+            a.status.toLowerCase() != 'cancelled')
         .length;
     final int confirmedCount = _doctorAppointments
-        .where((a) => a.status == 'Confirmed' || a.status == 'Scheduled')
+        .where((a) =>
+            a.status == 'Confirmed' ||
+            a.status == 'Scheduled' ||
+            a.status == 'Waiting' ||
+            a.status == 'Checked-in' ||
+            a.status == 'In Consultation')
         .length;
-    final int totalPatients = _doctorAppointments.length;
+    final int totalAppointments = _doctorAppointments.length;
     final int completedCount = _doctorAppointments
-        .where((a) => a.status == 'Completed' || a.status == 'Consulted')
+        .where((a) =>
+            a.status == 'Completed' ||
+            a.status == 'Consulted' ||
+            a.status == 'Admitted')
         .length;
 
     final statItems = [
       _buildStatCard(
         'Total Appointments',
-        totalPatients.toString(),
+        totalAppointments.toString(),
         'All time',
         Icons.calendar_today_outlined,
         Colors.blue,
@@ -4599,7 +5237,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _buildStatCard(
         'Today\'s Appointments',
         todayCount.toString(),
-        'Scheduled',
+        'Scheduled today',
         Icons.calendar_month_outlined,
         Colors.indigo,
         isMobile,
@@ -4607,7 +5245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _buildStatCard(
         'Confirmed Cases',
         confirmedCount.toString(),
-        'Ready',
+        'Ready / In queue',
         Icons.check_circle_outline,
         Colors.green,
         isMobile,

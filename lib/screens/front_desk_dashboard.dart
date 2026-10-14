@@ -965,7 +965,9 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           (a) =>
               (a.appointmentDate == today ||
                   a.appointmentDate.startsWith(today)) &&
-              a.status.toLowerCase() == 'checked in',
+              (a.status.toLowerCase() == 'checked in' ||
+                  a.status.toLowerCase() == 'checked-in' ||
+                  a.status.toLowerCase() == 'waiting'),
         )
         .length;
 
