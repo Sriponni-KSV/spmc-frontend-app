@@ -40,10 +40,10 @@ class DoctorNavConfig {
   static const bool showAiDictation = false;
 
   /// IPD Management (Visible)
-  static const bool showIpdManagement = true;
+  static const bool showIpdManagement = false;
 
   /// OT Management (Visible)
-  static const bool showOtManagement = true;
+  static const bool showOtManagement = false;
 
   /// My Profile (Visible)
   static const bool showProfile = true;

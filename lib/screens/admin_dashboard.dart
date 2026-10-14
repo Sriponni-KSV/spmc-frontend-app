@@ -829,7 +829,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return const AccessDeniedWidget();
       case 11:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
-          return InventoryManagementView(isMobile: isMobile);
+          return InventoryManagementView(
+            isMobile: isMobile,
+            isFoodStockOnly: true,
+          );
         }
         return const AccessDeniedWidget();
       case 12:
@@ -7571,6 +7574,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
     final unitCtrl = TextEditingController(text: 'tabs');
+    final stockCtrl = TextEditingController(text: '0');
+    final thresholdCtrl = TextEditingController(text: '10');
     String selectedCategory = 'Medicine';
     bool isControlled = false;
     bool isSaving = false;
@@ -7724,6 +7729,86 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ? 'Please select a unit'
                             : null,
                       ),
+                      const SizedBox(height: 14),
+
+                      // Stock Quantity & Alert Threshold
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Initial Stock Quantity',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    color: Colors.grey.shade700,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: stockCtrl,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(6),
+                                  ],
+                                  decoration: AppTheme.standardInputDecoration(
+                                    label: null,
+                                    prefixIcon: Icons.inventory_2_outlined,
+                                    hintText: '0',
+                                  ).copyWith(counterText: ''),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) {
+                                      return 'Required';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Low Stock Alert',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    color: Colors.grey.shade700,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: thresholdCtrl,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(6),
+                                  ],
+                                  decoration: AppTheme.standardInputDecoration(
+                                    label: null,
+                                    prefixIcon: Icons.warning_amber_outlined,
+                                    hintText: '10',
+                                  ).copyWith(counterText: ''),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) {
+                                      return 'Required';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 16),
 
                       // Controlled Substance Switch
@@ -7801,6 +7886,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               'category': selectedCategory,
                               'default_unit': unitCtrl.text,
                               'is_controlled': isControlled,
+                              'stock_quantity': int.tryParse(stockCtrl.text.trim()) ?? 0,
+                              'threshold': int.tryParse(thresholdCtrl.text.trim()) ?? 10,
                             },
                           );
                           final respBody = ApiService.decodeJsonResponse(resp);
@@ -7867,6 +7954,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final nameCtrl = TextEditingController(text: med['name']?.toString() ?? '');
     final unitCtrl = TextEditingController(
       text: med['default_unit']?.toString() ?? 'tabs',
+    );
+    final stockCtrl = TextEditingController(
+      text: (med['stock_quantity'] ?? 0).toString(),
+    );
+    final thresholdCtrl = TextEditingController(
+      text: (med['threshold'] ?? 10).toString(),
     );
     String selectedCategory = med['category']?.toString() ?? 'Medicine';
     bool isControlled = med['is_controlled'] == true;
@@ -8028,6 +8121,86 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ? 'Please select a unit'
                             : null,
                       ),
+                      const SizedBox(height: 14),
+
+                      // Stock Quantity & Alert Threshold
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Current Stock Quantity',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    color: Colors.grey.shade700,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: stockCtrl,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(6),
+                                  ],
+                                  decoration: AppTheme.standardInputDecoration(
+                                    label: null,
+                                    prefixIcon: Icons.inventory_2_outlined,
+                                    hintText: '0',
+                                  ).copyWith(counterText: ''),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) {
+                                      return 'Required';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Low Stock Alert',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    color: Colors.grey.shade700,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                TextFormField(
+                                  controller: thresholdCtrl,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(6),
+                                  ],
+                                  decoration: AppTheme.standardInputDecoration(
+                                    label: null,
+                                    prefixIcon: Icons.warning_amber_outlined,
+                                    hintText: '10',
+                                  ).copyWith(counterText: ''),
+                                  validator: (v) {
+                                    if (v == null || v.trim().isEmpty) {
+                                      return 'Required';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 16),
 
                       // Controlled Substance Switch
@@ -8105,6 +8278,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               'category': selectedCategory,
                               'default_unit': unitCtrl.text,
                               'is_controlled': isControlled,
+                              'stock_quantity': int.tryParse(stockCtrl.text.trim()) ?? 0,
+                              'threshold': int.tryParse(thresholdCtrl.text.trim()) ?? 10,
                             },
                           );
                           final respBody = ApiService.decodeJsonResponse(resp);
@@ -8261,6 +8436,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         if (_selectedMedCategoryFilter == 'Total') return true;
         if (_selectedMedCategoryFilter == 'Controlled') {
           return m['is_controlled'] == true;
+        }
+        if (_selectedMedCategoryFilter == 'In Stock') {
+          final qty = int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0;
+          return qty > 0;
+        }
+        if (_selectedMedCategoryFilter == 'Out of Stock') {
+          final qty = int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0;
+          return qty == 0;
         }
         return m['category'] == _selectedMedCategoryFilter;
       }();

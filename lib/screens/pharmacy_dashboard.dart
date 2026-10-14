@@ -67,18 +67,20 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
-      body: Row(
-        children: [
-          if (!isMobile) _buildSidebar(context),
-          Expanded(
-            child: Column(
-              children: [
-                _buildHeader(context, isMobile),
-                Expanded(child: _buildMainContent(isMobile)),
-              ],
+      body: SafeArea(
+        child: Row(
+          children: [
+            if (!isMobile) _buildSidebar(context),
+            Expanded(
+              child: Column(
+                children: [
+                  _buildHeader(context, isMobile),
+                  Expanded(child: _buildMainContent(isMobile)),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -282,8 +284,8 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
       padding: EdgeInsets.only(
         left: isMobile ? 16 : 24,
         right: isMobile ? 16 : 24,
-        top: 20,
-        bottom: 0,
+        top: isMobile ? 14 : 20,
+        bottom: isMobile ? 8 : 0,
       ),
       child: _buildBannerTopBar(isMobile),
     );

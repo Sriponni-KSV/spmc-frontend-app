@@ -1169,98 +1169,100 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 // Top Search Row
                 if (isMobile)
                   Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildConsultationSearchBar(),
+                      _buildConsultationSearchBar(isMobile: true),
                       const SizedBox(height: 10),
-                      _buildConsultationDatePicker(),
+                      _buildConsultationDatePicker(isFullWidth: true),
                     ],
                   )
                 else
                   Row(
                     children: [
-                      Expanded(child: _buildConsultationSearchBar()),
+                      Expanded(child: _buildConsultationSearchBar(isMobile: false)),
                       const SizedBox(width: 12),
-                      _buildConsultationDatePicker(),
+                      _buildConsultationDatePicker(isFullWidth: false),
                     ],
                   ),
                 const SizedBox(height: 14),
 
-                // Period Filter Chips Row
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      const Text(
-                        'Period:',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textSecondaryColor,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      ...['All', 'Today', 'This Week', 'This Month', 'This Year'].map((period) {
-                        final isActive = _selectedConsultationPeriodFilter == period && _consultationFilterDate == null;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _selectedConsultationPeriodFilter = period;
-                                _consultationFilterDate = null;
-                                _consultationsCurrentPage = 0;
-                              });
-                            },
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: isActive ? AppTheme.primaryColor : const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: isActive ? AppTheme.primaryColor : const Color(0xFFE2E8F0),
-                                ),
-                              ),
-                              child: Text(
-                                period,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                                  color: isActive ? Colors.white : const Color(0xFF475569),
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                      if (_consultationSearchQuery.isNotEmpty ||
-                          _selectedConsultationPeriodFilter != 'All' ||
-                          _consultationFilterDate != null) ...[
-                        const SizedBox(width: 8),
-                        TextButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _consultationSearchQuery = '';
-                              _consultationSearchController.clear();
-                              _selectedConsultationPeriodFilter = 'All';
-                              _consultationFilterDate = null;
-                              _consultationsCurrentPage = 0;
-                            });
-                          },
-                          icon: const Icon(Icons.refresh, size: 14, color: AppTheme.logoRed),
-                          label: const Text(
-                            'Reset',
-                            style: TextStyle(fontSize: 12, color: AppTheme.logoRed, fontWeight: FontWeight.bold),
-                          ),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                // Period Filter Chips
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.tune_outlined, size: 14, color: AppTheme.textSecondaryColor),
+                        SizedBox(width: 4),
+                        Text(
+                          'Period:',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textSecondaryColor,
                           ),
                         ),
                       ],
-                    ],
-                  ),
+                    ),
+                    ...['All', 'Today', 'This Week', 'This Month', 'This Year'].map((period) {
+                      final isActive = _selectedConsultationPeriodFilter == period && _consultationFilterDate == null;
+                      return InkWell(
+                        onTap: () {
+                          setState(() {
+                            _selectedConsultationPeriodFilter = period;
+                            _consultationFilterDate = null;
+                            _consultationsCurrentPage = 0;
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isActive ? AppTheme.primaryColor : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isActive ? AppTheme.primaryColor : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          child: Text(
+                            period,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                              color: isActive ? Colors.white : const Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                    if (_consultationSearchQuery.isNotEmpty ||
+                        _selectedConsultationPeriodFilter != 'All' ||
+                        _consultationFilterDate != null)
+                      TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _consultationSearchQuery = '';
+                            _consultationSearchController.clear();
+                            _selectedConsultationPeriodFilter = 'All';
+                            _consultationFilterDate = null;
+                            _consultationsCurrentPage = 0;
+                          });
+                        },
+                        icon: const Icon(Icons.refresh, size: 14, color: AppTheme.logoRed),
+                        label: const Text(
+                          'Reset',
+                          style: TextStyle(fontSize: 12, color: AppTheme.logoRed, fontWeight: FontWeight.bold),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -1412,38 +1414,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           color: Color(0xFF2D3748),
                         ),
                       ),
-                      subtitle: Row(
-                        children: [
-                          Text(
-                            '${patientConsuls.length} consultation${patientConsuls.length > 1 ? "s" : ""}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.textSecondaryColor,
-                            ),
-                          ),
-                          if (uhid != null && uhid.toString().isNotEmpty) ...[
-                            const SizedBox(width: 8),
+                      subtitle: Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 2,
+                          children: [
                             Text(
-                              '• ID: $uhid',
+                              '${patientConsuls.length} consultation${patientConsuls.length > 1 ? "s" : ""}',
                               style: const TextStyle(
                                 fontSize: 12,
                                 color: AppTheme.textSecondaryColor,
                               ),
                             ),
-                          ],
-                          if (phone != null && phone.toString().isNotEmpty) ...[
-                            const SizedBox(width: 8),
-                            Text(
-                              '• $phone',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textSecondaryColor,
+                            if (uhid != null && uhid.toString().isNotEmpty)
+                              Text(
+                                '• ID: $uhid',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
                               ),
-                            ),
+                            if (phone != null && phone.toString().isNotEmpty)
+                              Text(
+                                '• $phone',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                              ),
                           ],
-                        ],
+                        ),
                       ),
                       childrenPadding: const EdgeInsets.all(16.0),
+                      expandedAlignment: Alignment.topLeft,
                       expandedCrossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Divider(height: 1, color: AppTheme.borderColor),
@@ -1530,7 +1535,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildConsultationSearchBar() {
+  Widget _buildConsultationSearchBar({bool isMobile = false}) {
     return Container(
       height: 42,
       decoration: BoxDecoration(
@@ -1543,7 +1548,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         decoration: InputDecoration(
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          hintText: 'Search by patient name, UHID, phone, symptoms, diagnosis, meds...',
+          hintText: isMobile
+              ? 'Search patient, UHID, symptoms...'
+              : 'Search by patient name, UHID, phone, symptoms, diagnosis, meds...',
           hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
           prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
           suffixIcon: _consultationSearchQuery.isNotEmpty
@@ -1574,7 +1581,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildConsultationDatePicker() {
+  Widget _buildConsultationDatePicker({bool isFullWidth = false}) {
     return InkWell(
       onTap: () async {
         final picked = await showDatePicker(
@@ -1604,6 +1611,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       borderRadius: BorderRadius.circular(8),
       child: Container(
         height: 42,
+        width: isFullWidth ? double.infinity : null,
         padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
           color: _consultationFilterDate != null ? AppTheme.primaryColor.withOpacity(0.08) : Colors.white,
@@ -1613,7 +1621,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: isFullWidth ? MainAxisAlignment.center : MainAxisAlignment.start,
+          mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
           children: [
             Icon(
               Icons.calendar_today,
@@ -1623,7 +1632,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(width: 8),
             Text(
               _consultationFilterDate == null
-                  ? 'Filter Date'
+                  ? 'Filter by Date'
                   : DateFormat('dd/MM/yyyy').format(_consultationFilterDate!),
               style: TextStyle(
                 fontSize: 13,
@@ -1632,7 +1641,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             if (_consultationFilterDate != null) ...[
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               GestureDetector(
                 onTap: () {
                   setState(() {
@@ -1641,7 +1650,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _consultationsCurrentPage = 0;
                   });
                 },
-                child: const Icon(Icons.close, size: 14, color: AppTheme.primaryColor),
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, size: 12, color: AppTheme.primaryColor),
+                ),
               ),
             ],
           ],
@@ -1948,6 +1964,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       horizontal: isMobile ? 14 : 20,
                       vertical: isMobile ? 12 : 16,
                     ),
+                    expandedAlignment: Alignment.topLeft,
                     expandedCrossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildConsultationDetailsGrid(c, index, patientConsuls),
@@ -2013,9 +2030,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       } catch (_) {}
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         _buildGridRow(
           'Doctor',
           doctor,
@@ -2336,6 +2355,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 12),
         ],
       ],
+      ),
     );
   }
 
@@ -2349,7 +2369,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (context, constraints) {
         final bool isCompact = constraints.maxWidth < 650;
         if (isCompact) {
-          return Padding(
+          return Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 4.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -5156,10 +5177,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
 
-            const SizedBox(width: 12),
+            if (!isCompact) const SizedBox(width: 12),
             AppTopBarActions(
               showClock: !isCompact,
               liveClockWidget: const LiveClock(),
+              showSettings: false,
+              showLanguageToggle: false,
             ),
           ],
         );

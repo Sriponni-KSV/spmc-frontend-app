@@ -63,7 +63,7 @@ class AdminNavConfig {
   // -------------------------------------------------------------------------
 
   /// Access Control / RBAC (Visible)
-  static const bool showAccessControl = true;
+  static const bool showAccessControl = false;
 
   /// Appointments (Visible)
   static const bool showAppointments = true;
@@ -72,16 +72,16 @@ class AdminNavConfig {
   static const bool showOpdManagement = true;
 
   /// IPD Management (Visible)
-  static const bool showIpdManagement = true;
+  static const bool showIpdManagement = false;
 
   /// OT Management (Visible)
-  static const bool showOtManagement = true;
+  static const bool showOtManagement = false;
 
   /// Shift Allocation (Visible)
-  static const bool showShiftAllocation = true;
+  static const bool showShiftAllocation = false;
 
   /// ICU & Emergency (Visible)
-  static const bool showIcuEmergency = true;
+  static const bool showIcuEmergency = false;
 
   /// Billing & Invoices (Visible)
   static const bool showBillingInvoices = false;
@@ -89,7 +89,8 @@ class AdminNavConfig {
   // =========================================================================
   // CATALOG SUB-ITEM VISIBILITY TOGGLES
   // =========================================================================
-  static const bool showInventoryManagement = true;
+  static const bool showFoodStockManagement = true;
+  static const bool showInventoryManagement = showFoodStockManagement;
   static const bool showMedicineCatalog = true;
   static const bool showHomeVisitConsumables = true;
   static const bool showCarriedKitItems = true;
@@ -190,9 +191,9 @@ class AdminNavConfig {
     final List<AdminCatalogSubItem> subItems = [
       const AdminCatalogSubItem(
         index: 11,
-        icon: Icons.inventory_2_outlined,
-        label: 'Inventory Management',
-        isVisible: showInventoryManagement,
+        icon: Icons.restaurant_menu_outlined,
+        label: 'Food Stock Management',
+        isVisible: showFoodStockManagement,
       ),
       const AdminCatalogSubItem(
         index: 13,
