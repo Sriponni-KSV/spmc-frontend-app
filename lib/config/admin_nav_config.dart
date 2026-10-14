@@ -66,10 +66,10 @@ class AdminNavConfig {
   static const bool showAccessControl = false;
 
   /// Appointments (Visible)
-  static const bool showAppointments = false;
+  static const bool showAppointments = true;
 
   /// OPD Management (Visible)
-  static const bool showOpdManagement = false;
+  static const bool showOpdManagement = true;
 
   /// IPD Management (Visible)
   static const bool showIpdManagement = false;
@@ -86,12 +86,11 @@ class AdminNavConfig {
   /// Billing & Invoices (Visible)
   static const bool showBillingInvoices = false;
 
-  /// Inventory Management (Visible)
-  static const bool showInventoryManagement = false;
-
   // =========================================================================
   // CATALOG SUB-ITEM VISIBILITY TOGGLES
   // =========================================================================
+  static const bool showFoodStockManagement = true;
+  static const bool showInventoryManagement = showFoodStockManagement;
   static const bool showMedicineCatalog = true;
   static const bool showHomeVisitConsumables = true;
   static const bool showCarriedKitItems = true;
@@ -171,12 +170,6 @@ class AdminNavConfig {
         isVisible: showBillingInvoices,
       ),
       const AdminNavItem(
-        index: 11,
-        icon: Icons.inventory_2_outlined,
-        label: 'Inventory Management',
-        isVisible: showInventoryManagement,
-      ),
-      const AdminNavItem(
         index: 12,
         icon: Icons.home_work_outlined,
         label: 'Home Visit Care',
@@ -196,6 +189,12 @@ class AdminNavConfig {
   /// Returns the list of visible catalog sub-items
   static List<AdminCatalogSubItem> getVisibleCatalogSubItems() {
     final List<AdminCatalogSubItem> subItems = [
+      const AdminCatalogSubItem(
+        index: 11,
+        icon: Icons.restaurant_menu_outlined,
+        label: 'Food Stock Management',
+        isVisible: showFoodStockManagement,
+      ),
       const AdminCatalogSubItem(
         index: 13,
         icon: Icons.medication_outlined,

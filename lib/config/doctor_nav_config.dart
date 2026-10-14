@@ -36,14 +36,14 @@ class DoctorNavConfig {
   /// Lab Reports (Visible)
   static const bool showLabReports = true;
 
-  /// AI Dictation (Visible)
-  static const bool showAiDictation = true;
+  /// AI Dictation (Moved inside OT Management)
+  static const bool showAiDictation = false;
 
   /// IPD Management (Visible)
-  static const bool showIpdManagement = true;
+  static const bool showIpdManagement = false;
 
   /// OT Management (Visible)
-  static const bool showOtManagement = true;
+  static const bool showOtManagement = false;
 
   /// My Profile (Visible)
   static const bool showProfile = true;
@@ -61,6 +61,12 @@ class DoctorNavConfig {
           icon: Icons.grid_view_outlined,
           label: 'Dashboard',
           isVisible: showDashboard,
+        ),
+        const DoctorNavItem(
+          index: 5,
+          icon: Icons.mic_none_outlined,
+          label: 'Speech-to-Text (OT)',
+          isVisible: showAiDictation,
         ),
         const DoctorNavItem(
           index: 4,
@@ -103,16 +109,16 @@ class DoctorNavConfig {
         isVisible: showIpdManagement,
       ),
       const DoctorNavItem(
+        index: 5,
+        icon: Icons.mic_none_outlined,
+        label: 'Speech-to-Text (OT)',
+        isVisible: showAiDictation,
+      ),
+      const DoctorNavItem(
         index: 4,
         icon: Icons.healing_outlined,
         label: 'OT Management',
         isVisible: showOtManagement,
-      ),
-      const DoctorNavItem(
-        index: 5,
-        icon: Icons.mic_none_outlined,
-        label: 'AI Dictation',
-        isVisible: showAiDictation,
       ),
       const DoctorNavItem(
         index: 2,

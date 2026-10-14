@@ -206,8 +206,18 @@ void showDocumentViewer(
   );
 }
 
+String _resolveTarget({String? url, String? fileName}) {
+  if (fileName != null && fileName.trim().isNotEmpty) {
+    return fileName.trim().split('?').first.toLowerCase();
+  }
+  if (url != null && url.trim().isNotEmpty) {
+    return url.trim().split('?').first.toLowerCase();
+  }
+  return '';
+}
+
 bool _isImage({String? url, String? fileName}) {
-  final target = (fileName ?? url ?? '').split('?').first.toLowerCase();
+  final target = _resolveTarget(url: url, fileName: fileName);
   if (target.endsWith('.jpg') ||
       target.endsWith('.jpeg') ||
       target.endsWith('.png') ||

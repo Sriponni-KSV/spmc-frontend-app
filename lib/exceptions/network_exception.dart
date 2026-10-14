@@ -29,9 +29,12 @@ class RequestTimeoutException extends NetworkException {
 /// The server responded with a 5xx internal error (our backend bug / crash).
 class ServerErrorException extends NetworkException {
   final int statusCode;
-  ServerErrorException(this.statusCode);
+  final String? serverMessage;
+  ServerErrorException(this.statusCode, [this.serverMessage]);
 
   @override
   String get message =>
-      'Something went wrong on our end (error $statusCode). Please try again.';
+      (serverMessage != null && serverMessage!.trim().isNotEmpty)
+          ? serverMessage!
+          : 'Something went wrong on our end (error $statusCode). Please try again.';
 }

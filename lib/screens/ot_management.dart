@@ -20,6 +20,7 @@ import '../utils/web_audio_recorder.dart';
 import '../services/live_speech_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../utils/app_localizations.dart';
+import 'ot_dictation_dashboard.dart';
 
 
 // --- CUSTOM INPUT FORMATTERS ---
@@ -377,6 +378,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialTab != null) {
+      _activeTab = widget.initialTab!;
+    }
     _loadPatientsAndDoctors();
   }
 
@@ -389,6 +393,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   @override
   void didUpdateWidget(covariant OTManagementScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.initialTab != oldWidget.initialTab && widget.initialTab != null) {
+      _activeTab = widget.initialTab!;
+    }
     if (widget.initialSelectedCase != oldWidget.initialSelectedCase && widget.initialSelectedCase != null) {
       final match = _otCases.firstWhere(
         (c) => c.dbId == widget.initialSelectedCase!.dbId,
@@ -1532,6 +1539,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 : context.tr('tab_schedule_surgery', fallback: 'Schedule Surgery'),
             Icons.add_circle_outline,
           ),
+          const SizedBox(width: 4),
+          _buildTabItem(
+            4,
+            widget.isMobile
+                ? context.tr('speech_to_text', fallback: 'Speech-to-Text')
+                : context.tr('speech_to_text_ot', fallback: 'Speech-to-Text (OT)'),
+            Icons.mic_none_outlined,
+          ),
         ],
       ),
     );
@@ -1686,7 +1701,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       ? _buildActivePatientsView()
                       : _activeTab == 2
                           ? _buildCompletedPatientsView()
-                          : _buildRequestView(),
+                          : _activeTab == 3
+                              ? _buildRequestView()
+                              : OtDictationDashboardView(isMobile: widget.isMobile),
             ),
           ),
         ],

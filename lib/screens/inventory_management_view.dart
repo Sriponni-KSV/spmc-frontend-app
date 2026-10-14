@@ -11,7 +11,12 @@ import '../providers/auth_provider.dart';
 
 class InventoryManagementView extends StatefulWidget {
   final bool isMobile;
-  const InventoryManagementView({super.key, this.isMobile = false});
+  final bool isFoodStockOnly;
+  const InventoryManagementView({
+    super.key,
+    this.isMobile = false,
+    this.isFoodStockOnly = false,
+  });
 
   @override
   State<InventoryManagementView> createState() => _InventoryManagementViewState();
@@ -31,6 +36,9 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
   @override
   void initState() {
     super.initState();
+    if (widget.isFoodStockOnly) {
+      _selectedCategory = 'Food Stock';
+    }
     _loadInventoryData();
   }
 
@@ -60,10 +68,17 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
         final List<dynamic> rawPR = prBody['data'] ?? [];
 
         setState(() {
-          _items = isPharmacy ? rawItems.where((i) => i['category'] != 'Food Stock').toList() : rawItems;
-          _lowStockItems = isPharmacy ? rawLow.where((i) => i['category'] != 'Food Stock').toList() : rawLow;
-          _expiringItems = isPharmacy ? rawExp.where((i) => i['category'] != 'Food Stock').toList() : rawExp;
-          _purchaseRequests = isPharmacy ? rawPR.where((i) => i['category'] != 'Food Stock').toList() : rawPR;
+          if (widget.isFoodStockOnly) {
+            _items = rawItems.where((i) => i['category'] == 'Food Stock').toList();
+            _lowStockItems = rawLow.where((i) => i['category'] == 'Food Stock').toList();
+            _expiringItems = rawExp.where((i) => i['category'] == 'Food Stock').toList();
+            _purchaseRequests = rawPR.where((i) => i['category'] == 'Food Stock').toList();
+          } else {
+            _items = isPharmacy ? rawItems.where((i) => i['category'] != 'Food Stock').toList() : rawItems;
+            _lowStockItems = isPharmacy ? rawLow.where((i) => i['category'] != 'Food Stock').toList() : rawLow;
+            _expiringItems = isPharmacy ? rawExp.where((i) => i['category'] != 'Food Stock').toList() : rawExp;
+            _purchaseRequests = isPharmacy ? rawPR.where((i) => i['category'] != 'Food Stock').toList() : rawPR;
+          }
           _isLoading = false;
         });
       }
@@ -78,26 +93,29 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
   }
 
   Future<void> _addInventoryItem() async {
-    // ── 1. Fetch medicine catalog ──────────────────────────────────────────
+    // ── 1. Fetch medicine catalog if not food only ────────────────────────
     List<Map<String, dynamic>> catalog = [];
-    try {
-      final resp = await ApiService.get('$baseUrl/inventory/medicine-catalog');
-      final body = ApiService.decodeJsonResponse(resp);
-      if (body['success'] == true) {
-        catalog = List<Map<String, dynamic>>.from(body['data'] ?? []);
-      }
-    } catch (_) {}
+    if (!widget.isFoodStockOnly) {
+      try {
+        final resp = await ApiService.get('$baseUrl/inventory/medicine-catalog');
+        final body = ApiService.decodeJsonResponse(resp);
+        if (body['success'] == true) {
+          catalog = List<Map<String, dynamic>>.from(body['data'] ?? []);
+        }
+      } catch (_) {}
+    }
 
     // ── 2. Dialog state ────────────────────────────────────────────────────
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
-    final unitCtrl = TextEditingController();
+    final unitCtrl = TextEditingController(text: widget.isFoodStockOnly ? 'kg' : '');
     final qtyCtrl = TextEditingController();
-    final thresholdCtrl = TextEditingController();
-    String category = 'Medicine';
+    final thresholdCtrl = TextEditingController(text: '10');
+    String category = widget.isFoodStockOnly ? 'Food Stock' : 'Medicine';
     bool isControlled = false;
     DateTime? expiryDate;
 
+    final foodUnits = ['kg', 'grams', 'litres', 'ml', 'packets', 'bags', 'boxes', 'tins', 'cans', 'pcs'];
 
     if (!mounted) return;
     final confirm = await showDialog<bool>(
@@ -109,6 +127,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
             orElse: () => {},
           );
           final bool isCatalogItemControlled = selectedCatalogItem['is_controlled'] == true;
+          final bool isFoodCategory = widget.isFoodStockOnly || category == 'Food Stock';
 
           final Widget qtyField = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -130,7 +149,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                 maxLength: 6,
                 decoration: AppTheme.standardInputDecoration(
                   label: null,
-                  prefixIcon: Icons.inventory,
+                  prefixIcon: isFoodCategory ? Icons.restaurant : Icons.inventory,
                   hintText: 'Enter initial quantity',
                 ).copyWith(counterText: ''),
                 validator: (v) {
@@ -160,27 +179,49 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                 ),
               ),
               const SizedBox(height: 6),
-              MouseRegion(
-                cursor: SystemMouseCursors.forbidden,
-                child: TextFormField(
-                  controller: unitCtrl,
-                  readOnly: true,
-                  mouseCursor: SystemMouseCursors.forbidden,
-                  decoration: AppTheme.standardInputDecoration(
-                    label: null,
-                    prefixIcon: Icons.square_foot,
-                    hintText: 'Auto-filled from item',
-                  ).copyWith(counterText: ''),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Please select a stock item' : null,
-                ),
-              ),
+              isFoodCategory
+                  ? CustomDropdownSearch(
+                      label: '',
+                      hint: 'Select unit',
+                      value: unitCtrl.text.isEmpty ? 'kg' : unitCtrl.text,
+                      dropdownItems: foodUnits,
+                      onChanged: (val) {
+                        if (val != null) setD(() => unitCtrl.text = val);
+                      },
+                    )
+                  : MouseRegion(
+                      cursor: SystemMouseCursors.forbidden,
+                      child: TextFormField(
+                        controller: unitCtrl,
+                        readOnly: true,
+                        mouseCursor: SystemMouseCursors.forbidden,
+                        decoration: AppTheme.standardInputDecoration(
+                          label: null,
+                          prefixIcon: Icons.square_foot,
+                          hintText: 'Auto-filled from item',
+                        ).copyWith(counterText: ''),
+                        validator: (v) => v == null || v.trim().isEmpty ? 'Please select a stock item' : null,
+                      ),
+                    ),
             ],
           );
 
           return AlertDialog(
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.transparent,
-            title: const Text('Add Inventory Item', style: TextStyle(fontWeight: FontWeight.bold)),
+            title: Row(
+              children: [
+                Icon(
+                  isFoodCategory ? Icons.restaurant_menu : Icons.inventory_2_outlined,
+                  color: AppTheme.primaryColor,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  widget.isFoodStockOnly ? 'Add Food Stock Item' : 'Add Inventory Item',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                ),
+              ],
+            ),
             content: SizedBox(
               width: widget.isMobile ? double.infinity : 420,
               child: SingleChildScrollView(
@@ -190,33 +231,35 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // ── Supply Category dropdown ───────────────────────────
-                      CustomDropdownSearch(
-                        label: 'Supply Category',
-                        requiredMark: true,
-                        hint: 'Select supply category',
-                        value: category,
-                        dropdownItems: Provider.of<AuthProvider>(context, listen: false).user?.role == 'Pharmacy'
-                            ? const ['Medicine', 'ICU Consumable', 'Surgical Item']
-                            : const ['Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setD(() {
-                              category = val;
-                              nameCtrl.clear();
-                              unitCtrl.clear();
-                              isControlled = false;
-                            });
-                          }
-                        },
-                        validator: (v) => v == null || v.isEmpty ? 'Please select supply category' : null,
-                      ),
+                      // ── Supply Category dropdown (only for general inventory) ──
+                      if (!widget.isFoodStockOnly) ...[
+                        CustomDropdownSearch(
+                          label: 'Supply Category',
+                          requiredMark: true,
+                          hint: 'Select supply category',
+                          value: category,
+                          dropdownItems: Provider.of<AuthProvider>(context, listen: false).user?.role == 'Pharmacy'
+                              ? const ['Medicine', 'ICU Consumable', 'Surgical Item']
+                              : const ['Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setD(() {
+                                category = val;
+                                nameCtrl.clear();
+                                unitCtrl.text = val == 'Food Stock' ? 'kg' : '';
+                                isControlled = false;
+                              });
+                            }
+                          },
+                          validator: (v) => v == null || v.isEmpty ? 'Please select supply category' : null,
+                        ),
+                        const SizedBox(height: 12),
+                      ],
 
-                      const SizedBox(height: 12),
                       // ── Stock Item Name: text field for Food, dropdown for others ──
-                      if (category == 'Food Stock') ...[
+                      if (isFoodCategory) ...[
                         Text(
-                          'Stock Item Name *',
+                          'Food Item Name *',
                           style: TextStyle(
                             fontFamily: 'Manrope',
                             color: Colors.grey.shade700,
@@ -228,12 +271,12 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                         TextFormField(
                           controller: nameCtrl,
                           keyboardType: TextInputType.text,
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]'))],
-                          maxLength: 50,
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/#\-]'))],
+                          maxLength: 60,
                           decoration: AppTheme.standardInputDecoration(
                             label: null,
-                            prefixIcon: Icons.fastfood_outlined,
-                            hintText: 'Enter food item name (e.g. Rice, Dal)',
+                            prefixIcon: Icons.restaurant,
+                            hintText: 'e.g. Rice, Toor Dal, Sunflower Oil, Milk',
                           ).copyWith(counterText: ''),
                           validator: (v) =>
                               (v == null || v.trim().isEmpty)
@@ -253,7 +296,6 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                           onChanged: (val) {
                             if (val == null) return;
                             nameCtrl.text = val;
-                            // Auto-fill category, unit, controlled from catalog
                             final match = catalog.firstWhere(
                               (m) => m['name'] == val,
                               orElse: () => {},
@@ -617,6 +659,273 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
     }
   }
 
+  Future<void> _editInventoryItem(Map<String, dynamic> item) async {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController(text: item['name']?.toString() ?? '');
+    final unitCtrl = TextEditingController(text: item['unit']?.toString() ?? 'kg');
+    final qtyCtrl = TextEditingController(text: (item['quantity'] ?? 0).toString());
+    final thresholdCtrl = TextEditingController(text: (item['threshold'] ?? 10).toString());
+    DateTime? expiryDate = item['expiry_date'] != null ? DateTime.tryParse(item['expiry_date']) : null;
+    bool isSaving = false;
+    final isFood = widget.isFoodStockOnly || item['category'] == 'Food Stock';
+
+    final foodUnits = ['kg', 'grams', 'litres', 'ml', 'packets', 'bags', 'boxes', 'tins', 'cans', 'pcs'];
+    if (!foodUnits.contains(unitCtrl.text)) foodUnits.add(unitCtrl.text);
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(isFood ? Icons.restaurant : Icons.inventory_2, color: AppTheme.primaryColor),
+              const SizedBox(width: 10),
+              Text(isFood ? 'Edit Food Stock Item' : 'Edit Inventory Item', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+            ],
+          ),
+          content: SizedBox(
+            width: widget.isMobile ? double.infinity : 420,
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Item Name *', style: TextStyle(fontFamily: 'Manrope', color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: AppTheme.standardInputDecoration(label: null, prefixIcon: isFood ? Icons.restaurant : Icons.inventory, hintText: 'Item Name'),
+                      validator: (v) => v == null || v.trim().isEmpty ? 'Item name is required' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Stock Quantity *', style: TextStyle(fontFamily: 'Manrope', color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 6),
+                              TextFormField(
+                                controller: qtyCtrl,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                decoration: AppTheme.standardInputDecoration(label: null, prefixIcon: Icons.numbers, hintText: '0'),
+                                validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Unit *', style: TextStyle(fontFamily: 'Manrope', color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700)),
+                              const SizedBox(height: 6),
+                              isFood
+                                  ? CustomDropdownSearch(
+                                      label: '',
+                                      hint: 'Select unit',
+                                      value: unitCtrl.text,
+                                      dropdownItems: foodUnits,
+                                      onChanged: (val) {
+                                        if (val != null) setD(() => unitCtrl.text = val);
+                                      },
+                                    )
+                                  : TextFormField(
+                                      controller: unitCtrl,
+                                      decoration: AppTheme.standardInputDecoration(label: null, prefixIcon: Icons.square_foot, hintText: 'Unit'),
+                                    ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Low Stock Threshold', style: TextStyle(fontFamily: 'Manrope', color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: thresholdCtrl,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: AppTheme.standardInputDecoration(label: null, prefixIcon: Icons.notifications_active, hintText: '10'),
+                    ),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.calendar_month, color: AppTheme.textSecondaryColor, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                expiryDate == null ? 'No Expiration Date' : 'Exp: ${DateFormat('dd MMM yyyy').format(expiryDate!)}',
+                                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              final picked = await showDatePicker(
+                                context: dialogCtx,
+                                initialDate: expiryDate ?? DateTime.now().add(const Duration(days: 180)),
+                                firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                                lastDate: DateTime.now().add(const Duration(days: 3650)),
+                              );
+                              if (picked != null) setD(() => expiryDate = picked);
+                            },
+                            child: const Text('Change', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx, false),
+              style: AppTheme.cancelButton,
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: AppTheme.primaryButton,
+              onPressed: isSaving ? null : () async {
+                if (!formKey.currentState!.validate()) return;
+                setD(() => isSaving = true);
+                try {
+                  final resp = await ApiService.put(
+                    '$baseUrl/inventory/items/${item['id']}',
+                    {
+                      'name': nameCtrl.text.trim(),
+                      'quantity': int.tryParse(qtyCtrl.text) ?? 0,
+                      'unit': unitCtrl.text.trim(),
+                      'threshold': int.tryParse(thresholdCtrl.text) ?? 10,
+                      'expiry_date': expiryDate?.toIso8601String(),
+                    },
+                  );
+                  final body = ApiService.decodeJsonResponse(resp);
+                  if (resp.statusCode == 200 && body['success'] == true) {
+                    if (mounted) Navigator.pop(dialogCtx, true);
+                  } else {
+                    throw Exception(body['message'] ?? 'Failed to update item');
+                  }
+                } catch (e) {
+                  setD(() => isSaving = false);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                    );
+                  }
+                }
+              },
+              child: isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Save Changes'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Item updated successfully'), backgroundColor: Colors.green),
+      );
+      _loadInventoryData();
+    }
+  }
+
+  Future<void> _deleteInventoryItem(Map<String, dynamic> item) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: const Text('Delete Stock Item', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Text('Are you sure you want to permanently delete "${item['name']}" from inventory?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            style: AppTheme.cancelButton,
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: AppTheme.dangerButton,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+    try {
+      final resp = await ApiService.delete('$baseUrl/inventory/items/${item['id']}');
+      final body = ApiService.decodeJsonResponse(resp);
+      if (resp.statusCode == 200 && body['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(body['message'] ?? 'Item removed'), backgroundColor: Colors.green),
+          );
+          _loadInventoryData();
+        }
+      } else {
+        throw Exception(body['message'] ?? 'Failed to delete item');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Widget _buildFoodStatBadge(IconData icon, Color color, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Text(
+            '$label: ',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textSecondaryColor,
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   IconData _getCategoryIcon(String category) {
     switch (category) {
       case 'Medicine':
@@ -651,16 +960,30 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Filter row
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: (Provider.of<AuthProvider>(context, listen: false).user?.role == 'Pharmacy'
-                    ? const ['All', 'Medicine', 'ICU Consumable', 'Surgical Item']
-                    : const ['All', 'Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'])
-                .map((cat) {
-              final isSelected = _selectedCategory == cat;
-              return Padding(
+        if (widget.isFoodStockOnly)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                _buildFoodStatBadge(Icons.restaurant, AppTheme.primaryColor, 'Total Food Items', '${_items.length}'),
+                _buildFoodStatBadge(Icons.warning_amber_rounded, AppTheme.dangerColor, 'Low Stock', '${_lowStockItems.length}'),
+                _buildFoodStatBadge(Icons.hourglass_bottom, Colors.orange, 'Expiring Soon', '${_expiringItems.length}'),
+              ],
+            ),
+          )
+        else
+          // Filter row
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: (Provider.of<AuthProvider>(context, listen: false).user?.role == 'Pharmacy'
+                      ? const ['All', 'Medicine', 'ICU Consumable', 'Surgical Item']
+                      : const ['All', 'Medicine', 'ICU Consumable', 'Surgical Item', 'Food Stock'])
+                  .map((cat) {
+                final isSelected = _selectedCategory == cat;
+                return Padding(
                 padding: const EdgeInsets.only(right: 8.0),
                 child: ChoiceChip(
                   label: Text(cat),
@@ -873,6 +1196,27 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                                 ),
                               ],
                             ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
+                                  onPressed: () => _editInventoryItem(Map<String, dynamic>.from(item)),
+                                  tooltip: 'Edit Item',
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.all(4),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerColor),
+                                  onPressed: () => _deleteInventoryItem(Map<String, dynamic>.from(item)),
+                                  tooltip: 'Delete Item',
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.all(4),
+                                ),
+                              ],
+                            ),
                           ],
                         )
                       : Row(
@@ -987,6 +1331,27 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                                     fontWeight: FontWeight.bold,
                                     letterSpacing: 0.2,
                                   ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 14),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryColor),
+                                  onPressed: () => _editInventoryItem(Map<String, dynamic>.from(item)),
+                                  tooltip: 'Edit Item',
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.all(4),
+                                ),
+                                const SizedBox(height: 6),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerColor),
+                                  onPressed: () => _deleteInventoryItem(Map<String, dynamic>.from(item)),
+                                  tooltip: 'Delete Item',
+                                  constraints: const BoxConstraints(),
+                                  padding: const EdgeInsets.all(4),
                                 ),
                               ],
                             ),
@@ -1323,9 +1688,17 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
     }
 
     final filteredItems = _items.where((i) {
+      if (widget.isFoodStockOnly) return true;
       if (_selectedCategory == 'All') return true;
       return i['category'] == _selectedCategory;
     }).toList();
+
+    final title = widget.isFoodStockOnly ? 'Food Stock Management' : 'Inventory Management';
+    final subtitle = widget.isFoodStockOnly
+        ? 'Track kitchen groceries, pantry supplies, food stock levels, and dietary replenishment alerts'
+        : 'Track medical supplies, ICU consumables, surgical inventory, and replenishment queues';
+    final addLabel = widget.isFoodStockOnly ? 'Add Food Stock' : 'Add Stock Item';
+    final addIcon = widget.isFoodStockOnly ? Icons.restaurant_outlined : Icons.add;
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(widget.isMobile ? 16.0 : 24.0),
@@ -1337,21 +1710,21 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Inventory Management',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Track medical supplies, ICU consumables, surgical inventory, and replenishment queues',
-                      style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                      subtitle,
+                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.logoRed,
+                          backgroundColor: widget.isFoodStockOnly ? AppTheme.primaryColor : AppTheme.logoRed,
                           foregroundColor: Colors.white,
                           minimumSize: const Size(180, 48),
                           shape: RoundedRectangleBorder(
@@ -1360,10 +1733,10 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                           elevation: 0,
                         ),
                         onPressed: _addInventoryItem,
-                        icon: const Icon(Icons.add, size: 20),
-                        label: const Text(
-                          'Add Stock Item',
-                          style: TextStyle(fontWeight: FontWeight.bold),
+                        icon: Icon(addIcon, size: 20),
+                        label: Text(
+                          addLabel,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -1376,14 +1749,14 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Inventory Management',
-                            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                          Text(
+                            title,
+                            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Track medical supplies, ICU consumables, surgical inventory, and replenishment queues',
-                            style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                            subtitle,
+                            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
                           ),
                         ],
                       ),
@@ -1391,7 +1764,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                     const SizedBox(width: 16),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.logoRed,
+                        backgroundColor: widget.isFoodStockOnly ? AppTheme.primaryColor : AppTheme.logoRed,
                         foregroundColor: Colors.white,
                         minimumSize: const Size(180, 48),
                         shape: RoundedRectangleBorder(
@@ -1400,10 +1773,10 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                         elevation: 0,
                       ),
                       onPressed: _addInventoryItem,
-                      icon: const Icon(Icons.add, size: 20),
-                      label: const Text(
-                        'Add Stock Item',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+                      icon: Icon(addIcon, size: 20),
+                      label: Text(
+                        addLabel,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
