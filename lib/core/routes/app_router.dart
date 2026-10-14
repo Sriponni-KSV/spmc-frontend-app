@@ -662,7 +662,7 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.doctorDashboardConsultation,
           pageBuilder: (context, state) => NoTransitionPage(
-            key: const ValueKey('doctor_dashboard'),
+            key: const ValueKey('doctor_dashboard_consultation'),
             child: DashboardScreen(
               initialIndex: 0,
               activeAppointment: _parseAppointment(state.extra),
@@ -672,7 +672,7 @@ class AppRouter {
         GoRoute(
           path: AppRoutes.doctorConsultationsEdit,
           pageBuilder: (context, state) => NoTransitionPage(
-            key: const ValueKey('doctor_dashboard'),
+            key: const ValueKey('doctor_consultations_edit'),
             child: DashboardScreen(
               initialIndex: 1,
               activeAppointment: _parseAppointment(state.extra),
@@ -720,7 +720,7 @@ class AppRouter {
           path: AppRoutes.doctorDictation,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('doctor_dashboard'),
-            child: DashboardScreen(initialIndex: 5),
+            child: DashboardScreen(initialIndex: 4, initialOtTab: 4),
           ),
         ),
         GoRoute(

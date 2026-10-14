@@ -384,7 +384,8 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
       backgroundColor: AppTheme.getBackgroundColor(context),
       drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
       floatingActionButton: null,
-      body: Stack(
+      body: SafeArea(
+        child: Stack(
         children: [
           Row(
             children: [
@@ -431,6 +432,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
               ],
             ),
         ],
+      ),
       ),
     );
   }
@@ -527,7 +529,12 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
       children: [
         // Fixed Top Bar
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+          padding: EdgeInsets.fromLTRB(
+            isMobile ? 16 : 24,
+            isMobile ? 14 : 20,
+            isMobile ? 16 : 24,
+            10,
+          ),
           color: Colors.transparent,
           child: _buildBannerTopBar(isMobile),
         ),
@@ -808,8 +815,8 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
       padding: EdgeInsets.only(
         left: isMobile ? 16 : 24,
         right: isMobile ? 16 : 24,
-        top: 20,
-        bottom: 0,
+        top: isMobile ? 14 : 20,
+        bottom: isMobile ? 8 : 0,
       ),
       child: _buildBannerTopBar(isMobile),
     );
@@ -965,7 +972,9 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           (a) =>
               (a.appointmentDate == today ||
                   a.appointmentDate.startsWith(today)) &&
-              a.status.toLowerCase() == 'checked in',
+              (a.status.toLowerCase() == 'checked in' ||
+                  a.status.toLowerCase() == 'checked-in' ||
+                  a.status.toLowerCase() == 'waiting'),
         )
         .length;
 

@@ -54,7 +54,7 @@ void showDocumentViewer(
       final blob = html.Blob([bytes], isPdf ? 'application/pdf' : 'application/octet-stream');
       pdfUrl = html.Url.createObjectUrlFromBlob(blob);
     } catch (_) {}
-  } else if (url.isNotEmpty && url.startsWith('http')) {
+  } else if (url.isNotEmpty) {
     pdfUrl = url;
   }
 
@@ -102,7 +102,7 @@ void showDocumentViewer(
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (pdfUrl != null)
+                    if (pdfUrl != null && pdfUrl.isNotEmpty)
                       IconButton(
                         tooltip: 'Open in new tab',
                         icon: const Icon(Icons.open_in_new, color: Color(0xFF0F5A8E), size: 20),
@@ -136,6 +136,29 @@ void showDocumentViewer(
                                     if (loadingProgress == null) return child;
                                     return const Center(child: CircularProgressIndicator());
                                   },
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.broken_image_outlined, size: 54, color: Colors.grey),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            'Unable to preview image directly: $title',
+                                            style: const TextStyle(fontSize: 14, color: Colors.black54),
+                                          ),
+                                          if (url.isNotEmpty) ...[
+                                            const SizedBox(height: 12),
+                                            ElevatedButton.icon(
+                                              onPressed: () => html.window.open(url, '_blank'),
+                                              icon: const Icon(Icons.open_in_new, size: 16),
+                                              label: const Text('Open in Browser'),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    );
+                                  },
                                 ),
                         ),
                       )
@@ -153,13 +176,13 @@ void showDocumentViewer(
                                   textAlign: TextAlign.center,
                                 ),
                                 const SizedBox(height: 16),
-                                if (pdfUrl != null)
+                                if (pdfUrl != null && pdfUrl.isNotEmpty)
                                   ElevatedButton.icon(
                                     onPressed: () {
                                       html.window.open(pdfUrl!, '_blank');
                                     },
                                     icon: const Icon(Icons.open_in_new),
-                                    label: const Text('Open PDF'),
+                                    label: const Text('Open Document'),
                                   ),
                               ],
                             ),
@@ -173,16 +196,33 @@ void showDocumentViewer(
   );
 }
 
+String _resolveTarget({String? url, String? fileName}) {
+  if (fileName != null && fileName.trim().isNotEmpty) {
+    return fileName.trim().split('?').first.toLowerCase();
+  }
+  if (url != null && url.trim().isNotEmpty) {
+    return url.trim().split('?').first.toLowerCase();
+  }
+  return '';
+}
+
 bool _isImage({String? url, String? fileName}) {
-  final target = (fileName ?? url ?? '').split('?').first.toLowerCase();
-  return target.endsWith('.jpg') ||
+  final target = _resolveTarget(url: url, fileName: fileName);
+  if (target.endsWith('.jpg') ||
       target.endsWith('.jpeg') ||
       target.endsWith('.png') ||
       target.endsWith('.gif') ||
-      target.endsWith('.webp');
+      target.endsWith('.webp') ||
+      target.endsWith('.bmp')) {
+    return true;
+  }
+  if (target.contains('/image/upload/') && !target.contains('.pdf')) {
+    return true;
+  }
+  return false;
 }
 
 bool _isPdf({String? url, String? fileName}) {
-  final target = (fileName ?? url ?? '').split('?').first.toLowerCase();
-  return target.endsWith('.pdf');
+  final target = _resolveTarget(url: url, fileName: fileName);
+  return target.endsWith('.pdf') || target.contains('.pdf?') || target.contains('application/pdf');
 }

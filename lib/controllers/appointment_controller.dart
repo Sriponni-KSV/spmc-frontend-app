@@ -90,7 +90,7 @@ class AppointmentController {
       );
       final body = jsonDecode(response.body);
 
-      if (response.statusCode != 201) {
+      if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(body['message'] ?? 'Failed to save consultation');
       }
     } catch (e) {
@@ -109,7 +109,7 @@ class AppointmentController {
       );
       final body = jsonDecode(response.body);
 
-      if (response.statusCode != 200) {
+      if (response.statusCode != 200 && response.statusCode != 201) {
         throw Exception(body['message'] ?? 'Failed to update consultation');
       }
     } catch (e) {
