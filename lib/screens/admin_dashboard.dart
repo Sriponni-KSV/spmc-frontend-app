@@ -8335,7 +8335,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
 
-    if (result == true) _loadMedicationCatalog();
+    if (result == true) {
+      if (_medCatalogSearch.isNotEmpty) {
+        _medSearchController.clear();
+        _medCatalogSearch = '';
+      }
+      _loadMedicationCatalog();
+    }
   }
 
   Future<void> _deleteMedication(Map<String, dynamic> med) async {
@@ -8423,12 +8429,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
 
     final filtered = _medicationCatalog.where((m) {
+      final nameStr = m['name']?.toString() ?? '';
+      final catStr = m['category']?.toString() ?? '';
       final matchesSearch =
           _medCatalogSearch.trim().isEmpty ||
-          (m['name'] as String).toLowerCase().contains(
+          nameStr.toLowerCase().contains(
             _medCatalogSearch.toLowerCase(),
           ) ||
-          (m['category'] as String).toLowerCase().contains(
+          catStr.toLowerCase().contains(
             _medCatalogSearch.toLowerCase(),
           );
 

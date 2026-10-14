@@ -181,7 +181,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
               const SizedBox(height: 6),
               isFoodCategory
                   ? CustomDropdownSearch(
-                      label: 'Unit',
+                      label: '',
                       hint: 'Select unit',
                       value: unitCtrl.text.isEmpty ? 'kg' : unitCtrl.text,
                       dropdownItems: foodUnits,
@@ -730,7 +730,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                               const SizedBox(height: 6),
                               isFood
                                   ? CustomDropdownSearch(
-                                      label: 'Unit',
+                                      label: '',
                                       hint: 'Select unit',
                                       value: unitCtrl.text,
                                       dropdownItems: foodUnits,
