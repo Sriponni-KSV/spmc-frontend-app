@@ -76,12 +76,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool showLoading = true}) async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    if (showLoading) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final data = await _appointmentController.fetchAdminAppointments(
@@ -6803,11 +6805,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                         onPressed: _dispensingIds.contains(c['id'])
                             ? null
                             : () async {
+                                final messenger = ScaffoldMessenger.of(this.context);
                                 final cId = c['id'] is int
                                     ? c['id'] as int
                                     : int.tryParse(c['id']?.toString() ?? '') ?? 0;
                                 if (cId == 0) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
+                                  messenger.showSnackBar(
                                     const SnackBar(
                                       content: Text('Invalid consultation ID'),
                                       backgroundColor: AppTheme.dangerColor,
@@ -6829,12 +6832,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     'lab_tests': c['lab_tests'],
                                     'pharmacy_status': 'Dispensed',
                                   });
-                                  setState(() {
-                                    c['pharmacy_status'] = 'Dispensed';
-                                  });
-                                  await _loadData();
                                   if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    setState(() {
+                                      c['pharmacy_status'] = 'Dispensed';
+                                    });
+                                  }
+                                  await _loadData(showLoading: false);
+                                  if (mounted) {
+                                    messenger.showSnackBar(
                                       const SnackBar(
                                         content: Text(
                                           'Medications dispensed successfully!',
@@ -6845,7 +6850,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                   }
                                 } catch (e) {
                                   if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
+                                    messenger.showSnackBar(
                                       SnackBar(
                                         content: Text('Error dispensing: $e'),
                                         backgroundColor: AppTheme.dangerColor,
