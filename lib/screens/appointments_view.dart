@@ -14,6 +14,7 @@ import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../controllers/appointment_controller.dart';
 import '../widgets/appointment_details_dialog.dart';
+import '../widgets/check_in_vitals_dialog.dart';
 import 'mocdoc_appointments_view.dart';
 import '../utils/date_formatter.dart';
 import '../utils/tamil_transliteration_helper.dart';
@@ -192,6 +193,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     switch (s) {
       case 'confirmed':
         return context.tr('status_confirmed', fallback: 'Confirmed');
+      case 'checked in':
+        return context.tr('status_checked_in', fallback: 'Checked In');
       case 'waiting':
         return context.tr('status_waiting', fallback: 'Waiting');
       case 'in consultation':
@@ -429,44 +432,127 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     );
   }
 
-  // No longer needed: _deptDoctors map
+  void _checkInAppointment(AppointmentModel appt) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final apptDt = DateFormatter.toDateTime(appt.appointmentDate);
 
-  // Dynamic Time Slots Generator
-  List<String> _generateAllTimeSlots() {
-    List<String> slots = [];
-    // Fallback default slots if no doctor is selected or profile is incomplete
-    // Morning Session: 09:00 AM - 01:00 PM
-    slots.addAll(_generateSlotsForSession(9, 0, 13, 0, 30));
-    // Afternoon Session: 02:00 PM - 05:00 PM
-    slots.addAll(_generateSlotsForSession(14, 0, 17, 0, 30));
-    return slots;
+    if (apptDt != null) {
+      final apptDay = DateTime(apptDt.year, apptDt.month, apptDt.day);
+      if (apptDay.isAfter(today)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot check in before the appointment date.'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => CheckInVitalsDialog(
+        appointment: appt,
+        onCompleted: _fetchData,
+      ),
+    );
   }
 
-  List<String> _generateSlotsForDoctor(UserModel doctor) {
-    if (doctor.slotStartTime == null || doctor.slotEndTime == null) {
-      return _generateAllTimeSlots();
-    }
-
-    int duration = _intervalMinutes;
-    if (doctor.slotDuration != null) {
-      duration =
-          int.tryParse(doctor.slotDuration!.split(' ')[0]) ?? _intervalMinutes;
-    }
-
+  Future<void> _startConsultation(AppointmentModel appt) async {
     try {
-      DateTime start = _parseTime(doctor.slotStartTime!);
-      DateTime end = _parseTime(doctor.slotEndTime!);
-
-      List<String> slots = [];
-      DateTime current = start;
-      while (current.isBefore(end)) {
-        slots.add(DateFormat('hh:mm a').format(current));
-        current = current.add(Duration(minutes: duration));
+      await _appointmentController.updateStatus(appt.id!, 'In Consultation');
+      _fetchData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Consultation started for ${appt.patientName}.'),
+            backgroundColor: AppTheme.secondaryColor,
+          ),
+        );
       }
-      return slots;
     } catch (e) {
-      return _generateAllTimeSlots();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start consultation: $e'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+      }
     }
+  }
+
+  // No longer needed: _deptDoctors map
+
+
+  List<String> _generateSlotsForDoctor(UserModel doctor) {
+    int duration = _intervalMinutes;
+    if (doctor.slotDuration != null && doctor.slotDuration!.trim().isNotEmpty) {
+      final digits = RegExp(r'\d+').firstMatch(doctor.slotDuration!)?.group(0);
+      if (digits != null) {
+        duration = int.tryParse(digits) ?? _intervalMinutes;
+      }
+    }
+    if (duration <= 0) duration = 30;
+
+    List<String> slots = [];
+
+    // 1. Primary: Doctor's Consultation Hours (slotStartTime to slotEndTime)
+    if (doctor.slotStartTime != null && doctor.slotStartTime!.trim().isNotEmpty &&
+        doctor.slotEndTime != null && doctor.slotEndTime!.trim().isNotEmpty) {
+      try {
+        DateTime start = _parseTime(doctor.slotStartTime!.trim());
+        DateTime end = _parseTime(doctor.slotEndTime!.trim());
+        DateTime current = start;
+        while (current.isBefore(end)) {
+          slots.add(DateFormat('hh:mm a').format(current));
+          current = current.add(Duration(minutes: duration));
+        }
+        if (slots.isNotEmpty) return slots;
+      } catch (e) {
+        debugPrint('Error generating slots from doctor consultation hours: $e');
+      }
+    }
+
+    // 2. Secondary: If doctor only configured morning or evening shifts
+    final mStartStr = doctor.morningStartTime;
+    final mEndStr = doctor.morningEndTime;
+    if (mStartStr != null && mStartStr.trim().isNotEmpty &&
+        mEndStr != null && mEndStr.trim().isNotEmpty) {
+      try {
+        DateTime mStart = _parseTime(mStartStr.trim());
+        DateTime mEnd = _parseTime(mEndStr.trim());
+        DateTime currentM = mStart;
+        while (currentM.isBefore(mEnd)) {
+          slots.add(DateFormat('hh:mm a').format(currentM));
+          currentM = currentM.add(Duration(minutes: duration));
+        }
+      } catch (e) {
+        debugPrint('Error generating morning slots: $e');
+      }
+    }
+
+    final eStartStr = doctor.eveningStartTime;
+    final eEndStr = doctor.eveningEndTime;
+    if (eStartStr != null && eStartStr.trim().isNotEmpty &&
+        eEndStr != null && eEndStr.trim().isNotEmpty) {
+      try {
+        DateTime eStart = _parseTime(eStartStr.trim());
+        DateTime eEnd = _parseTime(eEndStr.trim());
+        DateTime currentE = eStart;
+        while (currentE.isBefore(eEnd)) {
+          slots.add(DateFormat('hh:mm a').format(currentE));
+          currentE = currentE.add(Duration(minutes: duration));
+        }
+      } catch (e) {
+        debugPrint('Error generating evening slots: $e');
+      }
+    }
+
+    return slots;
   }
 
   DateTime _parseTime(String timeStr) {
@@ -481,22 +567,94 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return DateTime(2026, 1, 1, hour, minute);
   }
 
-  List<String> _generateSlotsForSession(
-    int startHour,
-    int startMin,
-    int endHour,
-    int endMin,
-    int interval,
-  ) {
-    List<String> sessionSlots = [];
-    DateTime start = DateTime(2026, 1, 1, startHour, startMin);
-    DateTime end = DateTime(2026, 1, 1, endHour, endMin);
+  Widget _buildConsultationHoursBanner() {
+    final doc = _selectedDoctor;
+    if (doc == null) return const SizedBox.shrink();
 
-    while (start.isBefore(end)) {
-      sessionSlots.add(DateFormat('hh:mm a').format(start));
-      start = start.add(Duration(minutes: interval));
+    String hoursText = '';
+    if (doc.slotStartTime != null && doc.slotStartTime!.trim().isNotEmpty &&
+        doc.slotEndTime != null && doc.slotEndTime!.trim().isNotEmpty) {
+      hoursText = '${doc.slotStartTime} - ${doc.slotEndTime}';
+    } else if (doc.morningStartTime != null && doc.morningStartTime!.trim().isNotEmpty &&
+               doc.morningEndTime != null && doc.morningEndTime!.trim().isNotEmpty) {
+      hoursText = '${doc.morningStartTime} - ${doc.morningEndTime}';
+      if (doc.eveningStartTime != null && doc.eveningStartTime!.trim().isNotEmpty &&
+          doc.eveningEndTime != null && doc.eveningEndTime!.trim().isNotEmpty) {
+        hoursText += ' & ${doc.eveningStartTime} - ${doc.eveningEndTime}';
+      }
     }
-    return sessionSlots;
+
+    if (hoursText.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.amber.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.amber.shade300),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.info_outline, size: 16, color: Colors.amber.shade800),
+            const SizedBox(width: 8),
+            Text(
+              'Doctor has not configured consultation hours.',
+              style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+            ),
+          ],
+        ),
+      );
+    }
+
+    String durationText = '';
+    if (doc.slotDuration != null && doc.slotDuration!.trim().isNotEmpty) {
+      final digits = RegExp(r'\d+').firstMatch(doc.slotDuration!)?.group(0);
+      if (digits != null) {
+        durationText = '$digits min slots';
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withOpacity(0.07),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.access_time_filled, size: 16, color: AppTheme.primaryColor),
+          const SizedBox(width: 8),
+          Text(
+            'Doctor Consultation Hours: $hoursText',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+          if (durationText.isNotEmpty) ...[
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                durationText,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   String _cleanDoctorName(String? name) {
@@ -659,34 +817,29 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   List<String> _getFilteredTimeSlots() {
     if (_bookingDate == null || _selectedDoctor == null) return [];
 
+    final now = DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
+    final bookingDay = DateTime(_bookingDate!.year, _bookingDate!.month, _bookingDate!.day);
+
+    // If selected booking date is in the past, no slots are available
+    if (bookingDay.isBefore(todayDate)) {
+      return [];
+    }
+
+    final bool isToday = bookingDay.isAtSameMomentAs(todayDate);
+
     List<String> baseSlots = _availableSlots;
     if (baseSlots.isEmpty) {
       baseSlots = _generateSlotsForDoctor(_selectedDoctor!);
     }
 
-    final now = DateTime.now();
-    final bool isToday = _bookingDate!.year == now.year &&
-        _bookingDate!.month == now.month &&
-        _bookingDate!.day == now.day;
-
-    int duration = _intervalMinutes;
-    if (_selectedDoctor?.slotDuration != null) {
-      final digits =
-          RegExp(r'\d+').firstMatch(_selectedDoctor!.slotDuration!)?.group(0);
-      if (digits != null) {
-        duration = int.tryParse(digits) ?? _intervalMinutes;
-      }
-    }
-    if (duration <= 0) duration = 30;
-
     return baseSlots.where((slot) {
-      // 1. If booking for today, display only current and upcoming slots (hide past slots)
+      // 1. If booking for today, exclude expired and past-time slots
       if (isToday) {
         final slotStart = _parseSlotDateTime(slot, now);
         if (slotStart != null) {
-          final slotEnd = slotStart.add(Duration(minutes: duration));
-          // If the slot has already concluded, exclude it
-          if (slotEnd.isBefore(now)) {
+          // If the slot start time has already passed, exclude it
+          if (slotStart.isBefore(now)) {
             return false;
           }
         }
@@ -1272,17 +1425,26 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         const SizedBox(height: 24),
                         _buildFieldLabel(context.tr('available_time_slots_req', fallback: 'Available Time Slots *')),
                         const SizedBox(height: 8),
+                        _buildConsultationHoursBanner(),
+                        const SizedBox(height: 12),
                         () {
                           final filteredSlots = _getFilteredTimeSlots();
                           if (filteredSlots.isEmpty) {
+                            final hasHours = (_selectedDoctor?.slotStartTime != null && _selectedDoctor!.slotStartTime!.trim().isNotEmpty) ||
+                                             (_selectedDoctor?.morningStartTime != null && _selectedDoctor!.morningStartTime!.trim().isNotEmpty);
+                            String message = context.tr('no_slots_today', fallback: 'No more slots available for this date');
+                            if (!hasHours) {
+                              message = 'Doctor has not configured consultation hours.';
+                            }
                             return Padding(
                               padding: const EdgeInsets.symmetric(vertical: 20),
                               child: Center(
                                 child: Text(
-                                  context.tr('no_slots_today', fallback: 'No more slots available for today'),
+                                  message,
                                   style: const TextStyle(
                                     color: Colors.red,
                                     fontSize: 12,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
@@ -2034,6 +2196,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   const SizedBox(height: 24),
                                   _buildFieldLabel(context.tr('available_time_slots_req', fallback: 'Available Time Slots *')),
                                   const SizedBox(height: 8),
+                                  _buildConsultationHoursBanner(),
+                                  const SizedBox(height: 12),
                                   () {
                                     final filteredSlots =
                                         _getFilteredTimeSlots();
@@ -2055,13 +2219,19 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       );
                                     }
                                     if (filteredSlots.isEmpty) {
+                                      final hasHours = (_selectedDoctor?.slotStartTime != null && _selectedDoctor!.slotStartTime!.trim().isNotEmpty) ||
+                                                       (_selectedDoctor?.morningStartTime != null && _selectedDoctor!.morningStartTime!.trim().isNotEmpty);
+                                      String message = context.tr('no_slots_today', fallback: 'No more slots available for this date');
+                                      if (!hasHours) {
+                                        message = 'Doctor has not configured consultation hours.';
+                                      }
                                       return Padding(
                                         padding: const EdgeInsets.symmetric(
                                           vertical: 20,
                                         ),
                                         child: Center(
                                           child: Text(
-                                            context.tr('no_slots_today', fallback: 'No more slots available for today'),
+                                            message,
                                             style: const TextStyle(
                                               color: Colors.red,
                                               fontSize: 12,
@@ -3495,20 +3665,44 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: statusBg,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  _getTranslatedStatus(appt.status),
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (appt.tokenNumber != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        'Token #${appt.tokenNumber}',
+                        style: const TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusBg,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _getTranslatedStatus(appt.status),
+                      style: TextStyle(
+                        color: statusColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
@@ -3618,8 +3812,47 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       ),
                     ),
-                    if (appt.status == 'Confirmed') ...[
-                      if (!hasVitals && !isFuture)
+                    if (appt.status == 'Confirmed' || appt.status == 'Scheduled')
+                      ElevatedButton.icon(
+                        onPressed: () => _checkInAppointment(appt),
+                        icon: const Icon(Icons.how_to_reg, size: 12, color: Colors.white),
+                        label: Text(context.tr('check_in', fallback: 'Check In'), style: const TextStyle(fontSize: 11)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F766E),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                    if (appt.status == 'Waiting')
+                      ElevatedButton.icon(
+                        onPressed: () => _startConsultation(appt),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 14, color: Colors.white),
+                        label: const Text('Start Consult', style: TextStyle(fontSize: 11)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.secondaryColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                    if (appt.status == 'Checked In' || appt.status == 'Checked-in')
+                      ElevatedButton.icon(
+                        onPressed: () => _checkInAppointment(appt),
+                        icon: const Icon(Icons.monitor_heart, size: 12, color: Colors.white),
+                        label: const Text('Capture Vitals', style: TextStyle(fontSize: 11)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F766E),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                    if (appt.status == 'Confirmed' ||
+                        appt.status == 'Scheduled' ||
+                        appt.status == 'Checked In' ||
+                        appt.status == 'Checked-in') ...[
+                      if (!hasVitals && !isFuture && appt.status != 'Checked In' && appt.status != 'Checked-in')
                         ElevatedButton.icon(
                           onPressed: () => _openVitalsEntryDialog(context, appt),
                           icon: const Icon(Icons.monitor_heart, size: 12, color: Colors.white),
@@ -4054,14 +4287,39 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        TamilTransliterationHelper.translate(context, patientName),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              TamilTransliterationHelper.translate(context, patientName),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          if (appt.tokenNumber != null) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppTheme.primaryColor.withOpacity(0.25)),
+                              ),
+                              child: Text(
+                                'T#${appt.tokenNumber}',
+                                style: const TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -4203,7 +4461,34 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     const Color(0xFF3182CE),
                     onTap: () => _openViewDetailsDialog(context, appt),
                   ),
-                  if (status == 'Confirmed') ...[
+                  if (status == 'Confirmed' || status == 'Scheduled') ...[
+                    _buildActionLabel(
+                      Icons.how_to_reg_outlined,
+                      context.tr('check_in', fallback: 'Check In'),
+                      const Color(0xFF0F766E),
+                      onTap: () => _checkInAppointment(appt),
+                    ),
+                  ],
+                  if (status == 'Waiting') ...[
+                    _buildActionLabel(
+                      Icons.play_arrow_outlined,
+                      'Start Consult',
+                      AppTheme.secondaryColor,
+                      onTap: () => _startConsultation(appt),
+                    ),
+                  ],
+                  if (status == 'Checked In' || status == 'Checked-in') ...[
+                    _buildActionLabel(
+                      Icons.monitor_heart_outlined,
+                      'Vitals',
+                      const Color(0xFF0F766E),
+                      onTap: () => _checkInAppointment(appt),
+                    ),
+                  ],
+                  if (status == 'Confirmed' ||
+                      status == 'Scheduled' ||
+                      status == 'Checked In' ||
+                      status == 'Checked-in') ...[
                     if (!hasVitals && !isFuture) ...[
                       _buildActionLabel(
                         Icons.monitor_heart_outlined,

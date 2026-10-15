@@ -25,6 +25,10 @@ import 'dart:io' as io;
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/live_speech_service.dart';
+import '../data/icd10_data.dart';
+import '../services/clinical_safety_service.dart';
+import '../services/consultation_template_service.dart';
+import '../widgets/patient_history_timeline.dart';
 
 class NewConsultationView extends StatefulWidget {
   final AppointmentModel appointment;
@@ -56,6 +60,59 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   final List<Map<String, String>> _medications = [];
   DateTime? _followUpDate;
 
+  // ICD-10 Autocomplete & Diagnosis State
+  final List<Icd10Item> _selectedIcd10List = [];
+  final TextEditingController _icd10SearchController = TextEditingController();
+  final TextEditingController _customDiagnosisNotesController = TextEditingController();
+
+  final List<Icd10Item> _quickCommonIcd10 = const [
+    Icd10Item(code: 'I10', description: 'Essential (primary) hypertension', category: 'Circulatory System'),
+    Icd10Item(code: 'E11.9', description: 'Type 2 diabetes mellitus without complications', category: 'Endocrine & Metabolic'),
+    Icd10Item(code: 'J06.9', description: 'Acute upper respiratory infection, unspecified', category: 'Respiratory System'),
+    Icd10Item(code: 'K21.9', description: 'Gastro-esophageal reflux disease without esophagitis', category: 'Digestive System'),
+    Icd10Item(code: 'M54.5', description: 'Low back pain', category: 'Musculoskeletal System'),
+    Icd10Item(code: 'R50.9', description: 'Fever, unspecified', category: 'Symptoms & Clinical Findings'),
+    Icd10Item(code: 'G43.909', description: 'Migraine, unspecified', category: 'Nervous System'),
+    Icd10Item(code: 'N39.0', description: 'Urinary tract infection, site not specified', category: 'Genitourinary System'),
+    Icd10Item(code: 'J45.909', description: 'Unspecified asthma, uncomplicated', category: 'Respiratory System'),
+    Icd10Item(code: 'A09', description: 'Infectious gastroenteritis and colitis, unspecified', category: 'Infectious Diseases'),
+  ];
+
+  void _syncDiagnosisController() {
+    final icdTexts = _selectedIcd10List.map((item) => item.formatted).toList();
+    final customNotes = _customDiagnosisNotesController.text.trim();
+    if (icdTexts.isNotEmpty && customNotes.isNotEmpty) {
+      _diagnosisController.text = '${icdTexts.join("\n")}\n\nNotes: $customNotes';
+    } else if (icdTexts.isNotEmpty) {
+      _diagnosisController.text = icdTexts.join("\n");
+    } else {
+      _diagnosisController.text = customNotes;
+    }
+  }
+
+  void _initIcd10FromDiagnosisText() {
+    final text = _diagnosisController.text.trim();
+    if (text.isEmpty) return;
+
+    final reg = RegExp(r'\[([A-Z0-9\.]+)\]');
+    final matches = reg.allMatches(text);
+    for (final match in matches) {
+      final code = match.group(1);
+      if (code != null) {
+        final found = Icd10Database.items.firstWhere(
+          (it) => it.code.toUpperCase() == code.toUpperCase(),
+          orElse: () => Icd10Item(code: code, description: '', category: 'Custom'),
+        );
+        if (!_selectedIcd10List.any((it) => it.code == found.code)) {
+          _selectedIcd10List.add(found);
+        }
+      }
+    }
+    if (_selectedIcd10List.isEmpty) {
+      _customDiagnosisNotesController.text = text;
+    }
+  }
+
   final TextEditingController _medNameController = TextEditingController();
   final TextEditingController _dosageController = TextEditingController();
   String? _dosageError;
@@ -66,6 +123,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
   final TextEditingController _durController = TextEditingController();
 
   List<String> _medicineCatalog = [];
+  String? _patientAllergiesFromProfile;
+  List<ConsultationTemplate> _availableTemplates = [];
 
   // Lab test state
   final Map<String, bool> _standardLabs = {
@@ -311,6 +370,14 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           'referred_department': _referredDeptController.text,
           'referral_notes': _referralNotesController.text,
         },
+        'vitals': {
+          'blood_pressure_systolic': _currentAppointment.bloodPressureSystolic,
+          'blood_pressure_diastolic': _currentAppointment.bloodPressureDiastolic,
+          'sugar_level': _currentAppointment.sugarLevel,
+          'temperature': _currentAppointment.temperature,
+          'pulse': _currentAppointment.pulse,
+          'spo2': _currentAppointment.spo2,
+        },
       };
       await prefs.setString(
         'consultation_draft_${widget.appointment.id}',
@@ -343,6 +410,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             _leadingQuestionsController.text = draft['leading_questions'] ?? '';
             _historyController.text = draft['history'] ?? '';
             _diagnosisController.text = draft['diagnosis'] ?? '';
+            _initIcd10FromDiagnosisText();
             _notesController.text = draft['notes'] ?? '';
             _examinationController.text = draft['examination'] ?? '';
             _familyHistoryController.text = draft['family_history'] ?? '';
@@ -404,6 +472,30 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                   ref['referred_department']?.toString() ?? '';
               _referralNotesController.text =
                   ref['referral_notes']?.toString() ?? '';
+            }
+
+            final vitalsMap = draft['vitals'];
+            if (vitalsMap is Map) {
+              _currentAppointment = _currentAppointment.copyWith(
+                bloodPressureSystolic: vitalsMap['blood_pressure_systolic'] != null
+                    ? int.tryParse(vitalsMap['blood_pressure_systolic'].toString())
+                    : _currentAppointment.bloodPressureSystolic,
+                bloodPressureDiastolic: vitalsMap['blood_pressure_diastolic'] != null
+                    ? int.tryParse(vitalsMap['blood_pressure_diastolic'].toString())
+                    : _currentAppointment.bloodPressureDiastolic,
+                sugarLevel: vitalsMap['sugar_level'] != null
+                    ? double.tryParse(vitalsMap['sugar_level'].toString())
+                    : _currentAppointment.sugarLevel,
+                temperature: vitalsMap['temperature'] != null
+                    ? double.tryParse(vitalsMap['temperature'].toString())
+                    : _currentAppointment.temperature,
+                pulse: vitalsMap['pulse'] != null
+                    ? int.tryParse(vitalsMap['pulse'].toString())
+                    : _currentAppointment.pulse,
+                spo2: vitalsMap['spo2'] != null
+                    ? int.tryParse(vitalsMap['spo2'].toString())
+                    : _currentAppointment.spo2,
+              );
             }
           });
         }
@@ -475,12 +567,18 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     _loadDraft();
     _loadMedicineCatalog();
     _loadReferralDropdowns();
+    _fetchPatientProfile();
+    _loadTemplates();
+    _customDiagnosisNotesController.addListener(_syncDiagnosisController);
   }
 
   @override
   void dispose() {
     UnsavedChangesHelper.setUnsavedChanges(false);
     _stopSpeech(disposing: true);
+    _customDiagnosisNotesController.removeListener(_syncDiagnosisController);
+    _customDiagnosisNotesController.dispose();
+    _icd10SearchController.dispose();
     _symptomsController.dispose();
     _diagnosisController.dispose();
     _notesController.dispose();
@@ -671,6 +769,624 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     } catch (e) {
       debugPrint('Error loading medicine catalog: $e');
     }
+  }
+
+  String _getCombinedPatientAllergies() {
+    final curAllergy = _allergyController.text.trim();
+    final profAllergy = _patientAllergiesFromProfile?.trim() ?? '';
+    if (curAllergy.isNotEmpty && profAllergy.isNotEmpty) {
+      if (curAllergy.toLowerCase() == profAllergy.toLowerCase()) return curAllergy;
+      return '$curAllergy, $profAllergy';
+    }
+    if (curAllergy.isNotEmpty) return curAllergy;
+    return profAllergy;
+  }
+
+  Future<void> _fetchPatientProfile() async {
+    try {
+      final patient = await _patientController.fetchPatientById(widget.appointment.patientId);
+      if (patient != null && mounted) {
+        setState(() {
+          _patientAllergiesFromProfile = patient.allergies;
+          if (_allergyController.text.trim().isEmpty && patient.allergies.trim().isNotEmpty) {
+            _allergyController.text = patient.allergies.trim();
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching patient profile: $e');
+    }
+  }
+
+  Future<void> _loadTemplates() async {
+    try {
+      final templates = await ConsultationTemplateService.getAllTemplates();
+      if (mounted) {
+        setState(() {
+          _availableTemplates = templates;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading consultation templates: $e');
+    }
+  }
+
+  void _openPatientTimeline() {
+    PatientHistoryTimeline.show(
+      context,
+      patientId: widget.appointment.patientId,
+      patientName: widget.appointment.patientName,
+      onCopyDiagnosis: (diag) {
+        setState(() {
+          if (_diagnosisController.text.trim().isEmpty) {
+            _diagnosisController.text = diag;
+          } else {
+            _diagnosisController.text = '${_diagnosisController.text}\n$diag';
+          }
+          _initIcd10FromDiagnosisText();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Diagnosis copied from patient timeline.'),
+            backgroundColor: AppTheme.secondaryColor,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      },
+      onCopyPrescription: (copiedMeds) {
+        setState(() {
+          for (final med in copiedMeds) {
+            final exists = _medications.any((m) =>
+                (m['name'] ?? '').toLowerCase() == (med['name'] ?? '').toLowerCase());
+            if (!exists) {
+              _medications.add(Map<String, String>.from(med));
+            }
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${copiedMeds.length} medications copied to current prescription.'),
+            backgroundColor: AppTheme.secondaryColor,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      },
+    );
+  }
+
+  void _applyConsultationTemplate(ConsultationTemplate t) {
+    setState(() {
+      if (t.complaint.isNotEmpty) {
+        _symptomsController.text = _symptomsController.text.isEmpty
+            ? t.complaint
+            : '${_symptomsController.text}\n${t.complaint}';
+      }
+      if (t.examination.isNotEmpty) {
+        _examinationController.text = _examinationController.text.isEmpty
+            ? t.examination
+            : '${_examinationController.text}\n${t.examination}';
+      }
+      if (t.diagnosis.isNotEmpty) {
+        _diagnosisController.text = _diagnosisController.text.isEmpty
+            ? t.diagnosis
+            : '${_diagnosisController.text}\n${t.diagnosis}';
+        _initIcd10FromDiagnosisText();
+      }
+      if (t.clinicalNotes.isNotEmpty) {
+        _notesController.text = _notesController.text.isEmpty
+            ? t.clinicalNotes
+            : '${_notesController.text}\n${t.clinicalNotes}';
+      }
+      if (t.treatmentPlan != null && t.treatmentPlan!.isNotEmpty) {
+        _planController.text = _planController.text.isEmpty
+            ? t.treatmentPlan!
+            : '${_planController.text}\n${t.treatmentPlan!}';
+      }
+      for (final lab in t.investigations) {
+        if (_standardLabs.containsKey(lab)) {
+          _standardLabs[lab] = true;
+        } else if (!_customLabs.contains(lab)) {
+          _customLabs.add(lab);
+        }
+      }
+      for (final med in t.medications) {
+        final exists = _medications.any((m) =>
+            (m['name'] ?? '').toLowerCase() == (med['name'] ?? '').toLowerCase());
+        if (!exists) {
+          _medications.add(Map<String, String>.from(med));
+        }
+      }
+
+      // Apply vitals from template
+      final sys = t.effectiveSystolic;
+      final dia = t.effectiveDiastolic;
+      final sugar = t.effectiveSugar;
+      final temp = t.effectiveTemperature;
+      final pulse = t.effectivePulse;
+      final spo2 = t.effectiveSpo2;
+      final hasVitals = sys != null || dia != null || sugar != null || temp != null || pulse != null || spo2 != null;
+
+      if (hasVitals) {
+        _currentAppointment = _currentAppointment.copyWith(
+          bloodPressureSystolic: sys ?? _currentAppointment.bloodPressureSystolic,
+          bloodPressureDiastolic: dia ?? _currentAppointment.bloodPressureDiastolic,
+          sugarLevel: sugar ?? _currentAppointment.sugarLevel,
+          temperature: temp ?? _currentAppointment.temperature,
+          pulse: pulse ?? _currentAppointment.pulse,
+          spo2: spo2 ?? _currentAppointment.spo2,
+        );
+      }
+    });
+
+    final sys = t.effectiveSystolic;
+    final dia = t.effectiveDiastolic;
+    final sugar = t.effectiveSugar;
+    final temp = t.effectiveTemperature;
+    final pulse = t.effectivePulse;
+    final spo2 = t.effectiveSpo2;
+    final hasVitals = sys != null || dia != null || sugar != null || temp != null || pulse != null || spo2 != null;
+
+    if (hasVitals && widget.appointment.id != null) {
+      final vitalsData = <String, dynamic>{
+        if (_currentAppointment.bloodPressureSystolic != null)
+          'blood_pressure_systolic': _currentAppointment.bloodPressureSystolic,
+        if (_currentAppointment.bloodPressureDiastolic != null)
+          'blood_pressure_diastolic': _currentAppointment.bloodPressureDiastolic,
+        if (_currentAppointment.sugarLevel != null)
+          'sugar_level': _currentAppointment.sugarLevel,
+        if (_currentAppointment.temperature != null)
+          'temperature': _currentAppointment.temperature,
+        if (_currentAppointment.pulse != null)
+          'pulse': _currentAppointment.pulse,
+        if (_currentAppointment.spo2 != null)
+          'spo2': _currentAppointment.spo2,
+      };
+      _appointmentController.updateVitals(widget.appointment.id!, vitalsData).catchError((err) {
+        debugPrint('Non-critical vitals sync notice: $err');
+      });
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          hasVitals
+              ? 'Applied "${t.title}" template with vitals (${t.vitalsSummary}) successfully!'
+              : 'Applied "${t.title}" template successfully!',
+        ),
+        backgroundColor: AppTheme.secondaryColor,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showSpecialtyTemplateDialog() {
+    String selectedSpecialty = 'All';
+    String searchQuery = '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (dialogCtx, setDialogState) {
+          final specialties = ['All', ...{..._availableTemplates.map((t) => t.specialty)}];
+          final filtered = _availableTemplates.where((t) {
+            final matchesSpecialty = selectedSpecialty == 'All' || t.specialty == selectedSpecialty;
+            final matchesSearch = searchQuery.isEmpty ||
+                t.title.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                t.diagnosis.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                t.specialty.toLowerCase().contains(searchQuery.toLowerCase());
+            return matchesSpecialty && matchesSearch;
+          }).toList();
+
+          return Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 880, maxHeight: 720),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.auto_awesome, color: AppTheme.primaryColor, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Specialty Consultation Templates',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Select pre-configured clinical protocols or custom doctor templates to auto-populate the consultation',
+                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            ModalHistoryHelper.skipNextHistoryBack();
+                            Navigator.of(ctx).pop();
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            onChanged: (val) => setDialogState(() => searchQuery = val),
+                            decoration: InputDecoration(
+                              hintText: 'Search templates by disease, diagnosis, or keyword...',
+                              prefixIcon: const Icon(Icons.search, size: 20),
+                              filled: true,
+                              fillColor: const Color(0xFFF1F5F9),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: AppTheme.primaryColor),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            ModalHistoryHelper.skipNextHistoryBack();
+                            Navigator.of(ctx).pop();
+                            _showSaveCustomTemplateDialog();
+                          },
+                          icon: const Icon(Icons.add, size: 16, color: Colors.white),
+                          label: const Text('Save Current as Template', style: TextStyle(color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: specialties.map((spec) {
+                          final isSelected = selectedSpecialty == spec;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(spec),
+                              selected: isSelected,
+                              onSelected: (_) => setDialogState(() => selectedSpecialty = spec),
+                              selectedColor: AppTheme.primaryColor,
+                              labelStyle: TextStyle(
+                                color: isSelected ? Colors.white : AppTheme.textPrimaryColor,
+                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                fontSize: 12,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const Divider(height: 24),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No matching specialty templates found.',
+                                style: TextStyle(color: AppTheme.textSecondaryColor),
+                              ),
+                            )
+                          : ListView.separated(
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) => const SizedBox(height: 12),
+                              itemBuilder: (c, idx) {
+                                final t = filtered[idx];
+                                return _buildTemplateCard(
+                                  t,
+                                  () {
+                                    _applyConsultationTemplate(t);
+                                    ModalHistoryHelper.skipNextHistoryBack();
+                                    Navigator.of(ctx).pop();
+                                  },
+                                  onDelete: t.isCustom
+                                      ? () async {
+                                          await ConsultationTemplateService.deleteCustomTemplate(t.id);
+                                          await _loadTemplates();
+                                          setDialogState(() {});
+                                        }
+                                      : null,
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTemplateCard(
+    ConsultationTemplate t,
+    VoidCallback onApply, {
+    VoidCallback? onDelete,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  t.specialty,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+              ),
+              if (t.isCustom) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3E8FF),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFD8B4FE)),
+                  ),
+                  child: const Text(
+                    'Custom Doctor Template',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF7E22CE),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+              const Spacer(),
+              if (onDelete != null)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 18, color: AppTheme.dangerColor),
+                  onPressed: onDelete,
+                  tooltip: 'Delete custom template',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              const SizedBox(width: 12),
+              ElevatedButton(
+                onPressed: onApply,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  minimumSize: const Size(80, 36),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text(
+                  'Apply Template',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            t.title,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Diagnosis: ${t.diagnosis}${t.icd10Code != null ? " [${t.icd10Code}]" : ""}',
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Complaints: ${t.complaint}',
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (t.hasVitals) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.monitor_heart_outlined, size: 13, color: AppTheme.primaryColor),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text(
+                      'Vitals: ${t.vitalsSummary}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF334155),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (t.medications.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: t.medications.map((m) {
+                return Chip(
+                  padding: EdgeInsets.zero,
+                  visualDensity: VisualDensity.compact,
+                  backgroundColor: const Color(0xFFF1F5F9),
+                  label: Text(
+                    '${m['name']} (${m['dosage']})',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF334155)),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showSaveCustomTemplateDialog() {
+    final titleCtrl = TextEditingController();
+    final specialtyCtrl = TextEditingController(text: 'General Medicine');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.bookmark_add_outlined, color: AppTheme.primaryColor),
+            SizedBox(width: 8),
+            Text('Save as Specialty Template', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Save current clinical consultation fields, vitals, investigations, and medications as a reusable specialty template.',
+              style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: titleCtrl,
+              decoration: InputDecoration(
+                labelText: 'Template Title *',
+                hintText: 'e.g. Acute Migraine Protocol',
+                filled: true,
+                fillColor: const Color(0xFFF1F5F9),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: specialtyCtrl,
+              decoration: InputDecoration(
+                labelText: 'Specialty / Department',
+                hintText: 'e.g. Cardiology, Neurology, General Medicine',
+                filled: true,
+                fillColor: const Color(0xFFF1F5F9),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
+          ),
+          ElevatedButton(
+            style: AppTheme.primaryButton,
+            onPressed: () async {
+              final title = titleCtrl.text.trim();
+              if (title.isEmpty) return;
+              final template = ConsultationTemplate(
+                id: 'custom_${DateTime.now().millisecondsSinceEpoch}',
+                title: title,
+                specialty: specialtyCtrl.text.trim().isEmpty ? 'General Medicine' : specialtyCtrl.text.trim(),
+                complaint: _symptomsController.text.trim(),
+                examination: _examinationController.text.trim(),
+                diagnosis: _diagnosisController.text.trim(),
+                clinicalNotes: _notesController.text.trim(),
+                treatmentPlan: _planController.text.trim(),
+                investigations: getFinalOrderedLabs(),
+                medications: List<Map<String, String>>.from(_medications),
+                bloodPressureSystolic: _currentAppointment.bloodPressureSystolic,
+                bloodPressureDiastolic: _currentAppointment.bloodPressureDiastolic,
+                sugarLevel: _currentAppointment.sugarLevel,
+                temperature: _currentAppointment.temperature,
+                pulse: _currentAppointment.pulse,
+                spo2: _currentAppointment.spo2,
+                isCustom: true,
+              );
+              await ConsultationTemplateService.saveCustomTemplate(template);
+              await _loadTemplates();
+              if (mounted) {
+                ModalHistoryHelper.skipNextHistoryBack();
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Custom template "$title" saved successfully!'),
+                    backgroundColor: AppTheme.secondaryColor,
+                  ),
+                );
+              }
+            },
+            child: const Text('Save Template'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadReferralDropdowns() async {
@@ -900,6 +1616,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       _symptomsController.text = widget.initialConsultation!['symptoms'] ?? '';
       _diagnosisController.text =
           widget.initialConsultation!['diagnosis'] ?? '';
+      _initIcd10FromDiagnosisText();
       _notesController.text = widget.initialConsultation!['notes'] ?? '';
 
       _historyController.text = widget.initialConsultation!['history'] ?? '';
@@ -2097,7 +2814,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     return null;
   }
 
-  void _addMedication() {
+  Future<void> _addMedication() async {
     final medName = _medNameController.text.trim();
     final dosage = _dosageController.text.trim();
     final duration = _durController.text.trim();
@@ -2138,6 +2855,111 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         ),
       );
       return;
+    }
+
+    // Safety Decision Support: Patient Allergy Alert Check
+    final combinedAllergies = _getCombinedPatientAllergies();
+    if (combinedAllergies.isNotEmpty) {
+      final allergyAlerts = ClinicalSafetyService.checkAllergies(
+        patientAllergyText: combinedAllergies,
+        prescribedMedications: [medName],
+      );
+
+      if (allergyAlerts.isNotEmpty) {
+        final alert = allergyAlerts.first;
+        final bool isSevere = alert.severity.toLowerCase() == 'severe';
+        final proceed = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Row(
+              children: [
+                Icon(
+                  isSevere ? Icons.dangerous_rounded : Icons.warning_rounded,
+                  color: isSevere ? AppTheme.dangerColor : const Color(0xFFD97706),
+                  size: 28,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    isSevere ? 'CRITICAL PATIENT ALLERGY ALERT' : 'Allergy Warning',
+                    style: TextStyle(
+                      color: isSevere ? AppTheme.dangerColor : const Color(0xFFD97706),
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isSevere ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isSevere ? const Color(0xFFFCA5A5) : const Color(0xFFFCD34D),
+                    ),
+                  ),
+                  child: Text(
+                    alert.warningMessage,
+                    style: TextStyle(
+                      color: isSevere ? const Color(0xFF991B1B) : const Color(0xFF92400E),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Documented Patient Allergies: $combinedAllergies',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Are you certain you wish to override this safety alert and prescribe this medication?',
+                  style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                ),
+              ],
+            ),
+            actions: [
+              OutlinedButton(
+                onPressed: () {
+                  ModalHistoryHelper.skipNextHistoryBack();
+                  Navigator.of(ctx).pop(false);
+                },
+                style: AppTheme.cancelButton,
+                child: const Text('Cancel (Do Not Prescribe)'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  ModalHistoryHelper.skipNextHistoryBack();
+                  Navigator.of(ctx).pop(true);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.dangerColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Override & Prescribe'),
+              ),
+            ],
+          ),
+        );
+
+        if (proceed != true) {
+          return;
+        }
+      }
     }
 
     setState(() {
@@ -2266,32 +3088,130 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             ),
           ),
           const SizedBox(height: 12),
-          // Header Title
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.initialConsultation != null
-                    ? 'Edit Consultation: ${_currentAppointment.patientName}'
-                    : 'Consultation: ${_currentAppointment.patientName}',
-                style: TextStyle(
-                  fontSize: isMobile ? 20 : 26,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+          // Header Title & Action Buttons
+          isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.initialConsultation != null
+                          ? 'Edit Consultation: ${_currentAppointment.patientName}'
+                          : 'Consultation: ${_currentAppointment.patientName}',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                      softWrap: true,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Appt Date: ${_currentAppointment.appointmentDate} • Status: ${_currentAppointment.status}',
+                      style: const TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 13,
+                      ),
+                      softWrap: true,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: _showSpecialtyTemplateDialog,
+                          icon: const Icon(Icons.auto_awesome, size: 16, color: AppTheme.primaryColor),
+                          label: const Text('Specialty Templates', style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppTheme.primaryColor),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: _openPatientTimeline,
+                          icon: const Icon(Icons.history_rounded, size: 16, color: Colors.white),
+                          label: const Text('Patient Timeline', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.secondaryColor,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.initialConsultation != null
+                                ? 'Edit Consultation: ${_currentAppointment.patientName}'
+                                : 'Consultation: ${_currentAppointment.patientName}',
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                            softWrap: true,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Appt Date: ${_currentAppointment.appointmentDate} • Status: ${_currentAppointment.status}',
+                            style: const TextStyle(
+                              color: AppTheme.textSecondaryColor,
+                              fontSize: 13,
+                            ),
+                            softWrap: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    OutlinedButton.icon(
+                      onPressed: _showSpecialtyTemplateDialog,
+                      icon: const Icon(Icons.auto_awesome, size: 16, color: AppTheme.primaryColor),
+                      label: const Text(
+                        'Specialty Templates',
+                        style: TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.primaryColor, width: 1.2),
+                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      onPressed: _openPatientTimeline,
+                      icon: const Icon(Icons.history_rounded, size: 18, color: Colors.white),
+                      label: const Text(
+                        'Patient Timeline',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.secondaryColor,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        elevation: 1,
+                      ),
+                    ),
+                  ],
                 ),
-                softWrap: true,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Appt Date: ${_currentAppointment.appointmentDate} • Status: ${_currentAppointment.status}',
-                style: const TextStyle(
-                  color: AppTheme.textSecondaryColor,
-                  fontSize: 13,
-                ),
-                softWrap: true,
-              ),
-            ],
-          ),
         ],
       );
     }
@@ -2513,21 +3433,74 @@ class _NewConsultationViewState extends State<NewConsultationView> {
               Icons.thermostat_outlined,
               Colors.orange.shade700,
             ),
+            const SizedBox(height: 12),
+            _buildVitalRow(
+              'Pulse / SpO2',
+              '${_currentAppointment.pulse ?? '--'} bpm / ${_currentAppointment.spo2 ?? '--'}%',
+              Icons.favorite_outline,
+              Colors.pink.shade600,
+            ),
+            const SizedBox(height: 12),
+            _buildVitalRow(
+              'Pain Score (0–10)',
+              _currentAppointment.painScore != null ? '${_currentAppointment.painScore}/10' : '0/10 (No Pain)',
+              Icons.sentiment_dissatisfied_outlined,
+              (_currentAppointment.painScore ?? 0) >= 7
+                  ? AppTheme.dangerColor
+                  : ((_currentAppointment.painScore ?? 0) >= 4
+                      ? const Color(0xFFD97706)
+                      : AppTheme.secondaryColor),
+            ),
           ],
           const Divider(height: 24),
-          const Text(
-            'Chief Complaint',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Triage & Chief Complaint',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              if (_currentAppointment.triageCategory != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: _currentAppointment.triageCategory == 'Emergency'
+                        ? AppTheme.dangerColor
+                        : (_currentAppointment.triageCategory == 'Urgent'
+                            ? const Color(0xFFD97706)
+                            : AppTheme.secondaryColor),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _currentAppointment.triageCategory!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 6),
           Text(
             _currentAppointment.reasonForVisit ?? 'No complaints registered',
             style: const TextStyle(
-              color: AppTheme.textSecondaryColor,
+              color: AppTheme.textPrimaryColor,
               fontSize: 13,
-              fontStyle: FontStyle.italic,
             ),
           ),
+          if (_currentAppointment.triageNotes != null && _currentAppointment.triageNotes!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Triage Notes: ${_currentAppointment.triageNotes}',
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 11.5,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2844,6 +3817,28 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 );
               },
             ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _openPatientTimeline,
+              icon: const Icon(Icons.timeline_rounded, size: 16, color: AppTheme.primaryColor),
+              label: const Text(
+                'View Full Longitudinal Timeline',
+                style: TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.4)),
+                backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.04),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -2971,7 +3966,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         'diagnosis': _diagnosisController.text.trim(),
         'medications': _medications,
         'lab_tests': finalLabs,
-        'pharmacy_status': _medications.isNotEmpty ? 'Notified' : 'Pending',
+        'pharmacy_status': _medications.isNotEmpty ? 'Pending' : 'N/A',
         'notes': finalNotes,
         'history': _historyController.text.trim(),
         'examination': _examinationController.text.trim(),
@@ -3002,19 +3997,55 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         await _appointmentController.saveConsultation(data);
       }
 
+      // Also ensure appointment vitals in database reflect current vitals
+      if (widget.appointment.id != null &&
+          (_currentAppointment.bloodPressureSystolic != null ||
+              _currentAppointment.bloodPressureDiastolic != null ||
+              _currentAppointment.sugarLevel != null ||
+              _currentAppointment.temperature != null ||
+              _currentAppointment.pulse != null ||
+              _currentAppointment.spo2 != null)) {
+        final vitalsData = <String, dynamic>{
+          if (_currentAppointment.bloodPressureSystolic != null)
+            'blood_pressure_systolic': _currentAppointment.bloodPressureSystolic,
+          if (_currentAppointment.bloodPressureDiastolic != null)
+            'blood_pressure_diastolic': _currentAppointment.bloodPressureDiastolic,
+          if (_currentAppointment.sugarLevel != null)
+            'sugar_level': _currentAppointment.sugarLevel,
+          if (_currentAppointment.temperature != null)
+            'temperature': _currentAppointment.temperature,
+          if (_currentAppointment.pulse != null)
+            'pulse': _currentAppointment.pulse,
+          if (_currentAppointment.spo2 != null)
+            'spo2': _currentAppointment.spo2,
+        };
+        try {
+          await _appointmentController.updateVitals(widget.appointment.id!, vitalsData);
+        } catch (e) {
+          debugPrint('Non-critical vitals sync warning: $e');
+        }
+      }
+
       if (mounted) {
         await _clearDraft();
         UnsavedChangesHelper.setUnsavedChanges(false);
         UnsavedChangesHelper.clear();
         if (!mounted) return;
+
+        final hasMeds = _medications.isNotEmpty;
+        final hasLabs = finalLabs.isNotEmpty;
+        final List<String> dispatchNotes = [];
+        if (hasMeds) dispatchNotes.add('⚡ Prescriptions auto-dispatched to Pharmacy Dispensing queue (CPOE)');
+        if (hasLabs) dispatchNotes.add('🧪 Doctor-ordered tests auto-dispatched to Lab Sample Collection worklist');
+        final dispatchMsg = dispatchNotes.isNotEmpty ? '\n${dispatchNotes.join("\n")}' : '';
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              consulId != null
-                  ? 'Consultation Updated Successfully!'
-                  : 'Consultation Completed & Saved!',
+              '${consulId != null ? "Consultation Updated" : "Consultation Finalized & Saved!"}$dispatchMsg',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: AppTheme.secondaryColor,
+            duration: const Duration(seconds: 4),
           ),
         );
         widget.onBack();
@@ -3296,7 +4327,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     final bool hasMissingVitals = _currentAppointment.bloodPressureSystolic == null &&
         _currentAppointment.bloodPressureDiastolic == null &&
         _currentAppointment.sugarLevel == null &&
-        _currentAppointment.temperature == null;
+        _currentAppointment.temperature == null &&
+        _currentAppointment.pulse == null;
 
     return Column(
       key: const ValueKey('examination_tab'),
@@ -3376,6 +4408,15 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                       Icons.thermostat_outlined,
                       Colors.orange.shade700,
                     ),
+                    if (_currentAppointment.pulse != null || _currentAppointment.spo2 != null) ...[
+                      const SizedBox(height: 8),
+                      _buildVitalRow(
+                        'Pulse / SpO2',
+                        '${_currentAppointment.pulse ?? '--'} bpm / ${_currentAppointment.spo2 != null ? "${_currentAppointment.spo2}%" : "--"}',
+                        Icons.favorite_outline,
+                        Colors.pink.shade600,
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -3965,12 +5006,26 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildSectionCard(
-          '1. Diagnosis & Impression',
-          _buildTextArea(
-            'Diagnosis / Impression',
-            _diagnosisController,
-            'Enter the diagnostic decision or impression...',
-            required: true,
+          '1. ICD-10 Clinical Diagnosis & Impression',
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildIcd10SearchAutocomplete(),
+              const SizedBox(height: 16),
+              if (_selectedIcd10List.isNotEmpty) ...[
+                _buildSelectedIcd10Diagnoses(),
+                const SizedBox(height: 16),
+              ],
+              _buildQuickIcd10Chips(),
+              const SizedBox(height: 18),
+              const Divider(color: Color(0xFFE2E8F0)),
+              const SizedBox(height: 14),
+              _buildTextArea(
+                'Clinical Notes / Diagnostic Impression Remarks',
+                _customDiagnosisNotesController,
+                'Enter additional clinical findings, staging, severity or free-text diagnostic notes...',
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 16),
@@ -3981,6 +5036,299 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             _procedureController,
             'Describe procedures performed or scheduled (e.g. sutures, dressings)...',
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildIcd10SearchAutocomplete() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.search, size: 16, color: AppTheme.primaryColor),
+            SizedBox(width: 6),
+            Text(
+              'ICD-10 Diagnosis Search & Autocomplete',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Autocomplete<Icd10Item>(
+          displayStringForOption: (Icd10Item item) => item.formatted,
+          optionsBuilder: (TextEditingValue textEditingValue) {
+            if (textEditingValue.text.trim().isEmpty) {
+              return const Iterable<Icd10Item>.empty();
+            }
+            return Icd10Database.search(textEditingValue.text);
+          },
+          onSelected: (Icd10Item selection) {
+            if (!_selectedIcd10List.any((item) => item.code == selection.code)) {
+              setState(() {
+                _selectedIcd10List.add(selection);
+                _syncDiagnosisController();
+              });
+            }
+          },
+          fieldViewBuilder: (context, fieldTextEditingController, focusNode, onFieldSubmitted) {
+            return TextField(
+              controller: fieldTextEditingController,
+              focusNode: focusNode,
+              style: const TextStyle(fontSize: 14, color: AppTheme.textPrimaryColor),
+              decoration: InputDecoration(
+                hintText: 'Type code (e.g. I10, E11) or condition (e.g. Hypertension, Diabetes, Asthma)...',
+                hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                prefixIcon: const Icon(Icons.search, color: AppTheme.primaryColor),
+                suffixIcon: fieldTextEditingController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          fieldTextEditingController.clear();
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: const Color(0xFFF1F5F9),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                ),
+              ),
+            );
+          },
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(12),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 280, maxWidth: 650),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    itemBuilder: (BuildContext context, int index) {
+                      final Icd10Item option = options.elementAt(index);
+                      final isAlreadyAdded = _selectedIcd10List.any((it) => it.code == option.code);
+                      return ListTile(
+                        dense: true,
+                        leading: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            option.code,
+                            style: const TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          option.description,
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimaryColor,
+                          ),
+                        ),
+                        subtitle: Text(
+                          option.category,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppTheme.textSecondaryColor,
+                          ),
+                        ),
+                        trailing: isAlreadyAdded
+                            ? const Icon(Icons.check_circle, color: AppTheme.secondaryColor, size: 20)
+                            : const Icon(Icons.add_circle_outline, color: AppTheme.primaryColor, size: 20),
+                        onTap: () {
+                          onSelected(option);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectedIcd10Diagnoses() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Selected Diagnoses (${_selectedIcd10List.length})',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _selectedIcd10List.clear();
+                  _syncDiagnosisController();
+                });
+              },
+              icon: const Icon(Icons.clear_all, size: 16, color: AppTheme.dangerColor),
+              label: const Text(
+                'Clear All',
+                style: TextStyle(color: AppTheme.dangerColor, fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ..._selectedIcd10List.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          final isPrimary = index == 0;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isPrimary ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isPrimary ? AppTheme.secondaryColor.withOpacity(0.5) : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isPrimary ? AppTheme.secondaryColor : AppTheme.primaryColor,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    item.code,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.description,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                      ),
+                      Text(
+                        '${isPrimary ? "Primary Diagnosis" : "Secondary Diagnosis"} • ${item.category}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: isPrimary ? AppTheme.secondaryColor : AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18, color: AppTheme.textSecondaryColor),
+                  onPressed: () {
+                    setState(() {
+                      _selectedIcd10List.removeAt(index);
+                      _syncDiagnosisController();
+                    });
+                  },
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildQuickIcd10Chips() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Common Outpatient Diagnoses (Quick-Add):',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textSecondaryColor,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _quickCommonIcd10.map((item) {
+            final isAdded = _selectedIcd10List.any((it) => it.code == item.code);
+            return ActionChip(
+              avatar: isAdded
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  : null,
+              label: Text(
+                '${item.code} ${item.description}',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: isAdded ? FontWeight.bold : FontWeight.w500,
+                  color: isAdded ? Colors.white : AppTheme.textPrimaryColor,
+                ),
+              ),
+              backgroundColor: isAdded ? AppTheme.primaryColor : const Color(0xFFF1F5F9),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(
+                  color: isAdded ? AppTheme.primaryColor : const Color(0xFFE2E8F0),
+                ),
+              ),
+              onPressed: () {
+                setState(() {
+                  if (isAdded) {
+                    _selectedIcd10List.removeWhere((it) => it.code == item.code);
+                  } else {
+                    _selectedIcd10List.add(item);
+                  }
+                  _syncDiagnosisController();
+                });
+              },
+            );
+          }).toList(),
         ),
       ],
     );
@@ -4088,6 +5436,324 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     );
   }
 
+  Widget _buildAllergyAlertsBanner() {
+    final combinedAllergies = _getCombinedPatientAllergies();
+    final prescribedMedNames = _medications.map((m) => m['name'] ?? '').toList();
+    final allergyAlerts = ClinicalSafetyService.checkAllergies(
+      patientAllergyText: combinedAllergies,
+      prescribedMedications: prescribedMedNames,
+    );
+
+    if (allergyAlerts.isNotEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFEF2F2),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFF87171), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.red.withValues(alpha: 0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.dangerous_rounded, color: AppTheme.dangerColor, size: 22),
+                const SizedBox(width: 8),
+                const Text(
+                  'Patient Drug Allergy Conflict Detected',
+                  style: TextStyle(
+                    color: AppTheme.dangerColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppTheme.dangerColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${allergyAlerts.length} ${allergyAlerts.length == 1 ? "Alert" : "Alerts"}',
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            ...allergyAlerts.map((alert) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: alert.severity.toLowerCase() == 'severe'
+                                ? const Color(0xFFFEE2E2)
+                                : const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            alert.severity.toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: alert.severity.toLowerCase() == 'severe'
+                                  ? const Color(0xFF991B1B)
+                                  : const Color(0xFF92400E),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${alert.drugName} ➔ ${alert.matchedAllergen}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      alert.warningMessage,
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D)),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+            Row(
+              children: [
+                const Icon(Icons.info_outline, size: 14, color: AppTheme.textSecondaryColor),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    'Documented allergies: $combinedAllergies',
+                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontStyle: FontStyle.italic),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (combinedAllergies.isNotEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFBBF7D0)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.verified_user_outlined, color: AppTheme.secondaryColor, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: RichText(
+                text: TextSpan(
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF166534)),
+                  children: [
+                    const TextSpan(
+                      text: 'Allergy Clearance: ',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    TextSpan(
+                      text: 'No contraindications detected for patient allergies ($combinedAllergies).',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildDrugInteractionsPanel() {
+    if (_medications.length < 2) return const SizedBox.shrink();
+
+    final prescribedMedNames = _medications.map((m) => m['name'] ?? '').toList();
+    final interactions = ClinicalSafetyService.checkDrugInteractions(prescribedMedNames);
+
+    if (interactions.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle_outline, color: AppTheme.secondaryColor, size: 16),
+            const SizedBox(width: 8),
+            Text(
+              'Zero drug-drug interactions detected across ${_medications.length} prescribed medications.',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF334155), fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFBBF24), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.amber.withValues(alpha: 0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 22),
+              const SizedBox(width: 8),
+              const Text(
+                'Clinical Drug-Drug Interaction Alert',
+                style: TextStyle(
+                  color: Color(0xFFB45309),
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD97706),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${interactions.length} ${interactions.length == 1 ? "Pair" : "Pairs"}',
+                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...interactions.map((inter) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFDE68A)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: inter.severityBgColor,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          inter.severity.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: inter.severityColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${inter.drug1}  ⇄  ${inter.drug2}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    inter.title,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF92400E),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Mechanism: ${inter.mechanism}',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7).withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Actionable Advice: ${inter.clinicalAdvice}',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF78350F),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPrescriptionTab() {
     return Column(
       key: const ValueKey('prescription_tab'),
@@ -4115,6 +5781,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 ),
               ),
               const SizedBox(height: 16),
+              _buildAllergyAlertsBanner(),
+              _buildDrugInteractionsPanel(),
               _buildMedicationInput(),
               const SizedBox(height: 16),
               _buildMedicationList(),
@@ -5144,46 +6812,142 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   Widget _buildMedicationList() {
     if (_medications.isEmpty) return const SizedBox.shrink();
+
+    final combinedAllergies = _getCombinedPatientAllergies();
+    final allDrugNames = _medications.map((m) => m['name'] ?? '').toList();
+    final allInteractions = ClinicalSafetyService.checkDrugInteractions(allDrugNames);
+
     return Column(
       children: _medications.asMap().entries.map((entry) {
         int idx = entry.key;
         Map<String, String> med = entry.value;
+        final medName = med['name'] ?? '';
         final durStr = med['duration'] != null && med['duration']!.isNotEmpty
             ? ' for ${med['duration']}'
             : '';
+
+        // Check allergy for this drug
+        final itemAllergies = ClinicalSafetyService.checkAllergies(
+          patientAllergyText: combinedAllergies,
+          prescribedMedications: [medName],
+        );
+
+        // Check if involved in an interaction
+        final itemInteractions = allInteractions.where((inter) {
+          final mLower = medName.toLowerCase();
+          return mLower.contains(inter.drug1.toLowerCase()) ||
+              inter.drug1.toLowerCase().contains(mLower) ||
+              mLower.contains(inter.drug2.toLowerCase()) ||
+              inter.drug2.toLowerCase().contains(mLower);
+        }).toList();
+
+        final bool hasAllergy = itemAllergies.isNotEmpty;
+        final bool hasInteraction = itemInteractions.isNotEmpty;
+
         return Container(
           margin: const EdgeInsets.only(bottom: 6),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: hasAllergy
+                ? const Color(0xFFFEF2F2)
+                : (hasInteraction ? const Color(0xFFFFFBEB) : Colors.white),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.borderColor),
+            border: Border.all(
+              color: hasAllergy
+                  ? const Color(0xFFFCA5A5)
+                  : (hasInteraction ? const Color(0xFFFDE68A) : AppTheme.borderColor),
+            ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.medication,
-                color: AppTheme.primaryColor,
-                size: 16,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '${med['name']} - ${med['dosage']} (${med['frequency']})$durStr',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
+              Row(
+                children: [
+                  Icon(
+                    Icons.medication,
+                    color: hasAllergy
+                        ? AppTheme.dangerColor
+                        : (hasInteraction ? const Color(0xFFD97706) : AppTheme.primaryColor),
+                    size: 16,
                   ),
-                ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${med['name']} - ${med['dosage']} (${med['frequency']})$durStr',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: hasAllergy ? const Color(0xFF991B1B) : const Color(0xFF1E293B),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: AppTheme.dangerColor,
+                      size: 18,
+                    ),
+                    onPressed: () => setState(() => _medications.removeAt(idx)),
+                  ),
+                ],
               ),
-              IconButton(
-                icon: const Icon(
-                  Icons.delete_outline,
-                  color: Colors.red,
-                  size: 18,
+              if (hasAllergy || hasInteraction) ...[
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    if (hasAllergy)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.dangerous, size: 12, color: AppTheme.dangerColor),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Allergy: ${itemAllergies.first.matchedAllergen}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF991B1B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (hasInteraction)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: const Color(0xFFFDE68A)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, size: 12, color: Color(0xFFD97706)),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Interaction (${itemInteractions.first.severity})',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF92400E),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
-                onPressed: () => setState(() => _medications.removeAt(idx)),
-              ),
+              ],
             ],
           ),
         );

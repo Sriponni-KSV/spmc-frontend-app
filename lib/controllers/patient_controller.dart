@@ -49,6 +49,25 @@ class PatientController {
     }
   }
 
+  /// Fetch a single patient by ID
+  Future<PatientModel?> fetchPatientById(int id) async {
+    try {
+      final response = await ApiService.get('$baseUrl/patients/$id');
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body is Map && body['success'] == true && body['data'] != null) {
+          return PatientModel.fromJson(body['data']);
+        } else if (body is Map && body.containsKey('name')) {
+          return PatientModel.fromJson(body as Map<String, dynamic>);
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error fetching patient by ID: $e');
+      return null;
+    }
+  }
+
   /// Fetch all patients
   Future<List<PatientModel>> fetchPatients() async {
   try {

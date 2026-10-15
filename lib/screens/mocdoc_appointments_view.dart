@@ -10,6 +10,7 @@ import '../controllers/admin_controller.dart';
 import '../controllers/appointment_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../widgets/appointment_details_dialog.dart';
+import '../widgets/check_in_vitals_dialog.dart';
 import '../utils/date_formatter.dart';
 
 class MocDocAppointmentsView extends StatefulWidget {
@@ -178,40 +179,83 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
 
   // --- SLOT GENERATOR LOGIC ---
   List<String> _generateSlotsForDoctor(UserModel doctor) {
-    if (doctor.slotStartTime == null || doctor.slotEndTime == null) {
-      return _generateDefaultSlots();
-    }
-
     int duration = 30; // default 30 mins
-    if (doctor.slotDuration != null) {
-      duration = int.tryParse(doctor.slotDuration!.split(' ')[0]) ?? 30;
-    }
-
-    try {
-      DateTime start = _parseTime(doctor.slotStartTime!);
-      DateTime end = _parseTime(doctor.slotEndTime!);
-
-      List<String> slots = [];
-      DateTime current = start;
-      while (current.isBefore(end)) {
-        slots.add(DateFormat('hh:mm a').format(current));
-        current = current.add(Duration(minutes: duration));
+    if (doctor.slotDuration != null && doctor.slotDuration!.trim().isNotEmpty) {
+      final digits = RegExp(r'\d+').firstMatch(doctor.slotDuration!)?.group(0);
+      if (digits != null) {
+        duration = int.tryParse(digits) ?? 30;
       }
-      return slots;
-    } catch (e) {
-      return _generateDefaultSlots();
     }
+    if (duration <= 0) duration = 30;
+
+    List<String> slots = [];
+
+    // 1. Primary: Doctor's Consultation Hours (slotStartTime to slotEndTime)
+    if (doctor.slotStartTime != null && doctor.slotStartTime!.trim().isNotEmpty &&
+        doctor.slotEndTime != null && doctor.slotEndTime!.trim().isNotEmpty) {
+      try {
+        DateTime start = _parseTime(doctor.slotStartTime!.trim());
+        DateTime end = _parseTime(doctor.slotEndTime!.trim());
+        DateTime current = start;
+        while (current.isBefore(end)) {
+          slots.add(DateFormat('hh:mm a').format(current));
+          current = current.add(Duration(minutes: duration));
+        }
+        if (slots.isNotEmpty) return slots;
+      } catch (e) {
+        debugPrint('Error generating slots from doctor consultation hours: $e');
+      }
+    }
+
+    // 2. Secondary: If doctor only configured morning or evening shifts
+    final mStartStr = doctor.morningStartTime;
+    final mEndStr = doctor.morningEndTime;
+    if (mStartStr != null && mStartStr.trim().isNotEmpty &&
+        mEndStr != null && mEndStr.trim().isNotEmpty) {
+      try {
+        DateTime mStart = _parseTime(mStartStr.trim());
+        DateTime mEnd = _parseTime(mEndStr.trim());
+        DateTime currentM = mStart;
+        while (currentM.isBefore(mEnd)) {
+          slots.add(DateFormat('hh:mm a').format(currentM));
+          currentM = currentM.add(Duration(minutes: duration));
+        }
+      } catch (e) {
+        debugPrint('Error generating morning slots: $e');
+      }
+    }
+
+    final eStartStr = doctor.eveningStartTime;
+    final eEndStr = doctor.eveningEndTime;
+    if (eStartStr != null && eStartStr.trim().isNotEmpty &&
+        eEndStr != null && eEndStr.trim().isNotEmpty) {
+      try {
+        DateTime eStart = _parseTime(eStartStr.trim());
+        DateTime eEnd = _parseTime(eEndStr.trim());
+        DateTime currentE = eStart;
+        while (currentE.isBefore(eEnd)) {
+          slots.add(DateFormat('hh:mm a').format(currentE));
+          currentE = currentE.add(Duration(minutes: duration));
+        }
+      } catch (e) {
+        debugPrint('Error generating evening slots: $e');
+      }
+    }
+
+    return slots;
   }
 
-  List<String> _generateDefaultSlots() {
-    List<String> slots = [];
-    DateTime start = DateTime(2026, 1, 1, 9, 0); // 09:00 AM
-    DateTime end = DateTime(2026, 1, 1, 17, 0); // 05:00 PM
-    while (start.isBefore(end)) {
-      slots.add(DateFormat('hh:mm a').format(start));
-      start = start.add(const Duration(minutes: 30));
+  bool _isMorningSlot(String slotTime, [UserModel? doctor]) {
+    try {
+      final dt = _parseTime(slotTime);
+      if (doctor != null && doctor.morningEndTime != null && doctor.morningEndTime!.trim().isNotEmpty) {
+        final mEnd = _parseTime(doctor.morningEndTime!.trim());
+        return dt.isBefore(mEnd);
+      }
+      return dt.hour < 13;
+    } catch (_) {
+      return slotTime.toUpperCase().contains('AM');
     }
-    return slots;
   }
 
   DateTime _parseTime(String timeStr) {
@@ -265,6 +309,16 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
 
   // --- ACTIONS ---
   void _openBookingDialog(UserModel doctor, String slotTime) {
+    if (_isSlotInPast(slotTime, _filterDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot book an appointment for an expired or past-time slot.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _bookingDoctor = doctor;
       _bookingTime = slotTime;
@@ -1064,6 +1118,59 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             ),
           );
         }
+      }
+    }
+  }
+
+  void _checkInAppointment(AppointmentModel appt) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final apptDt = DateFormatter.toDateTime(appt.appointmentDate);
+
+    if (apptDt != null) {
+      final apptDay = DateTime(apptDt.year, apptDt.month, apptDt.day);
+      if (apptDay.isAfter(today)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot check in before the appointment date.'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => CheckInVitalsDialog(
+        appointment: appt,
+        onCompleted: _fetchData,
+      ),
+    );
+  }
+
+  Future<void> _startConsultation(AppointmentModel appt) async {
+    try {
+      await _appointmentController.updateStatus(appt.id!, 'In Consultation');
+      _fetchData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Consultation started for ${appt.patientName}.'),
+            backgroundColor: AppTheme.secondaryColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start consultation: $e'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
       }
     }
   }
@@ -2441,9 +2548,6 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                                 );
                               }
                               final a = dayAppts[aIdx];
-                              final statusColor = AppTheme.getStatusTextColor(
-                                a.status,
-                              );
                               final darkBg = getDarkStatusBg(a.status);
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 2),
@@ -2567,7 +2671,9 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
         ? _slotSearchQuery.trim().toLowerCase()
         : _searchQuery.trim().toLowerCase();
 
-    final displaySlots = slots.where((s) {
+    final sessionFiltered = slots;
+
+    final displaySlots = sessionFiltered.where((s) {
       final appt = _getAppointmentInSlot(
         _selectedFilterDoctor!,
         s,
@@ -2683,6 +2789,98 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             ],
           ),
         ),
+        // Doctor Consultation Hours Banner
+        () {
+          final doc = _selectedFilterDoctor;
+          if (doc == null) return const SizedBox.shrink();
+
+          String hoursText = '';
+          if (doc.slotStartTime != null && doc.slotStartTime!.trim().isNotEmpty &&
+              doc.slotEndTime != null && doc.slotEndTime!.trim().isNotEmpty) {
+            hoursText = '${doc.slotStartTime} - ${doc.slotEndTime}';
+          } else if (doc.morningStartTime != null && doc.morningStartTime!.trim().isNotEmpty &&
+                     doc.morningEndTime != null && doc.morningEndTime!.trim().isNotEmpty) {
+            hoursText = '${doc.morningStartTime} - ${doc.morningEndTime}';
+            if (doc.eveningStartTime != null && doc.eveningStartTime!.trim().isNotEmpty &&
+                doc.eveningEndTime != null && doc.eveningEndTime!.trim().isNotEmpty) {
+              hoursText += ' & ${doc.eveningStartTime} - ${doc.eveningEndTime}';
+            }
+          }
+
+          if (hoursText.isEmpty) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.amber.shade800),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Doctor has not configured consultation hours.',
+                    style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          String durationText = '';
+          if (doc.slotDuration != null && doc.slotDuration!.trim().isNotEmpty) {
+            final digits = RegExp(r'\d+').firstMatch(doc.slotDuration!)?.group(0);
+            if (digits != null) {
+              durationText = '$digits min slots';
+            }
+          }
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.07),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.access_time_filled, size: 15, color: AppTheme.primaryColor),
+                const SizedBox(width: 8),
+                Text(
+                  'Consultation Hours: $hoursText',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primaryColor,
+                  ),
+                ),
+                if (durationText.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      durationText,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        }(),
         Container(
           height: 38,
           margin: const EdgeInsets.only(bottom: 8),
@@ -2746,6 +2944,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       ],
     );
   }
+
 
   Widget _buildBookedSlotCard(AppointmentModel appt) {
     final statusColor = AppTheme.getStatusTextColor(appt.status);
@@ -2812,6 +3011,28 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                   ),
                 ),
                 const SizedBox(width: 4),
+                if (appt.tokenNumber != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      'T#${appt.tokenNumber}',
+                      style: const TextStyle(
+                        color: AppTheme.primaryColor,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -2926,18 +3147,43 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                     },
                   ),
                   const SizedBox(width: 4),
-                  if (appt.status == 'Confirmed') ...[
-                    if (!hasVitals && !isFuture) ...[
-                      _buildCardAction(
-                        Icons.monitor_heart_outlined,
-                        'Vitals',
-                        const Color(0xFF79B649),
-                        () {
-                          _openVitalsEntryDialog(appt);
-                        },
-                      ),
-                      const SizedBox(width: 4),
-                    ],
+                  if (appt.status == 'Confirmed' || appt.status == 'Scheduled') ...[
+                    _buildCardAction(
+                      Icons.how_to_reg_outlined,
+                      'Check In',
+                      const Color(0xFF0F766E),
+                      () {
+                        _checkInAppointment(appt);
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (appt.status == 'Checked In' || appt.status == 'Checked-in') ...[
+                    _buildCardAction(
+                      Icons.monitor_heart_outlined,
+                      'Vitals',
+                      const Color(0xFF79B649),
+                      () {
+                        _checkInAppointment(appt);
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (appt.status == 'Waiting') ...[
+                    _buildCardAction(
+                      Icons.meeting_room_outlined,
+                      'Start Consult',
+                      AppTheme.primaryColor,
+                      () {
+                        _startConsultation(appt);
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (appt.status == 'Confirmed' ||
+                      appt.status == 'Scheduled' ||
+                      appt.status == 'Checked In' ||
+                      appt.status == 'Checked-in') ...[
                     _buildCardAction(
                       Icons.cancel_outlined,
                       'Cancel',
@@ -3244,11 +3490,16 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                     // Calculate stats
                     int total = slots.length;
                     int booked = 0;
+                    int expired = 0;
                     for (var s in slots) {
-                      if (_getAppointmentInSlot(doc, s, _filterDate) != null)
+                      if (_getAppointmentInSlot(doc, s, _filterDate) != null) {
                         booked++;
+                      } else if (_isSlotInPast(s, _filterDate)) {
+                        expired++;
+                      }
                     }
-                    int available = total - booked;
+                    int available = total - booked - expired;
+                    if (available < 0) available = 0;
 
                     return Card(
                       elevation: 0,

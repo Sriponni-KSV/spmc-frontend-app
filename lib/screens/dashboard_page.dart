@@ -5824,13 +5824,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
 //                       mainAxisAlignment: MainAxisAlignment.center,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          appt.patientName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                          overflow: TextOverflow.ellipsis,
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                appt.patientName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (appt.tokenNumber != null) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppTheme.primaryColor.withOpacity(0.25)),
+                                ),
+                                child: Text(
+                                  'T#${appt.tokenNumber}',
+                                  style: const TextStyle(
+                                    color: AppTheme.primaryColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -5910,7 +5935,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               flex: 3,
               child: Align(
                 alignment: Alignment.center,
-                child: (appt.status == 'Waiting' || appt.status == 'Confirmed' || appt.status == 'Admitted' || appt.status == 'Scheduled')
+                child: (appt.status == 'Waiting' || appt.status == 'Confirmed' || appt.status == 'Checked In' || appt.status == 'Admitted' || appt.status == 'Scheduled')
                     ? ElevatedButton.icon(
                         onPressed: () => _startConsultation(appt),
                         style: ElevatedButton.styleFrom(
