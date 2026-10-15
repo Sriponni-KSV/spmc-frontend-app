@@ -46,9 +46,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   // Filters
   final DateTime _selectedDate = DateTime.now(); // Locked to today for OPD
   String _selectedDoctor = 'All';
+  String _selectedPharmacyStatus = 'All';
+  String _selectedLabTest = 'All';
+  String _selectedDateFilter = 'All';
   String _searchQuery = '';
   bool _isFilterVisible = false;
   final TextEditingController _searchCtrl = TextEditingController();
+  final Set<dynamic> _dispensingIds = {};
 
   List<UserModel> _doctors = [];
 
@@ -57,6 +61,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     super.initState();
     UnsavedChangesHelper.setUnsavedChanges(true);
     _tabController = TabController(length: 8, vsync: this);
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
     _loadData();
     _loadDoctors();
   }
@@ -69,12 +76,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool showLoading = true}) async {
     if (!mounted) return;
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    if (showLoading) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final data = await _appointmentController.fetchAdminAppointments(
@@ -180,8 +189,30 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             .toList();
       case 2: // In Consultation
         return baseApps.where((a) => a.status == 'In Consultation').toList();
-      case 3: // Completed – driven by consultations (all dates, not date-filtered)
-        return _consultations.map((c) {
+      case 3: // Completed – driven by consultations
+        var compList = _consultations;
+        if (_searchQuery.trim().isNotEmpty) {
+          final query = _searchQuery.trim().toLowerCase();
+          compList = compList.where((c) {
+            final name = (c['patient_name'] ?? '').toString().toLowerCase();
+            final pid = (c['patient_display_id'] ?? '').toString().toLowerCase();
+            final rawPid = (c['patient_id'] ?? '').toString().toLowerCase();
+            final phone = (c['patient_phone'] ?? '').toString().toLowerCase();
+            final doc = (c['doctor_name'] ?? '').toString().toLowerCase();
+            return name.contains(query) || pid.contains(query) || rawPid.contains(query) || phone.contains(query) || doc.contains(query);
+          }).toList();
+        }
+        if (_selectedDoctor != 'All') {
+          final target = _selectedDoctor.trim().toLowerCase();
+          compList = compList.where((c) {
+            final doc = (c['doctor_name'] ?? '').toString().trim().toLowerCase();
+            return doc == target || doc.contains(target);
+          }).toList();
+        }
+        if (_selectedDateFilter != 'All') {
+          compList = compList.where((c) => _matchesDateFilter(c['created_at'])).toList();
+        }
+        return compList.map((c) {
           return AppointmentModel(
             id: c['appointment_id'] is int
                 ? c['appointment_id']
@@ -228,6 +259,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
       case 2: // In Consultation
         return walkins.where((a) => a.status == 'In Consultation').length;
       case 3: // Completed
+        if (_selectedDoctor != 'All') {
+          final target = _selectedDoctor.trim().toLowerCase();
+          return _consultations.where((c) {
+            final doc = (c['doctor_name'] ?? '').toString().trim().toLowerCase();
+            return doc == target || doc.contains(target);
+          }).length;
+        }
         return _consultations.length;
       case 4: // Cancelled & No-Show
         return walkins
@@ -676,14 +714,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   Widget _buildFilterToggle() {
+    final hasActive = _hasActiveFilters;
     return InkWell(
       onTap: () => setState(() => _isFilterVisible = !_isFilterVisible),
       child: Container(
         height: 48,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppTheme.borderColor),
+          color: hasActive ? AppTheme.primaryColor.withOpacity(0.08) : Colors.white,
+          border: Border.all(
+            color: hasActive ? AppTheme.primaryColor : AppTheme.borderColor,
+            width: hasActive ? 1.5 : 1.0,
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
@@ -692,12 +734,16 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             Icon(
               _isFilterVisible ? Icons.filter_list_off : Icons.filter_list,
               size: 18,
-              color: AppTheme.textPrimaryColor,
+              color: hasActive ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
             ),
             const SizedBox(width: 8),
-            const Text(
-              'Filters',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            Text(
+              hasActive ? 'Filters (Active)' : 'Filters',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: hasActive ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+              ),
             ),
           ],
         ),
@@ -706,44 +752,151 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   Widget _buildFilterPanel() {
+    final currentTab = _tabController.index;
+    final isMobile = widget.isMobile;
+
     return Container(
       margin: EdgeInsets.only(
-        left: widget.isMobile ? 16 : 24,
-        right: widget.isMobile ? 16 : 24,
+        left: isMobile ? 16 : 24,
+        right: isMobile ? 16 : 24,
         top: 12,
       ),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppTheme.borderColor),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildFilterDropdown(
-              'Doctor Availability Filter',
-              _selectedDoctor,
-              ['All', ..._doctors.map((d) => d.fullname)],
-              (v) {
-                if (v != null) {
-                  setState(() => _selectedDoctor = v);
-                  _loadData();
-                }
-              },
-            ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          if (_selectedDoctor != 'All') ...[
-            const SizedBox(width: 12),
-            IconButton(
-              onPressed: () {
-                setState(() => _selectedDoctor = 'All');
-                _loadData();
-              },
-              icon: const Icon(Icons.refresh, color: Colors.redAccent),
-              tooltip: 'Reset Filters',
-            ),
-          ],
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.start,
+            crossAxisAlignment: WrapCrossAlignment.end,
+            children: [
+              // 1. Doctor Filter
+              SizedBox(
+                width: isMobile ? double.infinity : 220,
+                child: _buildFilterDropdown(
+                  'Doctor Availability Filter',
+                  _selectedDoctor,
+                  ['All', ..._doctors.map((d) => d.fullname)],
+                  (v) {
+                    if (v != null) {
+                      setState(() => _selectedDoctor = v);
+                      _loadData();
+                    }
+                  },
+                ),
+              ),
+
+              // 2. Pharmacy Status Filter (Tab 7)
+              if (currentTab == 7)
+                SizedBox(
+                  width: isMobile ? double.infinity : 180,
+                  child: _buildFilterDropdown(
+                    'Pharmacy Status',
+                    _selectedPharmacyStatus,
+                    const ['All', 'Pending', 'Dispensed'],
+                    (v) {
+                      if (v != null) {
+                        setState(() => _selectedPharmacyStatus = v);
+                      }
+                    },
+                  ),
+                ),
+
+              // 3. Lab Test Filter (Tab 6)
+              if (currentTab == 6)
+                SizedBox(
+                  width: isMobile ? double.infinity : 220,
+                  child: _buildFilterDropdown(
+                    'Lab Test',
+                    _selectedLabTest,
+                    _availableLabTests,
+                    (v) {
+                      if (v != null) {
+                        setState(() => _selectedLabTest = v);
+                      }
+                    },
+                  ),
+                ),
+
+              // 4. Date Range Filter
+              if (currentTab >= 3)
+                SizedBox(
+                  width: isMobile ? double.infinity : 180,
+                  child: _buildFilterDropdown(
+                    'Date Range',
+                    _selectedDateFilter,
+                    const ['All', 'Today', 'Yesterday', 'Past 7 Days', 'Past 30 Days'],
+                    (v) {
+                      if (v != null) {
+                        setState(() => _selectedDateFilter = v);
+                      }
+                    },
+                  ),
+                ),
+
+              // 5. Action Buttons (Apply & Reset)
+              Padding(
+                padding: const EdgeInsets.only(top: 18),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {});
+                        _loadData();
+                      },
+                      icon: const Icon(Icons.check, size: 16),
+                      label: const Text('Apply Filter'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    if (_hasActiveFilters) ...[
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _selectedDoctor = 'All';
+                            _selectedPharmacyStatus = 'All';
+                            _selectedLabTest = 'All';
+                            _selectedDateFilter = 'All';
+                          });
+                          _loadData();
+                        },
+                        icon: const Icon(Icons.refresh, size: 16, color: AppTheme.dangerColor),
+                        label: const Text('Reset', style: TextStyle(color: AppTheme.dangerColor)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppTheme.dangerColor),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -778,7 +931,63 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     );
   }
 
-  int _getPrescriptionsCount() {
+  bool get _hasActiveFilters =>
+      _selectedDoctor != 'All' ||
+      _selectedPharmacyStatus != 'All' ||
+      _selectedLabTest != 'All' ||
+      _selectedDateFilter != 'All';
+
+  bool _matchesDateFilter(dynamic createdAtRaw) {
+    if (_selectedDateFilter == 'All') return true;
+    if (createdAtRaw == null) return false;
+    final dt = DateTime.tryParse(createdAtRaw.toString());
+    if (dt == null) return false;
+    final localDt = dt.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final itemDate = DateTime(localDt.year, localDt.month, localDt.day);
+
+    if (_selectedDateFilter == 'Today') {
+      return itemDate == today;
+    } else if (_selectedDateFilter == 'Yesterday') {
+      final yesterday = today.subtract(const Duration(days: 1));
+      return itemDate == yesterday;
+    } else if (_selectedDateFilter == 'Past 7 Days') {
+      final sevenDaysAgo = today.subtract(const Duration(days: 7));
+      return itemDate.isAfter(sevenDaysAgo.subtract(const Duration(seconds: 1))) &&
+          itemDate.isBefore(today.add(const Duration(days: 1)));
+    } else if (_selectedDateFilter == 'Past 30 Days') {
+      final thirtyDaysAgo = today.subtract(const Duration(days: 30));
+      return itemDate.isAfter(thirtyDaysAgo.subtract(const Duration(seconds: 1))) &&
+          itemDate.isBefore(today.add(const Duration(days: 1)));
+    }
+    return true;
+  }
+
+  List<String> get _availableLabTests {
+    final tests = <String>{};
+    for (final c in _consultations) {
+      final labsRaw = c['lab_tests'];
+      List<dynamic> labs = [];
+      if (labsRaw is List) {
+        labs = labsRaw;
+      } else if (labsRaw is String) {
+        try {
+          final decoded = jsonDecode(labsRaw);
+          if (decoded is List) labs = decoded;
+        } catch (_) {}
+      }
+      for (final t in labs) {
+        if (t != null && t.toString().trim().isNotEmpty) {
+          tests.add(t.toString().trim());
+        }
+      }
+    }
+    final list = tests.toList()..sort();
+    return ['All', ...list];
+  }
+
+  List<Map<String, dynamic>> _getFilteredPrescriptions() {
     return _consultations.where((c) {
       final medsRaw = c['medications'];
       List<dynamic> meds = [];
@@ -790,11 +999,47 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           if (decoded is List) meds = decoded;
         } catch (_) {}
       }
-      return meds.isNotEmpty;
-    }).length;
+      if (meds.isEmpty) return false;
+
+      // Search Query
+      if (_searchQuery.trim().isNotEmpty) {
+        final query = _searchQuery.trim().toLowerCase();
+        final name = (c['patient_name'] ?? '').toString().toLowerCase();
+        final pDisplayId = (c['patient_display_id'] ?? '').toString().toLowerCase();
+        final pId = (c['patient_id'] ?? '').toString().toLowerCase();
+        final phone = (c['patient_phone'] ?? '').toString().toLowerCase();
+        final doc = (c['doctor_name'] ?? '').toString().toLowerCase();
+        final matchesMeds = meds.any((m) => m.toString().toLowerCase().contains(query));
+
+        if (!name.contains(query) &&
+            !pDisplayId.contains(query) &&
+            !pId.contains(query) &&
+            !phone.contains(query) &&
+            !doc.contains(query) &&
+            !matchesMeds) {
+          return false;
+        }
+      }
+
+      // Doctor Filter
+      if (_selectedDoctor != 'All') {
+        final doc = (c['doctor_name'] ?? '').toString().trim().toLowerCase();
+        final target = _selectedDoctor.trim().toLowerCase();
+        if (doc != target && !doc.contains(target)) {
+          return false;
+        }
+      }
+
+      // Date Filter
+      if (!_matchesDateFilter(c['created_at'])) {
+        return false;
+      }
+
+      return true;
+    }).toList();
   }
 
-  int _getLabTestsCount() {
+  List<Map<String, dynamic>> _getFilteredLabOrders() {
     return _consultations.where((c) {
       final labsRaw = c['lab_tests'];
       List<dynamic> labs = [];
@@ -806,11 +1051,54 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           if (decoded is List) labs = decoded;
         } catch (_) {}
       }
-      return labs.isNotEmpty;
-    }).length;
+      if (labs.isEmpty) return false;
+
+      // Search Query
+      if (_searchQuery.trim().isNotEmpty) {
+        final query = _searchQuery.trim().toLowerCase();
+        final name = (c['patient_name'] ?? '').toString().toLowerCase();
+        final pDisplayId = (c['patient_display_id'] ?? '').toString().toLowerCase();
+        final pId = (c['patient_id'] ?? '').toString().toLowerCase();
+        final phone = (c['patient_phone'] ?? '').toString().toLowerCase();
+        final doc = (c['doctor_name'] ?? '').toString().toLowerCase();
+        final matchesLabs = labs.any((l) => l.toString().toLowerCase().contains(query));
+
+        if (!name.contains(query) &&
+            !pDisplayId.contains(query) &&
+            !pId.contains(query) &&
+            !phone.contains(query) &&
+            !doc.contains(query) &&
+            !matchesLabs) {
+          return false;
+        }
+      }
+
+      // Doctor Filter
+      if (_selectedDoctor != 'All') {
+        final doc = (c['doctor_name'] ?? '').toString().trim().toLowerCase();
+        final target = _selectedDoctor.trim().toLowerCase();
+        if (doc != target && !doc.contains(target)) {
+          return false;
+        }
+      }
+
+      // Lab Test Type Filter
+      if (_selectedLabTest != 'All') {
+        final targetTest = _selectedLabTest.trim().toLowerCase();
+        final hasTest = labs.any((l) => l.toString().toLowerCase().contains(targetTest));
+        if (!hasTest) return false;
+      }
+
+      // Date Filter
+      if (!_matchesDateFilter(c['created_at'])) {
+        return false;
+      }
+
+      return true;
+    }).toList();
   }
 
-  int _getPharmacyCount() {
+  List<Map<String, dynamic>> _getFilteredPharmacyRecords() {
     return _consultations.where((c) {
       final status = c['pharmacy_status']?.toString();
       if (status == null || status.isEmpty) return false;
@@ -824,8 +1112,63 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           if (decoded is List) meds = decoded;
         } catch (_) {}
       }
-      return meds.isNotEmpty;
-    }).length;
+      if (meds.isEmpty) return false;
+
+      // Search Query
+      if (_searchQuery.trim().isNotEmpty) {
+        final query = _searchQuery.trim().toLowerCase();
+        final name = (c['patient_name'] ?? '').toString().toLowerCase();
+        final pDisplayId = (c['patient_display_id'] ?? '').toString().toLowerCase();
+        final pId = (c['patient_id'] ?? '').toString().toLowerCase();
+        final phone = (c['patient_phone'] ?? '').toString().toLowerCase();
+        final doc = (c['doctor_name'] ?? '').toString().toLowerCase();
+        final matchesMeds = meds.any((m) => m.toString().toLowerCase().contains(query));
+
+        if (!name.contains(query) &&
+            !pDisplayId.contains(query) &&
+            !pId.contains(query) &&
+            !phone.contains(query) &&
+            !doc.contains(query) &&
+            !matchesMeds) {
+          return false;
+        }
+      }
+
+      // Doctor Filter
+      if (_selectedDoctor != 'All') {
+        final doc = (c['doctor_name'] ?? '').toString().trim().toLowerCase();
+        final target = _selectedDoctor.trim().toLowerCase();
+        if (doc != target && !doc.contains(target)) {
+          return false;
+        }
+      }
+
+      // Pharmacy Status Filter
+      if (_selectedPharmacyStatus != 'All') {
+        if (status.trim().toLowerCase() != _selectedPharmacyStatus.trim().toLowerCase()) {
+          return false;
+        }
+      }
+
+      // Date Filter
+      if (!_matchesDateFilter(c['created_at'])) {
+        return false;
+      }
+
+      return true;
+    }).toList();
+  }
+
+  int _getPrescriptionsCount() {
+    return _getFilteredPrescriptions().length;
+  }
+
+  int _getLabTestsCount() {
+    return _getFilteredLabOrders().length;
+  }
+
+  int _getPharmacyCount() {
+    return _getFilteredPharmacyRecords().length;
   }
 
   Widget _buildTabBar() {
@@ -6107,25 +6450,23 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   Widget _buildPrescriptionsTab() {
-    final prescriptions = _consultations.where((c) {
-      final medsRaw = c['medications'];
-      List<dynamic> meds = [];
-      if (medsRaw is List) {
-        meds = medsRaw;
-      } else if (medsRaw is String) {
-        try {
-          final decoded = jsonDecode(medsRaw);
-          if (decoded is List) meds = decoded;
-        } catch (_) {}
-      }
-      return meds.isNotEmpty;
-    }).toList();
+    final prescriptions = _getFilteredPrescriptions();
 
     if (prescriptions.isEmpty) {
-      return const Center(
-        child: Text(
-          'No prescriptions generated today.',
-          style: TextStyle(color: Colors.grey),
+      final isFiltered = _searchQuery.isNotEmpty || _hasActiveFilters;
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.description_outlined, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text(
+              isFiltered
+                  ? 'No prescriptions found matching the search or filter criteria.'
+                  : 'No prescriptions available.',
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+          ],
         ),
       );
     }
@@ -6228,25 +6569,23 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   Widget _buildLabTestsTab() {
-    final labOrders = _consultations.where((c) {
-      final labsRaw = c['lab_tests'];
-      List<dynamic> labs = [];
-      if (labsRaw is List) {
-        labs = labsRaw;
-      } else if (labsRaw is String) {
-        try {
-          final decoded = jsonDecode(labsRaw);
-          if (decoded is List) labs = decoded;
-        } catch (_) {}
-      }
-      return labs.isNotEmpty;
-    }).toList();
+    final labOrders = _getFilteredLabOrders();
 
     if (labOrders.isEmpty) {
-      return const Center(
-        child: Text(
-          'No lab tests ordered today.',
-          style: TextStyle(color: Colors.grey),
+      final isFiltered = _searchQuery.isNotEmpty || _hasActiveFilters;
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.science_outlined, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text(
+              isFiltered
+                  ? 'No lab orders found matching the search or filter criteria.'
+                  : 'No lab orders available.',
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+          ],
         ),
       );
     }
@@ -6351,27 +6690,23 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   Widget _buildPharmacyTab() {
-    final pharmacyNotifications = _consultations.where((c) {
-      final status = c['pharmacy_status']?.toString();
-      if (status == null || status.isEmpty) return false;
-      final medsRaw = c['medications'];
-      List<dynamic> meds = [];
-      if (medsRaw is List) {
-        meds = medsRaw;
-      } else if (medsRaw is String) {
-        try {
-          final decoded = jsonDecode(medsRaw);
-          if (decoded is List) meds = decoded;
-        } catch (_) {}
-      }
-      return meds.isNotEmpty;
-    }).toList();
+    final pharmacyNotifications = _getFilteredPharmacyRecords();
 
     if (pharmacyNotifications.isEmpty) {
-      return const Center(
-        child: Text(
-          'No pharmacy notifications today.',
-          style: TextStyle(color: Colors.grey),
+      final isFiltered = _searchQuery.isNotEmpty || _hasActiveFilters;
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.local_pharmacy_outlined, size: 48, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text(
+              isFiltered
+                  ? 'No pharmacy records found matching the search or filter criteria.'
+                  : 'No pharmacy records available.',
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+          ],
         ),
       );
     }
@@ -6467,39 +6802,84 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       ElevatedButton.icon(
-                        onPressed: () async {
-                          try {
-                            await _appointmentController
-                                .updateConsultation(c['id'], {
-                                  'symptoms': c['symptoms'],
-                                  'diagnosis': c['diagnosis'],
-                                  'medications': c['medications'],
-                                  'notes': c['notes'],
-                                  'lab_tests': c['lab_tests'],
-                                  'pharmacy_status': 'Dispensed',
+                        onPressed: _dispensingIds.contains(c['id'])
+                            ? null
+                            : () async {
+                                final messenger = ScaffoldMessenger.of(this.context);
+                                final cId = c['id'] is int
+                                    ? c['id'] as int
+                                    : int.tryParse(c['id']?.toString() ?? '') ?? 0;
+                                if (cId == 0) {
+                                  messenger.showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Invalid consultation ID'),
+                                      backgroundColor: AppTheme.dangerColor,
+                                    ),
+                                  );
+                                  return;
+                                }
+
+                                setState(() {
+                                  _dispensingIds.add(c['id']);
                                 });
-                            _loadData();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Medications dispensed successfully!',
+
+                                try {
+                                  await _appointmentController.updateConsultation(cId, {
+                                    'symptoms': c['symptoms'],
+                                    'diagnosis': c['diagnosis'],
+                                    'medications': c['medications'],
+                                    'notes': c['notes'],
+                                    'lab_tests': c['lab_tests'],
+                                    'pharmacy_status': 'Dispensed',
+                                  });
+                                  if (mounted) {
+                                    setState(() {
+                                      c['pharmacy_status'] = 'Dispensed';
+                                    });
+                                  }
+                                  await _loadData(showLoading: false);
+                                  if (mounted) {
+                                    messenger.showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Medications dispensed successfully!',
+                                        ),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (mounted) {
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text('Error dispensing: $e'),
+                                        backgroundColor: AppTheme.dangerColor,
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() {
+                                      _dispensingIds.remove(c['id']);
+                                    });
+                                  }
+                                }
+                              },
+                        icon: _dispensingIds.contains(c['id'])
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
                                 ),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Error dispensing: $e'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        },
-                        icon: const Icon(Icons.check, size: 16),
-                        label: const Text('Dispense Medications'),
+                              )
+                            : const Icon(Icons.check, size: 16),
+                        label: Text(
+                          _dispensingIds.contains(c['id']) ? 'Dispensing...' : 'Dispense Medications',
+                        ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0F5A8E),
+                          backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 16,
