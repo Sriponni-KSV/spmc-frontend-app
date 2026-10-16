@@ -16,7 +16,10 @@ import '../../screens/front_desk_dashboard.dart';
 import '../../screens/lab_dashboard.dart';
 import '../../screens/pharmacy_dashboard.dart';
 import '../../screens/ipd_patient_detail_page.dart';
+import '../../utils/app_theme.dart';
+import '../../utils/logout_helper.dart';
 import '../../utils/modal_history_observer.dart';
+import '../../widgets/access_denied_widget.dart';
 import 'route_constants.dart';
 import 'screens/not_found_screen.dart';
 
@@ -95,7 +98,36 @@ class AppRouter {
           return null; // Stay on public screen
         }
 
-        // 2. Authenticated Users attempting to access public routes or generic /dashboard: Redirect directly to role dashboard
+        // 2. Validate Role — if user's role has been deleted or unassigned, immediately display Access Denied
+        final userRole = authProvider.user!.role.trim();
+        const validRoles = [
+          'Super Admin',
+          'Admin',
+          'Supervisor',
+          'Doctor',
+          'Anaesthetist',
+          'Nurse',
+          'Head Nurse',
+          'Front Desk',
+          'Receptionist',
+          'Reception',
+          'Lab',
+          'Pharmacy',
+        ];
+
+        if (userRole.isEmpty || !validRoles.contains(userRole)) {
+          if (state.matchedLocation != AppRoutes.accessDenied) {
+            return AppRoutes.accessDenied;
+          }
+          return null;
+        }
+
+        // If user now has a valid role and tries to visit access denied screen, send to dashboard
+        if (state.matchedLocation == AppRoutes.accessDenied) {
+          return AppRoutes.dashboard;
+        }
+
+        // 3. Authenticated Users attempting to access public routes or generic /dashboard: Redirect directly to role dashboard
         if (goingToPublic || state.matchedLocation == AppRoutes.dashboard) {
           final role = authProvider.user!.role;
           if (role == 'Nurse' || role == 'Head Nurse') {
@@ -112,13 +144,14 @@ class AppRouter {
             return AppRoutes.labDashboard;
           } else if (role == 'Pharmacy') {
             return AppRoutes.pharmacyDashboard;
-          } else {
+          } else if (role == 'Doctor' || role == 'Anaesthetist') {
             return AppRoutes.doctorDashboard;
+          } else {
+            return AppRoutes.accessDenied;
           }
         }
 
         // 4. Role-based Route Prefix Guarding
-        final userRole = authProvider.user!.role;
         final path = state.matchedLocation;
 
         if (path.startsWith('/admin')) {
@@ -201,6 +234,30 @@ class AppRouter {
 
       // 📡 PUBLIC & PROTECTED ROUTE DEFINITIONS
       routes: [
+        // --- Access Denied Screen ---
+        GoRoute(
+          path: AppRoutes.accessDenied,
+          builder: (context, state) => Scaffold(
+            appBar: AppBar(
+              title: const Text('Access Restricted'),
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.logout),
+                  tooltip: 'Logout',
+                  onPressed: () => LogoutHelper.logout(context),
+                ),
+              ],
+            ),
+            body: AccessDeniedWidget(
+              message:
+                  'Access Denied: Your assigned role has been deleted or unassigned. You do not have access to any functionality. Please contact your system administrator.',
+              onBack: () => LogoutHelper.logout(context),
+            ),
+          ),
+        ),
+
         // --- Public Routes ---
         GoRoute(
           path: AppRoutes.login,

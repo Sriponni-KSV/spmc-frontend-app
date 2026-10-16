@@ -88,6 +88,9 @@ class AppTheme {
       case 'Scheduled':
       case 'In-Progress':
         return primaryLight;
+      case 'Checked In':
+      case 'Checked-in':
+        return const Color(0xFFCCFBF1);
       case 'Waiting':
         return const Color(0xFFFEF3C7);
       case 'In Consultation':
@@ -111,6 +114,9 @@ class AppTheme {
       case 'Scheduled':
       case 'In-Progress':
         return primaryColor;
+      case 'Checked In':
+      case 'Checked-in':
+        return const Color(0xFF0F766E);
       case 'Waiting':
         return const Color(0xFF92400E);
       case 'In Consultation':

@@ -52,6 +52,13 @@ class AuthProvider extends ChangeNotifier {
   Future<void> refreshPermissions() async {
     if (_user == null) return;
     try {
+      final freshUser = await _authController.fetchMe();
+      if (freshUser != null) {
+        _user = freshUser.copyWith(token: freshUser.token ?? _user?.token);
+        await TokenService.saveUser(jsonEncode(_user!.toJson()));
+        notifyListeners();
+        return;
+      }
       final permissionsJson = await _authController.fetchLivePermissions();
       _user = _user!.updateFromPermissions(permissionsJson);
       notifyListeners();

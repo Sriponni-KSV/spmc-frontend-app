@@ -7,6 +7,7 @@ class AppRoutes {
 
   // Common Protected Routes
   static const String dashboard = '/dashboard';
+  static const String accessDenied = '/access-denied';
 
   // Admin Routes
   static const String adminDashboard = '/admin/dashboard';

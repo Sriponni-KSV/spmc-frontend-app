@@ -16,9 +16,17 @@ class AppointmentModel {
   final int? bloodPressureDiastolic;
   final double? sugarLevel;
   final double? temperature;
+  final int? pulse;
+  final int? spo2;
+  final double? height;
+  final double? weight;
   final String? reasonForVisit;
+  final int? painScore;
+  final String? triageCategory;
+  final String? triageNotes;
   final String status;
   final String appointmentType;
+  final int? tokenNumber;
   final String? overrideReason;
   final String? overrideByName;
   final String? doctorDisplayId;
@@ -45,9 +53,17 @@ class AppointmentModel {
     this.bloodPressureDiastolic,
     this.sugarLevel,
     this.temperature,
+    this.pulse,
+    this.spo2,
+    this.height,
+    this.weight,
     this.reasonForVisit,
+    this.painScore,
+    this.triageCategory,
+    this.triageNotes,
     this.status = 'Confirmed',
     this.appointmentType = 'Routine',
+    this.tokenNumber,
     this.overrideReason,
     this.overrideByName,
     this.doctorDisplayId,
@@ -76,9 +92,17 @@ class AppointmentModel {
       bloodPressureDiastolic: json['blood_pressure_diastolic'] is int ? json['blood_pressure_diastolic'] : int.tryParse(json['blood_pressure_diastolic']?.toString() ?? ''),
       sugarLevel: json['sugar_level'] != null ? double.tryParse(json['sugar_level'].toString()) : null,
       temperature: json['temperature'] != null ? double.tryParse(json['temperature'].toString()) : null,
+      pulse: json['pulse'] is int ? json['pulse'] : int.tryParse(json['pulse']?.toString() ?? ''),
+      spo2: json['spo2'] is int ? json['spo2'] : int.tryParse(json['spo2']?.toString() ?? ''),
+      height: json['height'] != null ? double.tryParse(json['height'].toString()) : null,
+      weight: json['weight'] != null ? double.tryParse(json['weight'].toString()) : null,
       reasonForVisit: json['reason_for_visit'],
+      painScore: json['pain_score'] is int ? json['pain_score'] : int.tryParse(json['pain_score']?.toString() ?? ''),
+      triageCategory: json['triage_category'] ?? json['triage_priority'],
+      triageNotes: json['triage_notes'],
       status: json['status'] ?? 'Confirmed',
       appointmentType: json['appointment_type'] ?? 'Routine',
+      tokenNumber: json['token_number'] is int ? json['token_number'] : int.tryParse(json['token_number']?.toString() ?? ''),
       overrideReason: json['override_reason'],
       overrideByName: json['override_by_name'],
       doctorDisplayId: json['doctor_display_id']?.toString(),
@@ -106,9 +130,17 @@ class AppointmentModel {
       'blood_pressure_diastolic': bloodPressureDiastolic,
       'sugar_level': sugarLevel,
       'temperature': temperature,
+      if (pulse != null) 'pulse': pulse,
+      if (spo2 != null) 'spo2': spo2,
+      if (height != null) 'height': height,
+      if (weight != null) 'weight': weight,
       'reason_for_visit': reasonForVisit,
+      if (painScore != null) 'pain_score': painScore,
+      if (triageCategory != null) 'triage_category': triageCategory,
+      if (triageNotes != null) 'triage_notes': triageNotes,
       'status': status,
       'appointment_type': appointmentType,
+      if (tokenNumber != null) 'token_number': tokenNumber,
       'cancellation_reason': cancellationReason,
       'is_rescheduled': isRescheduled,
       'created_at': createdAt,
@@ -132,9 +164,17 @@ class AppointmentModel {
     int? bloodPressureDiastolic,
     double? sugarLevel,
     double? temperature,
+    int? pulse,
+    int? spo2,
+    double? height,
+    double? weight,
     String? reasonForVisit,
+    int? painScore,
+    String? triageCategory,
+    String? triageNotes,
     String? status,
     String? appointmentType,
+    int? tokenNumber,
     String? doctorDisplayId,
     String? cancellationReason,
     bool? isRescheduled,
@@ -158,9 +198,17 @@ class AppointmentModel {
           bloodPressureDiastolic ?? this.bloodPressureDiastolic,
       sugarLevel: sugarLevel ?? this.sugarLevel,
       temperature: temperature ?? this.temperature,
+      pulse: pulse ?? this.pulse,
+      spo2: spo2 ?? this.spo2,
+      height: height ?? this.height,
+      weight: weight ?? this.weight,
       reasonForVisit: reasonForVisit ?? this.reasonForVisit,
+      painScore: painScore ?? this.painScore,
+      triageCategory: triageCategory ?? this.triageCategory,
+      triageNotes: triageNotes ?? this.triageNotes,
       status: status ?? this.status,
       appointmentType: appointmentType ?? this.appointmentType,
+      tokenNumber: tokenNumber ?? this.tokenNumber,
       doctorDisplayId: doctorDisplayId ?? this.doctorDisplayId,
       cancellationReason: cancellationReason ?? this.cancellationReason,
       isRescheduled: isRescheduled ?? this.isRescheduled,

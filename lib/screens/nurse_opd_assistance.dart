@@ -1688,14 +1688,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                                   availableSlots = availableSlots.where((slot) {
                                     try {
                                       final slotDt = _parseTime(slot);
-                                      final slotEnd = DateTime(
+                                      final slotStart = DateTime(
                                         now.year,
                                         now.month,
                                         now.day,
                                         slotDt.hour,
                                         slotDt.minute,
-                                      ).add(Duration(minutes: duration));
-                                      if (slotEnd.isBefore(now)) return false;
+                                      );
+                                      if (slotStart.isBefore(now)) return false;
                                     } catch (_) {}
 
                                     bool isBooked = _appointments.any(

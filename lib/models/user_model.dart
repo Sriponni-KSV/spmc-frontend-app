@@ -45,6 +45,10 @@ class UserModel {
   String? get clinicLocation => doctorProfile?.clinicLocation;
   String? get consultationFee => doctorProfile?.consultationFee;
   String? get areasOfExpertise => doctorProfile?.areasOfExpertise;
+  String? get morningStartTime => doctorProfile?.morningStartTime;
+  String? get morningEndTime => doctorProfile?.morningEndTime;
+  String? get eveningStartTime => doctorProfile?.eveningStartTime;
+  String? get eveningEndTime => doctorProfile?.eveningEndTime;
 
   // Nurse Specific Getters
   String? get nursingRegistrationNumber => nurseProfile?.nursingRegistrationNumber;

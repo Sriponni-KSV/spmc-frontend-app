@@ -448,9 +448,20 @@ class _DoctorsViewState extends State<DoctorsView> {
       ..sort((a, b) => weekDaysOrder.indexOf(a).compareTo(weekDaysOrder.indexOf(b)));
     final String availability = availabilityList.isNotEmpty ? availabilityList.join(', ') : '-';
     final String nextAvailable = _getNextAvailable(doctor); 
-    final String shiftTime = (doctor.slotStartTime != null && doctor.slotEndTime != null)
-        ? '${doctor.slotStartTime} - ${doctor.slotEndTime}'
-        : '-';
+    final List<String> shifts = [];
+    if (doctor.morningStartTime != null && doctor.morningStartTime!.isNotEmpty &&
+        doctor.morningEndTime != null && doctor.morningEndTime!.isNotEmpty) {
+      shifts.add('☀️ Morning: ${doctor.morningStartTime} - ${doctor.morningEndTime}');
+    }
+    if (doctor.eveningStartTime != null && doctor.eveningStartTime!.isNotEmpty &&
+        doctor.eveningEndTime != null && doctor.eveningEndTime!.isNotEmpty) {
+      shifts.add('🌙 Evening: ${doctor.eveningStartTime} - ${doctor.eveningEndTime}');
+    }
+    final String shiftTime = shifts.isNotEmpty
+        ? shifts.join('\n')
+        : (doctor.slotStartTime != null && doctor.slotEndTime != null)
+            ? '${doctor.slotStartTime} - ${doctor.slotEndTime}'
+            : '-';
 
     return Container(
       margin: isMobile ? const EdgeInsets.only(bottom: 24) : EdgeInsets.zero,
@@ -779,6 +790,10 @@ class _DoctorsViewState extends State<DoctorsView> {
     final clinicLocationController = TextEditingController(text: doctor.clinicLocation ?? '');
     final feeController = TextEditingController(text: doctor.consultationFee ?? '');
     final expertiseController = TextEditingController(text: doctor.areasOfExpertise ?? '');
+    final morningStartTimeController = TextEditingController(text: doctor.morningStartTime ?? '');
+    final morningEndTimeController = TextEditingController(text: doctor.morningEndTime ?? '');
+    final eveningStartTimeController = TextEditingController(text: doctor.eveningStartTime ?? '');
+    final eveningEndTimeController = TextEditingController(text: doctor.eveningEndTime ?? '');
     final startTimeController = TextEditingController(text: doctor.slotStartTime ?? '');
     final endTimeController = TextEditingController(text: doctor.slotEndTime ?? '');
     
@@ -1083,18 +1098,18 @@ class _DoctorsViewState extends State<DoctorsView> {
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: canEdit
-                                    ? _buildModernField('Slot Start Time', startTimeController,
-                                        hint: 'e.g. 9:30 AM',
+                                    ? _buildModernField('Morning Start Time', morningStartTimeController,
+                                        hint: 'e.g. 09:00 AM',
                                         maxLength: 10,
                                         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
                                       )
                                     : _buildDetailItem(
-                                        'Consultation Hours',
-                                        startTimeController.text.isNotEmpty && endTimeController.text.isNotEmpty
-                                            ? '${startTimeController.text} to ${endTimeController.text}'
-                                            : startTimeController.text.isNotEmpty
-                                                ? 'Starts at ${startTimeController.text}'
-                                                : 'Not Provided',
+                                        'Morning Shift',
+                                        morningStartTimeController.text.isNotEmpty && morningEndTimeController.text.isNotEmpty
+                                            ? '${morningStartTimeController.text} to ${morningEndTimeController.text}'
+                                            : morningStartTimeController.text.isNotEmpty
+                                                ? 'Starts at ${morningStartTimeController.text}'
+                                                : 'Not Configured',
                                       ),
                                 ),
                               ],
@@ -1104,17 +1119,45 @@ class _DoctorsViewState extends State<DoctorsView> {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: _buildModernField('Slot End Time', endTimeController,
-                                      hint: 'e.g. 5:30 PM',
+                                    child: _buildModernField('Morning End Time', morningEndTimeController,
+                                      hint: 'e.g. 01:00 PM',
                                       maxLength: 10,
                                       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
                                     ),
                                   ),
                                   const SizedBox(width: 16),
-                                  const Expanded(
-                                    child: SizedBox.shrink(),
+                                  Expanded(
+                                    child: _buildModernField('Evening Start Time', eveningStartTimeController,
+                                      hint: 'e.g. 04:00 PM',
+                                      maxLength: 10,
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
+                                    ),
                                   ),
                                 ],
+                              ),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildModernField('Evening End Time', eveningEndTimeController,
+                                      hint: 'e.g. 08:00 PM',
+                                      maxLength: 10,
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  const Expanded(child: SizedBox.shrink()),
+                                ],
+                              ),
+                            ] else ...[
+                              const SizedBox(height: 16),
+                              _buildDetailItem(
+                                'Evening Shift',
+                                eveningStartTimeController.text.isNotEmpty && eveningEndTimeController.text.isNotEmpty
+                                    ? '${eveningStartTimeController.text} to ${eveningEndTimeController.text}'
+                                    : eveningStartTimeController.text.isNotEmpty
+                                        ? 'Starts at ${eveningStartTimeController.text}'
+                                        : 'Not Configured',
                               ),
                             ],
                             const SizedBox(height: 20),
@@ -1207,8 +1250,12 @@ class _DoctorsViewState extends State<DoctorsView> {
                                 patientsAttended: int.tryParse(patientsController.text) ?? 0,
                                 bio: bioController.text,
                                 availableDays: selectedDays,
-                                slotStartTime: startTimeController.text,
-                                slotEndTime: endTimeController.text,
+                                morningStartTime: morningStartTimeController.text.trim().isNotEmpty ? morningStartTimeController.text.trim() : null,
+                                morningEndTime: morningEndTimeController.text.trim().isNotEmpty ? morningEndTimeController.text.trim() : null,
+                                eveningStartTime: eveningStartTimeController.text.trim().isNotEmpty ? eveningStartTimeController.text.trim() : null,
+                                eveningEndTime: eveningEndTimeController.text.trim().isNotEmpty ? eveningEndTimeController.text.trim() : null,
+                                slotStartTime: morningStartTimeController.text.trim().isNotEmpty ? morningStartTimeController.text.trim() : startTimeController.text,
+                                slotEndTime: eveningEndTimeController.text.trim().isNotEmpty ? eveningEndTimeController.text.trim() : endTimeController.text,
                                 clinicName: clinicNameController.text,
                                 clinicLocation: clinicLocationController.text,
                                 consultationFee: double.tryParse(feeController.text.replaceAll(RegExp(r'[^0-9.]'), '')),

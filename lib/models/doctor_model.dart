@@ -16,6 +16,10 @@ class DoctorModel {
   final String? clinicLocation;
   final String? consultationFee;
   final String? areasOfExpertise;
+  final String? morningStartTime;
+  final String? morningEndTime;
+  final String? eveningStartTime;
+  final String? eveningEndTime;
 
   DoctorModel({
     this.medicalLicense,
@@ -35,6 +39,10 @@ class DoctorModel {
     this.clinicLocation,
     this.consultationFee,
     this.areasOfExpertise,
+    this.morningStartTime,
+    this.morningEndTime,
+    this.eveningStartTime,
+    this.eveningEndTime,
   });
 
   static List<String>? _parseList(dynamic val) {
@@ -71,6 +79,10 @@ class DoctorModel {
       clinicLocation: json['clinic_location'] ?? json['clinicLocation'],
       consultationFee: (json['consultation_fee'] ?? json['consultationFee'])?.toString(),
       areasOfExpertise: json['areas_of_expertise'] ?? json['areasOfExpertise'],
+      morningStartTime: json['morning_start_time'] ?? json['morningStartTime'],
+      morningEndTime: json['morning_end_time'] ?? json['morningEndTime'],
+      eveningStartTime: json['evening_start_time'] ?? json['eveningStartTime'],
+      eveningEndTime: json['evening_end_time'] ?? json['eveningEndTime'],
     );
   }
 
@@ -93,6 +105,10 @@ class DoctorModel {
       'clinic_location': clinicLocation,
       'consultation_fee': consultationFee,
       'areas_of_expertise': areasOfExpertise,
+      if (morningStartTime != null) 'morning_start_time': morningStartTime,
+      if (morningEndTime != null) 'morning_end_time': morningEndTime,
+      if (eveningStartTime != null) 'evening_start_time': eveningStartTime,
+      if (eveningEndTime != null) 'evening_end_time': eveningEndTime,
     };
   }
 }
