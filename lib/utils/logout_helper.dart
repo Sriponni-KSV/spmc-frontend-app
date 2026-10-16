@@ -8,6 +8,17 @@ import 'app_theme.dart';
 import 'app_localizations.dart';
 
 class LogoutHelper {
+  static Future<void> logout(BuildContext context) async {
+    try {
+      Provider.of<LanguageProvider>(context, listen: false).resetToDefault();
+    } catch (_) {}
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    await auth.logout();
+    if (context.mounted) {
+      context.go(AppRoutes.login);
+    }
+  }
+
   static void showLogoutConfirmation(BuildContext context, AuthProvider auth) {
     showDialog(
       context: context,

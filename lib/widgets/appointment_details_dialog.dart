@@ -134,7 +134,9 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
 
       await _appointmentController.updateVitals(widget.appointment.id!, vitalsData);
 
-      if (widget.appointment.status == 'Confirmed' || widget.appointment.status == 'Checked-in') {
+      if (widget.appointment.status == 'Confirmed' ||
+          widget.appointment.status == 'Checked-in' ||
+          widget.appointment.status == 'Checked In') {
         await _appointmentController.updateStatus(widget.appointment.id!, 'Waiting');
       }
 

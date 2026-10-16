@@ -47,6 +47,7 @@ class _AdminAppointmentManagementState
   final List<String> _statusOptions = [
     'All Status',
     'Confirmed',
+    'Checked In',
     'Waiting',
     'In Consultation',
     'Completed',
@@ -158,12 +159,20 @@ class _AdminAppointmentManagementState
   }
 
   List<String> _generateSlotsForDoctor(UserModel? doctor) {
-    if (doctor == null ||
-        doctor.slotStartTime == null ||
-        doctor.slotStartTime!.trim().isEmpty ||
-        doctor.slotEndTime == null ||
-        doctor.slotEndTime!.trim().isEmpty) {
-      return _generateDefaultSlots();
+    if (doctor == null) return [];
+
+    String? startTime = doctor.slotStartTime?.trim();
+    String? endTime = doctor.slotEndTime?.trim();
+
+    if ((startTime == null || startTime.isEmpty) && doctor.morningStartTime != null && doctor.morningStartTime!.trim().isNotEmpty) {
+      startTime = doctor.morningStartTime!.trim();
+      endTime = (doctor.eveningEndTime != null && doctor.eveningEndTime!.trim().isNotEmpty)
+          ? doctor.eveningEndTime!.trim()
+          : doctor.morningEndTime?.trim();
+    }
+
+    if (startTime == null || startTime.isEmpty || endTime == null || endTime.isEmpty) {
+      return [];
     }
 
     int duration = 30;
@@ -176,8 +185,8 @@ class _AdminAppointmentManagementState
     if (duration <= 0) duration = 30;
 
     try {
-      DateTime start = _parseTime(doctor.slotStartTime!);
-      DateTime end = _parseTime(doctor.slotEndTime!);
+      DateTime start = _parseTime(startTime);
+      DateTime end = _parseTime(endTime);
 
       List<String> slots = [];
       DateTime current = start;
@@ -185,12 +194,10 @@ class _AdminAppointmentManagementState
         slots.add(DateFormat('hh:mm a').format(current));
         current = current.add(Duration(minutes: duration));
       }
-      if (slots.isEmpty) {
-        return _generateDefaultSlots();
-      }
       return slots;
     } catch (e) {
-      return _generateDefaultSlots();
+      debugPrint('Error generating doctor slots: $e');
+      return [];
     }
   }
 
@@ -238,35 +245,29 @@ class _AdminAppointmentManagementState
 
     final allSlots = _generateSlotsForDoctor(doctor);
     final now = DateTime.now();
-    final bool isToday = date.year == now.year &&
-        date.month == now.month &&
-        date.day == now.day;
+    final todayDate = DateTime(now.year, now.month, now.day);
+    final checkDate = DateTime(date.year, date.month, date.day);
+    if (checkDate.isBefore(todayDate)) {
+      return [];
+    }
 
+    final bool isToday = checkDate.isAtSameMomentAs(todayDate);
     if (!isToday) {
       return allSlots;
     }
 
-    int duration = 30;
-    if (doctor.slotDuration != null && doctor.slotDuration!.trim().isNotEmpty) {
-      final digits = RegExp(r'\d+').firstMatch(doctor.slotDuration!)?.group(0);
-      if (digits != null) {
-        duration = int.tryParse(digits) ?? 30;
-      }
-    }
-    if (duration <= 0) duration = 30;
-
     return allSlots.where((slot) {
       try {
         final slotDt = _parseTime(slot);
-        final slotEnd = DateTime(
+        final slotStart = DateTime(
           now.year,
           now.month,
           now.day,
           slotDt.hour,
           slotDt.minute,
-        ).add(Duration(minutes: duration));
+        );
 
-        if (slotEnd.isBefore(now)) {
+        if (slotStart.isBefore(now)) {
           return false;
         }
       } catch (_) {}
@@ -487,6 +488,7 @@ class _AdminAppointmentManagementState
 
     List<String> availableStatuses = [
       'Confirmed',
+      'Checked In',
       'Waiting',
       'In Consultation',
       'Completed',
@@ -2121,12 +2123,36 @@ class _AdminAppointmentManagementState
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  appt.patientName,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      appt.patientName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    if (appt.tokenNumber != null) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: AppTheme.primaryColor.withOpacity(0.25)),
+                                        ),
+                                        child: Text(
+                                          'T#${appt.tokenNumber}',
+                                          style: const TextStyle(
+                                            color: AppTheme.primaryColor,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 Text(
                                   '${appt.patientDisplayId ?? appt.patientId}',

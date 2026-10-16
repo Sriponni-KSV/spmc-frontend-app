@@ -20,6 +20,10 @@ class AdminController {
     int? patientsAttended,
     String? bio,
     List<String>? availableDays,
+    String? morningStartTime,
+    String? morningEndTime,
+    String? eveningStartTime,
+    String? eveningEndTime,
     String? slotStartTime,
     String? slotEndTime,
     String? slotDuration,
@@ -46,6 +50,10 @@ class AdminController {
           "patients_attended": patientsAttended,
           "bio": bio,
           "available_days": availableDays,
+          "morning_start_time": morningStartTime,
+          "morning_end_time": morningEndTime,
+          "evening_start_time": eveningStartTime,
+          "evening_end_time": eveningEndTime,
           "slot_start_time": slotStartTime,
           "slot_end_time": slotEndTime,
           "slot_duration": slotDuration,
@@ -136,6 +144,10 @@ class AdminController {
     int? patientsAttended,
     String? bio,
     List<String>? availableDays,
+    String? morningStartTime,
+    String? morningEndTime,
+    String? eveningStartTime,
+    String? eveningEndTime,
     String? slotStartTime,
     String? slotEndTime,
     String? slotDuration,
@@ -162,6 +174,10 @@ class AdminController {
           'patients_attended': patientsAttended,
           'bio': bio,
           'available_days': availableDays,
+          'morning_start_time': morningStartTime,
+          'morning_end_time': morningEndTime,
+          'evening_start_time': eveningStartTime,
+          'evening_end_time': eveningEndTime,
           'slot_start_time': slotStartTime,
           'slot_end_time': slotEndTime,
           'slot_duration': slotDuration,
@@ -266,6 +282,20 @@ class AdminController {
       final body = jsonDecode(response.body);
       if (response.statusCode != 200 || body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to delete role');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<void> updateUserRole(int userId, int? roleId) async {
+    try {
+      final response = await ApiService.put('$baseUrl/admin/rbac/users/$userId/role', {
+        'role_id': roleId,
+      });
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200 || body['success'] != true) {
+        throw Exception(body['message'] ?? 'Failed to update user role');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));

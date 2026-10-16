@@ -17,6 +17,7 @@ import '../providers/auth_provider.dart';
 import '../utils/unsaved_changes_helper.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/consultation_documents_view.dart';
+import '../widgets/check_in_vitals_dialog.dart';
 
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -49,10 +50,12 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   String _selectedPharmacyStatus = 'All';
   String _selectedLabTest = 'All';
   String _selectedDateFilter = 'All';
+  String _selectedSession = 'All'; // 'All', 'Morning', 'Evening'
   String _searchQuery = '';
   bool _isFilterVisible = false;
   final TextEditingController _searchCtrl = TextEditingController();
   final Set<dynamic> _dispensingIds = {};
+  final Set<String> _collectedSampleKeys = {};
 
   List<UserModel> _doctors = [];
 
@@ -169,6 +172,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
       }).toList();
     }
 
+    // 2. Doctor Session Shift Filter (Morning: 09:00 AM - 01:00 PM, Evening: 04:00 PM - 08:00 PM)
+    if (_selectedSession == 'Morning') {
+      apps = apps.where((a) => _isMorningSlot(a.appointmentTime)).toList();
+    } else if (_selectedSession == 'Evening') {
+      apps = apps.where((a) => !_isMorningSlot(a.appointmentTime)).toList();
+    }
+
     apps.sort(_newestFirst);
 
     return apps;
@@ -178,11 +188,14 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     final baseApps = _filteredAppointments;
     switch (tabIndex) {
       case 0: // Confirmed (Awaiting arrival / vitals)
-        return baseApps.where((a) => a.status == 'Confirmed').toList();
+        return baseApps
+            .where((a) => a.status == 'Confirmed' || a.status == 'Scheduled')
+            .toList();
       case 1: // Waiting (Checked-in / Waiting queue)
         return baseApps
             .where(
               (a) =>
+                  a.status == 'Checked In' ||
                   a.status == 'Checked-in' ||
                   a.status == 'Waiting',
             )
@@ -243,15 +256,38 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     }
   }
 
+  bool _isMorningSlot(String slot) {
+    try {
+      final clean = slot.trim().toUpperCase();
+      if (clean.contains('AM')) return true;
+      if (clean.contains('12:')) return true;
+      final parts = clean.split(' ');
+      final timeParts = parts[0].split(':');
+      final hour = int.parse(timeParts[0]);
+      if (clean.contains('PM') && hour == 1) return true;
+      return false;
+    } catch (_) {
+      return true;
+    }
+  }
+
   int _getCountForTab(int tabIndex) {
-    final walkins = _walkInAppointments;
+    var walkins = _walkInAppointments;
+    if (_selectedSession == 'Morning') {
+      walkins = walkins.where((a) => _isMorningSlot(a.appointmentTime)).toList();
+    } else if (_selectedSession == 'Evening') {
+      walkins = walkins.where((a) => !_isMorningSlot(a.appointmentTime)).toList();
+    }
     switch (tabIndex) {
       case 0: // Confirmed
-        return walkins.where((a) => a.status == 'Confirmed').length;
+        return walkins
+            .where((a) => a.status == 'Confirmed' || a.status == 'Scheduled')
+            .length;
       case 1: // Waiting
         return walkins
             .where(
               (a) =>
+                  a.status == 'Checked In' ||
                   a.status == 'Checked-in' ||
                   a.status == 'Waiting',
             )
@@ -306,7 +342,9 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           const SizedBox(height: 16),
           _buildSearchAndFilterRow(),
           if (_isFilterVisible) _buildFilterPanel(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          _buildSessionSelector(),
+          const SizedBox(height: 8),
           _buildTabBar(),
           Expanded(
             child: _isLoading
@@ -1171,6 +1209,133 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     return _getFilteredPharmacyRecords().length;
   }
 
+  Widget _buildSessionSelector() {
+    final bool isMobile = widget.isMobile || MediaQuery.of(context).size.width < 900;
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.schedule, size: 14, color: AppTheme.primaryColor),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Doctor Shifts:',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildSessionChipItem('All', 'All Shifts'),
+                      const SizedBox(width: 8),
+                      _buildSessionChipItem(
+                        'Morning',
+                        '☀️ Morning (09:00 AM - 01:00 PM)',
+                      ),
+                      const SizedBox(width: 8),
+                      _buildSessionChipItem(
+                        'Evening',
+                        '🌙 Evening (04:00 PM - 08:00 PM)',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.schedule, size: 14, color: AppTheme.primaryColor),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Doctor Shifts:',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildSessionChipItem('All', 'All Shifts'),
+                        const SizedBox(width: 8),
+                        _buildSessionChipItem(
+                          'Morning',
+                          '☀️ Morning Shift (09:00 AM - 01:00 PM)',
+                        ),
+                        const SizedBox(width: 8),
+                        _buildSessionChipItem(
+                          'Evening',
+                          '🌙 Evening Shift (04:00 PM - 08:00 PM)',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildSessionChipItem(String sessionKey, String label) {
+    final isSelected = _selectedSession == sessionKey;
+    return InkWell(
+      onTap: () => setState(() => _selectedSession = sessionKey),
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : const Color(0xFFCBD5E1),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? Colors.white : AppTheme.textPrimaryColor,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTabBar() {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: widget.isMobile ? 16 : 24),
@@ -1312,15 +1477,19 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   Widget _buildAppointmentItemCard(AppointmentModel app, int tabIndex) {
     final avatarColor = AppTheme.getAvatarColors(app.patientName);
     final bool isTriaged =
-        app.status == 'Checked-in' || app.status == 'Waiting';
+        app.status == 'Checked In' ||
+        app.status == 'Checked-in' ||
+        app.status == 'Waiting';
 
     // Status colors
     Color statusColor;
     switch (app.status) {
       case 'Confirmed':
+      case 'Scheduled':
         statusColor = AppTheme.primaryColor;
         break;
       case 'Waiting':
+      case 'Checked In':
       case 'Checked-in':
         statusColor = const Color(0xFF0D9488); // Teal
         break;
@@ -1402,6 +1571,26 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ],
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _isMorningSlot(app.appointmentTime)
+                              ? const Color(0xFFFEF3C7)
+                              : const Color(0xFFEDE9FE),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          _isMorningSlot(app.appointmentTime) ? '☀️ Morning' : '🌙 Evening',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: _isMorningSlot(app.appointmentTime)
+                                ? const Color(0xFFB45309)
+                                : const Color(0xFF6D28D9),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       CircleAvatar(
                         radius: 20,
@@ -1459,6 +1648,28 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                            if (app.tokenNumber != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: AppTheme.primaryColor.withOpacity(0.35),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Token #${app.tokenNumber}',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryColor,
                                   ),
                                 ),
                               ),
@@ -1555,6 +1766,25 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
 
                   // Status Pill Summary
                   const SizedBox(width: 8),
+                  if (app.tokenNumber != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        'Token #${app.tokenNumber}',
+                        style: const TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                  ],
                   _buildStatusBadge(app.status),
                 ],
               ),
@@ -1562,6 +1792,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
 
               if (isMobile) ...[
                 if (app.bloodPressureSystolic != null ||
+                    app.pulse != null ||
+                    app.spo2 != null ||
                     app.temperature != null ||
                     app.sugarLevel != null) ...[
                   Text(
@@ -1582,6 +1814,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           Icons.speed,
                           'BP: ${app.bloodPressureSystolic}/${app.bloodPressureDiastolic ?? "--"} mmHg',
                           Colors.blue.shade700,
+                        ),
+                      if (app.pulse != null)
+                        _buildVitalPill(
+                          Icons.favorite,
+                          'Pulse: ${app.pulse} bpm',
+                          Colors.pink.shade700,
+                        ),
+                      if (app.spo2 != null)
+                        _buildVitalPill(
+                          Icons.air,
+                          'SpO2: ${app.spo2}%',
+                          Colors.teal.shade700,
                         ),
                       if (app.temperature != null)
                         _buildVitalPill(
@@ -1692,7 +1936,67 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ),
                         ),
                       ],
-                      if (app.status == 'Confirmed') ...[
+                      if (app.status == 'Confirmed' || app.status == 'Scheduled') ...[
+                        ElevatedButton.icon(
+                          onPressed: () => _checkInAppointment(app),
+                          icon: const Icon(
+                            Icons.how_to_reg,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                          label: Text(
+                            context.tr('check_in', fallback: 'Check In'),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0F766E),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (app.status == 'Waiting') ...[
+                        ElevatedButton.icon(
+                          onPressed: () => _startConsultation(app),
+                          icon: const Icon(
+                            Icons.play_arrow_rounded,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          label: const Text(
+                            'Start Consult',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.secondaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      if (app.status == 'Confirmed' ||
+                          app.status == 'Scheduled' ||
+                          app.status == 'Checked In' ||
+                          app.status == 'Checked-in') ...[
                         if (!_hasVitals(app))
                           ElevatedButton.icon(
                             onPressed: () => _openVitalsDialog(app),
@@ -1776,6 +2080,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                     Icons.speed,
                                     'BP: ${app.bloodPressureSystolic}/${app.bloodPressureDiastolic ?? "--"} mmHg',
                                     Colors.blue.shade700,
+                                  ),
+                                if (app.pulse != null)
+                                  _buildVitalPill(
+                                    Icons.favorite,
+                                    'Pulse: ${app.pulse} bpm',
+                                    Colors.pink.shade700,
+                                  ),
+                                if (app.spo2 != null)
+                                  _buildVitalPill(
+                                    Icons.air,
+                                    'SpO2: ${app.spo2}%',
+                                    Colors.teal.shade700,
                                   ),
                                 if (app.temperature != null)
                                   _buildVitalPill(
@@ -1888,7 +2204,67 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             ),
                           ),
                         ],
-                        if (app.status == 'Confirmed') ...[
+                        if (app.status == 'Confirmed' || app.status == 'Scheduled') ...[
+                          ElevatedButton.icon(
+                            onPressed: () => _checkInAppointment(app),
+                            icon: const Icon(
+                              Icons.how_to_reg,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                            label: Text(
+                              context.tr('check_in', fallback: 'Check In'),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F766E),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (app.status == 'Waiting') ...[
+                          ElevatedButton.icon(
+                            onPressed: () => _startConsultation(app),
+                            icon: const Icon(
+                              Icons.play_arrow_rounded,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              'Start Consult',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.secondaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ],
+
+                        if (app.status == 'Confirmed' ||
+                            app.status == 'Scheduled' ||
+                            app.status == 'Checked In' ||
+                            app.status == 'Checked-in') ...[
                           if (!_hasVitals(app))
                             ElevatedButton.icon(
                               onPressed: () => _openVitalsDialog(app),
@@ -2238,21 +2614,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
       if (!isAvailable) return [];
       final allSlots = _generateSlotsForDoctor(doctor);
       final now = DateTime.now();
-      final bool isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+      final todayDate = DateTime(now.year, now.month, now.day);
+      final checkDate = DateTime(date.year, date.month, date.day);
+      if (checkDate.isBefore(todayDate)) return [];
+      final bool isToday = checkDate.isAtSameMomentAs(todayDate);
       if (!isToday) return allSlots;
-
-      int duration = 30;
-      if (doctor.slotDuration != null && doctor.slotDuration!.trim().isNotEmpty) {
-        final digits = RegExp(r'\d+').firstMatch(doctor.slotDuration!)?.group(0);
-        if (digits != null) duration = int.tryParse(digits) ?? 30;
-      }
-      if (duration <= 0) duration = 30;
 
       return allSlots.where((slot) {
         try {
           final slotDt = _parseTime(slot);
-          final slotEnd = DateTime(now.year, now.month, now.day, slotDt.hour, slotDt.minute).add(Duration(minutes: duration));
-          if (slotEnd.isBefore(now)) return false;
+          final slotStart = DateTime(now.year, now.month, now.day, slotDt.hour, slotDt.minute);
+          if (slotStart.isBefore(now)) return false;
         } catch (_) {}
         return true;
       }).toList();
@@ -2970,6 +3342,59 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
       await _showVitalsMissingDialog(context, app);
     } else {
       await _markWaiting(app);
+    }
+  }
+
+  Future<void> _checkInAppointment(AppointmentModel app) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final apptDt = DateFormatter.toDateTime(app.appointmentDate);
+
+    if (apptDt != null) {
+      final apptDay = DateTime(apptDt.year, apptDt.month, apptDt.day);
+      if (apptDay.isAfter(today)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Cannot check in before the appointment date.'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => CheckInVitalsDialog(
+        appointment: app,
+        onCompleted: _loadData,
+      ),
+    );
+  }
+
+  Future<void> _startConsultation(AppointmentModel app) async {
+    try {
+      await _appointmentController.updateStatus(app.id!, 'In Consultation');
+      _loadData();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${app.patientName} moved to In Consultation ✓'),
+            backgroundColor: AppTheme.secondaryColor,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update status: $e'),
+            backgroundColor: AppTheme.dangerColor,
+          ),
+        );
+      }
     }
   }
 
@@ -4780,8 +5205,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                                 availableSlots = availableSlots.where((slot) {
                                   try {
                                     final slotDt = _parseTime(slot);
-                                    final slotEnd = DateTime(now.year, now.month, now.day, slotDt.hour, slotDt.minute).add(Duration(minutes: duration));
-                                    if (slotEnd.isBefore(now)) return false;
+                                    final slotStart = DateTime(now.year, now.month, now.day, slotDt.hour, slotDt.minute);
+                                    if (slotStart.isBefore(now)) return false;
                                   } catch (_) {}
 
                                   bool isBooked = _appointments.any(
@@ -6498,12 +6923,40 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      c['patient_name'] ?? 'Unknown Patient',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          c['patient_name'] ?? 'Unknown Patient',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFF93C5FD)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.bolt, size: 12, color: AppTheme.primaryColor),
+                              SizedBox(width: 3),
+                              Text(
+                                'CPOE Dispatched',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     Text(
                       DateFormat('dd/MM/yyyy').format(
@@ -6617,12 +7070,40 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      c['patient_name'] ?? 'Unknown Patient',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          c['patient_name'] ?? 'Unknown Patient',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0FDFA),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFF5EEAD4)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.science, size: 12, color: Color(0xFF0D9488)),
+                              SizedBox(width: 3),
+                              Text(
+                                'Sample Worklist',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF0D9488),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     Text(
                       DateFormat('dd/MM/yyyy').format(
@@ -6641,39 +7122,96 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 ),
                 const Divider(height: 24),
                 const Text(
-                  'Ordered Tests:',
+                  'Ordered Tests — Phlebotomy & Sample Worklist:',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                Column(
                   children: labs.map<Widget>((l) {
+                    final testName = l.toString();
+                    final sampleKey = '${c["id"]}_$testName';
+                    final isCollected = _collectedSampleKeys.contains(sampleKey);
                     return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        border: Border.all(color: Colors.blue.shade100),
-                        borderRadius: BorderRadius.circular(16),
+                        color: isCollected ? const Color(0xFFF0FDF4) : const Color(0xFFF8FAFC),
+                        border: Border.all(
+                          color: isCollected ? AppTheme.secondaryColor.withOpacity(0.4) : const Color(0xFFE2E8F0),
+                        ),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.science_outlined,
-                            size: 12,
-                            color: Colors.blue.shade800,
+                            size: 16,
+                            color: isCollected ? AppTheme.secondaryColor : AppTheme.primaryColor,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            l.toString(),
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue.shade800,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  testName,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimaryColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isCollected ? 'Sample Collected • Ready for Lab Analyzer' : 'Sample Collection Pending',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                    color: isCollected ? AppTheme.secondaryColor : const Color(0xFFD97706),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              setState(() {
+                                if (isCollected) {
+                                  _collectedSampleKeys.remove(sampleKey);
+                                } else {
+                                  _collectedSampleKeys.add(sampleKey);
+                                }
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    isCollected
+                                        ? 'Sample marked pending for $testName'
+                                        : 'Sample collected for $testName (Patient: ${c["patient_name"]}) and logged in Lab Worklist!',
+                                  ),
+                                  backgroundColor: isCollected ? AppTheme.textSecondaryColor : AppTheme.secondaryColor,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            icon: Icon(
+                              isCollected ? Icons.check : Icons.colorize,
+                              size: 13,
+                              color: isCollected ? AppTheme.secondaryColor : AppTheme.primaryColor,
+                            ),
+                            label: Text(
+                              isCollected ? 'Collected' : 'Collect Sample',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: isCollected ? AppTheme.secondaryColor : AppTheme.primaryColor,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(
+                                color: isCollected ? AppTheme.secondaryColor : AppTheme.primaryColor,
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             ),
                           ),
                         ],
@@ -6741,12 +7279,40 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      c['patient_name'] ?? 'Unknown Patient',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          c['patient_name'] ?? 'Unknown Patient',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFAF5FF),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFD8B4FE)),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.bolt, size: 12, color: Colors.purple),
+                              SizedBox(width: 3),
+                              Text(
+                                'CPOE Queue',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.purple,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                     _buildPharmacyStatusBadge(status),
                   ],
