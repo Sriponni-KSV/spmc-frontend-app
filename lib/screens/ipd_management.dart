@@ -15,6 +15,7 @@ import '../controllers/nurse_shift_controller.dart';
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
 import '../utils/app_localizations.dart';
+import '../widgets/interactive_ward_bed_grid.dart';
 
 class IPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -883,150 +884,65 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   // Pending admissions are handled directly by the Admission Counter
 
   Widget _buildBedAvailabilityTab() {
-    final Map<String, List<Map<String, dynamic>>> groupedBeds = {};
-    final wardOrder = ['General', 'Semi-Private', 'Private', 'ICU'];
-
-    for (var ward in wardOrder) {
-      groupedBeds[ward] = [];
-    }
-
-    for (var bed in _beds) {
-      final ward = bed['ward_type'] ?? 'Other';
-      groupedBeds.putIfAbsent(ward, () => []).add(bed);
-    }
-
-    groupedBeds.removeWhere((key, value) => value.isEmpty);
-
-    return ListView(
-      padding: const EdgeInsets.all(24),
-      children: groupedBeds.entries.map((entry) {
-        final wardName = entry.key;
-        final wardBeds = entry.value;
-
-        final totalBeds = wardBeds.length;
-        final availableBeds = wardBeds
-            .where((b) => b['status'] == 'Available')
-            .length;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12, top: 16),
-              child: Row(
-                children: [
-                  Icon(
-                    wardName == 'ICU' ? Icons.local_hospital : Icons.king_bed,
-                    color: AppTheme.primaryColor,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '$wardName Ward',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimaryColor,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '$availableBeds / $totalBeds Available',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 130,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 1.6,
-              ),
-              itemCount: wardBeds.length,
-              itemBuilder: (context, index) {
-                final bed = wardBeds[index];
-                final bool isAvail = bed['status'] == 'Available';
-                final Color cardColor = isAvail
-                    ? const Color(0xFFE8F5E9)
-                    : const Color(0xFFFFEBEE);
-                final Color borderColor = isAvail
-                    ? const Color(0xFF81C784)
-                    : const Color(0xFFE57373);
-                final Color textColor = isAvail
-                    ? const Color(0xFF2E7D32)
-                    : const Color(0xFFC62828);
-
-                return Container(
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    border: Border.all(color: borderColor, width: 1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            bed['bed_number'],
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: textColor,
-                            ),
-                          ),
-                          Icon(
-                            Icons.king_bed_outlined,
-                            color: textColor.withOpacity(0.7),
-                            size: 16,
-                          ),
-                        ],
-                      ),
-                      Text(
-                        isAvail ? 'Available' : 'Occupied',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: textColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
+      child: InteractiveWardBedGrid(
+        beds: _beds,
+        isMobile: widget.isMobile,
+        onRefresh: _loadData,
+        onStatusChanged: (bed, newStatus) async {
+          final bedId = bed['id'];
+          if (bedId == null) return;
+          try {
+            await _ipdController.updateBedStatus(id: bedId, status: newStatus);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Bed ${bed['bed_number']} status changed to $newStatus'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+            _loadData();
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error updating bed: $e'),
+                  backgroundColor: AppTheme.dangerColor,
+                ),
+              );
+            }
+          }
+        },
+        onOpenPatientDetail: (bed) {
+          final admissionId = bed['admission_id'];
+          if (admissionId != null) {
+            final adm = _admissions.firstWhere(
+              (a) => a['id'] == admissionId,
+              orElse: () => {
+                'id': admissionId,
+                'patient_id': bed['patient_id'],
+                'patient_name': bed['patient_name'],
+                'doctor_name': bed['doctor_name'],
+                'bed_number': bed['bed_number'],
+                'ward_type': bed['ward_type'],
+                'status': 'Admitted',
+                'admission_date': bed['admission_date'],
               },
-            ),
-            const SizedBox(height: 16),
-            const Divider(),
-          ],
-        );
-      }).toList(),
+            );
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => IPDPatientDetailPage(admission: adm),
+              ),
+            ).then((_) => _loadData());
+          }
+        },
+      ),
     );
   }
+
 
   Widget _buildDischargeHistoryTab() {
     final discharged = _admissions

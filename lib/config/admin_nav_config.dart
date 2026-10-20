@@ -72,13 +72,13 @@ class AdminNavConfig {
   static const bool showOpdManagement = true;
 
   /// IPD Management (Visible)
-  static const bool showIpdManagement = false;
+  static const bool showIpdManagement = true;
 
   /// OT Management (Visible)
-  static const bool showOtManagement = false;
+  static const bool showOtManagement = true;
 
   /// Shift Allocation (Visible)
-  static const bool showShiftAllocation = false;
+  static const bool showShiftAllocation = true;
 
   /// ICU & Emergency (Visible)
   static const bool showIcuEmergency = false;
