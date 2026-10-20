@@ -40,10 +40,10 @@ class DoctorNavConfig {
   static const bool showAiDictation = false;
 
   /// IPD Management (Visible)
-  static const bool showIpdManagement = false;
+  static const bool showIpdManagement = true;
 
   /// OT Management (Visible)
-  static const bool showOtManagement = false;
+  static const bool showOtManagement = true;
 
   /// My Profile (Visible)
   static const bool showProfile = true;
@@ -61,6 +61,12 @@ class DoctorNavConfig {
           icon: Icons.grid_view_outlined,
           label: 'Dashboard',
           isVisible: showDashboard,
+        ),
+        const DoctorNavItem(
+          index: 3,
+          icon: Icons.local_hospital_outlined,
+          label: 'IPD Management',
+          isVisible: showIpdManagement,
         ),
         const DoctorNavItem(
           index: 5,

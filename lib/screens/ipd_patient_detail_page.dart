@@ -18,6 +18,11 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
+import '../widgets/tpr_charts_widget.dart';
+import '../widgets/ipd_mar_widget.dart';
+import '../widgets/ipd_fluid_balance_widget.dart';
+import '../widgets/ipd_doctor_rounds_soap_widget.dart';
+import '../widgets/ipd_automated_discharge_summary_widget.dart';
 
 class IPDPatientDetailPage extends StatefulWidget {
   final Map<String, dynamic> admission;
@@ -46,9 +51,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   List<Map<String, dynamic>> _icuAlerts = [];
   List<Map<String, dynamic>> _progressNotes = [];
   List<Map<String, dynamic>> _labOrders = [];
+  List<Map<String, dynamic>> _fluidRecords = [];
+  Map<String, dynamic> _fluidSummary = {};
   List<String> _medicineCatalog = [];
   final Set<int> _expandedLabOrderIds = {};
-
+  bool _hasCheckedInitialShift = false;
 
   // Prescription Form Controllers
   final _prescFormKey = GlobalKey<FormState>();
@@ -78,8 +85,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   final _labFormKey = GlobalKey<FormState>();
   final _testNameController = TextEditingController();
 
-
-
   // Discharge Form Controllers
   final _dischargeFormKey = GlobalKey<FormState>();
   final _finalDiagController = TextEditingController();
@@ -100,7 +105,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     _userRole = auth.user?.role ?? 'Nurse';
     _staffName = auth.user?.fullname ?? 'Staff Member';
 
-    final tabCount = _userRole == 'Doctor' ? 8 : 5;
+    final tabCount = _userRole == 'Doctor' ? 9 : 6;
     _tabController = TabController(length: tabCount, vsync: this);
 
     _loadAllData();
@@ -141,8 +146,9 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final user = auth.user;
 
-    // Enforce shift allocation checks for Nurse role
-    if (_userRole == 'Nurse' && user != null) {
+    // Enforce shift allocation checks for Nurse role only on initial page entry
+    if (_userRole == 'Nurse' && user != null && !_hasCheckedInitialShift) {
+      _hasCheckedInitialShift = true;
       try {
         final _shiftCtrl = NurseShiftController();
         final res = await _shiftCtrl.fetchActiveShift(nurseId: user.id);
@@ -200,16 +206,20 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         _ipdController.fetchIcuAlerts(admissionId),
         _ipdController.fetchProgressNotes(admissionId),
         _ipdController.fetchLabOrders(admissionId),
+        _ipdController.fetchFluidBalance(admissionId),
       ]);
 
       if (mounted) {
         setState(() {
-          _prescriptions = futures[0];
-          _medicationLogs = futures[1];
-          _vitalsHistory = futures[2];
-          _icuAlerts = futures[3];
-          _progressNotes = futures[4];
-          _labOrders = futures[5];
+          _prescriptions = futures[0] as List<Map<String, dynamic>>;
+          _medicationLogs = futures[1] as List<Map<String, dynamic>>;
+          _vitalsHistory = futures[2] as List<Map<String, dynamic>>;
+          _icuAlerts = futures[3] as List<Map<String, dynamic>>;
+          _progressNotes = futures[4] as List<Map<String, dynamic>>;
+          _labOrders = futures[5] as List<Map<String, dynamic>>;
+          final fluidData = futures[6] as Map<String, dynamic>;
+          _fluidRecords = List<Map<String, dynamic>>.from(fluidData['records'] ?? []);
+          _fluidSummary = Map<String, dynamic>.from(fluidData['summary'] ?? {});
           _isLoading = false;
         });
       }
@@ -320,27 +330,36 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     required int prescriptionId,
     required String status,
     required String remarks,
+    String? administeredAt,
   }) async {
     try {
-      await _ipdController.createMedicationLog(widget.admission['id'], {
+      final Map<String, dynamic> payload = {
         'prescription_id': prescriptionId,
         'patient_id': widget.admission['patient_id'],
         'nurse_name': _staffName,
         'status': status,
         'remarks': remarks,
-      });
+      };
+      if (administeredAt != null) {
+        payload['administered_at'] = administeredAt;
+      }
+      await _ipdController.createMedicationLog(widget.admission['id'], payload);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Medication logged as "$status" successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Medication recorded as "$status" in MAR!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
       _loadAllData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -1335,17 +1354,19 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
     final doctorTabs = [
       const Tab(text: 'Overview'),
-      const Tab(text: 'Vitals'),
+      const Tab(text: 'Vitals & TPR'),
+      const Tab(text: 'Fluid (I/O)'),
+      const Tab(text: 'Daily Rounds (SOAP)'),
       const Tab(text: 'Prescription'),
-      const Tab(text: 'Nurse Notes'),
+      const Tab(text: 'Nurse Notes & eMAR'),
       const Tab(text: 'Lab Reports'),
-      const Tab(text: 'Progress Notes'),
       const Tab(text: 'ICU Monitoring'),
-      const Tab(text: 'Discharge'),
+      const Tab(text: 'Discharge Summary'),
     ];
 
     final nurseTabs = [
       Tab(text: context.tr('tab_vitals_entry', fallback: 'Vitals Entry')),
+      const Tab(text: 'Fluid (I/O)'),
       Tab(text: context.tr('tab_medication_admin', fallback: 'Medication Admin')),
       Tab(text: context.tr('tab_nursing_notes', fallback: 'Nursing Notes')),
       Tab(text: context.tr('tab_lab_coordination', fallback: 'Lab Coordination')),
@@ -1395,15 +1416,17 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       ? [
                           _buildOverviewTab(),
                           _buildDoctorVitalsTab(),
+                          _buildFluidBalanceTab(),
+                          _buildDoctorProgressNotesTab(),
                           _buildDoctorPrescriptionTab(),
                           _buildDoctorNurseNotesTab(),
                           _buildDoctorLabTab(),
-                          _buildDoctorProgressNotesTab(),
                           _buildDoctorIcuTab(),
                           _buildDoctorDischargeTab(),
                         ]
                       : [
                           _buildNurseVitalsEntryTab(),
+                          _buildFluidBalanceTab(),
                           _buildNurseMedAdminTab(),
                           _buildNurseNotesTab(),
                           _buildNurseLabTab(),
@@ -2177,7 +2200,187 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildDoctorVitalsTab() {
-    return _buildVitalsHistoryList();
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(MediaQuery.of(context).size.width < 900 ? 16 : 24),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 1300),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TprChartsWidget(
+                vitals: _vitalsHistory,
+                isMobile: MediaQuery.of(context).size.width < 900,
+                onLogVitalsPressed: _showDoctorAddVitalsDialog,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDoctorAddVitalsDialog() {
+    final sysCtrl = TextEditingController();
+    final diaCtrl = TextEditingController();
+    final tempCtrl = TextEditingController();
+    final pulseCtrl = TextEditingController();
+    final respCtrl = TextEditingController();
+    final spo2Ctrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: 500,
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.monitor_heart, color: AppTheme.primaryColor, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Record Clinical Vitals (TPR)',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.of(dlgCtx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: tempCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'Temperature (°F)', hintText: '98.6'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: pulseCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Pulse (bpm)', hintText: '72'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: respCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Respiration (/min)', hintText: '16'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: spo2Ctrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'SpO2 (%)', hintText: '98'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: sysCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Systolic BP (mmHg)', hintText: '120'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: diaCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Diastolic BP (mmHg)', hintText: '80'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => Navigator.of(dlgCtx).pop(),
+                        style: AppTheme.cancelButton,
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        style: AppTheme.primaryButton,
+                        onPressed: () async {
+                          Navigator.of(dlgCtx).pop();
+                          try {
+                            await _ipdController.createVitals(widget.admission['id'], {
+                              'patient_id': widget.admission['patient_id'],
+                              'temperature': double.tryParse(tempCtrl.text.trim()),
+                              'pulse': int.tryParse(pulseCtrl.text.trim()),
+                              'respiratory_rate': int.tryParse(respCtrl.text.trim()),
+                              'spo2': int.tryParse(spo2Ctrl.text.trim()),
+                              'blood_pressure_systolic': int.tryParse(sysCtrl.text.trim()),
+                              'blood_pressure_diastolic': int.tryParse(diaCtrl.text.trim()),
+                            });
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Vitals recorded successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                            _loadAllData();
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Save Vitals'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildVitalParam(String label, String value, bool isAbnormal) {
@@ -2795,8 +2998,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildDoctorNurseNotesTab() {
-    // Shows daily updates logged by nurse in a beautiful list
-    // Look at: widget.admission['daily_updates'] JSON list
     List<dynamic> nurseUpdates = [];
     try {
       final du = widget.admission['daily_updates'];
@@ -2805,69 +3006,139 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
       }
     } catch (_) {}
 
-    if (nurseUpdates.isEmpty) {
-      return _buildEmptyState('No nursing updates recorded.', Icons.notes);
-    }
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(24),
-      itemCount: nurseUpdates.length,
-      itemBuilder: (context, index) {
-        final u = nurseUpdates[index];
-        final date = u['date'] != null
-            ? DateFormat(
-                'dd/MM/yyyy HH:mm',
-              ).format(DateTime.parse(u['date']).toLocal())
-            : '--';
+    return SingleChildScrollView(
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 1300),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Inpatient Medication Administration Record (eMAR)
+              IpdMarWidget(
+                admission: widget.admission,
+                prescriptions: _prescriptions,
+                medicationLogs: _medicationLogs,
+                currentNurseName: _staffName,
+                isMobile: isMobile,
+                onRefresh: _loadAllData,
+                onAdministerDose: ({
+                  required int prescriptionId,
+                  required String status,
+                  required String remarks,
+                  String? administeredAt,
+                }) async {
+                  await _submitMedicationLog(
+                    prescriptionId: prescriptionId,
+                    status: status,
+                    remarks: remarks,
+                    administeredAt: administeredAt,
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
 
-        return Card(
-          elevation: 0,
-          margin: const EdgeInsets.only(bottom: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey.shade200),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              // Shift Nursing Updates List
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: AppTheme.cardShadow,
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Recorded by Nurse: ${u['nurse_name'] ?? '--'}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.notes_rounded, color: AppTheme.primaryColor, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Shift Nursing Notes & Observations',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      date,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 16),
+
+                    if (nurseUpdates.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        alignment: Alignment.center,
+                        child: const Text('No nursing notes recorded for this admission yet.'),
+                      )
+                    else
+                      ...nurseUpdates.map((u) {
+                        final date = u['date'] != null
+                            ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(u['date']).toLocal())
+                            : '--';
+                        return Card(
+                          elevation: 0,
+                          margin: const EdgeInsets.only(bottom: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey.shade200),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Recorded by Nurse: ${u['nurse_name'] ?? '--'}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                    Text(date, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                  ],
+                                ),
+                                const Divider(height: 20),
+                                Wrap(
+                                  spacing: 16,
+                                  children: [
+                                    Text('BP: ${u['blood_pressure'] ?? '--'}'),
+                                    Text('Temp: ${u['temperature'] ?? '--'} °F'),
+                                    Text('Pulse: ${u['pulse'] ?? '--'} bpm'),
+                                    Text('Sugar: ${u['sugar_level'] ?? '--'} mg/dL'),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Observations:\n${u['notes'] ?? '--'}',
+                                  style: const TextStyle(fontStyle: FontStyle.italic),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
                   ],
                 ),
-                const Divider(height: 20),
-                Wrap(
-                  spacing: 16,
-                  children: [
-                    Text('BP: ${u['blood_pressure'] ?? '--'}'),
-                    Text('Temp: ${u['temperature'] ?? '--'} °F'),
-                    Text('Pulse: ${u['pulse'] ?? '--'} bpm'),
-                    Text('Sugar: ${u['sugar_level'] ?? '--'} mg/dL'),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Observations:\n${u['notes'] ?? '--'}',
-                  style: const TextStyle(fontStyle: FontStyle.italic),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
@@ -3301,479 +3572,80 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     );
   }
 
-  Widget _buildDoctorProgressNotesTab() {
+  Widget _buildFluidBalanceTab() {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
-
-    final Widget formCard = Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _progFormKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // HEADER
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.edit_note_outlined,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-
-                  const SizedBox(width: 12),
-
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'New Progress Note',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Record doctor observations and treatment updates',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 30),
-
-              // MAIN NOTE
-              const Text(
-                'Observation / Note',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              TextFormField(
-                controller: _noteController,
-                maxLines: 5,
-                maxLength: 255,
-                decoration: InputDecoration(
-                  hintText: 'Enter patient progress notes...',
-                  counterText: '',
-                  alignLabelWithHint: true,
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.only(bottom: 90),
-                    child: Icon(
-                      Icons.description_outlined,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppTheme.primaryColor,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter note';
-                  }
-                  return null;
-                },
-              ),
-
-              const SizedBox(height: 20),
-
-              // TREATMENT CHANGES
-              const Text(
-                'Treatment Changes',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              TextFormField(
-                controller: _changesController,
-                maxLines: 3,
-                maxLength: 255,
-                decoration: InputDecoration(
-                  hintText: 'Medication updates, dosage changes...',
-                  counterText: '',
-                  alignLabelWithHint: true,
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.only(bottom: 45),
-                    child: Icon(
-                      Icons.medical_services_outlined,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppTheme.primaryColor,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // OBSERVATIONS
-              const Text(
-                'Additional Observations',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              TextFormField(
-                controller: _obsController,
-                maxLines: 3,
-                maxLength: 255,
-                decoration: InputDecoration(
-                  hintText: 'Clinical observations...',
-                  counterText: '',
-                  alignLabelWithHint: true,
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.only(bottom: 45),
-                    child: Icon(
-                      Icons.visibility_outlined,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.shade50,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(
-                      color: AppTheme.primaryColor,
-                      width: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              // BUTTON
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: _submitProgressNote,
-                  icon: const Icon(Icons.add),
-                  label: const Text(
-                    'Add Progress Note',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    final Widget historyCard = Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // HEADER
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.history, color: Colors.green),
-                ),
-
-                const SizedBox(width: 12),
-
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Progress Note History',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Previously recorded doctor progress notes',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            if (_progressNotes.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 70),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.note_alt_outlined,
-                      size: 70,
-                      color: Colors.grey.shade400,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    Text(
-                      'No progress notes recorded',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ..._progressNotes.map((note) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 18),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // TOP ROW
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: Colors.green.withOpacity(
-                              0.1,
-                            ),
-                            child: const Icon(
-                              Icons.person,
-                              color: Colors.green,
-                            ),
-                          ),
-
-                          const SizedBox(width: 12),
-
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment:
-                                  CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  note['doctor_name'] ?? 'Doctor',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                  ),
-                                ),
-
-                                const SizedBox(height: 4),
-
-                                Text(
-                                  note['created_at'] != null
-                                      ? DateFormat(
-                                          'dd/MM/yyyy hh:mm a',
-                                        ).format(
-                                          DateTime.parse(
-                                            note['created_at'],
-                                          ).toLocal(),
-                                        )
-                                      : '--',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      // MAIN NOTE
-                      _buildProgressInfoBox(
-                        'Progress Note',
-                        note['notes'] ?? '--',
-                        Icons.description_outlined,
-                      ),
-
-                      if ((note['treatment_changes'] ?? '')
-                          .toString()
-                          .isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 14),
-                          child: _buildProgressInfoBox(
-                            'Treatment Changes',
-                            note['treatment_changes'],
-                            Icons.medical_services_outlined,
-                          ),
-                        ),
-
-                      if ((note['observation'] ?? '')
-                          .toString()
-                          .isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 14),
-                          child: _buildProgressInfoBox(
-                            'Additional Observations',
-                            note['observation'],
-                            Icons.visibility_outlined,
-                          ),
-                        ),
-                    ],
-                  ),
-                );
-              }),
-          ],
-        ),
-      ),
-    );
-
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
-      child: isMobile
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                formCard,
-                const SizedBox(height: 24),
-                historyCard,
-              ],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 5, child: formCard),
-                const SizedBox(width: 24),
-                Expanded(flex: 6, child: historyCard),
-              ],
-            ),
+    return IpdFluidBalanceWidget(
+      admission: widget.admission,
+      records: _fluidRecords,
+      summary: _fluidSummary,
+      currentStaffName: _staffName,
+      isMobile: isMobile,
+      onRefresh: _loadAllData,
+      onAddFluidLog: ({
+        required String entryType,
+        required String category,
+        required double volumeMl,
+        required String route,
+        required String fluidDescription,
+        required String shift,
+        DateTime? recordedAt,
+      }) async {
+        await _ipdController.createFluidLog(widget.admission['id'], {
+          'patient_id': widget.admission['patient_id'],
+          'entry_type': entryType,
+          'category': category,
+          'volume_ml': volumeMl,
+          'route': route,
+          'fluid_description': fluidDescription,
+          'recorded_by': _staffName,
+          'recorded_at': (recordedAt ?? DateTime.now()).toIso8601String(),
+          'shift': shift,
+        });
+        await _loadAllData();
+      },
+      onDeleteFluidLog: (int logId) async {
+        await _ipdController.deleteFluidLog(logId);
+        await _loadAllData();
+      },
     );
   }
 
-  Widget _buildProgressInfoBox(String title, String value, IconData icon) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: AppTheme.primaryColor),
-
-          const SizedBox(width: 10),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-
-                const SizedBox(height: 6),
-
-                Text(value, style: const TextStyle(height: 1.5)),
-              ],
-            ),
-          ),
-        ],
-      ),
+  Widget _buildDoctorProgressNotesTab() {
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
+    final latestVitals = _vitalsHistory.isNotEmpty ? _vitalsHistory.first : null;
+    return IpdDoctorRoundsSoapWidget(
+      admission: widget.admission,
+      rounds: _progressNotes,
+      latestVitals: latestVitals,
+      fluidSummary: _fluidSummary,
+      currentDoctorName: _staffName,
+      isMobile: isMobile,
+      onRefresh: _loadAllData,
+      onAddSoapRound: ({
+        required String roundType,
+        required String subjective,
+        required String objective,
+        required String assessment,
+        required String plan,
+        required Map<String, dynamic>? vitalsSnapshot,
+        DateTime? roundDate,
+      }) async {
+        await _ipdController.createSoapRound(widget.admission['id'], {
+          'patient_id': widget.admission['patient_id'],
+          'doctor_name': _staffName,
+          'note': 'Daily Round (): S:  | O:  | A:  | P: ',
+          'changes_in_treatment': plan,
+          'observed_improvements': assessment,
+          'round_type': roundType,
+          'subjective': subjective,
+          'objective': objective,
+          'assessment': assessment,
+          'plan': plan,
+          'vitals_snapshot': vitalsSnapshot,
+          'round_date': (roundDate ?? DateTime.now()).toIso8601String(),
+        });
+        await _loadAllData();
+      },
     );
   }
 
@@ -4414,313 +4286,43 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
   Widget _buildDoctorDischargeTab() {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: Card(
-            elevation: 0,
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(color: Colors.grey.shade200),
+    final isAlreadyDischarged = widget.admission['status'] == 'Discharged' ||
+        (widget.admission['discharge_summary'] != null &&
+            widget.admission['discharge_summary'].toString().isNotEmpty);
+
+    return IpdAutomatedDischargeSummaryWidget(
+      admission: widget.admission,
+      isMobile: isMobile,
+      isAlreadyDischarged: isAlreadyDischarged,
+      onFetchDischargeData: () async {
+        return await _ipdController.fetchDischargeSummaryData(widget.admission['id']);
+      },
+      onFinalizeDischarge: ({
+        required String finalDiagnosis,
+        required String treatmentSummary,
+        required String medicationPlan,
+        String? dischargeInstructions,
+        String? followUpDate,
+      }) async {
+        await _ipdController.dischargePatient(
+          widget.admission['id'],
+          '',
+          finalDiagnosis: finalDiagnosis,
+          treatmentSummary: treatmentSummary,
+          medicationPlan: medicationPlan,
+          dischargeInstructions: dischargeInstructions,
+          followUpDate: followUpDate,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Patient discharge finalized and summary generated!'),
+              backgroundColor: Colors.green,
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Form(
-                key: _dischargeFormKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // HEADER
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.logout_outlined,
-                            color: Colors.red,
-                            size: 26,
-                          ),
-                        ),
-
-                        const SizedBox(width: 14),
-
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Initiate Patient Discharge',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-
-                              const SizedBox(height: 6),
-
-                              Text(
-                                'Complete discharge summary and release patient from IPD care.',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 14,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    // ALERT CARD
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.orange.shade200),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.warning_amber_rounded,
-                            color: Colors.orange.shade700,
-                            size: 22,
-                          ),
-
-                          const SizedBox(width: 12),
-
-                          Expanded(
-                            child: Text(
-                              'Discharging this patient will automatically free the allocated bed and move the patient record to discharge history.',
-                              style: TextStyle(
-                                color: Colors.orange.shade900,
-                                fontWeight: FontWeight.w500,
-                                height: 1.5,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 30),
-
-                    // FINAL DIAGNOSIS
-                    _buildDischargeTextArea(
-                      controller: _finalDiagController,
-                      title: 'Final Diagnosis',
-                      hint: 'Enter final diagnosis and patient condition...',
-                      icon: Icons.medical_information_outlined,
-                      validatorMessage: 'Final diagnosis is required',
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // TREATMENT SUMMARY
-                    _buildDischargeTextArea(
-                      controller: _treatmentSumController,
-                      title: 'Treatment Summary',
-                      hint: 'Describe treatment provided during admission...',
-                      icon: Icons.healing_outlined,
-                      validatorMessage: 'Treatment summary is required',
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // MEDICATION PLAN
-                    _buildDischargeTextArea(
-                      controller: _medPlanController,
-                      title: 'Medication Plan & Follow-up',
-                      hint:
-                          'Prescribed medications, follow-up instructions, review dates...',
-                      icon: Icons.medication_outlined,
-                      validatorMessage: 'Medication plan is required',
-                    ),
-
-                    const SizedBox(height: 34),
-
-                    // BUTTON ROW
-                    isMobile
-                        ? Column(
-                            children: [
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    _finalDiagController.clear();
-                                    _treatmentSumController.clear();
-                                    _medPlanController.clear();
-                                  },
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text(
-                                    'Reset Form',
-                                    style: TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.grey.shade700,
-                                    side: BorderSide(color: Colors.grey.shade300),
-                                    minimumSize: const Size(double.infinity, 54),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton.icon(
-                                  onPressed: _executeDischarge,
-                                  icon: const Icon(Icons.logout, color: Colors.white),
-                                  label: const Text(
-                                    'Discharge Patient',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(double.infinity, 54),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: () {
-                                    _finalDiagController.clear();
-                                    _treatmentSumController.clear();
-                                    _medPlanController.clear();
-                                  },
-                                  icon: const Icon(Icons.refresh),
-                                  label: const Text(
-                                    'Reset Form',
-                                    style: TextStyle(fontWeight: FontWeight.w600),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.grey.shade700,
-                                    side: BorderSide(color: Colors.grey.shade300),
-                                    minimumSize: const Size(double.infinity, 54),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                flex: 2,
-                                child: ElevatedButton.icon(
-                                  onPressed: _executeDischarge,
-                                  icon: const Icon(Icons.logout, color: Colors.white),
-                                  label: const Text(
-                                    'Discharge Patient',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15,
-                                    ),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(double.infinity, 54),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDischargeTextArea({
-    required TextEditingController controller,
-    required String title,
-    required String hint,
-    required IconData icon,
-    required String validatorMessage,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-
-        const SizedBox(height: 10),
-
-        TextFormField(
-          controller: controller,
-          maxLines: 5,
-          maxLength: 255,
-          decoration: InputDecoration(
-            hintText: hint,
-            alignLabelWithHint: true,
-            counterText: '',
-
-            prefixIcon: Padding(
-              padding: const EdgeInsets.only(bottom: 90),
-              child: Icon(icon, color: Colors.red.shade400),
-            ),
-
-            filled: true,
-            fillColor: Colors.grey.shade50,
-
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(color: Colors.red, width: 1.5),
-            ),
-
-            contentPadding: const EdgeInsets.all(18),
-          ),
-
-          validator: (value) {
-            if (value == null || value.trim().isEmpty) {
-              return validatorMessage;
-            }
-            return null;
-          },
-        ),
-      ],
+          );
+          _goBack();
+        }
+      },
     );
   }
 
@@ -5035,22 +4637,35 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     );
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       child: Center(
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 1200),
-          child: isMobile
-              ? Column(
-                  children: [formCard, const SizedBox(height: 24), historyCard],
-                )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 3, child: formCard),
-                    const SizedBox(width: 24),
-                    Expanded(flex: 2, child: historyCard),
-                  ],
-                ),
+          constraints: const BoxConstraints(maxWidth: 1300),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Clinical Graphical TPR Progression
+              TprChartsWidget(
+                vitals: _vitalsHistory,
+                isMobile: isMobile,
+              ),
+              const SizedBox(height: 24),
+
+              // Vitals Entry Form & History Card
+              isMobile
+                  ? Column(
+                      children: [formCard, const SizedBox(height: 24), historyCard],
+                    )
+                  : Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 3, child: formCard),
+                        const SizedBox(width: 24),
+                        Expanded(flex: 2, child: historyCard),
+                      ],
+                    ),
+            ],
+          ),
         ),
       ),
     );
@@ -5181,252 +4796,34 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildNurseMedAdminTab() {
-    final bool isMobile = MediaQuery.of(context).size.width < 900;
-
-    final Widget leftCard = Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.medication_outlined,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Active Prescriptions',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Record medication administrations',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 30),
-
-            if (_prescriptions
-                .where((p) => p['status'] == 'Active')
-                .isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 60),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.medication_outlined,
-                      size: 70,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No active prescriptions from doctor',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ..._prescriptions
-                  .where((p) => p['status'] == 'Active')
-                  .map((p) => _buildNursePrescriptionCard(p)),
-          ],
-        ),
-      ),
-    );
-
-    final Widget rightCard = Card(
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.history, color: Colors.green),
-                ),
-                const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Medication Log History',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Previously administered medications',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            if (_medicationLogs.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 60),
-                child: Column(
-                  children: [
-                    Icon(
-                      Icons.medication_liquid_outlined,
-                      size: 70,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No medications logged',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else
-              ..._medicationLogs.map((log) {
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 14),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: log['status'] == 'Given'
-                            ? Colors.green.withOpacity(0.1)
-                            : Colors.orange.withOpacity(0.1),
-                        child: Icon(
-                          Icons.medication,
-                          color: log['status'] == 'Given'
-                              ? Colors.green
-                              : Colors.orange,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              log['medicine_name'] ?? '--',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 15,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Status: ${log['status']}',
-                              style: TextStyle(
-                                color: Colors.grey.shade700,
-                                fontSize: 13,
-                              ),
-                            ),
-                            if (log['remarks'] != null &&
-                                log['remarks'].toString().isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  log['remarks'],
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-          ],
-        ),
-      ),
-    );
-
     return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
-      child: isMobile
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                leftCard,
-                const SizedBox(height: 24),
-                rightCard,
-              ],
-            )
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 5, child: leftCard),
-                const SizedBox(width: 24),
-                Expanded(flex: 5, child: rightCard),
-              ],
-            ),
+      padding: EdgeInsets.all(MediaQuery.of(context).size.width < 900 ? 16 : 24),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 1300),
+          child: IpdMarWidget(
+            admission: widget.admission,
+            prescriptions: _prescriptions,
+            medicationLogs: _medicationLogs,
+            currentNurseName: _staffName,
+            isMobile: MediaQuery.of(context).size.width < 900,
+            onRefresh: _loadAllData,
+            onAdministerDose: ({
+              required int prescriptionId,
+              required String status,
+              required String remarks,
+              String? administeredAt,
+            }) async {
+              await _submitMedicationLog(
+                prescriptionId: prescriptionId,
+                status: status,
+                remarks: remarks,
+                administeredAt: administeredAt,
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 
