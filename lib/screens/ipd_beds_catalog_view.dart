@@ -6,6 +6,7 @@ import '../utils/app_theme.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../controllers/ipd_controller.dart';
+import '../widgets/interactive_ward_bed_grid.dart';
 
 class IpdBedsCatalogView extends StatefulWidget {
   final bool isMobile;
@@ -32,6 +33,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
   String _selectedStatusFilter = 'All';
   int _currentPage = 0;
   final int _itemsPerPage = 10;
+  bool _isGridView = false;
 
   @override
   void initState() {
@@ -267,6 +269,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                       value: selectedStatus,
                       dropdownMap: const {
                         'Available': 'Available (Ready for admission)',
+                        'Reserved': 'Reserved (Patient Hold / Scheduled)',
                         'Maintenance': 'Under Maintenance',
                         'Cleaning': 'Cleaning / Sanitizing',
                       },
@@ -561,6 +564,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                       dropdownMap: const {
                         'Available': 'Available (Ready for admission)',
                         'Occupied': 'Occupied (Patient Admitted)',
+                        'Reserved': 'Reserved (Patient Hold / Scheduled)',
                         'Maintenance': 'Under Maintenance',
                         'Cleaning': 'Cleaning / Sanitizing',
                       },
@@ -827,16 +831,49 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
           _buildHeaderBar(),
           const SizedBox(height: 20),
 
-          // KPI Stats Row
-          _buildKpiStatsRow(),
-          const SizedBox(height: 20),
+          if (_isGridView) ...[
+            InteractiveWardBedGrid(
+              beds: _beds,
+              isMobile: widget.isMobile,
+              onRefresh: _loadBeds,
+              onStatusChanged: (bed, newStatus) async {
+                final bedId = bed['id'];
+                if (bedId == null) return;
+                try {
+                  await _ipdController.updateBedStatus(id: bedId, status: newStatus);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Bed ${bed['bed_number']} status changed to $newStatus'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                  _loadBeds();
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error updating bed: $e'),
+                        backgroundColor: AppTheme.dangerColor,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ] else ...[
+            // KPI Stats Row
+            _buildKpiStatsRow(),
+            const SizedBox(height: 20),
 
-          // Filter Controls
-          _buildFilterControls(),
-          const SizedBox(height: 16),
+            // Filter Controls
+            _buildFilterControls(),
+            const SizedBox(height: 16),
 
-          // Bed List / Table Card
-          _buildBedsTableCard(paginatedItems, totalItems, totalPages),
+            // Bed List / Table Card
+            _buildBedsTableCard(paginatedItems, totalItems, totalPages),
+          ],
         ],
       ),
     );
@@ -860,6 +897,15 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                   children: [
                     Expanded(child: _buildSearchBar()),
                     const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: _isGridView ? 'Switch to Table View' : 'Switch to Graphical Ward Grid',
+                      icon: Icon(
+                        _isGridView ? Icons.table_chart_outlined : Icons.grid_view_rounded,
+                        color: AppTheme.primaryColor,
+                      ),
+                      onPressed: () => setState(() => _isGridView = !_isGridView),
+                    ),
+                    const SizedBox(width: 8),
                     _buildAddButton(),
                   ],
                 ),
@@ -869,8 +915,17 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
               children: [
                 _buildHeaderTitle(),
                 const Spacer(),
-                SizedBox(width: 320, child: _buildSearchBar()),
+                SizedBox(width: 300, child: _buildSearchBar()),
                 const SizedBox(width: 12),
+                IconButton(
+                  tooltip: _isGridView ? 'Switch to Table View' : 'Switch to Graphical Ward Grid',
+                  icon: Icon(
+                    _isGridView ? Icons.table_chart_outlined : Icons.grid_view_rounded,
+                    color: AppTheme.primaryColor,
+                  ),
+                  onPressed: () => setState(() => _isGridView = !_isGridView),
+                ),
+                const SizedBox(width: 8),
                 _buildAddButton(),
                 const SizedBox(width: 8),
                 IconButton(
@@ -1081,7 +1136,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
 
   Widget _buildFilterControls() {
     final wards = ['All', ..._availableWards];
-    final statuses = ['All', 'Available', 'Occupied', 'Maintenance', 'Cleaning'];
+    final statuses = ['All', 'Available', 'Occupied', 'Reserved', 'Cleaning', 'Maintenance'];
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
