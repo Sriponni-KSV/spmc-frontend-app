@@ -63,7 +63,7 @@ class AdminNavConfig {
   // -------------------------------------------------------------------------
 
   /// Access Control / RBAC (Visible)
-  static const bool showAccessControl = true;
+  static const bool showAccessControl = false;
 
   /// Appointments (Visible)
   static const bool showAppointments = true;
