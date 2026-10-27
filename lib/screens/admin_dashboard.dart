@@ -824,7 +824,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return const AccessDeniedWidget();
       case 10:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
-          return const BillingManagementView();
+          return Localizations.override(
+            context: context,
+            locale: const Locale('en'),
+            child: const BillingManagementView(),
+          );
         }
         return const AccessDeniedWidget();
       case 11:
@@ -2430,7 +2434,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return label;
     }
     final lower = label.trim().toLowerCase();
-    if (lower == 'home visit care' || lower.contains('home visit') || lower.contains('home care')) {
+    if (lower.contains('billing') || lower.contains('invoice')) {
+      return label; // Billing & Invoices must ALWAYS stay strictly English
+    }
+    if (lower == 'home visit care' || lower.contains('home visit')) {
       final isTamil = Provider.of<LanguageProvider>(context).isTamil;
       return isTamil ? 'வீட்டுப் பராமரிப்பு சேவை' : label;
     }
@@ -3078,7 +3085,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   children: [
                     _buildActionGridItem(
                       Icons.receipt_long_outlined,
-                      context.tr('billing', fallback: 'Billing &\nInvoices'),
+                      'Billing &\nInvoices',
                       () => context.go(AppRoutes.adminBilling),
                     ),
                     const SizedBox(width: 12),
@@ -3108,7 +3115,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const SizedBox(width: 12),
                 _buildActionGridItem(
                   Icons.receipt_long_outlined,
-                  context.tr('billing', fallback: 'Billing &\nInvoices'),
+                  'Billing &\nInvoices',
                   () => context.go(AppRoutes.adminBilling),
                 ),
                 const SizedBox(width: 12),

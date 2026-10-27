@@ -346,6 +346,50 @@ class HomeVisitService {
     }
   }
 
+  // Generate or synchronize invoice for a home visit
+  Future<Map<String, dynamic>> generateInvoice(
+    int visitId, {
+    double? customFee,
+    bool forceRegenerate = false,
+  }) async {
+    try {
+      final response = await ApiService.post(
+        '$baseUrl/home-visits/$visitId/generate-invoice',
+        {
+          if (customFee != null) 'custom_fee': customFee,
+          'force_regenerate': forceRegenerate,
+        },
+      );
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true && body['data'] != null) {
+        return body['data'];
+      }
+      throw Exception(
+        body['message'] ?? 'Failed to generate invoice for home visit',
+      );
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
+  // Get invoice details for a home visit
+  Future<Map<String, dynamic>> getInvoiceForVisit(int visitId) async {
+    try {
+      final response = await ApiService.get(
+        '$baseUrl/home-visits/$visitId/invoice',
+      );
+      final body = ApiService.decodeJsonResponse(response);
+      if (body['success'] == true && body['data'] != null) {
+        return body['data'];
+      }
+      throw Exception(
+        body['message'] ?? 'Failed to fetch invoice for home visit',
+      );
+    } catch (e) {
+      throw Exception(e.toString().replaceAll("Exception: ", ""));
+    }
+  }
+
   // Update vitals schedule config
   Future<void> updateVitalsConfig(
     String startTime,

@@ -42,6 +42,35 @@ class AppointmentController {
     }
   }
 
+  Future<Map<String, dynamic>> previewConsultationFee({
+    required int patientId,
+    int? doctorId,
+    String? doctorName,
+    String? appointmentDate,
+    String? appointmentType,
+  }) async {
+    try {
+      final queryParams = <String, String>{
+        'patient_id': patientId.toString(),
+        if (doctorId != null) 'doctor_id': doctorId.toString(),
+        if (doctorName != null) 'doctor_name': doctorName,
+        if (appointmentDate != null) 'appointment_date': appointmentDate,
+        if (appointmentType != null) 'appointment_type': appointmentType,
+      };
+      final uri = Uri.parse('$baseUrl/appointments/fee-preview').replace(queryParameters: queryParams);
+      final response = await ApiService.get(uri.toString());
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        return Map<String, dynamic>.from(body['data']);
+      } else {
+        throw Exception(body['message'] ?? 'Failed to preview consultation fee');
+      }
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   Future<void> updateStatus(
     int id,
     String status, {

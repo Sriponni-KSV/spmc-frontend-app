@@ -15,11 +15,13 @@ import '../controllers/admin_controller.dart';
 import '../controllers/appointment_controller.dart';
 import '../widgets/appointment_details_dialog.dart';
 import '../widgets/check_in_vitals_dialog.dart';
+import '../widgets/billing_receipt_dialog.dart';
 import 'mocdoc_appointments_view.dart';
 import '../utils/date_formatter.dart';
 import '../utils/tamil_transliteration_helper.dart';
 import '../providers/language_provider.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
 class AppointmentsView extends StatefulWidget {
   final bool startWithBookingForm;
@@ -462,6 +464,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   Future<void> _startConsultation(AppointmentModel appt) async {
+    final userRole = Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
+    if (userRole.toLowerCase() == 'nurse') return;
     try {
       await _appointmentController.updateStatus(appt.id!, 'In Consultation');
       _fetchData();
@@ -3570,9 +3574,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 _buildTableHeader('Department', flex: 2),
                 _buildTableHeader('Doctor', flex: 3),
                 _buildTableHeader('Type', flex: 2),
-                _buildTableHeader('Reason', flex: 3),
+                _buildTableHeader('Reason', flex: 2),
                 _buildTableHeader('Status', flex: 2),
-                _buildTableHeader('Actions', flex: 2, leftPadding: 16),
+                _buildTableHeader('Actions', flex: 3, leftPadding: 8),
               ],
             ),
           ),
@@ -3824,13 +3828,46 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         ),
                       ),
-                    if (appt.status == 'Waiting')
+                    if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                        appt.status == 'Waiting')
                       ElevatedButton.icon(
                         onPressed: () => _startConsultation(appt),
                         icon: const Icon(Icons.play_arrow_rounded, size: 14, color: Colors.white),
                         label: const Text('Start Consult', style: TextStyle(fontSize: 11)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.secondaryColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                    if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                        appt.status != 'Cancelled')
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          BillingReceiptDialog.show(
+                            context,
+                            appointmentId: appt.id,
+                            onPaymentSuccess: _fetchData,
+                          );
+                        },
+                        icon: Icon(
+                          (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                              ? Icons.receipt_long
+                              : Icons.payment,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        label: Text(
+                          (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                              ? 'Receipt'
+                              : 'Collect Fee',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFFD97706),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           minimumSize: const Size(0, 36),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
@@ -4416,7 +4453,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 3,
+            flex: 2,
             child: Tooltip(
               message: reason,
               child: Text(
@@ -4447,9 +4484,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Padding(
-              padding: const EdgeInsets.only(left: 16.0),
+              padding: const EdgeInsets.only(left: 8.0),
               child: Wrap(
                 spacing: 6,
                 runSpacing: 4,
@@ -4469,7 +4506,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       onTap: () => _checkInAppointment(appt),
                     ),
                   ],
-                  if (status == 'Waiting') ...[
+                  if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                      status == 'Waiting') ...[
                     _buildActionLabel(
                       Icons.play_arrow_outlined,
                       'Start Consult',
@@ -4483,6 +4521,27 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       'Vitals',
                       const Color(0xFF0F766E),
                       onTap: () => _checkInAppointment(appt),
+                    ),
+                  ],
+                  if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                      status != 'Cancelled') ...[
+                    _buildActionLabel(
+                      (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                          ? Icons.receipt_long_outlined
+                          : Icons.payment_outlined,
+                      (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                          ? 'Receipt'
+                          : 'Collect Fee',
+                      (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFD97706),
+                      onTap: () {
+                        BillingReceiptDialog.show(
+                          context,
+                          appointmentId: appt.id,
+                          onPaymentSuccess: _fetchData,
+                        );
+                      },
                     ),
                   ],
                   if (status == 'Confirmed' ||

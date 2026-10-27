@@ -11,7 +11,10 @@ import '../controllers/appointment_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../widgets/appointment_details_dialog.dart';
 import '../widgets/check_in_vitals_dialog.dart';
+import '../widgets/billing_receipt_dialog.dart';
 import '../utils/date_formatter.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
 class MocDocAppointmentsView extends StatefulWidget {
   final String? initialViewMode;
@@ -331,11 +334,44 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       _reasonController.clear();
     });
 
+    Map<String, dynamic>? feePreview;
+    bool isLoadingFee = false;
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
+          void fetchFee(PatientModel? patient, String apptType) async {
+            if (patient == null || patient.id == null) {
+              setDialogState(() {
+                feePreview = null;
+                isLoadingFee = false;
+              });
+              return;
+            }
+            setDialogState(() {
+              isLoadingFee = true;
+            });
+            try {
+              final preview = await _appointmentController.previewConsultationFee(
+                patientId: patient.id!,
+                doctorId: doctor.id,
+                doctorName: doctor.fullname,
+                appointmentDate: DateFormat('yyyy-MM-dd').format(_filterDate),
+                appointmentType: apptType,
+              );
+              setDialogState(() {
+                feePreview = preview;
+                isLoadingFee = false;
+              });
+            } catch (e) {
+              setDialogState(() {
+                isLoadingFee = false;
+              });
+            }
+          }
+
           return AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
@@ -385,6 +421,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                         setDialogState(() {
                           _bookingPatient = val;
                         });
+                        fetchFee(val, _bookingApptType);
                       },
                     ),
                     const SizedBox(height: 16),
@@ -398,8 +435,119 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                         setDialogState(() {
                           _bookingApptType = val ?? 'Routine';
                         });
+                        fetchFee(_bookingPatient, val ?? 'Routine');
                       },
                     ),
+                    if (isLoadingFee) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: const Row(
+                          children: [
+                            SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              'Checking OPD consultation validity & fee...',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else if (feePreview != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: (feePreview!['is_followup'] == true)
+                              ? const Color(0xFFF0FDF4)
+                              : const Color(0xFFF0F9FF),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: (feePreview!['is_followup'] == true)
+                                ? const Color(0xFF86EFAC)
+                                : const Color(0xFFBAE6FD),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: (feePreview!['is_followup'] == true)
+                                    ? const Color(0xFFDCFCE7)
+                                    : const Color(0xFFE0F2FE),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                (feePreview!['is_followup'] == true)
+                                    ? Icons.verified_outlined
+                                    : Icons.receipt_long_outlined,
+                                size: 18,
+                                color: (feePreview!['is_followup'] == true)
+                                    ? const Color(0xFF16A34A)
+                                    : AppTheme.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        (feePreview!['is_followup'] == true)
+                                            ? 'FREE FOLLOW-UP VISIT'
+                                            : 'OPD CONSULTATION FEE',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.5,
+                                          color: (feePreview!['is_followup'] == true)
+                                              ? const Color(0xFF15803D)
+                                              : AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      Text(
+                                        '₹${((feePreview!['applicable_fee'] ?? 0) as num).toStringAsFixed(0)}',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w800,
+                                          color: (feePreview!['is_followup'] == true)
+                                              ? const Color(0xFF16A34A)
+                                              : AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    feePreview!['reason'] ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     _buildLabel('Reason for Visit *'),
                     _buildTextField(
@@ -567,6 +715,10 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                             ).format(_filterDate),
                             appointmentTime: _bookingTime!,
                             appointmentType: _bookingApptType,
+                            consultationFee: (feePreview != null && feePreview!['applicable_fee'] != null)
+                                ? ((feePreview!['applicable_fee'] as num).toDouble())
+                                : null,
+                            isFollowup: feePreview?['is_followup'] == true,
                             bloodPressureSystolic: int.tryParse(
                               _bpSystolicController.text,
                             ),
@@ -1152,6 +1304,8 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   }
 
   Future<void> _startConsultation(AppointmentModel appt) async {
+    final userRole = Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
+    if (userRole.toLowerCase() == 'nurse') return;
     try {
       await _appointmentController.updateStatus(appt.id!, 'In Consultation');
       _fetchData();
@@ -2742,7 +2896,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 1.35,
+              childAspectRatio: 1.25,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
@@ -3119,6 +3273,73 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: appt.isFollowup
+                                ? const Color(0xFFE8F5E9)
+                                : const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: appt.isFollowup
+                                  ? const Color(0xFF81C784)
+                                  : const Color(0xFF93C5FD),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            appt.isFollowup
+                                ? 'Follow-up'
+                                : '₹${(appt.consultationFee ?? 300).toStringAsFixed(0)}',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: appt.isFollowup
+                                  ? AppTheme.secondaryColor
+                                  : AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (appt.billingPaymentStatus?.toLowerCase() == 'paid' ||
+                                    appt.billingPaymentStatus?.toLowerCase() == 'settled' ||
+                                    appt.isFollowup)
+                                ? const Color(0xFFE8F5E9)
+                                : const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(
+                              color: (appt.billingPaymentStatus?.toLowerCase() == 'paid' ||
+                                      appt.billingPaymentStatus?.toLowerCase() == 'settled' ||
+                                      appt.isFollowup)
+                                  ? const Color(0xFF81C784)
+                                  : const Color(0xFFFDE68A),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            appt.isFollowup
+                                ? 'Free / Settled'
+                                : (appt.billingPaymentStatus ?? 'Unpaid'),
+                            style: TextStyle(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w600,
+                              color: (appt.billingPaymentStatus?.toLowerCase() == 'paid' ||
+                                      appt.billingPaymentStatus?.toLowerCase() == 'settled' ||
+                                      appt.isFollowup)
+                                  ? const Color(0xFF2E7D32)
+                                  : const Color(0xFFD97706),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -3169,13 +3390,36 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                     ),
                     const SizedBox(width: 4),
                   ],
-                  if (appt.status == 'Waiting') ...[
+                  if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                      appt.status == 'Waiting') ...[
                     _buildCardAction(
                       Icons.meeting_room_outlined,
                       'Start Consult',
                       AppTheme.primaryColor,
                       () {
                         _startConsultation(appt);
+                      },
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                      appt.status != 'Cancelled') ...[
+                    _buildCardAction(
+                      (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                          ? Icons.receipt_long_outlined
+                          : Icons.payment_outlined,
+                      (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                          ? 'Receipt'
+                          : 'Collect Fee',
+                      (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFD97706),
+                      () {
+                        BillingReceiptDialog.show(
+                          context,
+                          appointmentId: appt.id,
+                          onPaymentSuccess: _fetchData,
+                        );
                       },
                     ),
                     const SizedBox(width: 4),

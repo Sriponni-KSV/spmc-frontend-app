@@ -17,6 +17,8 @@ import '../utils/app_notification.dart';
 import '../utils/app_localizations.dart';
 import '../utils/tamil_transliteration_helper.dart';
 import '../providers/language_provider.dart';
+import 'home_visit_invoice_dialog.dart';
+import '../services/home_visit_service.dart';
 
 class HomeVisitListView extends StatefulWidget {
   final Function(int visitId)? onExecuteVisit;
@@ -76,6 +78,76 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
       }
     } catch (_) {
       if (mounted) setState(() => _isLoadingPatients = false);
+    }
+  }
+
+  Future<void> _openInvoiceDialog(HomeVisitModel visit) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final invoiceData = await HomeVisitService().getInvoiceForVisit(visit.id);
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      final currentLocale = Provider.of<LanguageProvider>(context, listen: false).locale;
+      showDialog(
+        context: context,
+        builder: (ctx) => Localizations.override(
+          context: ctx,
+          locale: currentLocale,
+          child: HomeVisitInvoiceDialog(
+            invoiceData: invoiceData,
+            visit: visit,
+            onCloseAndComplete: () {
+              Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      AppNotification.showError(
+        context,
+        'Failed to load invoice: ${e.toString().replaceAll("Exception: ", "")}',
+      );
+    }
+  }
+
+  Future<void> _generateAndOpenInvoiceDialog(HomeVisitModel visit) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final invoiceData = await HomeVisitService().generateInvoice(visit.id);
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      final currentLocale2 = Provider.of<LanguageProvider>(context, listen: false).locale;
+      showDialog(
+        context: context,
+        builder: (ctx) => Localizations.override(
+          context: ctx,
+          locale: currentLocale2,
+          child: HomeVisitInvoiceDialog(
+            invoiceData: invoiceData,
+            visit: visit,
+            onCloseAndComplete: () {
+              Provider.of<HomeVisitController>(context, listen: false).fetchVisits();
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      AppNotification.showError(
+        context,
+        'Failed to generate invoice: ${e.toString().replaceAll("Exception: ", "")}',
+      );
     }
   }
 
@@ -1418,6 +1490,55 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                   },
                 ),
               ),
+              if (visit.invoice != null) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 36,
+                  child: OutlinedButton.icon(
+                    style: AppTheme.outlinedButton.copyWith(
+                      padding: WidgetStateProperty.all(
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                      ),
+                      shape: WidgetStateProperty.all(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.receipt_long, size: 16),
+                    label: Text(
+                      context.tr('view_invoice', fallback: 'Bill & Invoice'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    onPressed: () => _openInvoiceDialog(visit),
+                  ),
+                ),
+              ] else if (isCompleted) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 36,
+                  child: OutlinedButton.icon(
+                    style: AppTheme.outlinedButton.copyWith(
+                      foregroundColor: WidgetStateProperty.all(AppTheme.secondaryColor),
+                      side: WidgetStateProperty.all(const BorderSide(color: AppTheme.secondaryColor)),
+                      padding: WidgetStateProperty.all(
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                      ),
+                      shape: WidgetStateProperty.all(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                    icon: const Icon(Icons.receipt_long, size: 16),
+                    label: Text(
+                      context.tr('generate_bill', fallback: 'Generate Bill'),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    onPressed: () => _generateAndOpenInvoiceDialog(visit),
+                  ),
+                ),
+              ],
               if (!isCompleted &&
                   visit.status != 'Cancelled' &&
                   widget.showExecuteButton) ...[
@@ -1505,6 +1626,64 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                   ),
                                 ),
                               ),
+                              if (visit.invoice != null) ...[
+                                Builder(
+                                  builder: (context) {
+                                    final inv = visit.invoice!;
+                                    final invNum = inv['invoice_number'] ?? 'INV-HV';
+                                    final netAmt = double.tryParse((inv['net_amount'] ?? inv['total_amount'] ?? 0).toString()) ?? 0.0;
+                                    final pStatus = inv['payment_status'] ?? 'Unpaid';
+                                    final isPaid = pStatus == 'Paid' || pStatus == 'Settled';
+                                    return Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: isPaid ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: isPaid ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.receipt_long, size: 12, color: isPaid ? const Color(0xFF166534) : const Color(0xFF92400E)),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '$invNum • ₹${netAmt.toStringAsFixed(0)} • $pStatus',
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: isPaid ? const Color(0xFF166534) : const Color(0xFF92400E),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ] else if (isCompleted) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: const Color(0xFFCBD5E1)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.receipt_outlined, size: 12, color: Colors.grey.shade600),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        context.tr('unbilled', fallback: 'Unbilled'),
+                                        style: TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ],
                           );
                         },
@@ -1654,6 +1833,57 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                         },
                       ),
                     ),
+                    if (visit.invoice != null) ...[
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: AppTheme.outlinedButton.copyWith(
+                            minimumSize: WidgetStateProperty.all(
+                              const Size(0, 40),
+                            ),
+                            padding: WidgetStateProperty.all(
+                              const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                          ),
+                          icon: const Icon(Icons.receipt_long, size: 14),
+                          label: Text(
+                            context.tr('view_invoice', fallback: 'Invoice'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onPressed: () => _openInvoiceDialog(visit),
+                        ),
+                      ),
+                    ] else if (isCompleted) ...[
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: AppTheme.outlinedButton.copyWith(
+                            foregroundColor: WidgetStateProperty.all(AppTheme.secondaryColor),
+                            side: WidgetStateProperty.all(const BorderSide(color: AppTheme.secondaryColor)),
+                            minimumSize: WidgetStateProperty.all(
+                              const Size(0, 40),
+                            ),
+                            padding: WidgetStateProperty.all(
+                              const EdgeInsets.symmetric(horizontal: 8),
+                            ),
+                          ),
+                          icon: const Icon(Icons.receipt_long, size: 14),
+                          label: Text(
+                            context.tr('generate_bill', fallback: 'Bill'),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onPressed: () => _generateAndOpenInvoiceDialog(visit),
+                        ),
+                      ),
+                    ],
                     if (!isCompleted &&
                         visit.status != 'Cancelled' &&
                         widget.showExecuteButton) ...[
@@ -2055,11 +2285,6 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
   }
 
   void _showScheduleVisitDialog(BuildContext context) {
-    final homeVisitCtrl = Provider.of<HomeVisitController>(
-      context,
-      listen: false,
-    );
-
     final availablePatients = _patientsList
         .where((p) => p.id != null)
         .toList();
