@@ -135,6 +135,21 @@ class BillingController {
     }
   }
 
+  /// Fetch all OT billing cases (optional status: 'all', 'unbilled', 'billed')
+  Future<List<Map<String, dynamic>>> fetchOtBillingCases({String status = 'all'}) async {
+    try {
+      final response = await ApiService.get('$baseUrl/billing/ot-cases?status=$status');
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        throw Exception(body['message'] ?? 'Failed to fetch OT billing cases');
+      }
+      final List data = body['data'] ?? [];
+      return data.cast<Map<String, dynamic>>();
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   /// Fetch charges breakdown for an OT case
   Future<Map<String, dynamic>> fetchOtCaseCharges(dynamic caseId) async {
     try {

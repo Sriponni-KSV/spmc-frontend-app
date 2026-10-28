@@ -39,6 +39,10 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
   List<Map<String, dynamic>> _ipAdmissions = [];
   List<HomeVisitModel> _pendingUnbilledHomeVisits = [];
   List<Map<String, dynamic>> _unbilledOtCases = [];
+  List<Map<String, dynamic>> _otBillingCases = [];
+  bool _isLoadingOtBillingCases = false;
+  String _otBillingFilter = 'All'; // 'All', 'Unbilled', 'Billed'
+  String _otBillingSearch = '';
   bool _isLoadingCatalog = false;
   bool _isLoadingInvoices = false;
   bool _isLoadingAdmissions = false;
@@ -82,7 +86,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     final role = user?.role;
     if (role != _currentRole) {
       _currentRole = role;
-      int tabLength = 5;
+      int tabLength = 6;
       if (role == 'Pharmacy') {
         tabLength = 3;
       } else if (role == 'Lab') {
@@ -116,6 +120,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     _loadIpAdmissions();
     _loadPendingUnbilledHomeVisits();
     _loadUnbilledOtCases();
+    _loadOtBillingCases();
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user?.role == 'Pharmacy') {
       _loadMedicineInventory();
@@ -154,11 +159,26 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
       } else if (tabIndex == 2) {
         _loadIpAdmissions();
       } else if (tabIndex == 3) {
+        _loadOtBillingCases();
+      } else if (tabIndex == 4) {
         _loadInvoices();
         _loadPendingUnbilledHomeVisits();
-      } else if (tabIndex == 4) {
+      } else if (tabIndex == 5) {
         _loadCatalog();
       }
+    }
+  }
+
+  Future<void> _loadOtBillingCases() async {
+    if (!mounted) return;
+    setState(() => _isLoadingOtBillingCases = true);
+    try {
+      final list = await _billingCtrl.fetchOtBillingCases();
+      if (mounted) setState(() => _otBillingCases = list);
+    } catch (e) {
+      debugPrint('Error loading OT billing cases: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingOtBillingCases = false);
     }
   }
 
@@ -351,6 +371,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
         Tab(icon: Icon(Icons.receipt_outlined), text: 'Quick Bill (OP)'),
         Tab(icon: Icon(Icons.history_outlined), text: 'OP Invoices'),
         Tab(icon: Icon(Icons.hotel_outlined), text: 'IP Billing'),
+        Tab(icon: Icon(Icons.medical_services_outlined), text: 'OT Billing'),
         Tab(icon: Icon(Icons.home_work_outlined), text: 'Home Care'),
         Tab(icon: Icon(Icons.settings_outlined), text: 'Services Catalog'),
       ];
@@ -358,6 +379,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
         _buildQuickBillTab(isMobile),
         _buildInvoicesTab(isMobile),
         _buildIpBillingTab(isMobile),
+        _buildOtBillingTab(isMobile),
         _buildHomeCareBillingTab(isMobile),
         _buildCatalogTab(isMobile),
       ];
@@ -469,13 +491,11 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('Quick Bill Form', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
-                      if (role != 'Pharmacy' && role != 'Lab' && (_unbilledOtCases.isNotEmpty || _isLoadingUnbilledOtCases))
+                      if (role != 'Pharmacy' && role != 'Lab')
                         OutlinedButton.icon(
-                          icon: _isLoadingUnbilledOtCases
-                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0284C7)))
-                              : const Icon(Icons.medical_services_outlined, size: 16, color: Color(0xFF0284C7)),
+                          icon: const Icon(Icons.medical_services_outlined, size: 16, color: Color(0xFF0284C7)),
                           label: Text(
-                            _isLoadingUnbilledOtCases ? 'Loading OT Cases...' : 'Unbilled OT Cases (${_unbilledOtCases.length})',
+                            'OT Billing (${_otBillingCases.where((c) => c['is_billed'] != true).length})',
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0284C7)),
                           ),
                           style: OutlinedButton.styleFrom(
@@ -483,7 +503,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          onPressed: _isLoadingUnbilledOtCases ? null : _showUnbilledOtCasesDialog,
+                          onPressed: () => _tabController?.animateTo(3),
                         ),
                     ],
                   ),
@@ -509,81 +529,6 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                     },
                   ),
 
-                  // Show matching unbilled OT cases for selected patient
-                  if (_qbSelectedPatient != null) ...[
-                    Builder(
-                      builder: (context) {
-                        final patientOtCases = _unbilledOtCases.where((c) => c['patient_id'] == _qbSelectedPatient!.id).toList();
-                        if (patientOtCases.isEmpty) return const SizedBox.shrink();
-                        return Container(
-                          margin: const EdgeInsets.only(top: 14),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF0F9FF),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFBAE6FD)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.emergency_outlined, size: 18, color: Color(0xFF0284C7)),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Patient has ${patientOtCases.length} Unbilled Surgical Case(s)',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0369A1)),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              for (var otc in patientOtCases)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          '${otc['case_number'] ?? 'OT Case'}: ${otc['surgery_type']} • Dr. ${otc['lead_surgeon'] ?? '-'} • ₹${double.tryParse((otc['subtotal'] ?? 0).toString())?.toStringAsFixed(2) ?? '0.00'}',
-                                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      OutlinedButton.icon(
-                                        icon: const Icon(Icons.edit_note, size: 15),
-                                        label: const Text('Edit Fees'),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor: const Color(0xFF0369A1),
-                                          side: const BorderSide(color: Color(0xFF0284C7)),
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                        ),
-                                        onPressed: () => _showEditOtCaseFeesDialog(otc, onUpdated: () => _loadUnbilledOtCases()),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      ElevatedButton.icon(
-                                        icon: Icon(_qbSelectedOtCaseId == otc['id'] ? Icons.check : Icons.file_download_outlined, size: 15),
-                                        label: Text(_qbSelectedOtCaseId == otc['id'] ? 'Charges Loaded ✓' : 'Load OT Charges'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: _qbSelectedOtCaseId == otc['id'] ? Colors.green : const Color(0xFF0284C7),
-                                          foregroundColor: Colors.white,
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                        ),
-                                        onPressed: () => _loadOtCaseIntoQuickBill(otc),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                  const SizedBox(height: 20),
                   if (_showHomeVisitInQuickBill && role != 'Pharmacy' && role != 'Lab') ...[
                     _buildLabel('Billing Service Type'),
                     Row(
@@ -2202,6 +2147,1180 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     );
   }
 
+  // ─── OT BILLING TAB (Dedicated MocDoc-Style Operation Theatre Billing) ────────
+  Widget _buildOtBillingTab(bool isMobile) {
+    final allCases = _otBillingCases;
+    final unbilledList = allCases.where((c) => c['is_billed'] != true).toList();
+    final billedList = allCases.where((c) => c['is_billed'] == true).toList();
+
+    final double totalUnbilledAmt = unbilledList.fold(0.0, (sum, c) => sum + (double.tryParse((c['subtotal'] ?? 0).toString()) ?? 0.0));
+    final double totalBilledAmt = billedList.fold(0.0, (sum, c) => sum + (double.tryParse((c['invoice_net_amount'] ?? c['subtotal'] ?? 0).toString()) ?? 0.0));
+
+    final filtered = allCases.where((c) {
+      if (_otBillingFilter == 'Unbilled' && c['is_billed'] == true) return false;
+      if (_otBillingFilter == 'Billed' && c['is_billed'] != true) return false;
+
+      if (_otBillingSearch.trim().isNotEmpty) {
+        final q = _otBillingSearch.trim().toLowerCase();
+        final caseNum = (c['case_number'] ?? c['ot_case_id'] ?? '').toString().toLowerCase();
+        final patName = (c['patient_name'] ?? '').toString().toLowerCase();
+        final patId = (c['patient_display_id'] ?? '').toString().toLowerCase();
+        final surg = (c['surgery_type'] ?? '').toString().toLowerCase();
+        final doc = (c['lead_surgeon'] ?? c['surgeon'] ?? '').toString().toLowerCase();
+        final th = (c['theatre_name'] ?? '').toString().toLowerCase();
+        return caseNum.contains(q) || patName.contains(q) || patId.contains(q) || surg.contains(q) || doc.contains(q) || th.contains(q);
+      }
+      return true;
+    }).toList();
+
+    return RefreshIndicator(
+      onRefresh: _loadOtBillingCases,
+      child: Padding(
+        padding: EdgeInsets.all(isMobile ? 14.0 : 22.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // KPI Stat Summary
+            isMobile
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderColor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Text('Total Cases', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryColor)),
+                              const SizedBox(height: 3),
+                              Text('${allCases.length}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                              const SizedBox(height: 1),
+                              const Text('Booked', style: TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                            ],
+                          ),
+                        ),
+                        Container(height: 32, width: 1, color: const Color(0xFFE2E8F0)),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Text('Pending', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
+                              const SizedBox(height: 3),
+                              Text('${unbilledList.length}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+                              const SizedBox(height: 1),
+                              Text('₹${totalUnbilledAmt.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
+                            ],
+                          ),
+                        ),
+                        Container(height: 32, width: 1, color: const Color(0xFFE2E8F0)),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              const Text('Billed OT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF059669))),
+                              const SizedBox(height: 3),
+                              Text('${billedList.length}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF059669))),
+                              const SizedBox(height: 1),
+                              Text('₹${totalBilledAmt.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF059669))),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : LayoutBuilder(
+                    builder: (ctx, constraints) {
+                      final cardWidth = constraints.maxWidth > 900
+                          ? (constraints.maxWidth - 24) / 3
+                          : (constraints.maxWidth > 600 ? (constraints.maxWidth - 12) / 2 : constraints.maxWidth);
+
+                      return Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          _buildOtStatCard(
+                            title: 'All Surgical Cases',
+                            value: '${allCases.length}',
+                            subtitle: 'Total booked & performed',
+                            icon: Icons.medical_services_outlined,
+                            color: AppTheme.primaryColor,
+                            width: cardWidth,
+                          ),
+                          _buildOtStatCard(
+                            title: 'Pending Unbilled Cases',
+                            value: '${unbilledList.length}',
+                            subtitle: 'Est. ₹${totalUnbilledAmt.toStringAsFixed(0)} pending',
+                            icon: Icons.pending_actions_outlined,
+                            color: const Color(0xFFD97706),
+                            width: cardWidth,
+                          ),
+                          _buildOtStatCard(
+                            title: 'Billed OT Cases',
+                            value: '${billedList.length}',
+                            subtitle: '₹${totalBilledAmt.toStringAsFixed(0)} settled revenue',
+                            icon: Icons.verified_outlined,
+                            color: const Color(0xFF059669),
+                            width: cardWidth,
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+            const SizedBox(height: 14),
+
+            // Search & Filter Controls
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.borderColor),
+              ),
+              child: isMobile
+                  ? Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                onChanged: (val) => setState(() => _otBillingSearch = val),
+                                decoration: InputDecoration(
+                                  hintText: 'Search Case #, Patient, Surgeon...',
+                                  hintStyle: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor),
+                                  prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                                  isDense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                                  filled: true,
+                                  fillColor: const Color(0xFFF8FAFC),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              tooltip: 'Refresh OT Cases',
+                              icon: const Icon(Icons.refresh, color: AppTheme.primaryColor, size: 22),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: _loadOtBillingCases,
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              tooltip: 'Pending OT Drawer',
+                              icon: _isLoadingUnbilledOtCases
+                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))
+                                  : const Icon(Icons.view_sidebar_outlined, color: AppTheme.primaryColor, size: 22),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: _isLoadingUnbilledOtCases ? null : _showUnbilledOtCasesDialog,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildOtFilterChip('All', 'All (${allCases.length})'),
+                              const SizedBox(width: 6),
+                              _buildOtFilterChip('Unbilled', 'Pending (${unbilledList.length})'),
+                              const SizedBox(width: 6),
+                              _buildOtFilterChip('Billed', 'Billed (${billedList.length})'),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            onChanged: (val) => setState(() => _otBillingSearch = val),
+                            decoration: InputDecoration(
+                              hintText: 'Search by Case #, Patient Name, UHID, Surgery Type, or Surgeon...',
+                              hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                              prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.textSecondaryColor),
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildOtFilterChip('All', 'All (${allCases.length})'),
+                              const SizedBox(width: 6),
+                              _buildOtFilterChip('Unbilled', 'Pending (${unbilledList.length})'),
+                              const SizedBox(width: 6),
+                              _buildOtFilterChip('Billed', 'Billed (${billedList.length})'),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          tooltip: 'Refresh OT Cases',
+                          icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                          onPressed: _loadOtBillingCases,
+                        ),
+                        IconButton(
+                          tooltip: 'Pending OT Drawer',
+                          icon: _isLoadingUnbilledOtCases
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor))
+                              : const Icon(Icons.view_sidebar_outlined, color: AppTheme.primaryColor),
+                          onPressed: _isLoadingUnbilledOtCases ? null : _showUnbilledOtCasesDialog,
+                        ),
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 16),
+
+            // Main List Content
+            Expanded(
+              child: _isLoadingOtBillingCases
+                  ? const Center(child: CircularProgressIndicator())
+                  : filtered.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.medical_information_outlined, size: 48, color: Colors.grey.shade400),
+                              const SizedBox(height: 12),
+                              Text('No OT surgical cases found matching criteria', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                              const SizedBox(height: 10),
+                              OutlinedButton.icon(
+                                icon: const Icon(Icons.refresh, size: 14),
+                                label: const Text('Refresh Cases'),
+                                onPressed: _loadOtBillingCases,
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: filtered.length,
+                          itemBuilder: (ctx, idx) => _buildOtCaseCard(filtered[idx], isMobile),
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOtStatCard({
+    required String title,
+    required String value,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required double width,
+  }) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryColor)),
+                const SizedBox(height: 4),
+                Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)), overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOtFilterChip(String key, String label) {
+    final bool isSelected = _otBillingFilter == key;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: AppTheme.primaryColor.withValues(alpha: 0.15),
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+        color: isSelected ? AppTheme.primaryColor : const Color(0xFF475569),
+      ),
+      side: BorderSide(
+        color: isSelected ? AppTheme.primaryColor : const Color(0xFFCBD5E1),
+      ),
+      onSelected: (val) {
+        if (val) setState(() => _otBillingFilter = key);
+      },
+    );
+  }
+
+  Widget _buildOtCaseCard(Map<String, dynamic> otc, bool isMobile) {
+    final bool isBilled = otc['is_billed'] == true;
+    final double subtotal = double.tryParse((otc['subtotal'] ?? 0).toString()) ?? 0.0;
+    final double theatreFee = double.tryParse((otc['theatre_fee'] ?? 0).toString()) ?? 0.0;
+    final double surgeonFee = double.tryParse((otc['surgeon_fee'] ?? 0).toString()) ?? 0.0;
+    final double asstFee = double.tryParse((otc['assistant_surgeon_fee'] ?? 0).toString()) ?? 0.0;
+    final double anaesthFee = double.tryParse((otc['anaesthesia_fee'] ?? 0).toString()) ?? 0.0;
+
+    final String dateStr = otc['surgery_date_time'] != null
+        ? DateFormat('dd MMM yyyy • hh:mm a').format(DateTime.parse(otc['surgery_date_time'].toString()).toLocal())
+        : (otc['created_at'] != null ? DateFormat('dd MMM yyyy').format(DateTime.parse(otc['created_at'].toString()).toLocal()) : '-');
+
+    final bool isIp = otc['admission_id'] != null;
+
+    final pac = (otc['pac_status'] ?? 'Pending').toString();
+    Color pacColor = const Color(0xFFD97706);
+    if (pac == 'Cleared') pacColor = const Color(0xFF059669);
+    if (pac == 'High Risk') pacColor = AppTheme.dangerColor;
+
+    final items = List<Map<String, dynamic>>.from(otc['items'] ?? []);
+
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: isBilled ? const Color(0xFFE2E8F0) : const Color(0xFFBAE6FD),
+          width: isBilled ? 1.0 : 1.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Bar: Case ID, Date, Theatre, IP vs OP, Billing Status
+            if (isMobile) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      otc['case_number'] ?? otc['ot_case_id'] ?? 'OT Case',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0369A1)),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isBilled ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: isBilled ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isBilled ? Icons.check_circle : Icons.hourglass_top,
+                          size: 13,
+                          color: isBilled ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          isBilled ? 'BILLED • ${otc['invoice_number'] ?? 'Inv'}' : 'PENDING BILLING',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isBilled ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(dateStr, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: Text(
+                      otc['theatre_name'] ?? otc['ot_room'] ?? 'OT',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                    ),
+                  ),
+                  if (isIp)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEDE9FE),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.hotel_outlined, size: 12, color: Color(0xFF6D28D9)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'IP Stay (Bed ${otc['admission_bed_number'] ?? '-'})',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6D28D9)),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: const Text('Day Care / OP', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                    ),
+                ],
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE0F2FE),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      otc['case_number'] ?? otc['ot_case_id'] ?? 'OT Case',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0369A1)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(dateStr, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                    ),
+                    child: Text(
+                      otc['theatre_name'] ?? otc['ot_room'] ?? 'OT',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  if (isIp)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEDE9FE),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.hotel_outlined, size: 12, color: Color(0xFF6D28D9)),
+                          const SizedBox(width: 4),
+                          Text(
+                            'IP Stay (Bed ${otc['admission_bed_number'] ?? '-'})',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF6D28D9)),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: const Text('Day Care / OP', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                    ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isBilled ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: isBilled ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isBilled ? Icons.check_circle : Icons.hourglass_top,
+                          size: 13,
+                          color: isBilled ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          isBilled ? 'BILLED • ${otc['invoice_number'] ?? 'Inv'}' : 'PENDING BILLING',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isBilled ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const Divider(height: 22, thickness: 1, color: Color(0xFFF1F5F9)),
+
+            // Middle: Patient Details & Surgical Team
+            isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildOtPatientSection(otc),
+                      const SizedBox(height: 12),
+                      _buildOtSurgerySection(otc, pac, pacColor),
+                    ],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 5, child: _buildOtPatientSection(otc)),
+                      Container(width: 1, height: 75, color: const Color(0xFFE2E8F0), margin: const EdgeInsets.symmetric(horizontal: 14)),
+                      Expanded(flex: 7, child: _buildOtSurgerySection(otc, pac, pacColor)),
+                    ],
+                  ),
+            const SizedBox(height: 14),
+
+            // Itemized Charges Breakdown Wrap
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: isMobile
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Total Surgical Bill', style: TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                            Text(
+                              '₹${subtotal.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.secondaryColor),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            _buildFeeChip('Theatre', theatreFee > 0 ? theatreFee : 5000),
+                            _buildFeeChip('Surgeon', surgeonFee > 0 ? surgeonFee : 6000),
+                            if (otc['assistant_surgeon'] != null && otc['assistant_surgeon'].toString().trim().isNotEmpty)
+                              _buildFeeChip('Asst Surgeon', asstFee > 0 ? asstFee : 2000),
+                            if (otc['anaesthetist'] != null && otc['anaesthetist'].toString().trim().isNotEmpty)
+                              _buildFeeChip('Anaesthesia', anaesthFee > 0 ? anaesthFee : 3000),
+                            for (var it in items)
+                              if (it['category'] == 'Surgical Consumables' || it['category'] == 'Surgical Implants')
+                                Chip(
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.compact,
+                                  backgroundColor: Colors.white,
+                                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                  label: Text(
+                                    '${it['item_name']}: ₹${it['unit_price']}',
+                                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569)),
+                                  ),
+                                ),
+                          ],
+                        ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              _buildFeeChip('Theatre', theatreFee > 0 ? theatreFee : 5000),
+                              _buildFeeChip('Surgeon', surgeonFee > 0 ? surgeonFee : 6000),
+                              if (otc['assistant_surgeon'] != null && otc['assistant_surgeon'].toString().trim().isNotEmpty)
+                                _buildFeeChip('Asst Surgeon', asstFee > 0 ? asstFee : 2000),
+                              if (otc['anaesthetist'] != null && otc['anaesthetist'].toString().trim().isNotEmpty)
+                                _buildFeeChip('Anaesthesia', anaesthFee > 0 ? anaesthFee : 3000),
+                              for (var it in items)
+                                if (it['category'] == 'Surgical Consumables' || it['category'] == 'Surgical Implants')
+                                  Chip(
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    visualDensity: VisualDensity.compact,
+                                    backgroundColor: Colors.white,
+                                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                    label: Text(
+                                      '${it['item_name']}: ₹${it['unit_price']}',
+                                      style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569)),
+                                    ),
+                                  ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            const Text('Total Surgical Bill', style: TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            Text(
+                              '₹${subtotal.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.secondaryColor),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 14),
+
+            // Actions Row
+            isMobile
+                ? Column(
+                    children: [
+                      if (!isBilled) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.edit_note, size: 16),
+                                label: const Text('Edit Case Fees'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF0284C7),
+                                  side: const BorderSide(color: Color(0xFF0284C7)),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () => _showEditOtCaseFeesDialog(otc, onUpdated: () => _loadOtBillingCases()),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.receipt_long, size: 16),
+                                label: const Text('Generate OT Bill'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () => _showOtBillSettlementDialog(otc),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (isIp) ...[
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.hotel_outlined, size: 16),
+                              label: const Text('Inpatient Folio'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFF6D28D9),
+                                side: const BorderSide(color: Color(0xFF8B5CF6)),
+                                padding: const EdgeInsets.symmetric(vertical: 11),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () => _showIpdWorksheetDialog(otc['admission_id']),
+                            ),
+                          ),
+                        ],
+                      ] else ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                icon: const Icon(Icons.receipt_outlined, size: 16),
+                                label: const Text('View Invoice'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.primaryColor,
+                                  side: const BorderSide(color: AppTheme.primaryColor),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () => _showInvoiceReceiptDialog(otc['invoice_id']),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.print, size: 16),
+                                label: const Text('Print Receipt'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF059669),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () => _showInvoiceReceiptDialog(otc['invoice_id']),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  )
+                : Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (!isBilled) ...[
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.edit_note, size: 16),
+                          label: const Text('Edit Case Fees'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF0284C7),
+                            side: const BorderSide(color: Color(0xFF0284C7)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () => _showEditOtCaseFeesDialog(otc, onUpdated: () => _loadOtBillingCases()),
+                        ),
+                        if (isIp)
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.hotel_outlined, size: 16),
+                            label: const Text('Inpatient Folio'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF6D28D9),
+                              side: const BorderSide(color: Color(0xFF8B5CF6)),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () => _showIpdWorksheetDialog(otc['admission_id']),
+                          ),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.receipt_long, size: 16),
+                          label: const Text('Generate OT Bill'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () => _showOtBillSettlementDialog(otc),
+                        ),
+                      ] else ...[
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.receipt_outlined, size: 16),
+                          label: const Text('View Invoice'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            side: const BorderSide(color: AppTheme.primaryColor),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () => _showInvoiceReceiptDialog(otc['invoice_id']),
+                        ),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.print, size: 16),
+                          label: const Text('Print Receipt'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF059669),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () => _showInvoiceReceiptDialog(otc['invoice_id']),
+                        ),
+                      ],
+                    ],
+                  ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOtPatientSection(Map<String, dynamic> otc) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.person, size: 16, color: AppTheme.primaryColor),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                otc['patient_name'] ?? 'Patient',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A)),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${otc['patient_age'] ?? '-'} Yrs • ${otc['patient_gender'] ?? '-'} • UHID: ${otc['patient_display_id'] ?? '-'}',
+          style: const TextStyle(fontSize: 12, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'Phone: ${otc['patient_phone'] ?? '-'}',
+          style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOtSurgerySection(Map<String, dynamic> otc, String pac, Color pacColor) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                otc['surgery_type'] ?? 'Surgery',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0369A1)),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: pacColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'PAC: $pac',
+                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: pacColor),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Lead Surgeon: Dr. ${otc['lead_surgeon'] ?? otc['surgeon'] ?? '-'}${otc['anaesthetist'] != null ? ' • Anaesthetist: Dr. ${otc['anaesthetist']}' : ''}',
+          style: const TextStyle(fontSize: 12, color: Color(0xFF334155)),
+        ),
+        if (otc['assistant_surgeon'] != null && otc['assistant_surgeon'].toString().trim().isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            'Assistant Surgeon: Dr. ${otc['assistant_surgeon']}',
+            style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildFeeChip(String label, double amount) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFCBD5E1)),
+      ),
+      child: Text(
+        '$label: ₹${amount.toStringAsFixed(0)}',
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+      ),
+    );
+  }
+
+  // Dedicated MocDoc-Style OT Bill Settlement Dialog
+  void _showOtBillSettlementDialog(Map<String, dynamic> otc) {
+    final caseId = otc['id'] ?? otc['ot_case_id'];
+    if (caseId == null) return;
+
+    final double gross = double.tryParse((otc['subtotal'] ?? 0).toString()) ?? 0.0;
+    final TextEditingController discountCtrl = TextEditingController(text: '0');
+    final TextEditingController paymentAmtCtrl = TextEditingController(text: gross.toStringAsFixed(2));
+    final TextEditingController refCtrl = TextEditingController();
+    String paymentMode = 'Cash';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dCtx) {
+        bool isSubmitting = false;
+
+        return StatefulBuilder(
+          builder: (dialogContext, setDlgState) {
+            final double disc = double.tryParse(discountCtrl.text.trim()) ?? 0.0;
+            final double netPayable = (gross - disc) > 0 ? (gross - disc) : 0.0;
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.receipt_long, color: AppTheme.primaryColor, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Generate OT Bill — ${otc['case_number'] ?? 'OT Case'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        Text('${otc['patient_name'] ?? 'Patient'} (${otc['patient_display_id'] ?? ''}) • ${otc['surgery_type'] ?? 'Surgery'}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Alert if IP patient
+                      if (otc['admission_id'] != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEDE9FE),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFDDD6FE)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.info_outline, size: 16, color: Color(0xFF6D28D9)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Patient is currently admitted (Bed ${otc['admission_bed_number'] ?? '-'}). Generating this bill produces a standalone OT invoice.',
+                                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF5B21B6), fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+
+                      // Financial summary card
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Total Surgical Gross:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF334155))),
+                                Text('₹${gross.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
+                              ],
+                            ),
+                            const Divider(height: 14),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Net Amount Payable:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+                                Text('₹${netPayable.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.secondaryColor)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Discount Input
+                      _buildLabel('Special Discount (₹)'),
+                      TextFormField(
+                        controller: discountCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(prefixText: '₹ ', hintText: '0'),
+                        onChanged: (val) {
+                          final d = double.tryParse(val) ?? 0;
+                          final net = (gross - d) > 0 ? (gross - d) : 0.0;
+                          paymentAmtCtrl.text = net.toStringAsFixed(2);
+                          setDlgState(() {});
+                        },
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Initial Payment Amount
+                      _buildLabel('Initial Payment Collected (₹)'),
+                      TextFormField(
+                        controller: paymentAmtCtrl,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(prefixText: '₹ ', hintText: 'Enter amount'),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Payment Mode & Reference
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Payment Mode'),
+                                DropdownButtonFormField<String>(
+                                  value: paymentMode,
+                                  decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12)),
+                                  items: ['Cash', 'UPI', 'Card', 'Net Banking']
+                                      .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                                      .toList(),
+                                  onChanged: (v) {
+                                    if (v != null) setDlgState(() => paymentMode = v);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Txn / Reference ID'),
+                                TextFormField(
+                                  controller: refCtrl,
+                                  decoration: const InputDecoration(hintText: 'Optional'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dCtx),
+                  style: AppTheme.cancelButton,
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  icon: isSubmitting
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check, size: 16),
+                  label: const Text('Confirm & Generate Bill'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  onPressed: isSubmitting ? null : () async {
+                    setDlgState(() => isSubmitting = true);
+                    final messenger = ScaffoldMessenger.of(context);
+                    final navigator = Navigator.of(dCtx);
+
+                    final collected = double.tryParse(paymentAmtCtrl.text.trim()) ?? 0.0;
+                    final d = double.tryParse(discountCtrl.text.trim()) ?? 0.0;
+
+                    try {
+                      final res = await _billingCtrl.createOtCaseInvoice(
+                        caseId: caseId,
+                        discount: d,
+                        initialPayment: collected > 0 ? {
+                          'amount': collected,
+                          'payment_mode': paymentMode,
+                          'transaction_reference': refCtrl.text.trim(),
+                        } : null,
+                      );
+
+                      if (dCtx.mounted) navigator.pop();
+                      if (mounted) {
+                        _loadOtBillingCases();
+                        _loadInvoices();
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('OT Case Bill generated successfully!'), backgroundColor: Colors.green),
+                        );
+                        if (res['id'] != null) {
+                          _showInvoiceReceiptDialog(res['id']);
+                        }
+                      }
+                    } catch (e) {
+                      if (dialogContext.mounted) setDlgState(() => isSubmitting = false);
+                      messenger.showSnackBar(SnackBar(content: Text('Error generating bill: $e'), backgroundColor: Colors.red));
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+
   // 4. Services Catalog Tab
   final TextEditingController _svcNameController = TextEditingController();
   final TextEditingController _svcPriceController = TextEditingController();
@@ -2524,6 +3643,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
         final TextEditingController depositAmtCtrl = TextEditingController();
         final TextEditingController ipSvcQtyCtrl = TextEditingController(text: '1');
         String? selectedSvcId;
+        bool fetchInitiated = false;
 
         return StatefulBuilder(
           builder: (sheetCtx, setSheetState) {
@@ -2551,7 +3671,10 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
             }
 
             if (loading) {
-              fetchSummary();
+              if (!fetchInitiated) {
+                fetchInitiated = true;
+                WidgetsBinding.instance.addPostFrameCallback((_) => fetchSummary());
+              }
               return const AlertDialog(
                 backgroundColor: Colors.white,
                 content: SizedBox(height: 120, child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Assembling Unified Inpatient Folio...')]))),
@@ -2666,339 +3789,41 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               );
             }
 
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              titlePadding: const EdgeInsets.fromLTRB(24, 20, 20, 12),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.receipt_long, color: AppTheme.primaryColor, size: 22),
-                          ),
-                          const SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Unified Inpatient Folio — ${admission['patient_name'] ?? 'Patient'}',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryColor),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'UHID: ${admission['patient_display_id'] ?? '—'}  •  Bed: ${bedDetails['bed_number'] ?? '—'} (${bedDetails['ward_type'] ?? 'Ward'})  •  Doctor: ${admission['doctor_name'] ?? 'Attending Clinician'}',
-                                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
+            final bool isMobileDialog = MediaQuery.of(sheetCtx).size.width < 900;
 
-                  // ─── FOUR CLEARANCE STAGES BAR ─────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            const Text('Discharge Clearance Workflow:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF475569))),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: allClearancesPassed ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: allClearancesPassed ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A)),
-                              ),
-                              child: Text(
-                                allClearancesPassed ? 'All Clearances Verified ✓' : 'Clearances Pending Review ⚠️',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: allClearancesPassed ? const Color(0xFF065F46) : const Color(0xFF92400E),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            // 1. Pharmacy Clearance Card
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => showPendingItemsDialog(
-                                  'Pharmacy Clearance Details',
-                                  pharmacyClr['pending_items'] ?? [],
-                                  pharmacyClr['summary'] ?? '',
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: isPharmacyCleared ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        isPharmacyCleared ? Icons.check_circle : Icons.warning_amber_rounded,
-                                        size: 16,
-                                        color: isPharmacyCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('1. Pharmacy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
-                                            Text(
-                                              isPharmacyCleared ? 'Cleared' : '${pharmacyClr['pending_count'] ?? 0} Pending',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: isPharmacyCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
+            final card1 = _buildClearanceItemCard(
+              title: '1. Pharmacy',
+              statusText: isPharmacyCleared ? 'Cleared' : '${pharmacyClr['pending_count'] ?? 0} Pending',
+              isCleared: isPharmacyCleared,
+              onTap: () => showPendingItemsDialog('Pharmacy Clearance Details', pharmacyClr['pending_items'] ?? [], pharmacyClr['summary'] ?? ''),
+            );
+            final card2 = _buildClearanceItemCard(
+              title: '2. Lab Tests',
+              statusText: isLabCleared ? 'Cleared' : '${labClr['pending_count'] ?? 0} Pending',
+              isCleared: isLabCleared,
+              onTap: () => showPendingItemsDialog('Laboratory Clearance Details', labClr['pending_items'] ?? [], labClr['summary'] ?? ''),
+            );
+            final card3 = _buildClearanceItemCard(
+              title: '3. Nursing',
+              statusText: isNursingCleared ? 'Cleared' : 'Pending',
+              isCleared: isNursingCleared,
+              onTap: () => showPendingItemsDialog('Nursing Clearance Details', nursingClr['pending_items'] ?? [], nursingClr['summary'] ?? ''),
+            );
+            final card4 = _buildClearanceItemCard(
+              title: '4. OT & Surgery',
+              statusText: isOtCleared ? 'Cleared' : '${otClr['pending_count'] ?? 0} Pending',
+              isCleared: isOtCleared,
+              onTap: () => showPendingItemsDialog('OT & Surgical Clearance Details', otClr['pending_items'] ?? [], otClr['summary'] ?? ''),
+            );
+            final card5 = _buildClearanceItemCard(
+              title: '5. Final Billing',
+              statusText: isBillingCleared ? 'Settled' : '₹${remainingBalance.toStringAsFixed(0)} Due',
+              isCleared: isBillingCleared,
+              onTap: () => showPendingItemsDialog('Billing Clearance Details', isBillingCleared ? [] : ['Outstanding Balance: ₹${remainingBalance.toStringAsFixed(2)}'], billingClr['summary'] ?? ''),
+            );
 
-                            // 2. Lab Clearance Card
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => showPendingItemsDialog(
-                                  'Laboratory Clearance Details',
-                                  labClr['pending_items'] ?? [],
-                                  labClr['summary'] ?? '',
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: isLabCleared ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        isLabCleared ? Icons.check_circle : Icons.warning_amber_rounded,
-                                        size: 16,
-                                        color: isLabCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('2. Lab Tests', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
-                                            Text(
-                                              isLabCleared ? 'Cleared' : '${labClr['pending_count'] ?? 0} Pending',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: isLabCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
+            final List<Widget> leftFolioSections = [
 
-                            // 3. Nursing Clearance Card
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => showPendingItemsDialog(
-                                  'Nursing Clearance Details',
-                                  nursingClr['pending_items'] ?? [],
-                                  nursingClr['summary'] ?? '',
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: isNursingCleared ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        isNursingCleared ? Icons.check_circle : Icons.warning_amber_rounded,
-                                        size: 16,
-                                        color: isNursingCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('3. Nursing', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
-                                            Text(
-                                              isNursingCleared ? 'Cleared' : 'Pending',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: isNursingCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-
-                            // 4. OT & Surgical Clearance Card
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => showPendingItemsDialog(
-                                  'OT & Surgical Clearance Details',
-                                  otClr['pending_items'] ?? [],
-                                  otClr['summary'] ?? '',
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: isOtCleared ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        isOtCleared ? Icons.check_circle : Icons.warning_amber_rounded,
-                                        size: 16,
-                                        color: isOtCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('4. OT & Surgery', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
-                                            Text(
-                                              isOtCleared ? 'Cleared' : '${otClr['pending_count'] ?? 0} Pending',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: isOtCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-
-                            // 5. Final Billing Clearance Card
-                            Expanded(
-                              child: InkWell(
-                                onTap: () => showPendingItemsDialog(
-                                  'Billing Clearance Details',
-                                  isBillingCleared ? [] : ['Outstanding Balance: ₹${remainingBalance.toStringAsFixed(2)}'],
-                                  billingClr['summary'] ?? '',
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: isBillingCleared ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        isBillingCleared ? Icons.check_circle : Icons.warning_amber_rounded,
-                                        size: 16,
-                                        color: isBillingCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('5. Final Billing', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B))),
-                                            Text(
-                                              isBillingCleared ? 'Settled' : '₹${remainingBalance.toStringAsFixed(0)} Due',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w600,
-                                                color: isBillingCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 1040,
-                height: MediaQuery.of(context).size.height * 0.78,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ─── LEFT COLUMN: UNIFIED INPATIENT FOLIO CATEGORIZED SECTIONS ─
-                    Expanded(
-                      flex: 6,
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
                             // 1. Room Accommodation Charges Card
                             _buildFolioSectionCard(
                               title: 'Room / Accommodation Charges',
@@ -3349,19 +4174,11 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                     ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const VerticalDivider(width: 32),
 
-                    // ─── RIGHT COLUMN: SUMMARY WORKSHEET & DEPOSITS ──────────────
-                    Expanded(
-                      flex: 4,
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+            ];
+
+            final List<Widget> rightSummaryWidgets = [
+
                             // Consolidated Folio Summary Breakdown Card
                             Container(
                               padding: const EdgeInsets.all(16),
@@ -3539,17 +4356,238 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                               ),
                             ),
                             const SizedBox(height: 12),
+
+            ];
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              insetPadding: isMobileDialog
+                  ? const EdgeInsets.symmetric(horizontal: 10, vertical: 14)
+                  : const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+              titlePadding: isMobileDialog
+                  ? const EdgeInsets.fromLTRB(16, 16, 16, 10)
+                  : const EdgeInsets.fromLTRB(24, 20, 20, 12),
+              contentPadding: isMobileDialog
+                  ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+                  : const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.receipt_long, color: AppTheme.primaryColor, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Unified Inpatient Folio — ${admission['patient_name'] ?? 'Patient'}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: isMobileDialog ? 15 : 18,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'UHID: ${admission['patient_display_id'] ?? '—'}  •  Bed: ${bedDetails['bed_number'] ?? '—'} (${bedDetails['ward_type'] ?? 'Ward'})  •  Doctor: ${admission['doctor_name'] ?? 'Attending Clinician'}',
+                              style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+                            ),
                           ],
                         ),
                       ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // ─── CLEARANCE STAGES BAR ─────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
-                  ],
-                ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            const Text('Discharge Clearance Workflow:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF475569))),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: allClearancesPassed ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: allClearancesPassed ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A)),
+                              ),
+                              child: Text(
+                                allClearancesPassed ? 'All Clearances Verified ✓' : 'Clearances Pending Review ⚠️',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: allClearancesPassed ? const Color(0xFF065F46) : const Color(0xFF92400E),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        isMobileDialog
+                            ? LayoutBuilder(
+                                builder: (c, constraints) {
+                                  final double halfW = (constraints.maxWidth - 8) / 2;
+                                  return Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      SizedBox(width: halfW, child: card1),
+                                      SizedBox(width: halfW, child: card2),
+                                      SizedBox(width: halfW, child: card3),
+                                      SizedBox(width: halfW, child: card4),
+                                      SizedBox(width: constraints.maxWidth, child: card5),
+                                    ],
+                                  );
+                                },
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(child: card1),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: card2),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: card3),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: card4),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: card5),
+                                ],
+                              ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: isMobileDialog ? double.maxFinite : 1040,
+                height: MediaQuery.of(sheetCtx).size.height * 0.82,
+                child: isMobileDialog
+                    ? SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ...leftFolioSections,
+                            const SizedBox(height: 16),
+                            const Divider(thickness: 1.5, color: Color(0xFFE2E8F0)),
+                            const SizedBox(height: 16),
+                            ...rightSummaryWidgets,
+                          ],
+                        ),
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: leftFolioSections,
+                              ),
+                            ),
+                          ),
+                          const VerticalDivider(width: 32),
+                          Expanded(
+                            flex: 4,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: rightSummaryWidgets,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             );
           },
         );
       },
+    );
+  }
+
+  Widget _buildClearanceItemCard({
+    required String title,
+    required String statusText,
+    required bool isCleared,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isCleared ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isCleared ? Icons.check_circle : Icons.warning_amber_rounded,
+              size: 16,
+              color: isCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF1E293B)),
+                  ),
+                  Text(
+                    statusText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isCleared ? const Color(0xFF059669) : const Color(0xFFD97706),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -3715,37 +4753,56 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               );
             }
 
+            final bool isMobileDischarge = MediaQuery.of(dCtx).size.width < 800;
             return AlertDialog(
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              titlePadding: const EdgeInsets.fromLTRB(24, 20, 20, 12),
+              insetPadding: isMobileDischarge
+                  ? const EdgeInsets.symmetric(horizontal: 10, vertical: 14)
+                  : const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+              titlePadding: isMobileDischarge
+                  ? const EdgeInsets.fromLTRB(16, 16, 16, 10)
+                  : const EdgeInsets.fromLTRB(24, 20, 20, 12),
               title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(10)),
-                        child: const Icon(Icons.exit_to_app_rounded, color: AppTheme.dangerColor, size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Structured Discharge Workflow & Settlement', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Color(0xFF1E293B))),
-                          Text('Patient: ${clinicalData['patient_name'] ?? 'Patient'} (${clinicalData['patient_display_id'] ?? ''}) • Bed: ${clinicalData['bed_number'] ?? ''}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                        ],
-                      ),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.exit_to_app_rounded, color: AppTheme.dangerColor, size: 22),
                   ),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Structured Discharge Workflow & Settlement',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: isMobileDischarge ? 15 : 17,
+                            color: const Color(0xFF1E293B),
+                          ),
+                        ),
+                        Text(
+                          'Patient: ${clinicalData['patient_name'] ?? 'Patient'} (${clinicalData['patient_display_id'] ?? ''}) • Bed: ${clinicalData['bed_number'] ?? ''}',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
                 ],
               ),
               content: SingleChildScrollView(
                 child: SizedBox(
-                  width: 780,
+                  width: isMobileDischarge ? double.maxFinite : 780,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -3769,14 +4826,16 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                   size: 18,
                                 ),
                                 const SizedBox(width: 8),
-                                Text(
-                                  hasPendingClearances
-                                      ? 'Clearance Stage Status: Certain clearances pending clinical sign-off'
-                                      : 'All 4 Clearance Stages Cleared (Pharmacy, Lab, Nursing, Final Billing)',
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: hasPendingClearances ? const Color(0xFF92400E) : const Color(0xFF065F46),
+                                Expanded(
+                                  child: Text(
+                                    hasPendingClearances
+                                        ? 'Clearance Stage Status: Certain clearances pending clinical sign-off'
+                                        : 'All 4 Clearance Stages Cleared (Pharmacy, Lab, Nursing, Final Billing)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: hasPendingClearances ? const Color(0xFF92400E) : const Color(0xFF065F46),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -4199,7 +5258,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                 ],
               ),
               content: SizedBox(
-                width: 650,
+                width: MediaQuery.of(dCtx).size.width < 700 ? double.maxFinite : 650,
                 child: loading
                     ? const SizedBox(
                         height: 200,
@@ -4213,11 +5272,14 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                             const Divider(height: 16),
                             
                             // Sessions breakdown header
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 6,
                               children: [
                                 const Text(
-                                  'Care Sessions & Itemized Details (Grouped by Date):',
+                                  'Care Sessions & Itemized Details:',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
                                 ),
                                 Container(
@@ -4269,28 +5331,43 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                           borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
                                           border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
                                         ),
-                                        child: Row(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            const Icon(Icons.event_available_outlined, size: 15, color: AppTheme.primaryColor),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              'Date: $dateStr',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.primaryColor),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(Icons.event_available_outlined, size: 15, color: AppTheme.primaryColor),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      'Date: $dateStr',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.primaryColor),
+                                                    ),
+                                                  ],
+                                                ),
+                                                _buildPaymentStatusBadge(v['payment_status'] ?? 'Unpaid'),
+                                              ],
                                             ),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '• ${v['visit_number'] ?? 'Visit'}',
-                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.black87),
+                                            const SizedBox(height: 4),
+                                            Wrap(
+                                              spacing: 8,
+                                              runSpacing: 4,
+                                              crossAxisAlignment: WrapCrossAlignment.center,
+                                              children: [
+                                                Text(
+                                                  '• ${v['visit_number'] ?? 'Visit'}',
+                                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5, color: Color(0xFF334155)),
+                                                ),
+                                                if (v['nurse_name'] != null && v['nurse_name'].toString().isNotEmpty)
+                                                  Text(
+                                                    '• Nurse: ${v['nurse_name']}',
+                                                    style: const TextStyle(color: AppTheme.nurseColor, fontSize: 11.5, fontWeight: FontWeight.w500),
+                                                  ),
+                                              ],
                                             ),
-                                            if (v['nurse_name'] != null && v['nurse_name'].toString().isNotEmpty) ...[
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                '• Nurse: ${v['nurse_name']}',
-                                                style: const TextStyle(color: AppTheme.nurseColor, fontSize: 11.5, fontWeight: FontWeight.w500),
-                                              ),
-                                            ],
-                                            const Spacer(),
-                                            _buildPaymentStatusBadge(v['payment_status'] ?? 'Unpaid'),
                                           ],
                                         ),
                                       ),
@@ -4368,10 +5445,17 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                       return Padding(
                                         padding: const EdgeInsets.symmetric(vertical: 4.0),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
                                             Text('₹${amt.toStringAsFixed(2)} (${pay['payment_mode']})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                            Text('$pDate ${pay['invoice_number'] != null ? "• ${pay['invoice_number']}" : ""}', style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                '$pDate ${pay['invoice_number'] != null ? "• ${pay['invoice_number']}" : ""}',
+                                                textAlign: TextAlign.end,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       );
@@ -4641,7 +5725,8 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: style),
+        Expanded(child: Text(label, style: style)),
+        const SizedBox(width: 8),
         Text('₹${value.toStringAsFixed(2)}', style: style),
       ],
     );

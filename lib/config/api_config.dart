@@ -37,7 +37,9 @@ class ApiEndpoints {
         if (!kReleaseMode) {
           if (kIsWeb) {
             final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
-            if (host == 'localhost' || host == '127.0.0.1') {
+            if (host == 'localhost' ||
+                host == '127.0.0.1' ||
+                RegExp(r'^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)').hasMatch(host)) {
               return _normalizeUrl(envUrl);
             }
           } else {
@@ -52,8 +54,10 @@ class ApiEndpoints {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       final scheme = Uri.base.scheme.startsWith('https') ? 'https' : 'http';
 
-      // A. Running locally in browser (localhost / 127.0.0.1) -> route to local backend
-      if (host == 'localhost' || host == '127.0.0.1') {
+      // A. Running locally in browser (localhost / 127.0.0.1 / Local LAN Wi-Fi IP) -> route to local backend
+      if (host == 'localhost' ||
+          host == '127.0.0.1' ||
+          RegExp(r'^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)').hasMatch(host)) {
         return '$scheme://$host:$defaultLocalPort/api';
       }
 
@@ -88,13 +92,12 @@ class ApiEndpoints {
     } catch (_) {}
 
     // 5. Mobile & Desktop Local Debug Defaults:
-    // - Android Emulator loopback: 10.0.2.2:3000
-    // - Physical Android device (via `adb reverse tcp:3000 tcp:3000`), iOS Simulator & Desktop: localhost:3000
+    // Physical mobile device & Wi-Fi LAN: 192.168.1.3:3001
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://10.0.2.2:$defaultLocalPort/api';
+      return 'http://192.168.1.3:$defaultLocalPort/api';
     }
 
-    return 'http://localhost:$defaultLocalPort/api';
+    return 'http://192.168.1.3:$defaultLocalPort/api';
   }
 
   /// Removes trailing slashes for clean URL concatenations
