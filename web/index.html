@@ -61,13 +61,18 @@
   -->
   <script>
     window.speechRecognizer = {
+      _isV2: true,
       recognition: null,
       isUserListening: false,
+      isReady: true,
       onResultCallback: null,
       onStatusCallback: null,
       onErrorCallback: null,
       accumulatedFinal: '',
-      targetLang: 'en-US',
+      sessionFinal: '',
+      targetLang: 'en-IN',
+      _restartTimer: null,
+      _retryTimer: null,
 
       isSupported: function() {
         return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -76,8 +81,17 @@
       start: function(onResult, onStatus, onError, lang) {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-          if (onError) onError("Speech recognition not supported in this browser");
+          if (onError) onError("Web Speech API is not supported in this browser. Please use Google Chrome or Microsoft Edge.");
           return false;
+        }
+
+        if (this._restartTimer) {
+          clearTimeout(this._restartTimer);
+          this._restartTimer = null;
+        }
+        if (this._retryTimer) {
+          clearTimeout(this._retryTimer);
+          this._retryTimer = null;
         }
 
         this.onResultCallback = onResult;
@@ -85,25 +99,35 @@
         this.onErrorCallback = onError;
         this.isUserListening = true;
         this.accumulatedFinal = '';
-        this.targetLang = lang || 'en-US';
+        this.sessionFinal = '';
+        this.targetLang = (lang && lang.trim()) ? lang.trim() : 'en-IN';
 
-        this._createAndStartRecognition();
+        this._stopCurrentRecognition();
+        this._safeStart(0);
         return true;
       },
 
-      _createAndStartRecognition: function() {
+      _stopCurrentRecognition: function() {
+        if (this.recognition) {
+          const oldRec = this.recognition;
+          this.recognition = null;
+          oldRec.onstart = null;
+          oldRec.onresult = null;
+          oldRec.onerror = null;
+          oldRec.onend = null;
+          try {
+            oldRec.abort();
+          } catch(e) {}
+        }
+      },
+
+      _safeStart: function(attempt) {
         if (!this.isUserListening) return;
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (this.recognition) {
-          try {
-            this.recognition.onend = null;
-            this.recognition.onerror = null;
-            this.recognition.onresult = null;
-            this.recognition.abort();
-          } catch(e) {}
-          this.recognition = null;
-        }
+        if (!SpeechRecognition) return;
+
+        this._stopCurrentRecognition();
 
         try {
           const rec = new SpeechRecognition();
@@ -111,79 +135,153 @@
           rec.continuous = true;
           rec.interimResults = true;
           rec.maxAlternatives = 1;
-          rec.lang = (this.targetLang && this.targetLang !== 'en-US') ? this.targetLang : (navigator.language || 'en-IN');
+          rec.lang = this.targetLang || 'en-IN';
 
           rec.onstart = () => {
-            if (this.onStatusCallback) this.onStatusCallback('listening');
+            if (this.isUserListening && this.onStatusCallback) {
+              this.onStatusCallback('listening');
+            }
           };
 
           rec.onresult = (event) => {
-            let sessionText = '';
+            if (!this.isUserListening) return;
+            let finalChunk = '';
+            let interimChunk = '';
+
             for (let i = 0; i < event.results.length; ++i) {
-              const piece = event.results[i][0].transcript.trim();
-              if (piece.length > 0) {
-                sessionText += (sessionText.length > 0 ? ' ' : '') + piece;
+              const item = event.results[i];
+              if (item && item[0] && item[0].transcript) {
+                const text = item[0].transcript.trim();
+                if (item.isFinal) {
+                  finalChunk += (finalChunk ? ' ' : '') + text;
+                } else {
+                  interimChunk += (interimChunk ? ' ' : '') + text;
+                }
               }
             }
-            this._lastSessionText = sessionText;
-            const full = (this.accumulatedFinal + (sessionText.length > 0 ? (' ' + sessionText) : '')).trim();
-            if (this.onResultCallback && full.length > 0) {
-              this.onResultCallback(full);
+
+            this.sessionFinal = finalChunk;
+            const livePart = interimChunk || finalChunk;
+            let full = this.accumulatedFinal;
+            if (livePart) {
+              full = (full ? full + ' ' : '') + livePart;
+            }
+
+            if (this.onResultCallback && full.trim().length > 0) {
+              this.onResultCallback(full.trim());
             }
           };
 
           rec.onerror = (event) => {
-            console.warn("Web Speech API recognition error:", event.error);
-            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-              if (this.onErrorCallback) this.onErrorCallback("Microphone permission denied or blocked. If using HTTP IP, please enable insecure origins flag in Chrome.");
-            } else if (event.error === 'network') {
-              if (this.onErrorCallback) this.onErrorCallback("Speech network error. Chrome requires HTTPS or chrome://flags insecure origin bypass for Web Speech.");
-            } else if (event.error !== 'no-speech' && event.error !== 'audio-capture') {
-              if (this.onErrorCallback) this.onErrorCallback("Speech error: " + event.error);
+            if (!this.isUserListening) return;
+            const err = event.error;
+
+            if (err === 'no-speech' || err === 'aborted') {
+              return;
+            }
+
+            this.isUserListening = false;
+            this._stopCurrentRecognition();
+
+            if (err === 'not-allowed' || err === 'service-not-allowed') {
+              if (this.onErrorCallback) this.onErrorCallback("Microphone permission denied. Please allow microphone access in your browser address bar.");
+              if (this.onStatusCallback) this.onStatusCallback('notListening');
+            } else if (err === 'audio-capture') {
+              if (this.onErrorCallback) this.onErrorCallback("No microphone found or microphone is in use by another application.");
+              if (this.onStatusCallback) this.onStatusCallback('notListening');
+            } else if (err === 'network') {
+              if (this.onErrorCallback) this.onErrorCallback("Network error during speech recognition. Please check your internet connection.");
+              if (this.onStatusCallback) this.onStatusCallback('notListening');
+            } else {
+              console.warn("Speech error:", err);
+              if (this.onErrorCallback) this.onErrorCallback("Speech error: " + err);
+              if (this.onStatusCallback) this.onStatusCallback('notListening');
             }
           };
 
           rec.onend = () => {
+            if (this.recognition !== rec) return;
+
             if (this.isUserListening) {
-              if (this._lastSessionText && this._lastSessionText.trim().length > 0) {
-                this.accumulatedFinal = (this.accumulatedFinal + ' ' + this._lastSessionText).trim();
-                this._lastSessionText = '';
+              if (this.sessionFinal) {
+                this.accumulatedFinal = (this.accumulatedFinal ? this.accumulatedFinal + ' ' : '') + this.sessionFinal;
+                this.sessionFinal = '';
               }
-              setTimeout(() => {
+              clearTimeout(this._restartTimer);
+              this._restartTimer = setTimeout(() => {
                 if (this.isUserListening) {
-                  this._createAndStartRecognition();
+                  this._safeStart(0);
                 }
-              }, 150);
+              }, 100);
             } else {
+              this.recognition = null;
               if (this.onStatusCallback) this.onStatusCallback('notListening');
             }
           };
 
           rec.start();
         } catch(err) {
-          console.error("Failed to initialize Web Speech API:", err);
-          if (this.onErrorCallback) this.onErrorCallback(err.toString());
+          const errStr = (err && err.message) ? err.message : String(err);
+          console.warn("Speech start exception (attempt " + attempt + "):", errStr);
+
+          if (attempt < 5 && this.isUserListening && (
+            errStr.includes('already started') ||
+            errStr.includes('InvalidStateError') ||
+            errStr.includes('busy') ||
+            errStr.includes('failed')
+          )) {
+            clearTimeout(this._retryTimer);
+            this._retryTimer = setTimeout(() => {
+              if (this.isUserListening) {
+                this._safeStart(attempt + 1);
+              }
+            }, 120 + (attempt * 80));
+            return;
+          }
+
+          this.isUserListening = false;
+          this._stopCurrentRecognition();
+          if (this.onErrorCallback) this.onErrorCallback(errStr);
+          if (this.onStatusCallback) this.onStatusCallback('notListening');
         }
       },
 
       stop: function() {
         this.isUserListening = false;
-        if (this.recognition) {
-          try {
-            this.recognition.stop();
-          } catch(e) {}
+        if (this._restartTimer) {
+          clearTimeout(this._restartTimer);
+          this._restartTimer = null;
         }
-        if (this.onStatusCallback) this.onStatusCallback('notListening');
+        if (this._retryTimer) {
+          clearTimeout(this._retryTimer);
+          this._retryTimer = null;
+        }
+        if (this.sessionFinal) {
+          this.accumulatedFinal = (this.accumulatedFinal ? this.accumulatedFinal + ' ' : '') + this.sessionFinal;
+          this.sessionFinal = '';
+        }
+        this._stopCurrentRecognition();
+        if (this.onStatusCallback) {
+          try { this.onStatusCallback('notListening'); } catch(e) {}
+        }
       },
 
       abort: function() {
         this.isUserListening = false;
-        if (this.recognition) {
-          try {
-            this.recognition.abort();
-          } catch(e) {}
+        if (this._restartTimer) {
+          clearTimeout(this._restartTimer);
+          this._restartTimer = null;
         }
-        if (this.onStatusCallback) this.onStatusCallback('notListening');
+        if (this._retryTimer) {
+          clearTimeout(this._retryTimer);
+          this._retryTimer = null;
+        }
+        this.accumulatedFinal = '';
+        this.sessionFinal = '';
+        this._stopCurrentRecognition();
+        if (this.onStatusCallback) {
+          try { this.onStatusCallback('notListening'); } catch(e) {}
+        }
       }
     };
 
@@ -199,22 +297,6 @@
         this.hasUnsavedData = false;
       }
     };
-
-    // Automatically detect user typing in ANY form input/textarea/editable field across the app
-    document.addEventListener('input', function (e) {
-      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) {
-        var val = e.target.value || e.target.innerText || '';
-        if (val.trim().length > 0) {
-          window.unsavedChanges.hasUnsavedData = true;
-        }
-      }
-    }, true);
-
-    document.addEventListener('change', function (e) {
-      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
-        window.unsavedChanges.hasUnsavedData = true;
-      }
-    }, true);
 
     window.addEventListener('beforeunload', function (e) {
       if (window.unsavedChanges && window.unsavedChanges.hasUnsavedData) {

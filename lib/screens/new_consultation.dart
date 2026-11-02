@@ -607,10 +607,9 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     TextEditingController targetController,
     String fieldName,
   ) async {
-    // If active on another field, stop it first
-    if (_activeListeningController != null) {
-      await _stopSpeech();
-    }
+    // Cleanly abort any lingering or failed speech session so this field starts independently
+    await LiveSpeechService().abort();
+    await Future.delayed(const Duration(milliseconds: 60));
 
     final initialText = targetController.text.trim();
     if (mounted) {
@@ -648,11 +647,12 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         }
       },
       onError: (err) {
-        if (mounted) {
+        if (mounted && _activeListeningController == targetController) {
           setState(() {
             _activeListeningController = null;
             _isSpeechPaused = false;
           });
+          LiveSpeechService().abort();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Voice input: $err'),
@@ -731,11 +731,12 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         }
       },
       onError: (err) {
-        if (mounted) {
+        if (mounted && _activeListeningController == controller) {
           setState(() {
             _activeListeningController = null;
             _isSpeechPaused = false;
           });
+          LiveSpeechService().abort();
         }
       },
     );
@@ -3959,9 +3960,16 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         finalNotes +=
             '\n[FOLLOW-UP] Scheduled Date: ${DateFormat('dd/MM/yyyy').format(_followUpDate!)} (System reminder queued)';
       }
+      int? apptId = widget.appointment.id ?? widget.initialConsultation?['appointment_id'];
+      int patientId = widget.appointment.patientId;
+      if (patientId == 0 && widget.initialConsultation?['patient_id'] != null) {
+        final rawPid = widget.initialConsultation!['patient_id'];
+        patientId = rawPid is int ? rawPid : int.tryParse(rawPid.toString()) ?? 0;
+      }
+
       final data = {
-        'appointment_id': widget.appointment.id,
-        'patient_id': widget.appointment.patientId,
+        if (apptId != null) 'appointment_id': apptId,
+        'patient_id': patientId,
         'symptoms': _symptomsController.text.trim(),
         'diagnosis': _diagnosisController.text.trim(),
         'medications': _medications,

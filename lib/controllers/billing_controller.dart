@@ -95,6 +95,10 @@ class BillingController {
     int? admissionId,
     int? appointmentId,
     int? otCaseId,
+    String? doctorName,
+    String? notes,
+    int? consultationId,
+    List<int>? labRequestIds,
     required List<Map<String, dynamic>> items,
     required double discount,
     Map<String, dynamic>? initialPayment,
@@ -106,6 +110,10 @@ class BillingController {
         'admission_id': admissionId,
         'appointment_id': appointmentId,
         if (otCaseId != null) 'ot_case_id': otCaseId,
+        if (doctorName != null && doctorName.isNotEmpty) 'doctor_name': doctorName,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
+        if (consultationId != null) 'consultation_id': consultationId,
+        if (labRequestIds != null && labRequestIds.isNotEmpty) 'lab_request_ids': labRequestIds,
         'items': items,
         'discount': discount,
         if (initialPayment != null) 'initial_payment': initialPayment,
@@ -373,6 +381,48 @@ class BillingController {
         throw Exception(body['message'] ?? 'Failed to record home care payment');
       }
       return Map<String, dynamic>.from(body['data']);
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+
+  /// Fetch all pharmacy prescriptions (OPD consultations & IPD prescriptions)
+  Future<List<Map<String, dynamic>>> fetchPharmacyPrescriptions() async {
+    try {
+      final response = await ApiService.get('$baseUrl/pharmacy/prescriptions');
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        throw Exception(body['message'] ?? 'Failed to fetch pharmacy prescriptions');
+      }
+      final List data = body['data'] ?? [];
+      return data.cast<Map<String, dynamic>>();
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch all lab investigation requests
+  Future<List<Map<String, dynamic>>> fetchLabRequests({String? status, int? patientId}) async {
+    try {
+      String url = '$baseUrl/lab/requests';
+      final List<String> qParams = [];
+      if (status != null && status.isNotEmpty && status != 'All') {
+        qParams.add('status=' + Uri.encodeComponent(status));
+      }
+      if (patientId != null) {
+        qParams.add('patient_id=' + patientId.toString());
+      }
+      if (qParams.isNotEmpty) {
+        url += '?' + qParams.join('&');
+      }
+      final response = await ApiService.get(url);
+      final body = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        throw Exception(body['message'] ?? 'Failed to fetch lab requests');
+      }
+      final List data = body['data'] ?? [];
+      return data.cast<Map<String, dynamic>>();
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }

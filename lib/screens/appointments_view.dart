@@ -49,7 +49,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   String _searchQuery = '';
   final TextEditingController _apptSearchController = TextEditingController();
   DateTime? _filterDate = DateTime.now();
-  String _selectedApptType = 'Routine';
+  String? _selectedApptType;
   final List<String> _apptTypes = [
     'Routine',
     'Follow Up',
@@ -141,7 +141,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return 'Table';
   }
 
-  String _getTranslatedApptType(String type) {
+  String _getTranslatedApptType(String? type) {
+    if (type == null || type.trim().isEmpty) return '';
     switch (type.toLowerCase().trim()) {
       case 'routine':
         return context.tr('appt_type_routine', fallback: 'Routine');
@@ -1165,12 +1166,18 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     children: [
                       _buildFieldLabel(context.tr('appointment_type_req', fallback: 'Appointment Type *')),
                       _buildDropdown<String>(
-                        hint: '',
+                        hint: context.tr('select_appointment_type', fallback: 'Select Appointment Type'),
                         value: _selectedApptType,
                         items: _apptTypes,
                         itemLabel: (s) => _getTranslatedApptType(s),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty || _selectedApptType == null || _selectedApptType!.trim().isEmpty) {
+                            return context.tr('appointment_type_required', fallback: 'Appointment Type is required');
+                          }
+                          return null;
+                        },
                         onChanged: (val) =>
-                            setState(() => _selectedApptType = val ?? ''),
+                            setState(() => _selectedApptType = val),
                       ),
                       const SizedBox(height: 16),
                       _buildFieldLabel(context.tr('reason_req', fallback: 'Reason *')),
@@ -1578,7 +1585,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           _selectedTime!,
                         ),
 
-                      if (_selectedApptType.isNotEmpty)
+                      if (_selectedApptType != null && _selectedApptType!.isNotEmpty)
                         _buildSummaryItem(
                           Icons.info_outline,
                           context.tr('type_heading', fallback: 'Type'),
@@ -1591,10 +1598,23 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             (_selectedPatient != null &&
                                 _selectedDoctor != null &&
                                 _bookingDate != null &&
-                                _selectedTime != null)
+                                _selectedTime != null &&
+                                _selectedApptType != null &&
+                                _selectedApptType!.isNotEmpty)
                             ? () async {
                                 try {
                                   _validateVitals();
+                                  if (_selectedApptType == null || _selectedApptType!.trim().isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          context.tr('appointment_type_required', fallback: 'Appointment Type is required'),
+                                        ),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                    return;
+                                  }
                                   final hasVitalsDuringBooking =
                                       _bpSystolicController.text.trim().isNotEmpty &&
                                       _tempController.text.trim().isNotEmpty;
@@ -1608,7 +1628,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       'dd/MM/yyyy',
                                     ).format(_bookingDate!),
                                     appointmentTime: _selectedTime!,
-                                    appointmentType: _selectedApptType,
+                                    appointmentType: _selectedApptType!,
                                     bloodPressureSystolic: int.tryParse(
                                       _bpSystolicController.text,
                                     ),
@@ -1659,7 +1679,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               }
                             : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
+                          backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 40,
@@ -1896,12 +1916,18 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               children: [
                                 _buildFieldLabel(context.tr('appointment_type_req', fallback: 'Appointment Type *')),
                                 _buildDropdown<String>(
-                                  hint: '',
+                                  hint: context.tr('select_appointment_type', fallback: 'Select Appointment Type'),
                                   value: _selectedApptType,
                                   items: _apptTypes,
                                   itemLabel: (s) => _getTranslatedApptType(s),
+                                  validator: (val) {
+                                    if (val == null || val.trim().isEmpty || _selectedApptType == null || _selectedApptType!.trim().isEmpty) {
+                                      return context.tr('appointment_type_required', fallback: 'Appointment Type is required');
+                                    }
+                                    return null;
+                                  },
                                   onChanged: (val) =>
-                                      setState(() => _selectedApptType = val ?? ''),
+                                      setState(() => _selectedApptType = val),
                                 ),
                                 const SizedBox(height: 16),
                                 _buildFieldLabel(context.tr('reason_req', fallback: 'Reason *')),
@@ -2382,7 +2408,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 _selectedTime!,
                               ),
 
-                            if (_selectedApptType.isNotEmpty)
+                            if (_selectedApptType != null && _selectedApptType!.isNotEmpty)
                               _buildSummaryItem(
                                 Icons.info_outline,
                                 context.tr('type_heading', fallback: 'Type'),
@@ -2395,10 +2421,23 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   (_selectedPatient != null &&
                                       _selectedDoctor != null &&
                                       _bookingDate != null &&
-                                      _selectedTime != null)
+                                      _selectedTime != null &&
+                                      _selectedApptType != null &&
+                                      _selectedApptType!.isNotEmpty)
                                   ? () async {
                                       try {
                                         _validateVitals();
+                                        if (_selectedApptType == null || _selectedApptType!.trim().isEmpty) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                context.tr('appointment_type_required', fallback: 'Appointment Type is required'),
+                                              ),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                          return;
+                                        }
                                         final hasVitalsDuringBooking =
                                             _bpSystolicController.text.trim().isNotEmpty &&
                                             _tempController.text.trim().isNotEmpty;
@@ -2412,7 +2451,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                             'dd/MM/yyyy',
                                           ).format(_bookingDate!),
                                           appointmentTime: _selectedTime!,
-                                          appointmentType: _selectedApptType,
+                                          appointmentType: _selectedApptType!,
                                           bloodPressureSystolic: int.tryParse(
                                             _bpSystolicController.text,
                                           ),
@@ -2468,7 +2507,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     }
                                   : null,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
+                                backgroundColor: AppTheme.primaryColor,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 20,
@@ -2742,7 +2781,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     _sugarController.clear();
     _tempController.clear();
     _reasonController.clear();
-    _selectedApptType = 'Routine';
+    _selectedApptType = null;
   }
 
   Widget _buildFormCard({
@@ -2797,6 +2836,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     required List<T> items,
     required String Function(T) itemLabel,
     required Function(T?) onChanged,
+    FormFieldValidator<String>? validator,
   }) {
     final map = <String, String>{};
     for (int i = 0; i < items.length; i++) {
@@ -2812,9 +2852,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     }
     
     return CustomDropdownSearch(
-      label: hint,
+      label: '',
+      hint: hint.isNotEmpty ? hint : 'Select...',
       value: selectedIndexString,
       dropdownMap: map,
+      validator: validator,
       onChanged: (val) {
         if (val != null) {
           final idx = int.tryParse(val);

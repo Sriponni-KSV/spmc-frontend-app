@@ -53,19 +53,33 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
   // Search queries
   String _catalogSearch = '';
   String _invoiceSearch = '';
-  String _invoiceStatusFilter = 'All';
   String _ipSearch = '';
   String _homeCareStatusFilter = 'All';
   String _homeCareSubTab = 'Invoiced'; // 'Invoiced' or 'Pending Unbilled'
   String _homeCareUnbilledSearch = '';
   /// Toggle to show/hide Home Visit in the Quick Bill section
-  static const bool _showHomeVisitInQuickBill = false;
   String _qbVisitType = 'OP'; // 'OP' or 'HomeVisit'
 
+  // For Pharmacy Prescriptions Queue & Dispensing (MocDoc)
+  List<Map<String, dynamic>> _pharmacyPrescriptions = [];
+  bool _isLoadingPrescriptions = false;
+  String _pharmacySearch = '';
+  String _pharmacyStatusFilter = 'Pending'; // 'Pending', 'Dispensed', 'All'
+
+  // For Lab Investigation Orders Queue & Billing (MocDoc)
+  List<Map<String, dynamic>> _labRequests = [];
+  bool _isLoadingLabRequests = false;
+  String _labSearch = '';
+  String _labStatusFilter = 'Pending'; // 'Pending', 'Billed', 'All'
+
+  // Quick Bill State
+  String? _qbDoctorName;
+  int? _qbConsultationId;
+  List<int>? _qbLabRequestIds;
+
+  final TextEditingController _labTestPriceCtrl = TextEditingController();
+
   // For Pharmacy Billing
-  String? _selectedPharmacyMedId;
-  String? _pharmacyMedName;
-  bool _isCustomPharmacyItem = false;
   final TextEditingController _pharmacyPriceCtrl = TextEditingController();
   final TextEditingController _pharmacyQtyCtrl = TextEditingController(text: '1');
   final TextEditingController _customPharmacyItemCtrl = TextEditingController();
@@ -86,11 +100,11 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     final role = user?.role;
     if (role != _currentRole) {
       _currentRole = role;
-      int tabLength = 6;
+      int tabLength = 7;
       if (role == 'Pharmacy') {
-        tabLength = 3;
+        tabLength = 2;
       } else if (role == 'Lab') {
-        tabLength = 3;
+        tabLength = 2;
       }
       
       _tabController?.dispose();
@@ -110,6 +124,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     _pharmacyPriceCtrl.dispose();
     _pharmacyQtyCtrl.dispose();
     _customPharmacyItemCtrl.dispose();
+    _labTestPriceCtrl.dispose();
     super.dispose();
   }
 
@@ -121,9 +136,30 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     _loadPendingUnbilledHomeVisits();
     _loadUnbilledOtCases();
     _loadOtBillingCases();
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
-    if (user?.role == 'Pharmacy') {
-      _loadMedicineInventory();
+    _loadMedicineInventory();
+    _loadPrescriptions();
+    _loadLabRequests();
+  }
+
+  Future<void> _loadPrescriptions() async {
+    if (!mounted) return;
+    try {
+      final list = await _billingCtrl.fetchPharmacyPrescriptions();
+      if (mounted) setState(() => _pharmacyPrescriptions = list);
+    } catch (e) {
+      debugPrint('Error loading pharmacy prescriptions: $e');
+    } finally {
+    }
+  }
+
+  Future<void> _loadLabRequests() async {
+    if (!mounted) return;
+    try {
+      final list = await _billingCtrl.fetchLabRequests();
+      if (mounted) setState(() => _labRequests = list);
+    } catch (e) {
+      debugPrint('Error loading lab requests: $e');
+    } finally {
     }
   }
 
@@ -133,37 +169,39 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
 
     if (role == 'Pharmacy') {
       if (tabIndex == 0) {
+        _loadPrescriptions();
         _loadMedicineInventory();
-        _loadPatients();
-      } else if (tabIndex == 1) {
         _loadInvoices();
-      } else if (tabIndex == 2) {
+      } else if (tabIndex == 1) {
         _loadCatalog();
       }
     } else if (role == 'Lab') {
       if (tabIndex == 0) {
+        _loadLabRequests();
         _loadCatalog();
-        _loadPatients();
-      } else if (tabIndex == 1) {
         _loadInvoices();
-      } else if (tabIndex == 2) {
+      } else if (tabIndex == 1) {
         _loadCatalog();
       }
     } else {
       if (tabIndex == 0) {
         _loadCatalog();
         _loadPatients();
-        _loadUnbilledOtCases();
       } else if (tabIndex == 1) {
+        _loadPrescriptions();
+        _loadMedicineInventory();
         _loadInvoices();
       } else if (tabIndex == 2) {
-        _loadIpAdmissions();
-      } else if (tabIndex == 3) {
-        _loadOtBillingCases();
-      } else if (tabIndex == 4) {
+        _loadLabRequests();
+        _loadCatalog();
         _loadInvoices();
-        _loadPendingUnbilledHomeVisits();
+      } else if (tabIndex == 3) {
+        _loadIpAdmissions();
+      } else if (tabIndex == 4) {
+        _loadOtBillingCases();
       } else if (tabIndex == 5) {
+        _loadPendingUnbilledHomeVisits();
+      } else if (tabIndex == 6) {
         _loadCatalog();
       }
     }
@@ -222,8 +260,6 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
           filteredList = list.where((s) => s['category'] == 'Lab').toList();
         } else if (role == 'Pharmacy') {
           filteredList = list.where((s) => s['category'] == 'Pharmacy').toList();
-        } else if (role == 'Receptionist' || role == 'Front Desk' || role == 'Reception') {
-          filteredList = list.where((s) => s['category'] != 'Lab' && s['category'] != 'Pharmacy').toList();
         }
         setState(() => _catalogServices = filteredList);
       }
@@ -343,33 +379,31 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     String subtitle = 'Manage quick bills, OP invoices, IP billing worksheets, and service catalog';
 
     if (role == 'Pharmacy') {
-      subtitle = 'Manage pharmacy bills, prescriptions, drug dispensing invoices, and payments';
+      subtitle = 'Manage doctor prescriptions queue, medication dispensing, and pharmacy billing';
       tabs = const [
-        Tab(icon: Icon(Icons.receipt_outlined), text: 'Quick Bill (Pharmacy)'),
-        Tab(icon: Icon(Icons.history_outlined), text: 'Pharmacy Invoices'),
-        Tab(icon: Icon(Icons.medication_outlined), text: 'Medication Prices'),
+        Tab(icon: Icon(Icons.medication_outlined), text: 'Pharmacy Billing'),
+        Tab(icon: Icon(Icons.menu_book_outlined), text: 'Medication Prices'),
       ];
       tabViews = [
-        _buildQuickBillTab(isMobile),
-        _buildInvoicesTab(isMobile),
+        _buildPharmacyBillingTab(isMobile),
         _buildCatalogTab(isMobile),
       ];
     } else if (role == 'Lab') {
-      subtitle = 'Manage lab test requests billing, patient invoices, and service prices';
+      subtitle = 'Manage doctor lab investigation orders, diagnostic test billing, and prices';
       tabs = const [
-        Tab(icon: Icon(Icons.receipt_outlined), text: 'Quick Bill (Lab)'),
-        Tab(icon: Icon(Icons.history_outlined), text: 'Lab Invoices'),
-        Tab(icon: Icon(Icons.biotech_outlined), text: 'Lab Tests Catalog'),
+        Tab(icon: Icon(Icons.biotech_outlined), text: 'Lab Billing'),
+        Tab(icon: Icon(Icons.menu_book_outlined), text: 'Lab Tests Catalog'),
       ];
       tabViews = [
-        _buildQuickBillTab(isMobile),
-        _buildInvoicesTab(isMobile),
+        _buildLabBillingTab(isMobile),
         _buildCatalogTab(isMobile),
       ];
     } else {
+      subtitle = 'Manage OP quick billing, pharmacy dispensing, lab diagnostics, IPD, and OT surgery';
       tabs = const [
-        Tab(icon: Icon(Icons.receipt_outlined), text: 'Quick Bill (OP)'),
-        Tab(icon: Icon(Icons.history_outlined), text: 'OP Invoices'),
+        Tab(icon: Icon(Icons.receipt_outlined), text: 'Quick Bill'),
+        Tab(icon: Icon(Icons.medication_outlined), text: 'Pharmacy Billing'),
+        Tab(icon: Icon(Icons.biotech_outlined), text: 'Lab Billing'),
         Tab(icon: Icon(Icons.hotel_outlined), text: 'IP Billing'),
         Tab(icon: Icon(Icons.medical_services_outlined), text: 'OT Billing'),
         Tab(icon: Icon(Icons.home_work_outlined), text: 'Home Care'),
@@ -377,7 +411,8 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
       ];
       tabViews = [
         _buildQuickBillTab(isMobile),
-        _buildInvoicesTab(isMobile),
+        _buildPharmacyBillingTab(isMobile),
+        _buildLabBillingTab(isMobile),
         _buildIpBillingTab(isMobile),
         _buildOtBillingTab(isMobile),
         _buildHomeCareBillingTab(isMobile),
@@ -431,7 +466,9 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                 unselectedLabelColor: AppTheme.textSecondaryColor,
                 indicatorColor: AppTheme.primaryColor,
                 indicatorWeight: 3,
-                isScrollable: isMobile,
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelPadding: EdgeInsets.symmetric(horizontal: isMobile ? 20.0 : 36.0, vertical: 8.0),
                 tabs: tabs,
               ),
             ),
@@ -490,7 +527,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Quick Bill Form', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
+                      const Text('Quick Bill Form (OP Services)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
                       if (role != 'Pharmacy' && role != 'Lab')
                         OutlinedButton.icon(
                           icon: const Icon(Icons.medical_services_outlined, size: 16, color: Color(0xFF0284C7)),
@@ -503,11 +540,10 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          onPressed: () => _tabController?.animateTo(3),
+                          onPressed: () => _tabController?.animateTo(4),
                         ),
                     ],
                   ),
-                  const SizedBox(height: 20),
                   
                   // Patient Selector
                   _buildLabel('Patient *'),
@@ -521,423 +557,39 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                     },
                     onChanged: (val) {
                       if (val != null) {
+                        final p = _patients.firstWhere((pt) => pt.id.toString() == val);
                         setState(() {
-                          _qbSelectedPatient = _patients.firstWhere((p) => p.id.toString() == val);
+                          _qbSelectedPatient = p;
                           _qbSelectedOtCaseId = null;
                         });
                       }
                     },
                   ),
 
-                  if (_showHomeVisitInQuickBill && role != 'Pharmacy' && role != 'Lab') ...[
-                    _buildLabel('Billing Service Type'),
-                    Row(
-                      children: [
-                        ChoiceChip(
-                          label: const Text('OP Consultation / Services'),
-                          selected: _qbVisitType == 'OP',
-                          selectedColor: AppTheme.primaryColor.withOpacity(0.15),
-                          onSelected: (val) {
-                            if (val) setState(() => _qbVisitType = 'OP');
-                          },
-                        ),
-                        const SizedBox(width: 10),
-                        ChoiceChip(
-                          label: const Text('Home Care Visit'),
-                          selected: _qbVisitType == 'HomeVisit',
-                          selectedColor: AppTheme.primaryColor.withOpacity(0.15),
-                          onSelected: (val) {
-                            if (val) setState(() => _qbVisitType = 'HomeVisit');
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-
-                  // Item Selector
-                  if (role == 'Pharmacy') ...[
-                    Row(
-                      children: [
-                        Checkbox(
-                          value: _isCustomPharmacyItem,
-                          activeColor: AppTheme.primaryColor,
-                          onChanged: (val) {
-                            setState(() {
-                              _isCustomPharmacyItem = val ?? false;
-                              _selectedPharmacyMedId = null;
-                              _pharmacyMedName = null;
-                              _customPharmacyItemCtrl.clear();
-                            });
-                          },
-                        ),
-                        const Text(
-                          'Custom/Non-Inventory Item',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    _buildLabel(_isCustomPharmacyItem ? 'Item Name *' : 'Medicine *'),
-                    if (isMobile) ...[
-                      _isCustomPharmacyItem
-                          ? TextFormField(
-                              controller: _customPharmacyItemCtrl,
-                              autovalidateMode: AutovalidateMode.onUserInteraction,
-                              decoration: InputDecoration(
-                                hintText: 'Enter Item Name',
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                fillColor: const Color(0xFFF1F5F9),
-                                filled: true,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                              ),
-                            )
-                          : CustomDropdownSearch(
-                              label: '',
-                              hint: 'Select Medicine',
-                              value: _selectedPharmacyMedId,
-                              dropdownMap: {
-                                for (var med in _medicineInventory)
-                                  med['id'].toString(): '${med['name']} (${med['quantity']} in stock)'
-                              },
-                              onChanged: (val) {
-                                if (val != null) {
-                                  final medObj = _medicineInventory.firstWhere((x) => x['id'].toString() == val);
-                                  setState(() {
-                                    _selectedPharmacyMedId = val;
-                                    _pharmacyMedName = medObj['name'];
-                                  });
-                                }
-                              },
-                            ),
-                      const SizedBox(height: 10),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: TextFormField(
-                              controller: _pharmacyPriceCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              autovalidateMode: AutovalidateMode.onUserInteraction,
-                              decoration: InputDecoration(
-                                hintText: 'Price (₹)',
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                fillColor: const Color(0xFFF1F5F9),
-                                filled: true,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              controller: _pharmacyQtyCtrl,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              autovalidateMode: AutovalidateMode.onUserInteraction,
-                              decoration: InputDecoration(
-                                hintText: 'Qty',
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                fillColor: const Color(0xFFF1F5F9),
-                                filled: true,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.secondaryColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                            onPressed: () {
-                              final String name = _isCustomPharmacyItem ? _customPharmacyItemCtrl.text.trim() : (_pharmacyMedName ?? '');
-                              if (name.isEmpty || _pharmacyPriceCtrl.text.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select/enter item name and price'), backgroundColor: Colors.red));
-                                return;
-                              }
-                              final double pr = double.tryParse(_pharmacyPriceCtrl.text) ?? 0.0;
-                              final int qt = int.tryParse(_pharmacyQtyCtrl.text) ?? 1;
-                              
-                              setState(() {
-                                final idx = _qbSelectedItems.indexWhere((x) => x['item_name'] == name);
-                                if (idx >= 0) {
-                                  _qbSelectedItems[idx]['quantity'] = (_qbSelectedItems[idx]['quantity'] as int) + qt;
-                                } else {
-                                  _qbSelectedItems.add({
-                                    'service_id': null,
-                                    'item_name': name,
-                                    'quantity': qt,
-                                    'unit_price': pr,
-                                  });
-                                }
-                                _selectedPharmacyMedId = null;
-                                _pharmacyMedName = null;
-                                _customPharmacyItemCtrl.clear();
-                                _pharmacyPriceCtrl.clear();
-                                _pharmacyQtyCtrl.text = '1';
-                              });
-                            },
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Add', style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        ],
-                      ),
-                    ] else ...[
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: _isCustomPharmacyItem
-                                ? TextFormField(
-                                    controller: _customPharmacyItemCtrl,
-                                    autovalidateMode: AutovalidateMode.onUserInteraction,
-                                    decoration: InputDecoration(
-                                      hintText: 'Enter Item Name',
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                      fillColor: const Color(0xFFF1F5F9),
-                                      filled: true,
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                                    ),
-                                  )
-                                : CustomDropdownSearch(
-                                    label: '',
-                                    hint: 'Select Medicine',
-                                    value: _selectedPharmacyMedId,
-                                    dropdownMap: {
-                                      for (var med in _medicineInventory)
-                                        med['id'].toString(): '${med['name']} (${med['quantity']} in stock)'
-                                    },
-                                    onChanged: (val) {
-                                      if (val != null) {
-                                        final medObj = _medicineInventory.firstWhere((x) => x['id'].toString() == val);
-                                        setState(() {
-                                          _selectedPharmacyMedId = val;
-                                          _pharmacyMedName = medObj['name'];
-                                        });
-                                      }
-                                    },
-                                  ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 90,
-                            child: TextFormField(
-                              controller: _pharmacyPriceCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              autovalidateMode: AutovalidateMode.onUserInteraction,
-                              decoration: InputDecoration(
-                                hintText: 'Price',
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                fillColor: const Color(0xFFF1F5F9),
-                                filled: true,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          SizedBox(
-                            width: 70,
-                            child: TextFormField(
-                              controller: _pharmacyQtyCtrl,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              autovalidateMode: AutovalidateMode.onUserInteraction,
-                              decoration: InputDecoration(
-                                hintText: 'Qty',
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                                fillColor: const Color(0xFFF1F5F9),
-                                filled: true,
-                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.add_circle, color: AppTheme.secondaryColor, size: 36),
-                            onPressed: () {
-                              final String name = _isCustomPharmacyItem ? _customPharmacyItemCtrl.text.trim() : (_pharmacyMedName ?? '');
-                              if (name.isEmpty || _pharmacyPriceCtrl.text.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select/enter item name and price'), backgroundColor: Colors.red));
-                                return;
-                              }
-                              final double pr = double.tryParse(_pharmacyPriceCtrl.text) ?? 0.0;
-                              final int qt = int.tryParse(_pharmacyQtyCtrl.text) ?? 1;
-                              
-                              setState(() {
-                                final idx = _qbSelectedItems.indexWhere((x) => x['item_name'] == name);
-                                if (idx >= 0) {
-                                  _qbSelectedItems[idx]['quantity'] = (_qbSelectedItems[idx]['quantity'] as int) + qt;
-                                } else {
-                                  _qbSelectedItems.add({
-                                    'service_id': null,
-                                    'item_name': name,
-                                    'quantity': qt,
-                                    'unit_price': pr,
-                                  });
-                                }
-                                _selectedPharmacyMedId = null;
-                                _pharmacyMedName = null;
-                                _customPharmacyItemCtrl.clear();
-                                _pharmacyPriceCtrl.clear();
-                                _pharmacyQtyCtrl.text = '1';
-                              });
-                            },
-                          )
-                        ],
-                      ),
-                    ],
-                  ] else ...[
-                    _buildLabel('Add Service to Bill'),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CustomDropdownSearch(
-                            label: '',
-                            hint: 'Choose Service',
-                            dropdownMap: {
-                              for (var s in _catalogServices.where((x) => x['category'] != 'IP'))
-                                s['id'].toString(): '${s['name']} (₹${s['price']})'
-                            },
-                            onChanged: (val) {
-                              if (val != null) {
-                                final svc = _catalogServices.firstWhere((s) => s['id'].toString() == val);
-                                _addQbItem(svc);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Bill Items Table Card
-          Card(
-            elevation: 0,
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: AppTheme.borderColor),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                  const SizedBox(height: 16),
+                  _buildLabel('Add OP Service / Consultation Fee *'),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Selected Bill Items', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
-                      Text('Tap any price (₹) to edit rates directly', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600, fontStyle: FontStyle.italic)),
+                      Expanded(
+                        child: CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select OP Service / Fee',
+                          clearOnSelect: true,
+                          dropdownMap: {
+                            for (var s in _catalogServices.where((x) => x['category'] != 'IP' && x['category'] != 'Pharmacy' && x['category'] != 'Lab'))
+                              s['id'].toString(): '${s['name']} (₹${s['price']})'
+                          },
+                          onChanged: (val) {
+                            if (val != null) {
+                              final svc = _catalogServices.firstWhere((s) => s['id'].toString() == val);
+                              _addQbItem(svc);
+                            }
+                          },
+                        ),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  if (_qbSelectedItems.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40.0),
-                      child: Center(child: Text('No items added. Select a service above.', style: TextStyle(color: Colors.grey.shade500))),
-                    )
-                  else
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _qbSelectedItems.length,
-                      separatorBuilder: (c, i) => const Divider(),
-                      itemBuilder: (context, index) {
-                        final item = _qbSelectedItems[index];
-                        final qty = item['quantity'] as int;
-                        final price = item['unit_price'] as double;
-                        final total = qty * price;
-
-                        return Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Text(item['item_name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: Row(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline, size: 18),
-                                    onPressed: () {
-                                      setState(() {
-                                        if (qty > 1) {
-                                          item['quantity'] = qty - 1;
-                                        } else {
-                                          _qbSelectedItems.removeAt(index);
-                                        }
-                                      });
-                                    },
-                                  ),
-                                  Text('$qty'),
-                                  IconButton(
-                                    icon: const Icon(Icons.add_circle_outline, size: 18),
-                                    onPressed: () {
-                                      setState(() {
-                                        item['quantity'] = qty + 1;
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: InkWell(
-                                onTap: () => _showEditItemPriceDialog(index),
-                                borderRadius: BorderRadius.circular(6),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFFCBD5E1)),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        '₹${price.toStringAsFixed(2)}',
-                                        textAlign: TextAlign.right,
-                                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Icon(Icons.edit_outlined, size: 13, color: AppTheme.primaryColor),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: Text('₹${total.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, color: Colors.red),
-                              onPressed: () {
-                                setState(() {
-                                  _qbSelectedItems.removeAt(index);
-                                });
-                              },
-                            )
-                          ],
-                        );
-                      },
-                    ),
-                  
+                  const SizedBox(height: 24),
                   if (_qbSelectedItems.isNotEmpty) ...[
                     const Divider(height: 32, thickness: 1.2),
                     _buildSummaryRow('Subtotal', subtotal),
@@ -1045,7 +697,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
   }
 
   void _addQbItem(Map<String, dynamic> service) {
-    final idx = _qbSelectedItems.indexWhere((x) => x['service_id'] == service['id']);
+    final idx = _qbSelectedItems.indexWhere((x) => x['service_id'] == service['id'] && x['item_name'] == service['name']);
     if (idx >= 0) {
       setState(() {
         _qbSelectedItems[idx]['quantity'] = (_qbSelectedItems[idx]['quantity'] as int) + 1;
@@ -1054,6 +706,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
       setState(() {
         _qbSelectedItems.add({
           'service_id': service['id'],
+          'category': service['category'] ?? 'OP',
           'item_name': service['name'],
           'quantity': 1,
           'unit_price': double.parse(service['price'].toString())
@@ -1073,15 +726,16 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     }
 
     final double collected = double.tryParse(_qbPaidController.text) ?? 0.0;
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
-    final role = user?.role;
-    final type = role == 'Pharmacy' ? 'Pharmacy' : (role == 'Lab' ? 'Lab' : _qbVisitType);
+    final type = _qbVisitType;
 
     try {
       final res = await _billingCtrl.createInvoice(
         patientId: _qbSelectedPatient!.id!,
         admissionType: type,
         otCaseId: _qbSelectedOtCaseId,
+        doctorName: _qbDoctorName,
+        consultationId: _qbConsultationId,
+        labRequestIds: _qbLabRequestIds,
         items: _qbSelectedItems,
         discount: _qbDiscount,
         initialPayment: collected > 0 ? {
@@ -1097,6 +751,9 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
         setState(() {
           _qbSelectedPatient = null;
           _qbSelectedOtCaseId = null;
+          _qbConsultationId = null;
+          _qbLabRequestIds = null;
+          _qbDoctorName = null;
           _qbSelectedItems = [];
           _qbDiscount = 0.0;
           _qbDiscountController.text = '0';
@@ -1105,6 +762,8 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
           _qbVisitType = 'OP';
         });
         _loadInvoices();
+        _loadPrescriptions();
+        _loadLabRequests();
         _loadUnbilledOtCases();
         _showInvoiceReceiptDialog(res['id']);
       }
@@ -1113,84 +772,6 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
       }
     }
-  }
-
-  void _showEditItemPriceDialog(int index) {
-    if (index < 0 || index >= _qbSelectedItems.length) return;
-    final item = _qbSelectedItems[index];
-    final double currentPrice = double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0;
-    final TextEditingController priceCtrl = TextEditingController(text: currentPrice.toStringAsFixed(2));
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Row(
-            children: [
-              Icon(Icons.edit_note, color: AppTheme.primaryColor, size: 22),
-              SizedBox(width: 8),
-              Text('Edit Charge Rate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                item['item_name'] ?? 'Charge Item',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
-              ),
-              if (item['category'] != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2.0),
-                  child: Text('Category: ${item['category']}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                ),
-              const SizedBox(height: 16),
-              _buildLabel('Unit Price / Rate (₹) *'),
-              TextFormField(
-                controller: priceCtrl,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  prefixText: '₹ ',
-                  hintText: 'Enter rate',
-                  contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  fillColor: Color(0xFFF1F5F9),
-                  filled: true,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            OutlinedButton(
-              onPressed: () => Navigator.pop(ctx),
-              style: AppTheme.cancelButton,
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final double? newPr = double.tryParse(priceCtrl.text.trim());
-                if (newPr != null && newPr >= 0) {
-                  setState(() {
-                    item['unit_price'] = newPr;
-                    item['subtotal'] = (item['quantity'] as int) * newPr;
-                  });
-                  Navigator.pop(ctx);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter a valid price greater than or equal to zero'), backgroundColor: Colors.red),
-                  );
-                }
-              },
-              style: AppTheme.primaryButton,
-              child: const Text('Apply Rate'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   void _showEditOtCaseFeesDialog(Map<String, dynamic> otc, {VoidCallback? onUpdated}) {
@@ -1609,119 +1190,214 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     );
   }
 
-  Widget _buildInvoicesTab(bool isMobile) {
-    final user = Provider.of<AuthProvider>(context).user;
-    final role = user?.role;
+  
+  int _calcDrugQuantity(String freq, String dur) {
+    int daily = 1;
+    final f = freq.toLowerCase().trim();
+    if (f.contains('1-0-1') || f.contains('twice') || f.contains('bd') || f.contains('bid')) {
+      daily = 2;
+    } else if (f.contains('1-1-1') || f.contains('thrice') || f.contains('tds') || f.contains('tid')) {
+      daily = 3;
+    } else if (f.contains('1-1-1-1') || f.contains('four') || f.contains('qid')) {
+      daily = 4;
+    } else if (f.contains('1-0-0') || f.contains('0-0-1') || f.contains('once') || f.contains('od')) {
+      daily = 1;
+    } else {
+      final m = RegExp(r'(\d+)\s*time').firstMatch(f);
+      if (m != null) daily = int.tryParse(m.group(1) ?? '1') ?? 1;
+    }
 
-    final filtered = _invoices.where((inv) {
-      if (role == 'Pharmacy') {
-        if (inv['admission_type'] != 'Pharmacy') return false;
-      } else if (role == 'Lab') {
-        if (inv['admission_type'] != 'Lab') return false;
+    int days = 1;
+    final d = dur.toLowerCase().trim();
+    final mDur = RegExp(r'(\d+)').firstMatch(d);
+    if (mDur != null) {
+      final num = int.tryParse(mDur.group(1) ?? '1') ?? 1;
+      if (d.contains('week')) {
+        days = num * 7;
+      } else if (d.contains('month')) {
+        days = num * 30;
       } else {
-        if (inv['admission_type'] != 'OP') return false;
+        days = num;
       }
-      final q = _invoiceSearch.toLowerCase();
-      final matchQuery = (inv['invoice_number'] ?? '').toString().toLowerCase().contains(q) ||
-          (inv['patient_name'] ?? '').toString().toLowerCase().contains(q) ||
-          (inv['patient_display_id'] ?? '').toString().toLowerCase().contains(q);
-      if (!matchQuery) return false;
+    } else {
+      if (d.contains('week')) days = 7;
+      else if (d.contains('month')) days = 30;
+      else days = 5;
+    }
+    return (daily * days).clamp(1, 500);
+  }
 
-      final pStatus = (inv['payment_status'] ?? 'Unpaid').toString();
-      if (_invoiceStatusFilter == 'Unpaid') {
-        return pStatus == 'Unpaid' || pStatus == 'Partially Paid';
-      } else if (_invoiceStatusFilter == 'Paid') {
-        return pStatus == 'Paid' || pStatus == 'Settled';
-      }
+  Widget _buildPharmacyBillingTab(bool isMobile) {
+    // Filter prescriptions
+    final filtered = _pharmacyPrescriptions.where((p) {
+      final q = _pharmacySearch.toLowerCase();
+      final pName = (p['patient_name'] ?? '').toString().toLowerCase();
+      final pUhid = (p['patient_display_id'] ?? '').toString().toLowerCase();
+      final docName = (p['doctor_name'] ?? '').toString().toLowerCase();
+      final matchQ = pName.contains(q) || pUhid.contains(q) || docName.contains(q);
+      if (!matchQ) return false;
+
+      final stat = (p['pharmacy_status'] ?? 'Pending').toString();
+      final isDone = stat == 'Billed' || stat == 'Dispensed';
+      if (_pharmacyStatusFilter == 'Pending') return !isDone;
+      if (_pharmacyStatusFilter == 'Dispensed') return isDone;
       return true;
     }).toList();
 
-    final IconData tabIcon = role == 'Pharmacy'
-        ? Icons.medication_rounded
-        : (role == 'Lab' ? Icons.biotech_rounded : Icons.receipt_long_rounded);
+    final pendingCount = _pharmacyPrescriptions.where((p) {
+      final s = (p['pharmacy_status'] ?? 'Pending').toString();
+      return s != 'Billed' && s != 'Dispensed';
+    }).length;
+
+    final dispensedCount = _pharmacyPrescriptions.length - pendingCount;
+
+    double pharmacyRev = 0;
+    for (var inv in _invoices) {
+      if ((inv['admission_type'] ?? '') == 'Pharmacy') {
+        pharmacyRev += double.tryParse((inv['net_amount'] ?? 0).toString()) ?? 0.0;
+      }
+    }
 
     return Padding(
-      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+      padding: EdgeInsets.fromLTRB(isMobile ? 12.0 : 20.0, 10.0, isMobile ? 12.0 : 20.0, 12.0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Compact Header & Quick Stats Row
+          Row(
+            children: [
+              const Text(
+                'Pharmacy Prescriptions',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor),
+              ),
+              const SizedBox(width: 12),
+              if (!isMobile) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Text('$pendingCount Pending', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Text('$dispensedCount Dispensed', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+                  ),
+                  child: Text('Sales: ₹${pharmacyRev.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                ),
+              ],
+              const Spacer(),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+                icon: const Icon(Icons.add_shopping_cart_rounded, size: 16),
+                label: const Text('Walk-in Medicine Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                onPressed: () => _showWalkInPharmacyBillDialog(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Compact Search & Filter Row
           Row(
             children: [
               Expanded(
-                child: TextFormField(
-                  onChanged: (val) => setState(() => _invoiceSearch = val),
-                  decoration: InputDecoration(
-                    hintText: 'Search by Invoice Number, Patient Name, or ID...',
-                    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                    prefixIcon: const Icon(Icons.search, color: AppTheme.textSecondaryColor, size: 20),
-                    filled: true,
-                    fillColor: Colors.white,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppTheme.borderColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                child: SizedBox(
+                  height: 38,
+                  child: TextFormField(
+                    onChanged: (val) => setState(() => _pharmacySearch = val),
+                    decoration: InputDecoration(
+                      hintText: 'Search by Patient Name, UHID, Doctor...',
+                      hintStyle: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor),
+                      prefixIcon: const Icon(Icons.search, color: AppTheme.primaryColor, size: 18),
+                      filled: true,
+                      fillColor: Colors.white,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              SizedBox(
-                width: 175,
-                child: CustomDropdownSearch(
-                  label: '',
-                  hint: 'Status: All',
-                  value: _invoiceStatusFilter,
-                  readOnly: true,
-                  fillColor: Colors.white,
-                  borderColor: AppTheme.borderColor,
-                  borderWidth: 1.0,
-                  height: 48,
-                  dropdownMap: const {
-                    'All': 'Status: All',
-                    'Unpaid': 'Status: Unpaid',
-                    'Paid': 'Status: Paid',
-                  },
-                  onChanged: (val) {
-                    if (val != null) setState(() => _invoiceStatusFilter = val);
-                  },
+              const SizedBox(width: 10),
+              Container(
+                height: 38,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildSegmentedFilterPill('Pending', 'Pending ($pendingCount)', _pharmacyStatusFilter, (v) => setState(() => _pharmacyStatusFilter = v)),
+                    _buildSegmentedFilterPill('Dispensed', 'Dispensed ($dispensedCount)', _pharmacyStatusFilter, (v) => setState(() => _pharmacyStatusFilter = v)),
+                    _buildSegmentedFilterPill('All', 'All (${_pharmacyPrescriptions.length})', _pharmacyStatusFilter, (v) => setState(() => _pharmacyStatusFilter = v)),
+                  ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 6),
               IconButton(
-                icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
-                onPressed: _loadInvoices,
-              )
+                icon: const Icon(Icons.refresh, color: AppTheme.primaryColor, size: 20),
+                tooltip: 'Refresh Queue',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                onPressed: () {
+                  _loadPrescriptions();
+                  _loadMedicineInventory();
+                  _loadInvoices();
+                },
+              ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
+          // Prescriptions List
           Expanded(
-            child: _isLoadingInvoices
+            child: _isLoadingPrescriptions
                 ? const Center(child: CircularProgressIndicator())
                 : filtered.isEmpty
                     ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(tabIcon, size: 48, color: Colors.grey.shade400),
+                            const Icon(Icons.medication_liquid_rounded, size: 52, color: Color(0xFFDDD6FE)),
                             const SizedBox(height: 12),
-                            Text('No invoices found.', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                            Text('No prescriptions found in $_pharmacyStatusFilter queue.', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
                           ],
                         ),
                       )
                     : ListView.builder(
                         itemCount: filtered.length,
                         itemBuilder: (context, index) {
-                          final inv = filtered[index];
-                          final double net = double.tryParse((inv['net_amount'] ?? 0.0).toString()) ?? 0.0;
-                          final double paid = double.tryParse((inv['paid_amount'] ?? 0.0).toString()) ?? 0.0;
-                          final double due = (net - paid).clamp(0.0, double.infinity);
-                          final String pStatus = inv['payment_status'] ?? 'Unpaid';
-                          final bool isPaid = pStatus == 'Paid' || pStatus == 'Settled' || due <= 0.01;
-                          final String dateStr = inv['created_at'] != null
-                              ? DateFormat('dd-MMM-yyyy • hh:mm a').format(DateTime.parse(inv['created_at']).toLocal())
+                          final pres = filtered[index];
+                          final items = (pres['items'] as List?) ?? [];
+                          final stat = (pres['pharmacy_status'] ?? 'Pending').toString();
+                          final bool isDone = stat == 'Billed' || stat == 'Dispensed';
+                          final dateStr = pres['created_at'] != null
+                              ? DateFormat('dd-MMM-yyyy • hh:mm a').format(DateTime.parse(pres['created_at']).toLocal())
                               : 'Recent';
 
                           return Card(
@@ -1730,260 +1406,184 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                             margin: const EdgeInsets.only(bottom: 12),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              side: const BorderSide(color: AppTheme.borderColor),
+                              side: BorderSide(color: isDone ? const Color(0xFFBBF7D0) : AppTheme.borderColor),
                             ),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(12),
-                              onTap: () => _showInvoiceReceiptDialog(inv['id']),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: isMobile
-                                    ? Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(8),
-                                                decoration: BoxDecoration(
-                                                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: Icon(tabIcon, color: AppTheme.primaryColor, size: 20),
-                                              ),
-                                              const SizedBox(width: 10),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Row(
-                                                      children: [
-                                                        Expanded(
-                                                          child: Text(
-                                                            inv['invoice_number'] ?? '',
-                                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.primaryColor),
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(width: 8),
-                                                        _buildPaymentStatusBadge(pStatus),
-                                                      ],
-                                                    ),
-                                                    const SizedBox(height: 6),
-                                                    Row(
-                                                      children: [
-                                                        Text(
-                                                          inv['patient_name'] ?? 'Patient',
-                                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, color: Colors.black87),
-                                                        ),
-                                                        if (inv['patient_display_id'] != null && inv['patient_display_id'].toString().isNotEmpty) ...[
-                                                          const SizedBox(width: 6),
-                                                          Container(
-                                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                                            decoration: BoxDecoration(
-                                                              color: const Color(0xFFF1F5F9),
-                                                              borderRadius: BorderRadius.circular(4),
-                                                            ),
-                                                            child: Text(
-                                                              inv['patient_display_id'].toString(),
-                                                              style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ],
-                                                    ),
-                                                    const SizedBox(height: 4),
-                                                    Text(
-                                                      dateStr,
-                                                      style: const TextStyle(fontSize: 11.5, color: Colors.grey),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text('Total: ₹${net.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor)),
-                                              if (isPaid)
-                                                const Text('Paid in Full', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold))
-                                              else
-                                                Text('Due: ₹${due.toStringAsFixed(2)}', style: const TextStyle(color: AppTheme.dangerColor, fontSize: 12, fontWeight: FontWeight.bold)),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 12),
-                                          Wrap(
-                                            spacing: 8,
-                                            runSpacing: 8,
-                                            children: [
-                                              OutlinedButton.icon(
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor: AppTheme.primaryColor,
-                                                  side: const BorderSide(color: AppTheme.primaryColor),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                                ),
-                                                icon: const Icon(Icons.receipt_long, size: 14),
-                                                label: const Text('View Bill'),
-                                                onPressed: () => _showInvoiceReceiptDialog(inv['id']),
-                                              ),
-                                              OutlinedButton.icon(
-                                                style: OutlinedButton.styleFrom(
-                                                  foregroundColor: const Color(0xFF475569),
-                                                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                                ),
-                                                icon: const Icon(Icons.print, size: 14),
-                                                label: const Text('Receipt'),
-                                                onPressed: () => _showInvoiceReceiptDialog(inv['id']),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      )
-                                    : Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                              borderRadius: BorderRadius.circular(10),
-                                            ),
-                                            child: Icon(tabIcon, color: AppTheme.primaryColor, size: 24),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: isDone ? const Color(0xFFDCFCE7) : const Color(0xFFF5F3FF),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Icon(
+                                          isDone ? Icons.check_circle_rounded : Icons.medication_rounded,
+                                          color: isDone ? const Color(0xFF16A34A) : const Color(0xFF7C3AED),
+                                          size: 24,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
                                               children: [
-                                                Row(
-                                                  children: [
-                                                    Text(
-                                                      inv['invoice_number'] ?? '',
-                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryColor),
-                                                    ),
-                                                    const SizedBox(width: 10),
-                                                    _buildPaymentStatusBadge(pStatus),
-                                                    if (inv['admission_type'] != null && inv['admission_type'].toString().isNotEmpty && inv['admission_type'] != 'OP') ...[
-                                                      const SizedBox(width: 8),
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                                        decoration: BoxDecoration(
-                                                          color: const Color(0xFFF1F5F9),
-                                                          borderRadius: BorderRadius.circular(6),
-                                                        ),
-                                                        child: Text(
-                                                          inv['admission_type'].toString(),
-                                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ],
+                                                Text(
+                                                  pres['patient_name'] ?? 'Patient',
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
                                                 ),
-                                                const SizedBox(height: 6),
-                                                Row(
-                                                  children: [
-                                                    Text(
-                                                      inv['patient_name'] ?? 'Patient',
-                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Colors.black87),
+                                                if (pres['patient_display_id'] != null) ...[
+                                                  const SizedBox(width: 8),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFFF1F5F9),
+                                                      borderRadius: BorderRadius.circular(4),
                                                     ),
-                                                    if (inv['patient_display_id'] != null && inv['patient_display_id'].toString().isNotEmpty) ...[
-                                                      const SizedBox(width: 8),
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                                        decoration: BoxDecoration(
-                                                          color: const Color(0xFFF1F5F9),
-                                                          borderRadius: BorderRadius.circular(6),
-                                                        ),
-                                                        child: Text(
-                                                          inv['patient_display_id'].toString(),
-                                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Row(
-                                                  children: [
-                                                    const Icon(Icons.access_time_rounded, size: 13, color: Colors.grey),
-                                                    const SizedBox(width: 5),
-                                                    Text(
-                                                      dateStr,
-                                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                                    child: Text(
+                                                      pres['patient_display_id'].toString(),
+                                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
                                                     ),
-                                                  ],
+                                                  ),
+                                                ],
+                                                const Spacer(),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: isDone ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(color: isDone ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A)),
+                                                  ),
+                                                  child: Text(
+                                                    isDone ? 'Billed & Dispensed' : 'Pending Dispense',
+                                                    style: TextStyle(
+                                                      color: isDone ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
                                                 ),
                                               ],
                                             ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.end,
-                                            children: [
-                                              Text(
-                                                '₹${net.toStringAsFixed(2)}',
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor),
-                                              ),
-                                              const SizedBox(height: 3),
-                                              if (isPaid)
-                                                const Text(
-                                                  'Paid in Full',
-                                                  style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
-                                                )
-                                              else
-                                                Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    Text('Paid: ₹${paid.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                                                    const SizedBox(width: 8),
-                                                    Text(
-                                                      'Due: ₹${due.toStringAsFixed(2)}',
-                                                      style: const TextStyle(color: AppTheme.dangerColor, fontSize: 12, fontWeight: FontWeight.bold),
-                                                    ),
-                                                  ],
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.person, size: 14, color: Colors.grey),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Prescribed by Dr. ${pres['doctor_name'] ?? 'Doctor'}',
+                                                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
                                                 ),
-                                              const SizedBox(height: 10),
-                                              Row(
+                                                const SizedBox(width: 14),
+                                                const Icon(Icons.access_time_rounded, size: 13, color: Colors.grey),
+                                                const SizedBox(width: 4),
+                                                Text(dateStr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Prescribed Medicines Chips / List
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Prescribed Medications (${items.length}):',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 8,
+                                          runSpacing: 6,
+                                          children: items.map((it) {
+                                            final mName = it['name'] ?? it['medicine_name'] ?? 'Medicine';
+                                            final dosage = it['dosage'] ?? '';
+                                            final freq = it['frequency'] ?? '';
+                                            final dur = it['duration'] ?? '';
+                                            return Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(color: const Color(0xFFCBD5E1)),
+                                              ),
+                                              child: Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
-                                                  OutlinedButton.icon(
-                                                    style: OutlinedButton.styleFrom(
-                                                      foregroundColor: AppTheme.primaryColor,
-                                                      side: const BorderSide(color: AppTheme.primaryColor),
-                                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                                    ),
-                                                    icon: const Icon(Icons.receipt_long, size: 14),
-                                                    label: const Text('View Bill'),
-                                                    onPressed: () => _showInvoiceReceiptDialog(inv['id']),
+                                                  const Icon(Icons.medication, size: 14, color: Color(0xFF7C3AED)),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    mName,
+                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)),
                                                   ),
-                                                  const SizedBox(width: 8),
-                                                  OutlinedButton.icon(
-                                                    style: OutlinedButton.styleFrom(
-                                                      foregroundColor: const Color(0xFF475569),
-                                                      side: const BorderSide(color: Color(0xFFCBD5E1)),
-                                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                      textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                                    ),
-                                                    icon: const Icon(Icons.print, size: 14),
-                                                    label: const Text('Receipt'),
-                                                    onPressed: () => _showInvoiceReceiptDialog(inv['id']),
-                                                  ),
+                                                  if (dosage.toString().isNotEmpty) ...[
+                                                    const SizedBox(width: 4),
+                                                    Text('($dosage)', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                                  ],
+                                                  if (freq.toString().isNotEmpty || dur.toString().isNotEmpty) ...[
+                                                    const SizedBox(width: 4),
+                                                    Text('• $freq • $dur', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                                  ],
                                                 ],
                                               ),
-                                            ],
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Actions
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      if (!isDone) ...[
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppTheme.primaryColor,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                           ),
-                                        ],
-                                      ),
+                                          icon: const Icon(Icons.receipt_long, size: 16),
+                                          label: const Text('Generate Pharmacy Bill & Dispense', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                          onPressed: () => _showGeneratePharmacyBillDialog(pres),
+                                        ),
+                                      ] else ...[
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: const Color(0xFF16A34A),
+                                            side: const BorderSide(color: Color(0xFF86EFAC)),
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
+                                          label: const Text('Dispensed & Billed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                          onPressed: () => _tabController?.animateTo(1),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           );
@@ -1991,6 +1591,1548 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                       ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ─── PHARMACY BILLING CONFIRMATION DIALOG (MocDoc Itemized Review) ─────────
+  void _showGeneratePharmacyBillDialog(Map<String, dynamic> pres) {
+    final patientId = int.tryParse((pres['patient_id'] ?? '').toString());
+    if (patientId == null || patientId <= 0) return;
+
+    final rawItems = pres['items'] as List? ?? [];
+    final List<Map<String, dynamic>> billItems = [];
+
+    for (var it in rawItems) {
+      final drugName = (it['name'] ?? it['medicine_name'] ?? '').toString();
+      if (drugName.isEmpty) continue;
+      final freq = (it['frequency'] ?? '').toString();
+      final dur = (it['duration'] ?? '').toString();
+      final qty = _calcDrugQuantity(freq, dur);
+
+      double rate = 5.0;
+      final invMatch = _medicineInventory.firstWhere(
+        (m) => (m['name'] ?? '').toString().toLowerCase().contains(drugName.toLowerCase()) ||
+               drugName.toLowerCase().contains((m['name'] ?? '').toString().toLowerCase()),
+        orElse: () => {},
+      );
+      if (invMatch.isNotEmpty && invMatch['unit_price'] != null) {
+        rate = double.tryParse(invMatch['unit_price'].toString()) ?? 5.0;
+      } else {
+        final catMatch = _catalogServices.firstWhere(
+          (s) => s['category'] == 'Pharmacy' && (s['name'] ?? '').toString().toLowerCase().contains(drugName.toLowerCase()),
+          orElse: () => {},
+        );
+        if (catMatch.isNotEmpty && catMatch['price'] != null) {
+          rate = double.tryParse(catMatch['price'].toString()) ?? 5.0;
+        }
+      }
+
+      billItems.add({
+        'item_name': drugName,
+        'quantity': qty,
+        'unit_price': rate,
+      });
+    }
+
+    if (billItems.isEmpty) {
+      billItems.add({'item_name': 'Prescribed Medications', 'quantity': 1, 'unit_price': 50.0});
+    }
+
+    double discount = 0.0;
+    String payMode = 'Cash';
+    final TextEditingController discountCtrl = TextEditingController(text: '0');
+    final TextEditingController paidCtrl = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dlgCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDlgState) {
+            double subtotal = 0;
+            for (var bi in billItems) {
+              subtotal += (bi['quantity'] as int) * (bi['unit_price'] as double);
+            }
+            double net = (subtotal - discount).clamp(0.0, double.infinity);
+            if (paidCtrl.text.isEmpty) {
+              paidCtrl.text = net.toStringAsFixed(0);
+            }
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: const Color(0xFFF5F3FF), borderRadius: BorderRadius.circular(8)),
+                    child: const Icon(Icons.medication_rounded, color: Color(0xFF7C3AED), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Generate Pharmacy Bill - ${pres['patient_name']}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        Text(
+                          'UHID: ${pres['patient_display_id'] ?? ''} • Dr. ${pres['doctor_name'] ?? 'Doctor'}',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 650,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Itemized Medicines & Dispensing Charges:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155))),
+                      const SizedBox(height: 10),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: billItems.length,
+                        separatorBuilder: (c, i) => const Divider(height: 12),
+                        itemBuilder: (c, idx) {
+                          final item = billItems[idx];
+                          final int q = item['quantity'] as int;
+                          final double pr = item['unit_price'] as double;
+                          final double rowTotal = q * pr;
+
+                          return Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Text(item['item_name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.remove_circle_outline, size: 18),
+                                    onPressed: () {
+                                      setDlgState(() {
+                                        if (q > 1) {
+                                          item['quantity'] = q - 1;
+                                        } else {
+                                          billItems.removeAt(idx);
+                                        }
+                                        paidCtrl.text = '';
+                                      });
+                                    },
+                                  ),
+                                  Text('$q', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  IconButton(
+                                    icon: const Icon(Icons.add_circle_outline, size: 18),
+                                    onPressed: () {
+                                      setDlgState(() {
+                                        item['quantity'] = q + 1;
+                                        paidCtrl.text = '';
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 80,
+                                child: Text('₹${pr.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+                              ),
+                              const SizedBox(width: 12),
+                              SizedBox(
+                                width: 90,
+                                child: Text('₹${rowTotal.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF7C3AED))),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      const Divider(height: 24, thickness: 1.2),
+
+                      // Totals & Discount
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Subtotal:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                          Text('₹${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Discount (₹):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          SizedBox(
+                            width: 100,
+                            height: 38,
+                            child: TextFormField(
+                              controller: discountCtrl,
+                              keyboardType: TextInputType.number,
+                              onChanged: (val) {
+                                setDlgState(() {
+                                  discount = double.tryParse(val) ?? 0.0;
+                                  paidCtrl.text = '';
+                                });
+                              },
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                fillColor: const Color(0xFFF1F5F9),
+                                filled: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Net Total Amount:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF7C3AED))),
+                          Text('₹${net.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF7C3AED))),
+                        ],
+                      ),
+                      const Divider(height: 24),
+
+                      // Payment Mode & Collection
+                      const Text('Payment Mode:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: ['Cash', 'Card', 'UPI', 'Insurance'].map((m) {
+                          final isSel = payMode == m;
+                          return ChoiceChip(
+                            label: Text(m),
+                            selected: isSel,
+                            selectedColor: AppTheme.primaryColor,
+                            labelStyle: TextStyle(color: isSel ? Colors.white : Colors.black87, fontWeight: FontWeight.bold),
+                            onSelected: (val) {
+                              if (val) setDlgState(() => payMode = m);
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Collected Amount (₹)'),
+                                TextFormField(
+                                  controller: paidCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    hintText: net.toStringAsFixed(0),
+                                    fillColor: const Color(0xFFF1F5F9),
+                                    filled: true,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                  style: AppTheme.cancelButton,
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: isSubmitting
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.receipt_long, size: 18),
+                  label: const Text('Confirm & Print Pharmacy Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          setDlgState(() => isSubmitting = true);
+                          final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
+                          try {
+                            final res = await _billingCtrl.createInvoice(
+                              patientId: patientId,
+                              admissionType: 'Pharmacy',
+                              consultationId: int.tryParse(pres['id']?.toString() ?? ''),
+                              doctorName: pres['doctor_name']?.toString(),
+                              items: billItems,
+                              discount: discount,
+                              initialPayment: collected > 0 ? {
+                                'amount': collected,
+                                'payment_mode': payMode,
+                              } : null,
+                            );
+
+                            if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Pharmacy bill created & dispensed successfully!'), backgroundColor: Colors.green),
+                              );
+                              _loadInvoices();
+                              _loadPrescriptions();
+                              _loadMedicineInventory();
+                              _showInvoiceReceiptDialog(res['id']);
+                            }
+                          } catch (e) {
+                            if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                            }
+                          }
+                        },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ─── LAB BILLING TAB (MocDoc Lab Orders Queue & Billing) ─────────────────────
+  Widget _buildLabBillingTab(bool isMobile) {
+    // Filter lab requests
+    final filtered = _labRequests.where((r) {
+      final q = _labSearch.toLowerCase();
+      final pName = (r['patient_name'] ?? '').toString().toLowerCase();
+      final pUhid = (r['patient_display_id'] ?? '').toString().toLowerCase();
+      final tName = (r['test_name'] ?? '').toString().toLowerCase();
+      final docName = (r['doctor_name'] ?? '').toString().toLowerCase();
+      final matchQ = pName.contains(q) || pUhid.contains(q) || tName.contains(q) || docName.contains(q);
+      if (!matchQ) return false;
+
+      final isBilled = r['is_billed'] == true;
+      if (_labStatusFilter == 'Pending') return !isBilled;
+      if (_labStatusFilter == 'Billed') return isBilled;
+      return true;
+    }).toList();
+
+    final pendingCount = _labRequests.where((r) => r['is_billed'] != true).length;
+    final billedCount = _labRequests.length - pendingCount;
+
+    double labRev = 0;
+    for (var inv in _invoices) {
+      if ((inv['admission_type'] ?? '') == 'Lab') {
+        labRev += double.tryParse((inv['net_amount'] ?? 0).toString()) ?? 0.0;
+      }
+    }
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(isMobile ? 12.0 : 20.0, 10.0, isMobile ? 12.0 : 20.0, 12.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Compact Header & Quick Stats Row
+          Row(
+            children: [
+              const Text(
+                'Lab Investigation Orders',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor),
+              ),
+              const SizedBox(width: 12),
+              if (!isMobile) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Text('$pendingCount Pending', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDCFCE7),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Text('$billedCount Billed', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+                  ),
+                  child: Text('Revenue: ₹${labRev.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                ),
+              ],
+              const Spacer(),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+                icon: const Icon(Icons.biotech_rounded, size: 16),
+                label: const Text('Walk-in Lab Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                onPressed: () => _showWalkInLabBillDialog(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // Compact Search & Filter Row
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 38,
+                  child: TextFormField(
+                    onChanged: (val) => setState(() => _labSearch = val),
+                    decoration: InputDecoration(
+                      hintText: 'Search by Patient Name, UHID, Doctor, or Test...',
+                      hintStyle: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor),
+                      prefixIcon: const Icon(Icons.search, color: AppTheme.primaryColor, size: 18),
+                      filled: true,
+                      fillColor: Colors.white,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                height: 38,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildSegmentedFilterPill('Pending', 'Pending ($pendingCount)', _labStatusFilter, (v) => setState(() => _labStatusFilter = v)),
+                    _buildSegmentedFilterPill('Billed', 'Billed ($billedCount)', _labStatusFilter, (v) => setState(() => _labStatusFilter = v)),
+                    _buildSegmentedFilterPill('All', 'All (${_labRequests.length})', _labStatusFilter, (v) => setState(() => _labStatusFilter = v)),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                icon: const Icon(Icons.refresh, color: AppTheme.primaryColor, size: 20),
+                tooltip: 'Refresh Queue',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                onPressed: () {
+                  _loadLabRequests();
+                  _loadCatalog();
+                  _loadInvoices();
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Lab Requests List
+          Expanded(
+            child: _isLoadingLabRequests
+                ? const Center(child: CircularProgressIndicator())
+                : filtered.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.science_outlined, size: 52, color: Color(0xFFC7D2FE)),
+                            const SizedBox(height: 12),
+                            Text('No lab orders found in $_labStatusFilter queue.', style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final req = filtered[index];
+                          final bool isBilled = req['is_billed'] == true;
+                          final dateStr = req['created_at'] != null
+                              ? DateFormat('dd-MMM-yyyy • hh:mm a').format(DateTime.parse(req['created_at']).toLocal())
+                              : 'Recent';
+                          final tName = req['test_name'] ?? 'Diagnostic Test';
+
+                          // match catalog price
+                          double catalogPrice = 350.0;
+                          final match = _catalogServices.firstWhere(
+                            (s) => s['category'] == 'Lab' && (s['name'] ?? '').toString().toLowerCase().contains(tName.toString().toLowerCase()),
+                            orElse: () => {},
+                          );
+                          if (match.isNotEmpty && match['price'] != null) {
+                            catalogPrice = double.tryParse(match['price'].toString()) ?? 350.0;
+                          }
+
+                          return Card(
+                            elevation: 0,
+                            color: Colors.white,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              side: BorderSide(color: isBilled ? const Color(0xFFBBF7D0) : AppTheme.borderColor),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: isBilled ? const Color(0xFFDCFCE7) : const Color(0xFFEEF2FF),
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        child: Icon(
+                                          isBilled ? Icons.check_circle_rounded : Icons.biotech_rounded,
+                                          color: isBilled ? const Color(0xFF16A34A) : const Color(0xFF4F46E5),
+                                          size: 24,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  req['patient_name'] ?? 'Patient',
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                                                ),
+                                                if (req['patient_display_id'] != null) ...[
+                                                  const SizedBox(width: 8),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFFF1F5F9),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: Text(
+                                                      req['patient_display_id'].toString(),
+                                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                                    ),
+                                                  ),
+                                                ],
+                                                const Spacer(),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: isBilled ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(color: isBilled ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A)),
+                                                  ),
+                                                  child: Text(
+                                                    isBilled ? 'Billed' : 'Pending Billing',
+                                                    style: TextStyle(
+                                                      color: isBilled ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                const Icon(Icons.person, size: 14, color: Colors.grey),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  'Ordered by Dr. ${req['doctor_name'] ?? 'Doctor'}',
+                                                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
+                                                ),
+                                                const SizedBox(width: 14),
+                                                const Icon(Icons.access_time_rounded, size: 13, color: Colors.grey),
+                                                const SizedBox(width: 4),
+                                                Text(dateStr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Test Details Card
+                                  Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.science, size: 16, color: Color(0xFF4F46E5)),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              tName,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF1E293B)),
+                                            ),
+                                            if (req['status'] != null) ...[
+                                              const SizedBox(width: 8),
+                                              Text('• Status: ${req['status']}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                                            ],
+                                          ],
+                                        ),
+                                        Text(
+                                          'Rate: ₹${catalogPrice.toStringAsFixed(2)}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF4F46E5)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+
+                                  // Actions
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      if (!isBilled) ...[
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppTheme.primaryColor,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          icon: const Icon(Icons.receipt_long, size: 16),
+                                          label: const Text('Generate Lab Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                          onPressed: () => _showGenerateLabBillDialog(req),
+                                        ),
+                                      ] else ...[
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: const Color(0xFF16A34A),
+                                            side: const BorderSide(color: Color(0xFF86EFAC)),
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
+                                          label: const Text('Billed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                          onPressed: () {
+                                            if (req['invoice_id'] != null) {
+                                              _showInvoiceReceiptDialog(req['invoice_id']);
+                                            }
+                                          },
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── LAB BILLING CONFIRMATION DIALOG ───────────────────────────────────────
+  void _showGenerateLabBillDialog(Map<String, dynamic> req) {
+    final patientId = int.tryParse((req['patient_id'] ?? '').toString());
+    if (patientId == null || patientId <= 0) return;
+
+    final tName = req['test_name'] ?? 'Diagnostic Test';
+    double catalogPrice = 350.0;
+    final match = _catalogServices.firstWhere(
+      (s) => s['category'] == 'Lab' && (s['name'] ?? '').toString().toLowerCase().contains(tName.toString().toLowerCase()),
+      orElse: () => {},
+    );
+    if (match.isNotEmpty && match['price'] != null) {
+      catalogPrice = double.tryParse(match['price'].toString()) ?? 350.0;
+    }
+
+    final List<Map<String, dynamic>> billItems = [
+      {
+        'service_id': match['id'],
+        'item_name': tName,
+        'quantity': 1,
+        'unit_price': catalogPrice,
+      }
+    ];
+
+    double discount = 0.0;
+    String payMode = 'Cash';
+    final TextEditingController discountCtrl = TextEditingController(text: '0');
+    final TextEditingController paidCtrl = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dlgCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDlgState) {
+            double subtotal = 0;
+            for (var bi in billItems) {
+              subtotal += (bi['quantity'] as int) * (bi['unit_price'] as double);
+            }
+            double net = (subtotal - discount).clamp(0.0, double.infinity);
+            if (paidCtrl.text.isEmpty) {
+              paidCtrl.text = net.toStringAsFixed(0);
+            }
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(8)),
+                    child: const Icon(Icons.biotech_rounded, color: Color(0xFF4F46E5), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Generate Lab Diagnostics Bill - ${req['patient_name']}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        Text(
+                          'UHID: ${req['patient_display_id'] ?? ''} • Dr. ${req['doctor_name'] ?? 'Doctor'}',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 620,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Investigation Tests to Bill:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155))),
+                      const SizedBox(height: 10),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: billItems.length,
+                        separatorBuilder: (c, i) => const Divider(height: 12),
+                        itemBuilder: (c, idx) {
+                          final item = billItems[idx];
+                          final double pr = item['unit_price'] as double;
+
+                          return Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Text(item['item_name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
+                              ),
+                              SizedBox(
+                                width: 110,
+                                child: Text('₹${pr.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF4F46E5))),
+                              ),
+                              if (billItems.length > 1)
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                  onPressed: () {
+                                    setDlgState(() {
+                                      billItems.removeAt(idx);
+                                      paidCtrl.text = '';
+                                    });
+                                  },
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Add Additional Lab Service dropdown
+                      Row(
+                        children: [
+                          Expanded(
+                            child: CustomDropdownSearch(
+                              label: '',
+                              hint: '+ Add Another Lab Test',
+                              clearOnSelect: true,
+                              dropdownMap: {
+                                for (var s in _catalogServices.where((x) => x['category'] == 'Lab'))
+                                  s['id'].toString(): '${s['name']} (₹${s['price']})'
+                              },
+                              onChanged: (val) {
+                                if (val != null) {
+                                  final svc = _catalogServices.firstWhere((s) => s['id'].toString() == val);
+                                  setDlgState(() {
+                                    final exists = billItems.any((x) => x['service_id'] == svc['id'] || x['item_name'] == svc['name']);
+                                    if (!exists) {
+                                      billItems.add({
+                                        'service_id': svc['id'],
+                                        'item_name': svc['name'],
+                                        'quantity': 1,
+                                        'unit_price': double.tryParse(svc['price'].toString()) ?? 350.0,
+                                      });
+                                      paidCtrl.text = '';
+                                    }
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 24, thickness: 1.2),
+
+                      // Totals & Discount
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Subtotal:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                          Text('₹${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Discount (₹):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                          SizedBox(
+                            width: 100,
+                            height: 38,
+                            child: TextFormField(
+                              controller: discountCtrl,
+                              keyboardType: TextInputType.number,
+                              onChanged: (val) {
+                                setDlgState(() {
+                                  discount = double.tryParse(val) ?? 0.0;
+                                  paidCtrl.text = '';
+                                });
+                              },
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                fillColor: const Color(0xFFF1F5F9),
+                                filled: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Net Total Amount:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF4F46E5))),
+                          Text('₹${net.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF4F46E5))),
+                        ],
+                      ),
+                      const Divider(height: 24),
+
+                      // Payment Mode & Collection
+                      const Text('Payment Mode:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: ['Cash', 'Card', 'UPI', 'Insurance'].map((m) {
+                          final isSel = payMode == m;
+                          return ChoiceChip(
+                            label: Text(m),
+                            selected: isSel,
+                            selectedColor: AppTheme.primaryColor,
+                            labelStyle: TextStyle(color: isSel ? Colors.white : Colors.black87, fontWeight: FontWeight.bold),
+                            onSelected: (val) {
+                              if (val) setDlgState(() => payMode = m);
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Collected Amount (₹)'),
+                                TextFormField(
+                                  controller: paidCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: InputDecoration(
+                                    hintText: net.toStringAsFixed(0),
+                                    fillColor: const Color(0xFFF1F5F9),
+                                    filled: true,
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                  style: AppTheme.cancelButton,
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: isSubmitting
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.receipt_long, size: 18),
+                  label: const Text('Confirm & Print Lab Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: isSubmitting
+                      ? null
+                      : () async {
+                          setDlgState(() => isSubmitting = true);
+                          final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
+                          try {
+                            final res = await _billingCtrl.createInvoice(
+                              patientId: patientId,
+                              admissionType: 'Lab',
+                              labRequestIds: [int.tryParse(req['id']?.toString() ?? '') ?? 0],
+                              doctorName: req['doctor_name']?.toString(),
+                              items: billItems,
+                              discount: discount,
+                              initialPayment: collected > 0 ? {
+                                'amount': collected,
+                                'payment_mode': payMode,
+                              } : null,
+                            );
+
+                            if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Lab diagnostics bill created successfully!'), backgroundColor: Colors.green),
+                              );
+                              _loadInvoices();
+                              _loadLabRequests();
+                              _showInvoiceReceiptDialog(res['id']);
+                            }
+                          } catch (e) {
+                            if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                            }
+                          }
+                        },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Helper class for department badges
+
+
+
+  // ─── DIRECT / WALK-IN PHARMACY BILLING DIALOG ─────────────────────────────
+  void _showWalkInPharmacyBillDialog() {
+    PatientModel? selectedPatient;
+    final List<Map<String, dynamic>> items = [];
+    String? selectedMedId;
+    String? medName;
+    bool isCustom = false;
+    final TextEditingController customCtrl = TextEditingController();
+    final TextEditingController priceCtrl = TextEditingController();
+    final TextEditingController qtyCtrl = TextEditingController(text: '1');
+    final TextEditingController discountCtrl = TextEditingController(text: '0');
+    final TextEditingController paidCtrl = TextEditingController();
+    String payMode = 'Cash';
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dlgCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDlgState) {
+            double subtotal = 0;
+            for (var it in items) {
+              subtotal += (it['unit_price'] as double) * (it['quantity'] as int);
+            }
+            final discount = double.tryParse(discountCtrl.text.trim()) ?? 0.0;
+            final net = (subtotal - discount).clamp(0.0, double.infinity);
+            if (paidCtrl.text.isEmpty) paidCtrl.text = net.toStringAsFixed(0);
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: const Color(0xFFF5F3FF), borderRadius: BorderRadius.circular(8)),
+                    child: const Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF7C3AED), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('Walk-in Pharmacy Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                ],
+              ),
+              content: SizedBox(
+                width: 620,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Select Patient *'),
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: 'Choose Patient',
+                        value: selectedPatient?.id?.toString(),
+                        dropdownMap: {
+                          for (var p in _patients)
+                            p.id.toString(): '${p.name} (${p.patientId}) - ${p.phone}'
+                        },
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDlgState(() {
+                              selectedPatient = _patients.firstWhere((pt) => pt.id.toString() == val);
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      _buildLabel('Add Medicine'),
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: isCustom,
+                            activeColor: AppTheme.primaryColor,
+                            onChanged: (val) {
+                              setDlgState(() {
+                                isCustom = val ?? false;
+                                selectedMedId = null;
+                                medName = null;
+                                customCtrl.clear();
+                              });
+                            },
+                          ),
+                          const Text('Custom Medicine (Non-Inventory)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: isCustom
+                                ? TextFormField(
+                                    controller: customCtrl,
+                                    decoration: InputDecoration(
+                                      hintText: 'Medicine Name',
+                                      fillColor: const Color(0xFFF1F5F9),
+                                      filled: true,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
+                                  )
+                                : CustomDropdownSearch(
+                                    label: '',
+                                    hint: 'Select Medicine',
+                                    value: selectedMedId,
+                                    dropdownMap: {
+                                      for (var med in _medicineInventory)
+                                        med['id'].toString(): '${med['name']} (${med['quantity']} in stock)'
+                                    },
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        final med = _medicineInventory.firstWhere((m) => m['id'].toString() == val);
+                                        setDlgState(() {
+                                          selectedMedId = val;
+                                          medName = med['name'];
+                                          priceCtrl.text = (med['unit_price'] ?? '5.0').toString();
+                                        });
+                                      }
+                                    },
+                                  ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 80,
+                            child: TextFormField(
+                              controller: priceCtrl,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                hintText: 'Price',
+                                fillColor: const Color(0xFFF1F5F9),
+                                filled: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            width: 60,
+                            child: TextFormField(
+                              controller: qtyCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                hintText: 'Qty',
+                                fillColor: const Color(0xFFF1F5F9),
+                                filled: true,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.add_circle, color: Color(0xFF7C3AED), size: 32),
+                            onPressed: () {
+                              final name = isCustom ? customCtrl.text.trim() : (medName ?? '');
+                              final pr = double.tryParse(priceCtrl.text.trim()) ?? 0.0;
+                              final qt = int.tryParse(qtyCtrl.text.trim()) ?? 1;
+                              if (name.isEmpty || pr <= 0) return;
+                              setDlgState(() {
+                                items.add({
+                                  'item_name': name,
+                                  'unit_price': pr,
+                                  'quantity': qt,
+                                });
+                                selectedMedId = null;
+                                medName = null;
+                                customCtrl.clear();
+                                priceCtrl.clear();
+                                qtyCtrl.text = '1';
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      if (items.isNotEmpty) ...[
+                        const Text('Billed Items:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        const SizedBox(height: 8),
+                        ...items.asMap().entries.map((entry) {
+                          final idx = entry.key;
+                          final it = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(it['item_name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                                Text('${it['quantity']} x ₹${(it['unit_price'] as double).toStringAsFixed(2)} = ₹${((it['quantity'] as int) * (it['unit_price'] as double)).toStringAsFixed(2)}'),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                  onPressed: () => setDlgState(() => items.removeAt(idx)),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                        const Divider(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Subtotal:', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text('₹${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Payment Mode'),
+                                  DropdownButtonFormField<String>(
+                                    value: payMode,
+                                    decoration: InputDecoration(
+                                      fillColor: const Color(0xFFF1F5F9),
+                                      filled: true,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
+                                    items: ['Cash', 'UPI / QR', 'Card', 'Bank Transfer'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) setDlgState(() => payMode = val);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Paid Amount (₹)'),
+                                  TextFormField(
+                                    controller: paidCtrl,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      fillColor: const Color(0xFFF1F5F9),
+                                      filled: true,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                  style: AppTheme.cancelButton,
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: isSubmitting
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.receipt_long, size: 16),
+                  label: const Text('Create Pharmacy Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: (isSubmitting || selectedPatient == null || items.isEmpty)
+                      ? null
+                      : () async {
+                          setDlgState(() => isSubmitting = true);
+                          final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
+                          try {
+                            final res = await _billingCtrl.createInvoice(
+                              patientId: selectedPatient!.id!,
+                              admissionType: 'Pharmacy',
+                              items: items,
+                              discount: discount,
+                              initialPayment: collected > 0 ? {
+                                'amount': collected,
+                                'payment_mode': payMode,
+                              } : null,
+                            );
+
+                            if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Pharmacy bill created successfully!'), backgroundColor: Colors.green),
+                              );
+                              _loadInvoices();
+                              _loadPrescriptions();
+                              _showInvoiceReceiptDialog(res['id']);
+                            }
+                          } catch (e) {
+                            if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                            }
+                          }
+                        },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ─── DIRECT / WALK-IN LAB BILLING DIALOG ───────────────────────────────────
+  void _showWalkInLabBillDialog() {
+    PatientModel? selectedPatient;
+    final List<Map<String, dynamic>> items = [];
+    final TextEditingController discountCtrl = TextEditingController(text: '0');
+    final TextEditingController paidCtrl = TextEditingController();
+    String payMode = 'Cash';
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dlgCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setDlgState) {
+            double subtotal = 0;
+            for (var it in items) {
+              subtotal += (it['unit_price'] as double) * (it['quantity'] as int);
+            }
+            final discount = double.tryParse(discountCtrl.text.trim()) ?? 0.0;
+            final net = (subtotal - discount).clamp(0.0, double.infinity);
+            if (paidCtrl.text.isEmpty) paidCtrl.text = net.toStringAsFixed(0);
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(8)),
+                    child: const Icon(Icons.biotech_rounded, color: Color(0xFF4F46E5), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('Walk-in Lab Diagnostics Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                ],
+              ),
+              content: SizedBox(
+                width: 620,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildLabel('Select Patient *'),
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: 'Choose Patient',
+                        value: selectedPatient?.id?.toString(),
+                        dropdownMap: {
+                          for (var p in _patients)
+                            p.id.toString(): '${p.name} (${p.patientId}) - ${p.phone}'
+                        },
+                        onChanged: (val) {
+                          if (val != null) {
+                            setDlgState(() {
+                              selectedPatient = _patients.firstWhere((pt) => pt.id.toString() == val);
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      _buildLabel('Add Lab Diagnostic Test'),
+                      CustomDropdownSearch(
+                        label: '',
+                        hint: 'Select Lab Test from Catalog',
+                        clearOnSelect: true,
+                        dropdownMap: {
+                          for (var s in _catalogServices.where((x) => x['category'] == 'Lab'))
+                            s['id'].toString(): '${s['name']} (₹${s['price']})'
+                        },
+                        onChanged: (val) {
+                          if (val != null) {
+                            final svc = _catalogServices.firstWhere((s) => s['id'].toString() == val);
+                            setDlgState(() {
+                              final exists = items.any((x) => x['service_id'] == svc['id'] || x['item_name'] == svc['name']);
+                              if (!exists) {
+                                items.add({
+                                  'service_id': svc['id'],
+                                  'item_name': svc['name'],
+                                  'unit_price': double.tryParse(svc['price'].toString()) ?? 350.0,
+                                  'quantity': 1,
+                                });
+                              }
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      if (items.isNotEmpty) ...[
+                        const Text('Selected Diagnostic Tests:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        const SizedBox(height: 8),
+                        ...items.asMap().entries.map((entry) {
+                          final idx = entry.key;
+                          final it = entry.value;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Expanded(child: Text(it['item_name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                                Text('₹${(it['unit_price'] as double).toStringAsFixed(2)}'),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                  onPressed: () => setDlgState(() => items.removeAt(idx)),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                        const Divider(height: 24),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Subtotal:', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text('₹${subtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Payment Mode'),
+                                  DropdownButtonFormField<String>(
+                                    value: payMode,
+                                    decoration: InputDecoration(
+                                      fillColor: const Color(0xFFF1F5F9),
+                                      filled: true,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
+                                    items: ['Cash', 'UPI / QR', 'Card', 'Bank Transfer'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) setDlgState(() => payMode = val);
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Paid Amount (₹)'),
+                                  TextFormField(
+                                    controller: paidCtrl,
+                                    keyboardType: TextInputType.number,
+                                    decoration: InputDecoration(
+                                      fillColor: const Color(0xFFF1F5F9),
+                                      filled: true,
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                OutlinedButton(
+                  onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                  style: AppTheme.cancelButton,
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: isSubmitting
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.receipt_long, size: 16),
+                  label: const Text('Create Lab Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                  onPressed: (isSubmitting || selectedPatient == null || items.isEmpty)
+                      ? null
+                      : () async {
+                          setDlgState(() => isSubmitting = true);
+                          final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
+                          try {
+                            final res = await _billingCtrl.createInvoice(
+                              patientId: selectedPatient!.id!,
+                              admissionType: 'Lab',
+                              items: items,
+                              discount: discount,
+                              initialPayment: collected > 0 ? {
+                                'amount': collected,
+                                'payment_mode': payMode,
+                              } : null,
+                            );
+
+                            if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Lab bill created successfully!'), backgroundColor: Colors.green),
+                              );
+                              _loadInvoices();
+                              _loadLabRequests();
+                              _showInvoiceReceiptDialog(res['id']);
+                            }
+                          } catch (e) {
+                            if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                            }
+                          }
+                        },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+
+  Widget _buildSegmentedFilterPill(String key, String label, String currentVal, Function(String) onSelect) {
+    final bool isSelected = currentVal == key;
+    return InkWell(
+      onTap: () => onSelect(key),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? Colors.white : const Color(0xFF64748B),
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
       ),
     );
   }
@@ -3147,7 +4289,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                           decoration: BoxDecoration(
                             color: const Color(0xFFEDE9FE),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFDDD6FE)),
+                            border: Border.all(color: AppTheme.borderColor),
                           ),
                           child: Row(
                             children: [

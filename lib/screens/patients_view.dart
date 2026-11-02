@@ -3662,21 +3662,28 @@ class _PatientDetailViewState extends State<PatientDetailView>
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user?.role.toLowerCase() != 'doctor') return const SizedBox.shrink();
 
-    // Find a confirmed appointment for today or pending consultation
+    // Find an active appointment for today or pending consultation
     final pendingAppt = _patientAppointments.firstWhere(
-      (a) => a.status == 'Confirmed' || a.status == 'Pending',
-      orElse: () => AppointmentModel(
-        patientId: 0,
-        patientName: '',
-        department: '',
-        doctorName: '',
-        appointmentDate: '',
-        appointmentTime: '',
-        status: '',
-      ),
+      (a) => a.status == 'Confirmed' ||
+             a.status == 'Waiting' ||
+             a.status == 'Pending' ||
+             a.status == 'In Consultation' ||
+             a.status == 'Checked In' ||
+             a.status == 'Checked-in' ||
+             a.status == 'Scheduled' ||
+             a.status == 'Arrived',
+      orElse: () => _patientAppointments.isNotEmpty
+          ? _patientAppointments.first
+          : AppointmentModel(
+              patientId: widget.patient.id ?? 0,
+              patientName: widget.patient.name,
+              department: '',
+              doctorName: '',
+              appointmentDate: DateFormatter.toUi(DateTime.now()),
+              appointmentTime: '',
+              status: '',
+            ),
     );
-
-    if (pendingAppt.patientId == 0) return const SizedBox.shrink();
 
     final existingConsul = _consultations.firstWhere(
       (c) => c['appointment_id'] == pendingAppt.id,

@@ -80,6 +80,8 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
 
   List<MapEntry<String, String>> _filteredItems = [];
   int _highlightedIndex = 0;
+  bool _isSelecting = false;
+  String? _lastCommittedValue;
 
   Map<String, String> get _allEntries {
     if (widget.dropdownMap != null) {
@@ -133,6 +135,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     WidgetsBinding.instance.addObserver(this);
 
     _filteredItems = _allEntries.entries.toList();
+    _lastCommittedValue = widget.value;
 
     final displayValue = _getDisplayValue(widget.value);
     _textEditingController = TextEditingController(text: displayValue);
@@ -144,6 +147,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   }
 
   void _onFocusChange() {
+    if (_isSelecting) return;
     if (!_searchFocusNode.hasFocus && !_mainFocusNode.hasFocus) {
       if (_fieldKey.currentState != null) {
         _validateAndSyncInput(_fieldKey.currentState!);
@@ -155,13 +159,15 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
   }
 
   void _validateAndSyncInput(FormFieldState<String> field) {
+    if (_isSelecting) return;
     if (widget.allowFreeText) return;
 
     final text = _textEditingController.text.trim();
 
     if (text.isEmpty) {
-      if (widget.value != null && widget.value!.isNotEmpty) {
-        field.didChange(null);
+      field.didChange(null);
+      if (_lastCommittedValue != null && _lastCommittedValue!.isNotEmpty) {
+        _lastCommittedValue = null;
         widget.onChanged?.call(null);
       }
       return;
@@ -177,19 +183,26 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     }
 
     if (matchedEntry != null) {
-      if (widget.value != matchedEntry.key) {
+      if (_lastCommittedValue != matchedEntry.key) {
+        _lastCommittedValue = matchedEntry.key;
         field.didChange(matchedEntry.key);
-        _textEditingController.text = matchedEntry.value;
+        if (widget.clearOnSelect) {
+          _textEditingController.clear();
+          _lastCommittedValue = null;
+        } else {
+          _textEditingController.text = matchedEntry.value;
+        }
         widget.onChanged?.call(matchedEntry.key);
       } else {
-        if (_textEditingController.text != matchedEntry.value) {
+        if (!widget.clearOnSelect && _textEditingController.text != matchedEntry.value) {
           _textEditingController.text = matchedEntry.value;
         }
       }
     } else {
       _textEditingController.clear();
       field.didChange(null);
-      if (widget.value != null && widget.value!.isNotEmpty) {
+      if (_lastCommittedValue != null && _lastCommittedValue!.isNotEmpty) {
+        _lastCommittedValue = null;
         widget.onChanged?.call(null);
       }
       _filteredItems = _allEntries.entries.toList();
@@ -286,19 +299,29 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
 
   void _selectItem(
       FormFieldState<String> field, MapEntry<String, String> entry) {
-    if (widget.clearOnSelect) {
-      field.didChange(null);
-      _textEditingController.clear();
-      _filterItems('');
-    } else {
-      field.didChange(entry.key);
-      _textEditingController.text = entry.value;
-      _filteredItems = _allEntries.entries.toList();
+    if (_isSelecting) return;
+    _isSelecting = true;
+    try {
+      _hideDropdown();
+      if (widget.clearOnSelect) {
+        _lastCommittedValue = null;
+        field.didChange(null);
+        _textEditingController.clear();
+        _filterItems('');
+      } else {
+        _lastCommittedValue = entry.key;
+        field.didChange(entry.key);
+        _textEditingController.text = entry.value;
+        _filteredItems = _allEntries.entries.toList();
+      }
+      widget.onChanged?.call(entry.key);
+      _searchFocusNode.unfocus();
+      _mainFocusNode.unfocus();
+    } finally {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _isSelecting = false;
+      });
     }
-    widget.onChanged?.call(entry.key);
-    _searchFocusNode.unfocus();
-    _mainFocusNode.unfocus();
-    _hideDropdown();
   }
 
   @override
@@ -307,6 +330,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
     
     // Only call didChange when the actual selected value changes!
     if (widget.value != oldWidget.value) {
+      _lastCommittedValue = widget.value;
       SchedulerBinding.instance.addPostFrameCallback((_) {
         if (mounted && _fieldKey.currentState != null) {
           _fieldKey.currentState!.didChange(widget.value);
@@ -791,6 +815,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                     TapRegion(
                       groupId: _groupId,
                       onTapOutside: (_) {
+                        if (_isSelecting) return;
                         _hideDropdown();
                         if (_fieldKey.currentState != null) {
                           _validateAndSyncInput(_fieldKey.currentState!);
@@ -916,11 +941,15 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                       }
                                     }
                                     if (matched != null) {
+                                      _lastCommittedValue = matched.key;
                                       field.didChange(matched.key);
                                       widget.onChanged?.call(matched.key);
                                     } else {
                                       field.didChange(null);
-                                      widget.onChanged?.call(null);
+                                      if (_lastCommittedValue != null) {
+                                        _lastCommittedValue = null;
+                                        widget.onChanged?.call(null);
+                                      }
                                     }
                                   }
                                   _filterItems(val);

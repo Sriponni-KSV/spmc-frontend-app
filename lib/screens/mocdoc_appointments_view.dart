@@ -66,7 +66,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
   UserModel? _bookingDoctor;
   String? _bookingTime;
   PatientModel? _bookingPatient;
-  String _bookingApptType = 'Routine';
+  String? _bookingApptType;
   final List<String> _apptTypes = [
     'Routine',
     'Follow Up',
@@ -326,7 +326,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       _bookingDoctor = doctor;
       _bookingTime = slotTime;
       _bookingPatient = null;
-      _bookingApptType = 'Routine';
+      _bookingApptType = null;
       _bpSystolicController.clear();
       _bpDiastolicController.clear();
       _sugarController.clear();
@@ -342,8 +342,8 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
-          void fetchFee(PatientModel? patient, String apptType) async {
-            if (patient == null || patient.id == null) {
+          void fetchFee(PatientModel? patient, String? apptType) async {
+            if (patient == null || patient.id == null || apptType == null || apptType.trim().isEmpty) {
               setDialogState(() {
                 feePreview = null;
                 isLoadingFee = false;
@@ -427,15 +427,23 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                     const SizedBox(height: 16),
                     _buildLabel('Appointment Type *'),
                     _buildDropdown<String>(
-                      hint: 'Type',
+                      hint: 'Select Appointment Type',
                       value: _bookingApptType,
                       items: _apptTypes,
                       itemLabel: (s) => s,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty || _bookingApptType == null || _bookingApptType!.trim().isEmpty) {
+                          return 'Appointment Type is required';
+                        }
+                        return null;
+                      },
                       onChanged: (val) {
                         setDialogState(() {
-                          _bookingApptType = val ?? 'Routine';
+                          _bookingApptType = val;
                         });
-                        fetchFee(_bookingPatient, val ?? 'Routine');
+                        if (val != null) {
+                          fetchFee(_bookingPatient, val);
+                        }
                       },
                     ),
                     if (isLoadingFee) ...[
@@ -695,6 +703,8 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
               ElevatedButton(
                 onPressed:
                     (_bookingPatient == null ||
+                        _bookingApptType == null ||
+                        _bookingApptType!.isEmpty ||
                         _reasonController.text.trim().isEmpty)
                     ? null
                     : () async {
@@ -714,7 +724,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                               'dd/MM/yyyy',
                             ).format(_filterDate),
                             appointmentTime: _bookingTime!,
-                            appointmentType: _bookingApptType,
+                            appointmentType: _bookingApptType!,
                             consultationFee: (feePreview != null && feePreview!['applicable_fee'] != null)
                                 ? ((feePreview!['applicable_fee'] as num).toDouble())
                                 : null,
@@ -1430,6 +1440,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
     required Function(T?) onChanged,
     Color? fillColor,
     Color? borderColor,
+    FormFieldValidator<String>? validator,
   }) {
     final map = <String, String>{};
     for (int i = 0; i < items.length; i++) {
@@ -1451,6 +1462,7 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
       dropdownMap: map,
       fillColor: fillColor,
       borderColor: borderColor,
+      validator: validator,
       onChanged: (val) {
         if (val != null) {
           final idx = int.tryParse(val);

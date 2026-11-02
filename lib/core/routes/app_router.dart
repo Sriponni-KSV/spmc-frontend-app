@@ -19,6 +19,7 @@ import '../../screens/ipd_patient_detail_page.dart';
 import '../../utils/app_theme.dart';
 import '../../utils/logout_helper.dart';
 import '../../utils/modal_history_observer.dart';
+import '../../utils/unsaved_changes_helper.dart';
 import '../../widgets/access_denied_widget.dart';
 import 'route_constants.dart';
 import 'screens/not_found_screen.dart';
@@ -92,6 +93,7 @@ class AppRouter {
 
         // 1. Unauthenticated Users: Redirect to Login
         if (!isLoggedIn) {
+          UnsavedChangesHelper.clear();
           if (!goingToPublic) {
             return AppRoutes.login;
           }

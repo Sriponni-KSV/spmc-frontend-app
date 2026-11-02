@@ -43,8 +43,8 @@ class ApiService {
       String? serverMsg;
       try {
         final body = jsonDecode(response.body);
-        if (body is Map && body['message'] != null) {
-          serverMsg = body['message'].toString();
+        if (body is Map) {
+          serverMsg = (body['message'] ?? body['error'] ?? body['detail'])?.toString();
         }
       } catch (_) {}
       throw ServerErrorException(response.statusCode, serverMsg);
