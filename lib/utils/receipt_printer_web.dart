@@ -14,7 +14,9 @@ void printHospitalReceipt({
     final patientDisplayId = invoice['patient_display_id'] ?? 'N/A';
     final phone = invoice['patient_phone'] ?? 'N/A';
     final gender = invoice['patient_gender'] ?? '';
-    final age = invoice['patient_age'] != null ? '${invoice['patient_age']} Yrs' : '';
+    final age = invoice['patient_age'] != null
+        ? '${invoice['patient_age']} Yrs'
+        : '';
     final ageGender = [age, gender].where((s) => s.isNotEmpty).join(' / ');
     final docName = invoice['doctor_name'] ?? 'Consultant Doctor';
     final admType = invoice['admission_type'] ?? 'Outpatient';
@@ -40,15 +42,23 @@ void printHospitalReceipt({
 
     final rawDate = invoice['created_at'];
     final dateStr = rawDate != null
-        ? DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.parse(rawDate).toLocal())
+        ? DateFormat(
+            'dd-MM-yyyy hh:mm a',
+          ).format(DateTime.parse(rawDate).toLocal())
         : DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.now());
 
-    final totalAmount = double.tryParse((invoice['total_amount'] ?? 0).toString()) ?? 0.0;
-    final discount = double.tryParse((invoice['discount'] ?? 0).toString()) ?? 0.0;
-    final netAmount = double.tryParse((invoice['net_amount'] ?? 0).toString()) ?? 0.0;
-    final paidAmount = double.tryParse((invoice['paid_amount'] ?? 0).toString()) ?? 0.0;
+    final totalAmount =
+        double.tryParse((invoice['total_amount'] ?? 0).toString()) ?? 0.0;
+    final discount =
+        double.tryParse((invoice['discount'] ?? 0).toString()) ?? 0.0;
+    final netAmount =
+        double.tryParse((invoice['net_amount'] ?? 0).toString()) ?? 0.0;
+    final paidAmount =
+        double.tryParse((invoice['paid_amount'] ?? 0).toString()) ?? 0.0;
     final balanceDue = (netAmount - paidAmount).clamp(0.0, double.infinity);
-    final paymentStatus = (invoice['payment_status'] ?? 'Unpaid').toString().toUpperCase();
+    final paymentStatus = (invoice['payment_status'] ?? 'Unpaid')
+        .toString()
+        .toUpperCase();
 
     final statusColor = paymentStatus == 'PAID'
         ? '#15803d'
@@ -89,7 +99,9 @@ void printHospitalReceipt({
     for (final p in payments) {
       final pDateRaw = p['payment_date'];
       final pDate = pDateRaw != null
-          ? DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.parse(pDateRaw).toLocal())
+          ? DateFormat(
+              'dd-MM-yyyy hh:mm a',
+            ).format(DateTime.parse(pDateRaw).toLocal())
           : 'N/A';
       final pAmt = double.tryParse((p['amount'] ?? 0).toString()) ?? 0.0;
       final pMode = p['payment_mode'] ?? 'Cash';
@@ -146,7 +158,8 @@ void printHospitalReceipt({
           ? '<div><span style="color: #64748b;">Anaesthetist:</span> <b>$otAnaesthetist</b></div>'
           : '';
 
-      otSection = '''
+      otSection =
+          '''
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; font-size: 11px;">
           <div style="font-weight: bold; color: #166534; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
             <span>OPERATION THEATRE & SURGICAL DETAILS</span>
@@ -165,7 +178,8 @@ void printHospitalReceipt({
       otSection = '';
     }
 
-    final htmlContent = '''
+    final htmlContent =
+        '''
     <!DOCTYPE html>
     <html>
     <head>
@@ -469,7 +483,185 @@ void printHospitalReceipt({
       // If popup blocked, fallback to direct page print or alert
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please allow popups to open the clean printable receipt.'),
+          content: Text(
+            'Please allow popups to open the clean printable receipt.',
+          ),
+          backgroundColor: Color(0xFFE53E3E),
+        ),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Print error: $e'),
+        backgroundColor: const Color(0xFFE53E3E),
+      ),
+    );
+  }
+}
+
+void printDischargeSummary({
+  required BuildContext context,
+  required Map<String, dynamic> admission,
+  required String finalDiagnosis,
+  required String treatmentSummary,
+  required String medicationPlan,
+  String? dischargeInstructions,
+  String? followUpDate,
+}) {
+  try {
+    final patientName = (admission['patient_name'] ?? 'Patient').toString();
+    final patientDisplayId =
+        (admission['patient_display_id'] ?? admission['patient_id'] ?? '--')
+            .toString();
+    final age = admission['patient_age'] != null
+        ? '${admission['patient_age']} Yrs'
+        : '--';
+    final gender = (admission['patient_gender'] ?? '--').toString();
+    final doctor = (admission['doctor_name'] ?? 'Attending Consultant')
+        .toString();
+    final bedNum = (admission['bed_number'] ?? '--').toString();
+    final ward = (admission['ward_type'] ?? 'General Ward').toString();
+
+    String admDate = '--';
+    if (admission['admission_date'] != null) {
+      final parsed = DateTime.tryParse(admission['admission_date'].toString());
+      if (parsed != null) {
+        admDate = DateFormat('dd/MM/yyyy hh:mm a').format(parsed.toLocal());
+      } else {
+        admDate = admission['admission_date'].toString();
+      }
+    }
+    final dischDate = DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.now());
+
+    final cleanDiagnosis = finalDiagnosis.trim().isNotEmpty
+        ? finalDiagnosis.trim()
+        : 'Under Investigation / Clinical Review';
+    final cleanTreatment = treatmentSummary.trim().isNotEmpty
+        ? treatmentSummary.trim()
+        : 'Patient received in-hospital supportive and medical management as per clinical protocol.';
+    final cleanMeds = medicationPlan.trim().isNotEmpty
+        ? medicationPlan.trim()
+        : 'Continue current prescribed oral medications.';
+    final cleanInstructions =
+        (dischargeInstructions != null &&
+            dischargeInstructions.trim().isNotEmpty)
+        ? dischargeInstructions.trim()
+        : 'Take adequate rest and maintain hydration. Avoid heavy physical activity for 7 days. Return to emergency if fever or severe pain develops.';
+    final cleanFollowUp =
+        (followUpDate != null && followUpDate.trim().isNotEmpty)
+        ? followUpDate.trim()
+        : 'Review after 5-7 days or SOS.';
+
+    final htmlContent =
+        '''
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Discharge Summary - $patientName</title>
+      <style>
+        @page { size: A4 portrait; margin: 15mm; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; color: #0f172a; margin: 0; padding: 20px; font-size: 13px; line-height: 1.5; background: #fff; }
+        .doc-card { max-width: 800px; margin: 0 auto; border: 1px solid #cbd5e1; padding: 28px; border-radius: 8px; }
+        .header-table { width: 100%; border-bottom: 2px solid #065D96; padding-bottom: 12px; margin-bottom: 16px; }
+        .h-title { font-size: 20px; font-weight: 800; color: #065D96; letter-spacing: 0.5px; }
+        .h-sub { font-size: 11px; color: #475569; font-weight: 500; }
+        .h-badge { font-size: 12px; font-weight: 700; color: #166534; background: #dcfce7; padding: 4px 10px; border-radius: 4px; display: inline-block; margin-top: 4px; }
+        .demo-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; margin-bottom: 18px; }
+        .demo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 16px; font-size: 12px; }
+        .demo-label { color: #64748b; font-weight: 600; }
+        .demo-val { font-weight: 700; color: #0f172a; }
+        .section-title { font-size: 13px; font-weight: 800; color: #065D96; text-transform: uppercase; margin-top: 16px; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+        .content-box { background: #ffffff; padding: 8px 0; white-space: pre-line; color: #1e293b; font-size: 12.5px; }
+        .med-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 14px; white-space: pre-line; color: #14532d; font-weight: 500; font-size: 12px; }
+        .footer-sec { margin-top: 36px; padding-top: 16px; border-top: 1px dashed #cbd5e1; display: flex; justify-content: space-between; align-items: flex-end; }
+        .sig-box { text-align: center; width: 200px; }
+        .sig-line { border-top: 1px solid #0f172a; margin-top: 44px; margin-bottom: 4px; }
+        @media print {
+          body { padding: 0; }
+          .doc-card { border: none; padding: 0; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="doc-card">
+        <table class="header-table">
+          <tr>
+            <td style="width: 80px; vertical-align: middle;">
+              <img src="/assets/assets/image/full_logo.png" onerror="this.src='assets/image/full_logo.png';" style="height: 55px; max-width: 75px; object-fit: contain;" alt="SPMC Logo" />
+            </td>
+            <td style="padding-left: 12px; vertical-align: middle;">
+              <div class="h-title">SRI PONNI MEDICAL CENTER</div>
+              <div class="h-sub">Inpatient Department • Comprehensive Discharge Summary</div>
+              <div class="h-sub">Govt Reg No: SPMC-TN-2026 • 24x7 Helpline: +91 44 2833 4455</div>
+            </td>
+            <td style="text-align: right; vertical-align: middle;">
+              <span class="h-badge">DISCHARGE SUMMARY</span>
+            </td>
+          </tr>
+        </table>
+
+        <div class="demo-box">
+          <div class="demo-grid">
+            <div><span class="demo-label">Patient Name:</span> <span class="demo-val">$patientName</span></div>
+            <div><span class="demo-label">UHID / Patient ID:</span> <span class="demo-val">$patientDisplayId</span></div>
+            <div><span class="demo-label">Age / Gender:</span> <span class="demo-val">$age / $gender</span></div>
+            <div><span class="demo-label">Admission Date:</span> <span class="demo-val">$admDate</span></div>
+            <div><span class="demo-label">Discharge Date:</span> <span class="demo-val">$dischDate</span></div>
+            <div><span class="demo-label">Consultant Doctor:</span> <span class="demo-val">Dr. $doctor</span></div>
+            <div><span class="demo-label">Ward / Bed:</span> <span class="demo-val">$ward Ward (Bed $bedNum)</span></div>
+          </div>
+        </div>
+
+        <div class="section-title">1. Final Diagnosis</div>
+        <div class="content-box" style="font-weight: 700; color: #b91c1c;">$cleanDiagnosis</div>
+
+        <div class="section-title">2. Hospital Course and Treatment Summary</div>
+        <div class="content-box">$cleanTreatment</div>
+
+        <div class="section-title">3. Discharge Medication Plan</div>
+        <div class="med-box">$cleanMeds</div>
+
+        <div class="section-title">4. Discharge Instructions and Warning Signs</div>
+        <div class="content-box">$cleanInstructions</div>
+
+        <div class="section-title">5. Follow-Up Plan and Review</div>
+        <div class="content-box" style="font-weight: 600;">$cleanFollowUp</div>
+
+        <div class="footer-sec">
+          <div style="font-size: 11px; color: #64748b; max-width: 440px;">
+            <div>• This document serves as the official inpatient discharge summary.</div>
+            <div>• In case of acute medical emergencies, report immediately to our 24x7 Casualty.</div>
+          </div>
+          <div class="sig-box">
+            <div class="sig-line"></div>
+            <div style="font-size: 12px; font-weight: bold; color: #0f172a;">Dr. $doctor</div>
+            <div style="font-size: 10px; color: #64748b;">Consultant Physician / Surgeon</div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+          }, 400);
+        };
+      </script>
+    </body>
+    </html>
+    ''';
+
+    final blob = html.Blob([htmlContent], 'text/html');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final printWin = html.window.open(url, '_blank');
+    if (printWin == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please allow popups to open the clean printable discharge summary.',
+          ),
           backgroundColor: Color(0xFFE53E3E),
         ),
       );

@@ -574,6 +574,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   @override
   void dispose() {
+    try { ScaffoldMessenger.of(context).clearSnackBars(); } catch (_) {}
     UnsavedChangesHelper.setUnsavedChanges(false);
     _stopSpeech(disposing: true);
     _customDiagnosisNotesController.removeListener(_syncDiagnosisController);
@@ -1862,13 +1863,64 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             ),
             const SizedBox(height: 14),
             // Action buttons
-            _buildIPDActionButton(
-              icon: Icons.send_outlined,
-              color: AppTheme.primaryColor,
-              label: 'Request IPD Admission',
-              subtitle: 'Front Desk will verify details and allocate a bed',
-              onTap: _showAdmitDialog,
-            ),
+            if (_currentAppointment.status == 'Admission Requested' ||
+                _currentAppointment.status == 'Admitted')
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _currentAppointment.status == 'Admitted'
+                          ? Icons.check_circle_outline
+                          : Icons.hourglass_top_rounded,
+                      color: _currentAppointment.status == 'Admitted'
+                          ? AppTheme.secondaryColor
+                          : Colors.amber.shade800,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'IPD Status: ${_currentAppointment.status}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: _currentAppointment.status == 'Admitted'
+                                  ? AppTheme.secondaryColor
+                                  : Colors.amber.shade900,
+                            ),
+                          ),
+                          Text(
+                            _currentAppointment.status == 'Admitted'
+                                ? 'Patient is currently admitted in IPD'
+                                : 'Admission request is pending Front Desk verification and bed allocation',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            else
+              _buildIPDActionButton(
+                icon: Icons.send_outlined,
+                color: AppTheme.primaryColor,
+                label: 'Request IPD Admission',
+                subtitle: 'Front Desk will verify details and allocate a bed',
+                onTap: _showAdmitDialog,
+              ),
           ],
         ),
       ),
@@ -1927,10 +1979,38 @@ class _NewConsultationViewState extends State<NewConsultationView> {
 
   // ─── Admit Dialog ─────────────────────────────────────────────────────────
   void _showAdmitDialog() {
+    if (_currentAppointment.status == 'Admission Requested' ||
+        _currentAppointment.status == 'Admitted') {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.amber.shade800),
+              const SizedBox(width: 8),
+              const Text('Request Already Submitted'),
+            ],
+          ),
+          content: Text(
+            'An IPD admission request for this consultation has already been submitted and is currently "${_currentAppointment.status}". Multiple admission requests cannot be submitted for the same consultation.',
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                ModalHistoryHelper.skipNextHistoryBack();
+                Navigator.of(ctx).pop();
+              },
+              style: AppTheme.primaryButton,
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     bool isSubmitting = false;
-    final TextEditingController reasonController = TextEditingController(
-      text: _currentAppointment.reasonForVisit ?? '',
-    );
+    final TextEditingController reasonController = TextEditingController();
     final TextEditingController diagnosisController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
@@ -2751,30 +2831,18 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     if (val.length > 20) {
       return 'Dosage cannot exceed 20 characters';
     }
-    if (RegExp(r'[^a-zA-Z0-9\s./\-]').hasMatch(val)) {
+    if (RegExp(r'[^a-zA-Z0-9\s.]').hasMatch(val)) {
       return 'Special characters are not allowed in dosage';
     }
-    if (!RegExp(r'\d').hasMatch(val)) {
-      return 'Dosage must contain a numeric value (e.g. 10mg, 5ml)';
+    if (RegExp(r'[a-zA-Z]').hasMatch(val)) {
+      return 'Dosage must be a valid numeric value (e.g. 500, 250, 10)';
     }
-
-    // Check if numbers appear after the unit (e.g. 10mg5464654465)
-    final numbersAfterUnit = RegExp(
-      r'(?:mg|mcg|g|ml|iu|tab|tablets?|caps?|capsules?|drops?|puffs?|units?)\s*\d+',
-      caseSensitive: false,
-    );
-    if (numbersAfterUnit.hasMatch(val)) {
-      return 'Invalid dosage: numbers cannot follow the unit (e.g. 10mg)';
+    final numVal = double.tryParse(val);
+    if (numVal == null || !RegExp(r'^\d+(?:\.\d+)?$').hasMatch(val)) {
+      return 'Dosage must be a valid numeric value (e.g. 500, 250, 10)';
     }
-
-    // Strict dosage pattern: <number/range/fraction> [optional space] [valid unit]
-    // e.g. 10mg, 500 mg, 0.5 ml, 1000 IU, 1-2 tabs, 1/2 tab, 5, 2.5ml
-    final dosagePattern = RegExp(
-      r'^\d+(?:\.\d+)?(?:\s*-\s*\d+(?:\.\d+)?)?(?:\s*\/\s*\d+)?\s*(?:mg(?:\/ml)?|mcg|g|ml|iu(?:\/ml)?|tabs?|tablets?|caps?|capsules?|drops?|puffs?|sachets?|units?|patches?)?$',
-      caseSensitive: false,
-    );
-    if (!dosagePattern.hasMatch(val)) {
-      return 'Invalid dosage format (e.g. 10mg, 500mg, 5ml)';
+    if (numVal <= 0) {
+      return 'Dosage must be greater than 0';
     }
     return null;
   }
@@ -3001,7 +3069,10 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         actions: [
           OutlinedButton(
-            onPressed: () => Navigator.of(context).pop(0),
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(context).pop(0);
+            },
             style: AppTheme.outlinedButton,
             child: const Text('Stay'),
           ),
@@ -3871,6 +3942,12 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     }
 
     if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please resolve the highlighted validation errors before submitting.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
       return;
     }
 
@@ -4060,7 +4137,14 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       }
     } catch (e) {
       if (mounted) {
-        final errText = e.toString().replaceAll('Exception: ', '').trim();
+        String errText = e.toString()
+            .replaceAll('Exception: ', '')
+            .replaceAll('Error: ', '')
+            .trim();
+        if (errText.toLowerCase().contains('transaction is aborted') ||
+            errText.toLowerCase().contains('transaction block')) {
+          errText = 'Consultation submission encountered a database conflict. Please try submitting again.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errText.isNotEmpty ? errText : 'Failed to save consultation. Please try again.'),
@@ -6548,11 +6632,11 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                         _medNameController.text = val;
                         // Auto-extract and populate dosage if found in the catalog name
                         final match = RegExp(
-                          r'\d+\s*(?:mg/ml|IU/ml|mg|mcg|g|ml|IU)',
+                          r'(\d+(?:\.\d+)?)\s*(?:mg/ml|IU/ml|mg|mcg|g|ml|IU)?',
                           caseSensitive: false,
                         ).firstMatch(val);
                         if (match != null) {
-                          _dosageController.text = match.group(0) ?? '';
+                          _dosageController.text = match.group(1) ?? match.group(0) ?? '';
                           _dosageError = _validateDosage(_dosageController.text);
                         } else if (_dosageController.text.isNotEmpty) {
                           _dosageError = _validateDosage(_dosageController.text);
@@ -6567,7 +6651,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
                 child: _buildSmallField(
                   'Dosage',
                   _dosageController,
-                  'e.g. 500mg',
+                  'e.g. 500',
                   isRequired: true,
                   maxLength: 20,
                   height: 38,

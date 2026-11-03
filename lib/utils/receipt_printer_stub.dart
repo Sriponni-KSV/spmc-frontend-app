@@ -12,3 +12,19 @@ void printHospitalReceipt({
     ),
   );
 }
+
+void printDischargeSummary({
+  required BuildContext context,
+  required Map<String, dynamic> admission,
+  required String finalDiagnosis,
+  required String treatmentSummary,
+  required String medicationPlan,
+  String? dischargeInstructions,
+  String? followUpDate,
+}) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Printing is only supported on Web / Desktop at this time.'),
+    ),
+  );
+}

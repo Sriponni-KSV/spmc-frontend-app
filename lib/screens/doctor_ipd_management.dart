@@ -65,6 +65,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
 
   @override
   void dispose() {
+    try { ScaffoldMessenger.of(context).clearSnackBars(); } catch (_) {}
     if (_tabControllerReady) {
       _tabController.dispose();
     }
@@ -129,8 +130,18 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
     }
   }
 
-  int get _admittedCount =>
-      _admissions.where((a) => a['status'] == 'Admitted').length;
+  int get _admittedCount {
+    final activePatients = <dynamic>{};
+    for (final a in _admissions) {
+      if (a['status'] == 'Admitted' &&
+          a['discharge_date'] == null &&
+          a['bed_number'] != null &&
+          a['bed_number'].toString().trim().isNotEmpty) {
+        activePatients.add(a['patient_id'] ?? a['id']);
+      }
+    }
+    return activePatients.length;
+  }
   int get _availableBedsCount =>
       _beds.where((b) => b['status'] == 'Available').length;
   int get _icuOccupancy => _admissions
@@ -1865,6 +1876,15 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
+            final activeAdmission = _admissions.firstWhere(
+              (a) =>
+                  a['status'] == 'Admitted' &&
+                  a['patient_id']?.toString() ==
+                      selectedPatientId?.toString(),
+              orElse: () => {},
+            );
+            final bool hasActiveBed = activeAdmission.isNotEmpty;
+
             return AlertDialog(
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
@@ -1965,6 +1985,17 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                             if (val == null || val.isEmpty) {
                               return 'Please select a patient';
                             }
+                            final pid = int.tryParse(val);
+                            final existing = _admissions.firstWhere(
+                              (a) =>
+                                  a['status'] == 'Admitted' &&
+                                  a['patient_id']?.toString() ==
+                                      pid?.toString(),
+                              orElse: () => {},
+                            );
+                            if (existing.isNotEmpty) {
+                              return 'Patient is already admitted to Bed ${existing['bed_number']} (${existing['ward_type']} Ward).';
+                            }
                             return null;
                           },
                           onChanged: (val) {
@@ -1975,6 +2006,41 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                             }
                           },
                         ),
+                        if (hasActiveBed) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppTheme.dangerColor.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: AppTheme.dangerColor.withOpacity(0.4),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(
+                                  Icons.error_outline,
+                                  size: 18,
+                                  color: AppTheme.dangerColor,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'This patient is currently admitted to Bed ${activeAdmission['bed_number']} (${activeAdmission['ward_type']} Ward). A patient cannot be admitted to multiple beds simultaneously.',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.dangerColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 16),
 
                         // Reason
@@ -2095,7 +2161,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                 ),
                 StatefulBuilder(
                   builder: (ctx2, setBtn) => ElevatedButton.icon(
-                    onPressed: isSubmitting
+                    onPressed: (isSubmitting || hasActiveBed)
                         ? null
                         : () async {
                             if (!formKey.currentState!.validate()) return;

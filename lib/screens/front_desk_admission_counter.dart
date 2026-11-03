@@ -888,7 +888,7 @@ class _FrontDeskAdmissionCounterViewState
                               controller: insurancePolicyNoController,
                               maxLength: 50,
                               inputFormatters: [
-                                FilteringTextInputFormatter.allow(RegExp(r'[0-9\-/]')),
+                                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-/]')),
                               ],
                               decoration: _fieldDecoration(
                                   'Policy Number', Icons.numbers_outlined),
@@ -1023,9 +1023,19 @@ class _FrontDeskAdmissionCounterViewState
                                             if (mounted) _fetchRequests();
                                           } catch (e) {
                                             setBtn(() => isSubmitting = false);
+                                            String cleanErr = e.toString()
+                                                .replaceAll('Exception: ', '')
+                                                .replaceAll('Error: ', '')
+                                                .trim();
+                                            if (cleanErr.toLowerCase().contains('violates') ||
+                                                cleanErr.toLowerCase().contains('constraint') ||
+                                                cleanErr.toLowerCase().contains('database') ||
+                                                cleanErr.toLowerCase().contains('transaction')) {
+                                              cleanErr = 'Unable to create admission record. Please check bed availability and required details, then try again.';
+                                            }
                                             messenger.showSnackBar(SnackBar(
-                                              content: Text('Error: $e'),
-                                              backgroundColor: Colors.red,
+                                              content: Text(cleanErr.isNotEmpty ? cleanErr : 'Unable to create admission record. Please try again.'),
+                                              backgroundColor: AppTheme.dangerColor,
                                             ));
                                           }
                                         },
@@ -1120,9 +1130,19 @@ class _FrontDeskAdmissionCounterViewState
                                             if (mounted) _fetchRequests();
                                           } catch (e) {
                                             setBtn(() => isSubmitting = false);
+                                            String cleanErr = e.toString()
+                                                .replaceAll('Exception: ', '')
+                                                .replaceAll('Error: ', '')
+                                                .trim();
+                                            if (cleanErr.toLowerCase().contains('violates') ||
+                                                cleanErr.toLowerCase().contains('constraint') ||
+                                                cleanErr.toLowerCase().contains('database') ||
+                                                cleanErr.toLowerCase().contains('transaction')) {
+                                              cleanErr = 'Unable to create admission record. Please check bed availability and required details, then try again.';
+                                            }
                                             messenger.showSnackBar(SnackBar(
-                                              content: Text('Error: $e'),
-                                              backgroundColor: Colors.red,
+                                              content: Text(cleanErr.isNotEmpty ? cleanErr : 'Unable to create admission record. Please try again.'),
+                                              backgroundColor: AppTheme.dangerColor,
                                             ));
                                           }
                                         },

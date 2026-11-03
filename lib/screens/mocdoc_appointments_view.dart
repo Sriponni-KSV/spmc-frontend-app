@@ -751,10 +751,14 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
                           );
                           _fetchData();
                         } catch (e) {
+                          final cleanMsg = e.toString()
+                              .replaceAll('Exception: ', '')
+                              .replaceAll('Error: ', '')
+                              .trim();
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('Error: $e'),
-                              backgroundColor: Colors.red,
+                              content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Unable to book appointment. Please try again.'),
+                              backgroundColor: AppTheme.dangerColor,
                             ),
                           );
                         }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import '../utils/app_theme.dart';
 import '../utils/app_localizations.dart';
@@ -987,10 +988,16 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget> {
                             fillColor: const Color(0xFFF1F5F9),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                           ),
+                          maxLength: 4,
+                          buildCounter: (_, {required currentLength, required isFocused, maxLength}) => null,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                          ],
                           validator: (val) {
                             if (val == null || val.trim().isEmpty) return 'Volume in mL is required';
                             final num? n = num.tryParse(val.trim());
                             if (n == null || n <= 0) return 'Must be a valid positive volume in mL';
+                            if (n > 5000) return 'Volume cannot exceed 5,000 mL per entry';
                             return null;
                           },
                         ),

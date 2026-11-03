@@ -118,6 +118,127 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String? _selectedAllocWard;
   DateTime? _selectedAllocDate;
 
+  // History & Allocation Logs Filter State
+  String _allocLogNurseFilter = 'All';
+  DateTimeRange? _allocLogDateRangeFilter;
+  DateTime? _allocLogWeekFilter;
+  String _allocLogWeekPreset = 'All';
+  String _allocLogSearchQuery = '';
+  final TextEditingController _allocLogSearchCtrl = TextEditingController();
+
+  List<Map<String, dynamic>> get _filteredAllocations {
+    return _allocations.where((alloc) {
+      // 1. Nurse filter
+      if (_allocLogNurseFilter != 'All') {
+        final nurseName = alloc['nurse_name']?.toString() ?? '';
+        if (nurseName != _allocLogNurseFilter) return false;
+      }
+
+      // 2. Date Range filter
+      if (_allocLogDateRangeFilter != null) {
+        if (alloc['allocation_date'] == null) return false;
+        final allocDate = DateTime.tryParse(alloc['allocation_date'].toString());
+        if (allocDate == null) return false;
+        final allocDay = DateTime(allocDate.year, allocDate.month, allocDate.day);
+        final startDay = DateTime(
+          _allocLogDateRangeFilter!.start.year,
+          _allocLogDateRangeFilter!.start.month,
+          _allocLogDateRangeFilter!.start.day,
+        );
+        final endDay = DateTime(
+          _allocLogDateRangeFilter!.end.year,
+          _allocLogDateRangeFilter!.end.month,
+          _allocLogDateRangeFilter!.end.day,
+        );
+        if (allocDay.isBefore(startDay) || allocDay.isAfter(endDay)) {
+          return false;
+        }
+      }
+
+      // 3. Week filter
+      if (_allocLogWeekFilter != null) {
+        if (alloc['allocation_date'] == null) return false;
+        final allocDate = DateTime.tryParse(alloc['allocation_date'].toString());
+        if (allocDate == null) return false;
+        final allocDay = DateTime(allocDate.year, allocDate.month, allocDate.day);
+        final weekStart = _allocLogWeekFilter!;
+        final weekEnd = weekStart.add(const Duration(days: 6));
+        if (allocDay.isBefore(weekStart) || allocDay.isAfter(weekEnd)) {
+          return false;
+        }
+      }
+
+      // 4. Search query
+      if (_allocLogSearchQuery.trim().isNotEmpty) {
+        final q = _allocLogSearchQuery.trim().toLowerCase();
+        final nurseName = (alloc['nurse_name'] ?? '').toString().toLowerCase();
+        final ward = (alloc['ward_type'] ?? '').toString().toLowerCase();
+        final shift = (alloc['shift_name'] ?? '').toString().toLowerCase();
+        if (!nurseName.contains(q) && !ward.contains(q) && !shift.contains(q)) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList()
+      ..sort((a, b) {
+        // Deterministic sort: allocation_date DESC, start_time ASC, id ASC
+        final dateA = a['allocation_date']?.toString() ?? '';
+        final dateB = b['allocation_date']?.toString() ?? '';
+        final dateCmp = dateB.compareTo(dateA);
+        if (dateCmp != 0) return dateCmp;
+
+        final timeA = a['start_time']?.toString() ?? '';
+        final timeB = b['start_time']?.toString() ?? '';
+        final timeCmp = timeA.compareTo(timeB);
+        if (timeCmp != 0) return timeCmp;
+
+        final idA = (a['id'] is int) ? a['id'] as int : int.tryParse(a['id']?.toString() ?? '0') ?? 0;
+        final idB = (b['id'] is int) ? b['id'] as int : int.tryParse(b['id']?.toString() ?? '0') ?? 0;
+        return idA.compareTo(idB);
+      });
+  }
+
+  bool get _hasActiveAllocLogFilters {
+    return _allocLogNurseFilter != 'All' ||
+        _allocLogDateRangeFilter != null ||
+        _allocLogWeekPreset != 'All' ||
+        _allocLogSearchQuery.trim().isNotEmpty;
+  }
+
+  void _applyWeekPreset(String preset) {
+    setState(() {
+      _allocLogWeekPreset = preset;
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final monday = today.subtract(Duration(days: today.weekday - 1));
+
+      if (preset == 'This Week') {
+        _allocLogWeekFilter = monday;
+        _allocLogDateRangeFilter = null;
+      } else if (preset == 'Last Week') {
+        _allocLogWeekFilter = monday.subtract(const Duration(days: 7));
+        _allocLogDateRangeFilter = null;
+      } else if (preset == 'Next Week') {
+        _allocLogWeekFilter = monday.add(const Duration(days: 7));
+        _allocLogDateRangeFilter = null;
+      } else {
+        _allocLogWeekFilter = null;
+      }
+    });
+  }
+
+  void _resetAllocLogFilters() {
+    setState(() {
+      _allocLogNurseFilter = 'All';
+      _allocLogDateRangeFilter = null;
+      _allocLogWeekFilter = null;
+      _allocLogWeekPreset = 'All';
+      _allocLogSearchQuery = '';
+      _allocLogSearchCtrl.clear();
+    });
+  }
+
   int _shiftManagementSubTab = 0; // 0 = Daily Allocations, 1 = Weekly Rosters
   List<Map<String, dynamic>> _rosters = [];
   DateTime _selectedRosterWeekStart = DateTime(
@@ -125,6 +246,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     DateTime.now().month,
     DateTime.now().day,
   ).subtract(Duration(days: DateTime.now().weekday - 1));
+
+  DateTime get _currentWeekStart {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return today.subtract(Duration(days: today.weekday - 1));
+  }
+
+  bool get _isPastRosterWeek {
+    final selectedStart = DateTime(
+      _selectedRosterWeekStart.year,
+      _selectedRosterWeekStart.month,
+      _selectedRosterWeekStart.day,
+    );
+    return selectedStart.isBefore(_currentWeekStart);
+  }
 
   Future<void> _loadRosterData() async {
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedRosterWeekStart);
@@ -155,10 +291,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
     }
 
+    // Preserve the assigned nurse for this weekly slot even if individual dates are deleted/modified
+    Map<String, dynamic>? dominantRoster;
+    int maxDays = 0;
     for (final entry in nurseAllocations.entries) {
-      if (entry.value.length == 7) {
-        return entry.value.first;
+      if (entry.value.length > maxDays) {
+        maxDays = entry.value.length;
+        dominantRoster = entry.value.first;
       }
+    }
+
+    if (dominantRoster != null && maxDays > 0) {
+      return dominantRoster;
     }
 
     return <String, dynamic>{};
@@ -169,8 +313,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     int shiftId,
     String wardType,
   ) async {
+    if (_isPastRosterWeek) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot allocate shifts for past weeks. Past rosters are locked in read-only mode.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedRosterWeekStart);
-    if (mounted) setState(() => _isLoadingShifts = true);
+
+    // Optimistic UI update: instantly reflect the assigned nurse in the slot (0ms delay)
+    final nurse = _nurses.firstWhere(
+      (n) => n.id == nurseId,
+      orElse: () => UserModel(id: nurseId, rawFullname: 'Nurse', email: '', role: 'Nurse'),
+    );
+    final shift = _shifts.firstWhere((s) => s['id'] == shiftId, orElse: () => {});
+
+    final optimisticEntries = <Map<String, dynamic>>[];
+    for (int day = 0; day < 7; day++) {
+      optimisticEntries.add({
+        'id': -1,
+        'nurse_id': nurseId,
+        'nurse_name': nurse.fullname,
+        'shift_id': shiftId,
+        'shift_name': shift['name'] ?? '',
+        'ward_type': wardType,
+        'allocation_date': dateStr,
+      });
+    }
+    setState(() {
+      _rosters.addAll(optimisticEntries);
+    });
+
     try {
       await _shiftCtrl.saveRosterEntry(nurseId, shiftId, wardType, dateStr);
       if (mounted) {
@@ -181,25 +357,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         );
       }
-      await _loadShiftData(); // reload allocations and rosters
+      // Partial background update without triggering full page reload
+      await _loadRosterData();
+      _shiftCtrl.fetchAllocations().then((allocs) {
+        if (mounted) {
+          setState(() => _allocations = List<Map<String, dynamic>>.from(allocs));
+        }
+      });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving roster: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingShifts = false);
-      }
+      await _loadRosterData();
+      rethrow;
     }
   }
 
   Future<void> _deleteRosterEntry(int id) async {
-    if (mounted) setState(() => _isLoadingShifts = true);
+    if (_isPastRosterWeek) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot remove shifts from past weeks. Past rosters are locked in read-only mode.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    // Optimistic removal: instantly remove from _rosters in UI (0ms delay)
+    final target = _rosters.firstWhere((r) => r['id'] == id, orElse: () => {});
+    final targetWard = target['ward_type'];
+    final targetShiftId = target['shift_id'];
+
+    if (targetWard != null && targetShiftId != null) {
+      setState(() {
+        _rosters.removeWhere(
+          (r) => r['ward_type'] == targetWard && r['shift_id'] == targetShiftId,
+        );
+      });
+    }
+
     try {
       await _shiftCtrl.deleteRosterEntry(id);
       if (mounted) {
@@ -210,19 +404,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         );
       }
-      await _loadShiftData(); // reload allocations and rosters
+      // Partial background update without triggering full page reload
+      await _loadRosterData();
+      _shiftCtrl.fetchAllocations().then((allocs) {
+        if (mounted) {
+          setState(() => _allocations = List<Map<String, dynamic>>.from(allocs));
+        }
+      });
     } catch (e) {
+      await _loadRosterData();
+      final cleanMsg = e.toString().replaceAll('Exception: ', '').trim();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error deleting roster: $e'),
-            backgroundColor: Colors.red,
+            content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Error deleting roster.'),
+            backgroundColor: AppTheme.dangerColor,
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingShifts = false);
       }
     }
   }
@@ -236,6 +434,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _staffSearchController.dispose();
     _medSearchController.dispose();
     _hvSearchController.dispose();
+    _allocLogSearchCtrl.dispose();
     super.dispose();
   }
 
@@ -4117,7 +4316,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildShiftManagement(bool isMobile) {
-    if (_isLoadingShifts) {
+    if (_isLoadingShifts && _shifts.isEmpty && _allocations.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -4434,28 +4633,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  Widget _buildAssignedNurseChip(String nurseName, int rosterId) {
+  Widget _buildAssignedNurseChip(
+    String nurseName,
+    int rosterId, {
+    bool isReadOnly = false,
+  }) {
     final avatarColors = AppTheme.getAvatarColors(nurseName);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withOpacity(0.06),
+        color: isReadOnly
+            ? const Color(0xFFF1F5F9)
+            : AppTheme.primaryColor.withOpacity(0.06),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+        border: Border.all(
+          color: isReadOnly
+              ? Colors.grey.shade300
+              : AppTheme.primaryColor.withOpacity(0.2),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
             radius: 11,
-            backgroundColor: avatarColors['bg'],
+            backgroundColor: isReadOnly ? Colors.grey.shade400 : avatarColors['bg'],
             child: Text(
               nurseName.isNotEmpty
                   ? nurseName.substring(0, 1).toUpperCase()
                   : 'N',
               style: TextStyle(
-                color: avatarColors['text'],
+                color: isReadOnly ? Colors.white : avatarColors['text'],
                 fontWeight: FontWeight.bold,
                 fontSize: 9,
               ),
@@ -4465,29 +4674,66 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Flexible(
             child: Text(
               nurseName,
-              style: const TextStyle(
-                color: AppTheme.primaryColor,
+              style: TextStyle(
+                color: isReadOnly
+                    ? AppTheme.textPrimaryColor
+                    : AppTheme.primaryColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 6),
-          GestureDetector(
-            onTap: () => _deleteRosterEntry(rosterId),
-            child: Icon(
-              Icons.cancel,
-              size: 14,
-              color: Colors.redAccent.shade400,
+          if (!isReadOnly) ...[
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => _deleteRosterEntry(rosterId),
+              child: Icon(
+                Icons.cancel,
+                size: 14,
+                color: Colors.redAccent.shade400,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildAssignNurseButton(String ward, int shiftId) {
+  Widget _buildAssignNurseButton(
+    String ward,
+    int shiftId, {
+    bool isReadOnly = false,
+  }) {
+    if (isReadOnly) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 13,
+              color: Colors.grey.shade500,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Locked',
+              style: TextStyle(
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
@@ -4532,10 +4778,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showNurseSelectionDialog(String ward, int shiftId) {
+    if (_isPastRosterWeek) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot assign shifts for past weeks. Past rosters are locked in read-only mode.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (ctx) {
         String searchQuery = '';
+        String? dialogError;
+        bool isSaving = false;
+        int? savingNurseId;
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             final filteredNurses = _nurses.where((n) {
@@ -4571,6 +4829,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (dialogError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppTheme.dangerColor.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 18,
+                              color: AppTheme.dangerColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                dialogError!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.dangerColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     TextField(
                       decoration: InputDecoration(
                         isDense: true,
@@ -4598,6 +4894,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       onChanged: (val) {
                         setDialogState(() {
                           searchQuery = val;
+                          dialogError = null;
                         });
                       },
                     ),
@@ -4625,16 +4922,61 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               nurse.fullname,
                             );
 
+                            final existingRoster = _rosters.firstWhere(
+                              (r) =>
+                                  r['nurse_id']?.toString() == nurse.id.toString() &&
+                                  !(r['ward_type']?.toString().toLowerCase() == ward.toLowerCase() &&
+                                      r['shift_id']?.toString() == shiftId.toString()),
+                              orElse: () => {},
+                            );
+                            final bool isAlreadyAssigned =
+                                existingRoster.isNotEmpty;
+
                             return Card(
                               elevation: 0,
-                              color: Colors.transparent,
+                              color: isAlreadyAssigned
+                                  ? AppTheme.dangerColor.withOpacity(0.04)
+                                  : Colors.transparent,
                               margin: const EdgeInsets.only(bottom: 6),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(10),
-                                onTap: () {
-                                  Navigator.pop(ctx);
-                                  _saveRosterEntry(nurse.id, shiftId, ward);
-                                },
+                                onTap: isSaving
+                                    ? null
+                                    : () async {
+                                        if (isAlreadyAssigned) {
+                                          setDialogState(() {
+                                            dialogError =
+                                                '${nurse.fullname} is already assigned to ${existingRoster['ward_type']} Ward (${existingRoster['shift_name']}) for this week. A staff member cannot be assigned to multiple shifts on the same day.';
+                                          });
+                                          return;
+                                        }
+                                        setDialogState(() {
+                                          isSaving = true;
+                                          savingNurseId = nurse.id;
+                                          dialogError = null;
+                                        });
+                                        try {
+                                          await _saveRosterEntry(nurse.id, shiftId, ward);
+                                          if (dialogCtx.mounted) {
+                                            Navigator.pop(dialogCtx);
+                                          }
+                                        } catch (e) {
+                                          final cleanMsg = e
+                                              .toString()
+                                              .replaceAll('Exception: ', '')
+                                              .replaceAll('Error: ', '')
+                                              .trim();
+                                          if (dialogCtx.mounted) {
+                                            setDialogState(() {
+                                              isSaving = false;
+                                              savingNurseId = null;
+                                              dialogError = cleanMsg.isNotEmpty
+                                                  ? cleanMsg
+                                                  : 'Failed to save roster entry.';
+                                            });
+                                          }
+                                        }
+                                      },
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -4674,7 +5016,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                                     AppTheme.textPrimaryColor,
                                               ),
                                             ),
-                                            if (nurse.staffUniqueId != null &&
+                                            if (isAlreadyAssigned) ...[
+                                              const SizedBox(height: 3),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.amber.shade50,
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                  border: Border.all(
+                                                    color:
+                                                        Colors.amber.shade300,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  'Assigned: ${existingRoster['ward_type']} (${existingRoster['shift_name']})',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        Colors.amber.shade900,
+                                                  ),
+                                                ),
+                                              ),
+                                            ] else if (nurse.staffUniqueId != null &&
                                                 nurse
                                                     .staffUniqueId!
                                                     .isNotEmpty) ...[
@@ -4691,11 +5060,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                           ],
                                         ),
                                       ),
-                                      const Icon(
-                                        Icons.chevron_right,
-                                        size: 16,
-                                        color: Colors.grey,
-                                      ),
+                                      if (isSaving && savingNurseId == nurse.id)
+                                        const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        )
+                                      else if (isAlreadyAssigned)
+                                        const Icon(
+                                          Icons.block_rounded,
+                                          size: 18,
+                                          color: AppTheme.dangerColor,
+                                        )
+                                      else
+                                        const Icon(
+                                          Icons.chevron_right,
+                                          size: 16,
+                                          color: Colors.grey,
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -4721,7 +5106,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _autoAllocateThisWeek() async {
-    final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
+    if (_isPastRosterWeek) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot allocate shifts for past weeks. Past rosters are locked in read-only mode.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
 
     if (_nurses.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -4772,6 +5165,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           child: Text(
             'This will automatically assign shifts for the selected week ($weekStartStr - $weekEndStr) '
             'using the available nurses in the system.\n\n'
+            'Staff members will be fairly distributed with at most one shift per day to prevent double-booking.\n\n'
             'Existing assignments in this week will be overwritten.\n\n'
             'Do you want to proceed?',
             softWrap: true,
@@ -4796,113 +5190,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (confirm != true) return;
 
-    // Define all target slots: each ward combined with each shift
-    List<Map<String, dynamic>> slotsToAssign = [];
-    for (final ward in WARD_TYPES) {
-      for (final shift in _shifts) {
-        slotsToAssign.add({'ward': ward, 'shift_id': shift['id']});
-      }
-    }
-
-    // Build the pool of nurse IDs
-    final List<int> nurseIdsPool = _nurses.map((n) => n.id).toList();
-    final List<int> targetNurseIds = [...nurseIdsPool];
-
-    // If we have fewer unique nurses than slots, backfill/repeat the pool
-    while (targetNurseIds.length < slotsToAssign.length) {
-      targetNurseIds.addAll(nurseIdsPool.isNotEmpty ? nurseIdsPool : [1]);
-    }
-
-    final List<int> finalNurseIds = targetNurseIds.sublist(
-      0,
-      slotsToAssign.length,
-    );
-
-    // Helper to check for continuous shifts
-    bool areShiftsContinuous(Map<String, dynamic> s1, Map<String, dynamic> s2) {
-      final end1 = s1['end_time']?.toString().trim();
-      final start1 = s1['start_time']?.toString().trim();
-      final end2 = s2['end_time']?.toString().trim();
-      final start2 = s2['start_time']?.toString().trim();
-
-      if (end1 == null || start1 == null || end2 == null || start2 == null)
-        return false;
-      return end1 == start2 || end2 == start1;
-    }
-
-    bool isValidRoster(List<int> list) {
-      final Map<int, List<Map<String, dynamic>>> nurseShifts = {};
-      for (int i = 0; i < list.length; i++) {
-        final nurseId = list[i];
-        final slot = slotsToAssign[i];
-        final shiftId = slot['shift_id'] as int;
-
-        final shiftDetail = _shifts.firstWhere(
-          (s) => s['id'] == shiftId,
-          orElse: () => <String, dynamic>{},
-        );
-        if (shiftDetail.isEmpty) continue;
-
-        if (!nurseShifts.containsKey(nurseId)) {
-          nurseShifts[nurseId] = [];
-        }
-
-        for (final assignedShift in nurseShifts[nurseId]!) {
-          if (assignedShift['id'] == shiftId) return false;
-          if (areShiftsContinuous(assignedShift, shiftDetail)) return false;
-        }
-
-        nurseShifts[nurseId]!.add(shiftDetail);
-      }
-      return true;
-    }
-
-    bool foundValid = false;
-    for (int iter = 0; iter < 1000; iter++) {
-      finalNurseIds.shuffle();
-      if (isValidRoster(finalNurseIds)) {
-        foundValid = true;
-        break;
-      }
-    }
-
     final targetWeekStartStr = DateFormat(
       'yyyy-MM-dd',
     ).format(_selectedRosterWeekStart);
     setState(() => _isLoadingShifts = true);
 
     try {
-      int successCount = 0;
-      for (int i = 0; i < slotsToAssign.length; i++) {
-        final slot = slotsToAssign[i];
-        final nurseId = finalNurseIds[i];
-        await _shiftCtrl.saveRosterEntry(
-          nurseId,
-          slot['shift_id'],
-          slot['ward'],
-          targetWeekStartStr,
-        );
-        successCount++;
-      }
-
+      final res = await _shiftCtrl.autoAllocateRosters(targetWeekStartStr);
       await _loadRosterData();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Successfully allocated $successCount shifts for this week!',
+              res['message'] ?? 'Successfully allocated shifts for this week!',
             ),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
+      final cleanMsg = e.toString().replaceAll('Exception: ', '').trim();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to auto-allocate: $e'),
-            backgroundColor: Colors.red,
+            content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Failed to auto-allocate shifts.'),
+            backgroundColor: AppTheme.dangerColor,
           ),
         );
       }
@@ -4914,6 +5227,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _autoShuffleNextWeek() async {
+    final nextWeekStart = _selectedRosterWeekStart.add(const Duration(days: 7));
+    if (nextWeekStart.isBefore(_currentWeekStart)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot allocate shifts for past weeks. Past rosters are locked in read-only mode.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
     final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
 
     // 1. Collect active assignments of the current week
@@ -4945,7 +5269,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return;
       }
 
-      // Auto-populate all slots to allocate automatically
       for (final ward in WARD_TYPES) {
         for (final shift in _shifts) {
           activeSlots.add({
@@ -4959,7 +5282,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
 
     // 2. Confirm dialog with the user showing next week's dates
-    final nextWeekStart = _selectedRosterWeekStart.add(const Duration(days: 7));
     final nextWeekStartStr = DateFormat('dd MMM').format(nextWeekStart);
     final nextWeekEndStr = DateFormat(
       'dd MMM yyyy',
@@ -4987,10 +5309,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           isEmptyRoster
               ? 'This will automatically allocate shifts for the next week ($nextWeekStartStr - $nextWeekEndStr) '
                     'using the available nurses in the system.\n\n'
+                    'Staff members will be fairly distributed with at most one shift per day to prevent double-booking.\n\n'
                     'Existing assignments in the target week will be overwritten.\n\n'
                     'Do you want to proceed?'
               : 'This will automatically assign shifts for the next week ($nextWeekStartStr - $nextWeekEndStr) '
-                    'by shuffling the ${activeSlots.length} nurse assignments from the current week.\n\n'
+                    'by shuffling nurse assignments from the current week.\n\n'
+                    'Staff members will be fairly distributed with at most one shift per day to prevent double-booking.\n\n'
                     'Existing assignments in the target week will be overwritten.\n\n'
                     'Do you want to proceed?',
         ),
@@ -5015,137 +5339,69 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (confirm != true) return;
 
-    // 3. Create a pool of unique nurse IDs to assign to the active slots
-    // We prioritize the nurse IDs that are already active this week
-    final List<int> activeNurseIds = activeSlots
-        .map((s) => s['nurse_id'] as int)
-        .toSet()
-        .toList();
-    activeNurseIds.remove(0); // Remove placeholder id
-    final List<int> targetNurseIds = [...activeNurseIds];
-
-    // If we have fewer unique active nurses than active slots, backfill from the general nurses pool
-    if (targetNurseIds.length < activeSlots.length) {
-      for (final nurse in _nurses) {
-        if (!targetNurseIds.contains(nurse.id)) {
-          targetNurseIds.add(nurse.id);
-        }
-        if (targetNurseIds.length >= activeSlots.length) {
-          break;
-        }
-      }
-    }
-
-    // If we STILL don't have enough unique nurses, repeat the pool
-    final List<int> fallbackNursePool = _nurses.map((n) => n.id).toList();
-    while (targetNurseIds.length < activeSlots.length) {
-      targetNurseIds.addAll(
-        fallbackNursePool.isNotEmpty ? fallbackNursePool : [1],
-      );
-    }
-
-    final List<int> finalNurseIds = targetNurseIds.sublist(
-      0,
-      activeSlots.length,
-    );
-
-    // Helper to verify if a nurse is assigned to continuous shifts or duplicates on the same shift
-    bool areShiftsContinuous(Map<String, dynamic> s1, Map<String, dynamic> s2) {
-      final end1 = s1['end_time']?.toString().trim();
-      final start1 = s1['start_time']?.toString().trim();
-      final end2 = s2['end_time']?.toString().trim();
-      final start2 = s2['start_time']?.toString().trim();
-
-      if (end1 == null || start1 == null || end2 == null || start2 == null)
-        return false;
-
-      // Check if s1 ends when s2 starts, or s2 ends when s1 starts
-      return end1 == start2 || end2 == start1;
-    }
-
-    bool isValidRoster(List<int> list) {
-      final Map<int, List<Map<String, dynamic>>> nurseShifts = {};
-      for (int i = 0; i < list.length; i++) {
-        final nurseId = list[i];
-        final slot = activeSlots[i];
-        final shiftId = slot['shift_id'] as int;
-
-        final shiftDetail = _shifts.firstWhere(
-          (s) => s['id'] == shiftId,
-          orElse: () => <String, dynamic>{},
-        );
-        if (shiftDetail.isEmpty) continue;
-
-        if (!nurseShifts.containsKey(nurseId)) {
-          nurseShifts[nurseId] = [];
-        }
-
-        for (final assignedShift in nurseShifts[nurseId]!) {
-          if (assignedShift['id'] == shiftId) return false;
-          if (areShiftsContinuous(assignedShift, shiftDetail)) return false;
-        }
-
-        nurseShifts[nurseId]!.add(shiftDetail);
-      }
-      return true;
-    }
-
-    bool foundValid = false;
-    for (int iter = 0; iter < 1000; iter++) {
-      finalNurseIds.shuffle();
-      if (isValidRoster(finalNurseIds)) {
-        foundValid = true;
-        break;
-      }
-    }
-
-    // 4. Save slots for next week using the shuffled list
     final targetWeekStartStr = DateFormat('yyyy-MM-dd').format(nextWeekStart);
 
     setState(() => _isLoadingShifts = true);
 
     try {
-      int successCount = 0;
-      for (int i = 0; i < activeSlots.length; i++) {
-        final slot = activeSlots[i];
-        final nurseId = finalNurseIds[i];
-        await _shiftCtrl.saveRosterEntry(
-          nurseId,
-          slot['shift_id'],
-          slot['ward'],
-          targetWeekStartStr,
-        );
-        successCount++;
-      }
-
-      // Navigate to next week to show results immediately
-      setState(() {
-        _selectedRosterWeekStart = nextWeekStart;
-      });
-      await _loadRosterData();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isEmptyRoster
-                  ? 'Successfully allocated $successCount shifts for the next week!'
-                  : 'Successfully shuffled and assigned $successCount shifts for the next week!',
+      if (isEmptyRoster) {
+        final res = await _shiftCtrl.autoAllocateRosters(targetWeekStartStr);
+        setState(() {
+          _selectedRosterWeekStart = nextWeekStart;
+        });
+        await _loadRosterData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(res['message'] ?? 'Successfully allocated shifts for the next week!'),
+              backgroundColor: Colors.green,
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
+          );
+        }
+      } else {
+        // Shuffle existing unique nurses without double-booking
+        final List<int> uniqueNursePool = _nurses.map((n) => n.id).toList()..shuffle();
+        final int assignCount = activeSlots.length < uniqueNursePool.length
+            ? activeSlots.length
+            : uniqueNursePool.length;
+        final List<int> finalNurseIds = uniqueNursePool.sublist(0, assignCount);
+
+        int successCount = 0;
+        for (int i = 0; i < assignCount; i++) {
+          final slot = activeSlots[i];
+          final nurseId = finalNurseIds[i];
+          await _shiftCtrl.saveRosterEntry(
+            nurseId,
+            slot['shift_id'],
+            slot['ward'],
+            targetWeekStartStr,
+          );
+          successCount++;
+        }
+
+        setState(() {
+          _selectedRosterWeekStart = nextWeekStart;
+        });
+        await _loadRosterData();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Successfully shuffled and assigned $successCount shifts for the next week without double-booking!',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
+      final cleanMsg = e.toString().replaceAll('Exception: ', '').trim();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              isEmptyRoster
-                  ? 'Failed to auto-allocate: $e'
-                  : 'Error shuffling roster: $e',
-            ),
-            backgroundColor: Colors.red,
+            content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Error shuffling roster.'),
+            backgroundColor: AppTheme.dangerColor,
           ),
         );
       }
@@ -5204,7 +5460,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           OutlinedButton.icon(
-                            onPressed: _autoAllocateThisWeek,
+                            onPressed: _isPastRosterWeek ? null : _autoAllocateThisWeek,
                             icon: const Icon(Icons.auto_awesome, size: 14),
                             label: const Text(
                               'Auto-Allocate This Week',
@@ -5228,7 +5484,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                           OutlinedButton.icon(
-                            onPressed: _autoShuffleNextWeek,
+                            onPressed: _isPastRosterWeek ? null : _autoShuffleNextWeek,
                             icon: const Icon(Icons.shuffle_rounded, size: 14),
                             label: const Text(
                               'Shuffle Next Week',
@@ -5291,13 +5547,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       ),
                                     ],
                                   ),
-                                  child: Text(
-                                    '$weekStartStr - $weekEndStr',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: AppTheme.primaryColor,
-                                    ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '$weekStartStr - $weekEndStr',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      if (_isPastRosterWeek) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade100,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.amber.shade400),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.lock_outline, size: 11, color: Colors.amber.shade900),
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                'Locked',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.amber.shade900,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                                 IconButton(
@@ -5352,7 +5639,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           OutlinedButton.icon(
-                            onPressed: _autoAllocateThisWeek,
+                            onPressed: _isPastRosterWeek ? null : _autoAllocateThisWeek,
                             icon: const Icon(Icons.auto_awesome, size: 14),
                             label: const Text(
                               'Auto-Allocate This Week',
@@ -5376,7 +5663,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                           OutlinedButton.icon(
-                            onPressed: _autoShuffleNextWeek,
+                            onPressed: _isPastRosterWeek ? null : _autoShuffleNextWeek,
                             icon: const Icon(Icons.shuffle_rounded, size: 14),
                             label: const Text(
                               'Auto-Shuffle Next Week',
@@ -5441,13 +5728,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       ),
                                     ],
                                   ),
-                                  child: Text(
-                                    '$weekStartStr - $weekEndStr',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: AppTheme.primaryColor,
-                                    ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '$weekStartStr - $weekEndStr',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      if (_isPastRosterWeek) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade100,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.amber.shade400),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.lock_outline, size: 11, color: Colors.amber.shade900),
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                'Locked',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.amber.shade900,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                                 IconButton(
@@ -5534,7 +5852,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                             const SizedBox(height: 12),
                             ElevatedButton.icon(
-                              onPressed: _autoAllocateThisWeek,
+                              onPressed: _isPastRosterWeek ? null : _autoAllocateThisWeek,
                               icon: const Icon(Icons.auto_awesome, size: 14),
                               label: const Text('Auto-Allocate This Week'),
                               style: ElevatedButton.styleFrom(
@@ -5579,7 +5897,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   ),
                                   const SizedBox(height: 10),
                                   ElevatedButton.icon(
-                                    onPressed: _autoAllocateThisWeek,
+                                    onPressed: _isPastRosterWeek ? null : _autoAllocateThisWeek,
                                     icon: const Icon(
                                       Icons.auto_awesome,
                                       size: 14,
@@ -5972,17 +6290,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showAllocateNurseDialog() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     setState(() {
       _selectedAllocNurse = null;
       _selectedAllocShift = null;
       _selectedAllocWard = null;
-      _selectedAllocDate = DateTime.now(); // default to today's date
+      _selectedAllocDate = today; // default to today's date
     });
 
     showDialog(
       context: context,
       builder: (ctx) {
         final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
+        String? allocError;
+        bool isSaving = false;
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             return AlertDialog(
@@ -6011,6 +6333,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (allocError != null) ...[
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.dangerColor.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppTheme.dangerColor.withOpacity(0.4),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 18,
+                                color: AppTheme.dangerColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  allocError!,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.dangerColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const Divider(height: 16),
                       const SizedBox(height: 12),
                       Container(
@@ -6150,19 +6510,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       const SizedBox(height: 6),
                       InkWell(
                         onTap: () async {
+                          final now = DateTime.now();
+                          final today = DateTime(now.year, now.month, now.day);
+                          final initial = _selectedAllocDate != null &&
+                                  !_selectedAllocDate!.isBefore(today)
+                              ? _selectedAllocDate!
+                              : today;
+
                           final picked = await showDatePicker(
                             context: dialogCtx,
-                            initialDate: _selectedAllocDate ?? DateTime.now(),
-                            firstDate: DateTime.now().subtract(
-                              const Duration(days: 30),
-                            ),
+                            initialDate: initial,
+                            firstDate: today,
                             lastDate: DateTime.now().add(
-                              const Duration(days: 90),
+                              const Duration(days: 365),
                             ),
+                            initialEntryMode: DatePickerEntryMode.calendarOnly,
+                            selectableDayPredicate: (day) {
+                              final d = DateTime(day.year, day.month, day.day);
+                              return !d.isBefore(today);
+                            },
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.light(
+                                    primary: AppTheme.primaryColor,
+                                    onPrimary: Colors.white,
+                                    onSurface: AppTheme.textPrimaryColor,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
                           );
                           if (picked != null) {
-                            setDialogState(() => _selectedAllocDate = picked);
-                            setState(() => _selectedAllocDate = picked);
+                            if (picked.isBefore(today)) {
+                              setDialogState(() {
+                                allocError = 'Allocation date cannot be in the past.';
+                              });
+                            } else {
+                              setDialogState(() {
+                                _selectedAllocDate = picked;
+                                allocError = null;
+                              });
+                              setState(() => _selectedAllocDate = picked);
+                            }
                           }
                         },
                         child: Container(
@@ -6231,27 +6622,101 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     minimumSize: const Size(130, 48),
                     elevation: 0,
                   ),
-                  onPressed: () async {
-                    if (_selectedAllocNurse == null ||
-                        _selectedAllocShift == null ||
-                        _selectedAllocWard == null ||
-                        _selectedAllocDate == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please select Nurse, Shift, Ward, and Date.',
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final now = DateTime.now();
+                          final today = DateTime(now.year, now.month, now.day);
+
+                          if (_selectedAllocNurse == null ||
+                              _selectedAllocShift == null ||
+                              _selectedAllocWard == null ||
+                              _selectedAllocDate == null) {
+                            setDialogState(() {
+                              allocError =
+                                  'Please select Nurse, Shift, Ward, and Date.';
+                            });
+                            return;
+                          }
+
+                          final allocDay = DateTime(
+                            _selectedAllocDate!.year,
+                            _selectedAllocDate!.month,
+                            _selectedAllocDate!.day,
+                          );
+                          if (allocDay.isBefore(today)) {
+                            setDialogState(() {
+                              allocError =
+                                  'Allocation date cannot be in the past.';
+                            });
+                            return;
+                          }
+
+                          setDialogState(() {
+                            isSaving = true;
+                            allocError = null;
+                          });
+
+                          final dateStr = DateFormat('yyyy-MM-dd')
+                              .format(_selectedAllocDate!);
+
+                          try {
+                            await _shiftCtrl.createAllocation(
+                              _selectedAllocNurse!.id,
+                              _selectedAllocShift!['id'],
+                              _selectedAllocWard!,
+                              dateStr,
+                            );
+                            if (mounted) {
+                              Navigator.pop(dialogCtx);
+                              setState(() {
+                                _selectedAllocNurse = null;
+                                _selectedAllocShift = null;
+                                _selectedAllocWard = null;
+                                _selectedAllocDate = null;
+                              });
+                              // Partial async update of allocations without full page reload
+                              _shiftCtrl.fetchAllocations().then((allocs) {
+                                if (mounted) {
+                                  setState(() => _allocations =
+                                      List<Map<String, dynamic>>.from(allocs));
+                                }
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('Nurse allocated successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            final cleanMsg = e
+                                .toString()
+                                .replaceAll('Exception: ', '')
+                                .replaceAll('Error: ', '')
+                                .trim();
+                            setDialogState(() {
+                              isSaving = false;
+                              allocError = cleanMsg.isNotEmpty
+                                  ? cleanMsg
+                                  : 'Failed to allocate nurse. Please check for scheduling conflicts.';
+                            });
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
                           ),
+                        )
+                      : const Text(
+                          'Save Allocation',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                      );
-                      return;
-                    }
-                    Navigator.pop(dialogCtx);
-                    _submitAllocation();
-                  },
-                  child: const Text(
-                    'Save Allocation',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
                 ),
               ],
             );
@@ -6263,6 +6728,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildAllocationLogsCard() {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
+
+    // Collect unique nurse names for filter dropdown
+    final Set<String> nurseNameSet = {};
+    for (final a in _allocations) {
+      final name = a['nurse_name']?.toString().trim();
+      if (name != null && name.isNotEmpty) {
+        nurseNameSet.add(name);
+      }
+    }
+    for (final n in _nurses) {
+      if (n.fullname.trim().isNotEmpty) {
+        nurseNameSet.add(n.fullname.trim());
+      }
+    }
+    final List<String> uniqueNurseNames = nurseNameSet.toList()..sort();
+
+    final filteredList = _filteredAllocations;
 
     return Card(
       elevation: 0,
@@ -6293,16 +6775,278 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   ),
                 ),
+                if (_allocations.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${filteredList.length} of ${_allocations.length} records',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                  ),
               ],
             ),
             const Divider(height: 24),
-            if (_allocations.isEmpty)
+
+            // --- History Filter Controls (by Nurse, Date Range, or Week) ---
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                // 1. Instant Text Search
+                SizedBox(
+                  width: isMobile ? double.infinity : 200,
+                  height: 40,
+                  child: TextField(
+                    controller: _allocLogSearchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Search nurse, ward...',
+                      hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                      prefixIcon: const Icon(Icons.search, size: 16, color: AppTheme.textSecondaryColor),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                      filled: true,
+                      fillColor: const Color(0xFFF1F5F9),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        _allocLogSearchQuery = val;
+                      });
+                    },
+                  ),
+                ),
+
+                // 2. Nurse Filter Dropdown
+                Container(
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: _allocLogNurseFilter != 'All'
+                        ? AppTheme.primaryColor.withOpacity(0.06)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _allocLogNurseFilter != 'All'
+                          ? AppTheme.primaryColor
+                          : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _allocLogNurseFilter,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _allocLogNurseFilter != 'All'
+                            ? AppTheme.primaryColor
+                            : AppTheme.textPrimaryColor,
+                      ),
+                      dropdownColor: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _allocLogNurseFilter = val);
+                        }
+                      },
+                      items: [
+                        const DropdownMenuItem(value: 'All', child: Text('All Nurses')),
+                        ...uniqueNurseNames.map(
+                          (name) => DropdownMenuItem(value: name, child: Text(name)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 3. Date / Date Range Picker
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                      initialDateRange: _allocLogDateRangeFilter,
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.light(
+                              primary: AppTheme.primaryColor,
+                              onPrimary: Colors.white,
+                              onSurface: AppTheme.textPrimaryColor,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _allocLogDateRangeFilter = picked;
+                        _allocLogWeekFilter = null;
+                        _allocLogWeekPreset = 'All';
+                      });
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: _allocLogDateRangeFilter != null
+                          ? AppTheme.primaryColor.withOpacity(0.06)
+                          : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _allocLogDateRangeFilter != null
+                            ? AppTheme.primaryColor
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.date_range_rounded,
+                          size: 15,
+                          color: _allocLogDateRangeFilter != null
+                              ? AppTheme.primaryColor
+                              : AppTheme.textSecondaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _allocLogDateRangeFilter != null
+                              ? '${DateFormat('dd MMM').format(_allocLogDateRangeFilter!.start)} - ${DateFormat('dd MMM').format(_allocLogDateRangeFilter!.end)}'
+                              : 'Filter by Date',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _allocLogDateRangeFilter != null
+                                ? AppTheme.primaryColor
+                                : AppTheme.textSecondaryColor,
+                          ),
+                        ),
+                        if (_allocLogDateRangeFilter != null) ...[
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() => _allocLogDateRangeFilter = null);
+                            },
+                            child: const Icon(Icons.close, size: 14, color: AppTheme.primaryColor),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 4. Week Filter Preset Dropdown
+                Container(
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: _allocLogWeekPreset != 'All'
+                        ? AppTheme.primaryColor.withOpacity(0.06)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _allocLogWeekPreset != 'All'
+                          ? AppTheme.primaryColor
+                          : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _allocLogWeekPreset,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _allocLogWeekPreset != 'All'
+                            ? AppTheme.primaryColor
+                            : AppTheme.textPrimaryColor,
+                      ),
+                      dropdownColor: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      onChanged: (val) {
+                        if (val != null) {
+                          _applyWeekPreset(val);
+                        }
+                      },
+                      items: const [
+                        DropdownMenuItem(value: 'All', child: Text('All Weeks')),
+                        DropdownMenuItem(value: 'This Week', child: Text('This Week')),
+                        DropdownMenuItem(value: 'Last Week', child: Text('Last Week')),
+                        DropdownMenuItem(value: 'Next Week', child: Text('Next Week')),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 5. Clear Filters Button
+                if (_hasActiveAllocLogFilters)
+                  TextButton.icon(
+                    onPressed: _resetAllocLogFilters,
+                    icon: const Icon(
+                      Icons.filter_alt_off_rounded,
+                      size: 14,
+                      color: AppTheme.dangerColor,
+                    ),
+                    label: const Text(
+                      'Clear Filters',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.dangerColor,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            if (filteredList.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Center(
-                  child: Text(
-                    'No shift allocations logged.',
-                    style: TextStyle(color: Colors.grey.shade500),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.filter_list_off, size: 36, color: Colors.grey.shade400),
+                      const SizedBox(height: 10),
+                      Text(
+                        _allocations.isEmpty
+                            ? 'No shift allocations logged.'
+                            : 'No allocation logs match the selected filter criteria.',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                      if (_hasActiveAllocLogFilters) ...[
+                        const SizedBox(height: 10),
+                        TextButton(
+                          onPressed: _resetAllocLogFilters,
+                          child: const Text('Reset Filters'),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               )
@@ -6352,7 +7096,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 DataColumn(label: Text('Status')),
                                 DataColumn(label: Text('Actions')),
                               ],
-                              rows: _allocations.map((alloc) {
+                              rows: filteredList.map((alloc) {
                                 final dateStr = alloc['allocation_date'] != null
                                     ? DateFormat('dd-MM-yyyy').format(
                                         DateTime.parse(
@@ -7213,6 +7957,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _showShiftDialog(Map<String, dynamic>? shift) {
     final nameCtrl = TextEditingController(text: shift?['name'] ?? '');
+    String? nameError;
+    String? dialogError;
+    bool isSaving = false;
     TimeOfDay? startTime = shift != null
         ? TimeOfDay(
             hour: int.parse(shift['start_time'].split(':')[0]),
@@ -7235,71 +7982,129 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               title: Text(
                 shift == null ? 'Define Shift Schedule' : 'Edit Shift Schedule',
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    maxLength: 20,
-                    decoration: const InputDecoration(
-                      labelText: 'Shift Name',
-                      hintText: 'e.g., Morning, Evening, Night',
-                      counterText: '',
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (dialogError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.dangerColor.withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.error_outline, size: 20, color: AppTheme.dangerColor),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                dialogError!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.dangerColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    TextField(
+                      controller: nameCtrl,
+                      maxLength: 30,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                      ],
+                      onChanged: (val) {
+                        setDialogState(() {
+                          dialogError = null;
+                          final trimmed = val.trim();
+                          if (trimmed.isEmpty) {
+                            nameError = 'Shift Name is required.';
+                          } else if (trimmed.length < 2) {
+                            nameError = 'Shift Name must be at least 2 characters.';
+                          } else if (RegExp(r'[0-9]').hasMatch(val)) {
+                            nameError = 'Numbers are not allowed in Shift Name.';
+                          } else if (RegExp(r'[^a-zA-Z\s]').hasMatch(val)) {
+                            nameError = 'Special characters are not allowed in Shift Name.';
+                          } else {
+                            nameError = null;
+                          }
+                        });
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Shift Name',
+                        hintText: 'e.g., Morning, Evening, Night',
+                        counterText: '',
+                        errorText: nameError,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        startTime != null
-                            ? 'Start Time: ${startTime!.format(dialogCtx)}'
-                            : 'Choose Start Time',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await showTimePicker(
-                            context: dialogCtx,
-                            initialTime:
-                                startTime ??
-                                const TimeOfDay(hour: 8, minute: 0),
-                          );
-                          if (picked != null) {
-                            setDialogState(() => startTime = picked);
-                          }
-                        },
-                        child: const Text('Pick'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        endTime != null
-                            ? 'End Time: ${endTime!.format(dialogCtx)}'
-                            : 'Choose End Time',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await showTimePicker(
-                            context: dialogCtx,
-                            initialTime:
-                                endTime ?? const TimeOfDay(hour: 16, minute: 0),
-                          );
-                          if (picked != null) {
-                            setDialogState(() => endTime = picked);
-                          }
-                        },
-                        child: const Text('Pick'),
-                      ),
-                    ],
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          startTime != null
+                              ? 'Start Time: ${startTime!.format(dialogCtx)}'
+                              : 'Choose Start Time',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            final picked = await showTimePicker(
+                              context: dialogCtx,
+                              initialTime:
+                                  startTime ??
+                                  const TimeOfDay(hour: 8, minute: 0),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                startTime = picked;
+                                dialogError = null;
+                              });
+                            }
+                          },
+                          child: const Text('Pick'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          endTime != null
+                              ? 'End Time: ${endTime!.format(dialogCtx)}'
+                              : 'Choose End Time',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            final picked = await showTimePicker(
+                              context: dialogCtx,
+                              initialTime:
+                                  endTime ?? const TimeOfDay(hour: 16, minute: 0),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                endTime = picked;
+                                dialogError = null;
+                              });
+                            }
+                          },
+                          child: const Text('Pick'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 OutlinedButton(
@@ -7315,7 +8120,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     minimumSize: const Size(130, 48),
                   ),
-                  onPressed: () => Navigator.pop(dialogCtx),
+                  onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
                   child: const Text(
                     'Cancel',
                     style: TextStyle(fontWeight: FontWeight.bold),
@@ -7335,58 +8140,125 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     minimumSize: const Size(130, 48),
                     elevation: 0,
                   ),
-                  onPressed: () async {
-                    if (nameCtrl.text.isEmpty ||
-                        startTime == null ||
-                        endTime == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please complete all shift details.'),
-                        ),
-                      );
-                      return;
-                    }
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final trimmedName = nameCtrl.text.trim();
+                          String? validationMsg;
+                          if (trimmedName.isEmpty) {
+                            validationMsg = 'Shift Name is required.';
+                          } else if (trimmedName.length < 2) {
+                            validationMsg = 'Shift Name must be at least 2 characters.';
+                          } else if (trimmedName.length > 30) {
+                            validationMsg = 'Shift Name cannot exceed 30 characters.';
+                          } else if (RegExp(r'[0-9]').hasMatch(nameCtrl.text)) {
+                            validationMsg = 'Numbers are not allowed in Shift Name.';
+                          } else if (RegExp(r'[^a-zA-Z\s]').hasMatch(nameCtrl.text)) {
+                            validationMsg = 'Special characters are not allowed in Shift Name.';
+                          } else if (startTime == null || endTime == null) {
+                            validationMsg = 'Please complete both start and end time.';
+                          } else if (startTime!.hour == endTime!.hour && startTime!.minute == endTime!.minute) {
+                            validationMsg = 'Shift start time and end time cannot be identical.';
+                          }
 
-                    final startStr =
-                        '${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}:00';
-                    final endStr =
-                        '${endTime!.hour.toString().padLeft(2, '0')}:${endTime!.minute.toString().padLeft(2, '0')}:00';
+                          if (validationMsg != null) {
+                            setDialogState(() {
+                              if (trimmedName.isEmpty ||
+                                  trimmedName.length < 2 ||
+                                  RegExp(r'[0-9]').hasMatch(nameCtrl.text) ||
+                                  RegExp(r'[^a-zA-Z\s]').hasMatch(nameCtrl.text)) {
+                                nameError = validationMsg;
+                              }
+                              dialogError = validationMsg;
+                            });
+                            return;
+                          }
 
-                    try {
-                      if (shift == null) {
-                        await _shiftCtrl.createShift(
-                          nameCtrl.text,
-                          startStr,
-                          endStr,
-                        );
-                      } else {
-                        await _shiftCtrl.updateShift(
-                          shift['id'],
-                          nameCtrl.text,
-                          startStr,
-                          endStr,
-                        );
-                      }
-                      Navigator.pop(dialogCtx);
-                      _loadShiftData();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Shift schedule saved successfully!'),
+                          final startStr =
+                              '${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}:00';
+                          final endStr =
+                              '${endTime!.hour.toString().padLeft(2, '0')}:${endTime!.minute.toString().padLeft(2, '0')}:00';
+                          final startPrefix = startStr.substring(0, 5);
+                          final endPrefix = endStr.substring(0, 5);
+
+                          // Check duplicate timings in existing shifts
+                          final dup = _shifts.firstWhere(
+                            (s) {
+                              if (shift != null && s['id'] == shift['id']) return false;
+                              final sStart = s['start_time'].toString().substring(0, 5);
+                              final sEnd = s['end_time'].toString().substring(0, 5);
+                              return sStart == startPrefix && sEnd == endPrefix;
+                            },
+                            orElse: () => {},
+                          );
+                          if (dup.isNotEmpty) {
+                            final dupName = dup['name'] ?? 'existing shift';
+                            setDialogState(() {
+                              dialogError =
+                                  'A shift with this time range already exists ($dupName). Duplicate shift timings are not allowed.';
+                            });
+                            return;
+                          }
+
+                          try {
+                            setDialogState(() {
+                              isSaving = true;
+                              dialogError = null;
+                            });
+                            if (shift == null) {
+                              await _shiftCtrl.createShift(
+                                trimmedName,
+                                startStr,
+                                endStr,
+                              );
+                            } else {
+                              await _shiftCtrl.updateShift(
+                                shift['id'],
+                                trimmedName,
+                                startStr,
+                                endStr,
+                              );
+                            }
+                            Navigator.pop(dialogCtx);
+                            // Partial async update of shifts without full page reload
+                            _shiftCtrl.fetchShifts().then((shifts) {
+                              if (mounted) {
+                                setState(() => _shifts = List<Map<String, dynamic>>.from(shifts));
+                              }
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Shift schedule saved successfully!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } catch (e) {
+                            final cleanMsg = e
+                                .toString()
+                                .replaceAll('Exception: ', '')
+                                .replaceAll('Error: ', '')
+                                .trim();
+                            setDialogState(() {
+                              isSaving = false;
+                              dialogError = cleanMsg.isNotEmpty
+                                  ? cleanMsg
+                                  : 'Unable to save shift schedule. Please try again.';
+                            });
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Save',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                      );
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text(
-                    'Save',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
                 ),
               ],
             );
@@ -7429,13 +8301,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
     if (confirm == true) {
+      // Instantaneous optimistic removal
+      setState(() {
+        _shifts.removeWhere((s) => s['id'] == id);
+      });
       try {
         await _shiftCtrl.deleteShift(id);
-        _loadShiftData();
+        _shiftCtrl.fetchShifts().then((shifts) {
+          if (mounted) {
+            setState(() => _shifts = List<Map<String, dynamic>>.from(shifts));
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Shift schedule deleted successfully!')),
         );
       } catch (e) {
+        _shiftCtrl.fetchShifts().then((shifts) {
+          if (mounted) {
+            setState(() => _shifts = List<Map<String, dynamic>>.from(shifts));
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
@@ -7517,14 +8402,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (confirm == true) {
       try {
         await _shiftCtrl.deleteAllocation(id);
-        _loadShiftData();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Allocation deleted successfully!')),
-        );
+        if (mounted) {
+          setState(() {
+            _allocations.removeWhere((a) => a['id'] == id);
+          });
+          _loadShiftData();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Allocation deleted successfully!')),
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        if (mounted) {
+          final cleanMsg = e.toString().replaceAll('Exception: ', '').trim();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Error deleting allocation.'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+        }
       }
     }
   }

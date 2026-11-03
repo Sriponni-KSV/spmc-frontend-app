@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import '../utils/app_theme.dart';
+import '../utils/receipt_printer.dart';
 
 /// Automated Inpatient Discharge Summary Generator & Clinical Report Widget
 class IpdAutomatedDischargeSummaryWidget extends StatefulWidget {
@@ -419,9 +420,15 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
     final patientName = (adm['patient_name'] ?? 'Patient').toString();
     final patientDisplayId = (adm['patient_display_id'] ?? adm['patient_id'] ?? '--').toString();
     final ageGender = '${adm['patient_age'] ?? '--'} yrs / ${adm['patient_gender'] ?? '--'}';
-    final admDate = adm['admission_date'] != null
-        ? DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.parse(adm['admission_date']).toLocal())
-        : '--';
+    String admDate = '--';
+    if (adm['admission_date'] != null) {
+      final parsed = DateTime.tryParse(adm['admission_date'].toString());
+      if (parsed != null) {
+        admDate = DateFormat('dd/MM/yyyy hh:mm a').format(parsed.toLocal());
+      } else {
+        admDate = adm['admission_date'].toString();
+      }
+    }
     final dischDate = DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.now());
     final doctor = (adm['doctor_name'] ?? 'Consultant').toString();
     final bedNum = (adm['bed_number'] ?? '--').toString();
@@ -452,8 +459,14 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       ),
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Sent to clinic printer / browser print dialog')),
+                        printDischargeSummary(
+                          context: context,
+                          admission: widget.admission,
+                          finalDiagnosis: _finalDiagCtrl.text,
+                          treatmentSummary: _treatmentSumCtrl.text,
+                          medicationPlan: _medPlanCtrl.text,
+                          dischargeInstructions: _followUpCtrl.text,
+                          followUpDate: _followUpCtrl.text,
                         );
                       },
                     ),
