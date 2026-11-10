@@ -38,6 +38,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     with TickerProviderStateMixin {
   final IpdController _ipdController = IpdController();
   static int _activeDoctorTabIndex = 0;
+  static int _activeNurseTabIndex = 0;
   late TabController _tabController;
 
   bool _isLoading = true;
@@ -68,6 +69,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   final _instructionsController = TextEditingController();
 
   // Vitals Form Controllers
+  bool _isSubmittingVitals = false;
   final _vitalsFormKey = GlobalKey<FormState>();
   final _bpSystolicController = TextEditingController();
   final _bpDiastolicController = TextEditingController();
@@ -107,11 +109,19 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     _staffName = auth.user?.fullname ?? 'Staff Member';
 
     final tabCount = _userRole == 'Doctor' ? 9 : 6;
-    final initTab = (_userRole == 'Doctor' && _activeDoctorTabIndex >= 0 && _activeDoctorTabIndex < tabCount) ? _activeDoctorTabIndex : 0;
+    final initTab = (_userRole == 'Doctor' && _activeDoctorTabIndex >= 0 && _activeDoctorTabIndex < tabCount)
+        ? _activeDoctorTabIndex
+        : (_userRole == 'Nurse' && _activeNurseTabIndex >= 0 && _activeNurseTabIndex < tabCount)
+            ? _activeNurseTabIndex
+            : 0;
     _tabController = TabController(length: tabCount, vsync: this, initialIndex: initTab);
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging && _userRole == 'Doctor') {
-        _activeDoctorTabIndex = _tabController.index;
+      if (!_tabController.indexIsChanging) {
+        if (_userRole == 'Doctor') {
+          _activeDoctorTabIndex = _tabController.index;
+        } else if (_userRole == 'Nurse') {
+          _activeNurseTabIndex = _tabController.index;
+        }
       }
     });
 
@@ -147,8 +157,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     super.dispose();
   }
 
-  Future<void> _loadAllData() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadAllData({bool isSilent = false}) async {
+    if (!isSilent || (_prescriptions.isEmpty && _vitalsHistory.isEmpty && _fluidRecords.isEmpty)) {
+      setState(() => _isLoading = true);
+    }
     final admissionId = widget.admission['id'];
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final user = auth.user;
@@ -290,7 +302,9 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     final validNames = [
       'od', 'bd', 'tds', 'qid', 'sos', 'stat', 'prn', 'hs',
       'once daily', 'twice daily', 'thrice daily', 'four times daily',
-      'as needed', 'at bedtime', 'q4h', 'q6h', 'q8h', 'q12h'
+      'as needed', 'at bedtime', 'q4h', 'q6h', 'q8h', 'q12h',
+      'as prescribed', 'as directed', 'as advised', 'per order',
+      'daily', 'weekly'
     ];
     final cleanLower = clean.toLowerCase();
     final isNamed = validNames.any((name) => cleanLower == name || cleanLower.contains(name));
@@ -515,7 +529,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Future<void> _submitVitals() async {
+    if (_isSubmittingVitals) return;
     if (!_vitalsFormKey.currentState!.validate()) return;
+
+    setState(() => _isSubmittingVitals = true);
 
     try {
       await _ipdController.createVitals(widget.admission['id'], {
@@ -550,6 +567,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmittingVitals = false);
+      }
     }
   }
 
@@ -634,28 +655,46 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   Future<void> _submitProgressNote() async {
     if (!_progFormKey.currentState!.validate()) return;
 
+    final String enteredNotes = _noteController.text.trim();
+    final String enteredObs = _obsController.text.trim();
+
+    if (enteredNotes.isEmpty && enteredObs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter nursing notes or observations.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
     try {
-      final String notesText = _noteController.text.trim().isNotEmpty
-          ? _noteController.text.trim()
-          : (_obsController.text.trim().isNotEmpty
-              ? _obsController.text.trim()
-              : 'Vitals updated');
+      final String bpText = _bpSystolicController.text.trim();
+      final String tempText = _tempController.text.trim();
+      final String pulseText = _pulseController.text.trim();
+      final String sugarText = _spo2Controller.text.trim();
 
       await _ipdController.createProgressNote(widget.admission['id'], {
         'patient_id': widget.admission['patient_id'],
         'doctor_name': _staffName,
-        'notes': notesText,
+        'nurse_name': _staffName,
+        'notes': enteredNotes.isNotEmpty ? enteredNotes : enteredObs,
+        'observation': enteredObs.isNotEmpty ? enteredObs : enteredNotes,
         'treatment_changes': _changesController.text.trim(),
-        'observation': _obsController.text.trim(),
+        'blood_pressure': bpText.isNotEmpty ? bpText : '--',
+        'temperature': tempText.isNotEmpty ? tempText : '--',
+        'pulse': pulseText.isNotEmpty ? pulseText : '--',
+        'sugar_level': sugarText.isNotEmpty ? sugarText : '--',
+        'vitals_snapshot': {
+          'blood_pressure': bpText.isNotEmpty ? bpText : '--',
+          'temperature': tempText.isNotEmpty ? tempText : '--',
+          'pulse': pulseText.isNotEmpty ? pulseText : '--',
+          'sugar_level': sugarText.isNotEmpty ? sugarText : '--',
+        },
       });
 
       // Also save vitals if any vital field is filled (e.g. from the Nursing Notes tab)
-      final String bpText = _bpSystolicController.text.trim();
-      final String tempText = _tempController.text.trim();
-      final String pulseText = _pulseController.text.trim();
-      final String spo2Text = _spo2Controller.text.trim();
-
-      if (bpText.isNotEmpty || tempText.isNotEmpty || pulseText.isNotEmpty || spo2Text.isNotEmpty) {
+      if (bpText.isNotEmpty || tempText.isNotEmpty || pulseText.isNotEmpty || sugarText.isNotEmpty) {
         int? sys;
         int? dia;
         if (bpText.isNotEmpty) {
@@ -668,14 +707,18 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           }
         }
 
-        await _ipdController.createVitals(widget.admission['id'], {
-          'patient_id': widget.admission['patient_id'],
-          'blood_pressure_systolic': sys,
-          'blood_pressure_diastolic': dia,
-          'temperature': double.tryParse(tempText),
-          'pulse': int.tryParse(pulseText),
-          'spo2': int.tryParse(spo2Text),
-        });
+        try {
+          await _ipdController.createVitals(widget.admission['id'], {
+            'patient_id': widget.admission['patient_id'],
+            'blood_pressure_systolic': sys,
+            'blood_pressure_diastolic': dia,
+            'temperature': double.tryParse(tempText),
+            'pulse': int.tryParse(pulseText),
+            'sugar_level': double.tryParse(sugarText) ?? int.tryParse(sugarText),
+          });
+        } catch (vitalsErr) {
+          debugPrint('Notice: patient_vitals record error: $vitalsErr');
+        }
 
         _bpSystolicController.clear();
         _tempController.clear();
@@ -689,11 +732,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Note saved successfully!'),
+          content: Text('Note and vitals recorded successfully!'),
           backgroundColor: Colors.green,
         ),
       );
-      _loadAllData();
+      await _loadAllData(isSilent: true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
@@ -1445,7 +1488,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
         // Tab Body
         Expanded(
-          child: _isLoading
+          child: (_isLoading &&
+                  _prescriptions.isEmpty &&
+                  _vitalsHistory.isEmpty &&
+                  _fluidRecords.isEmpty &&
+                  _progressNotes.isEmpty)
               ? const Center(
                   child: CircularProgressIndicator(
                     color: AppTheme.primaryColor,
@@ -2171,14 +2218,18 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Recorded on: $recordedAt',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                    Expanded(
+                      child: Text(
+                        'Recorded on: $recordedAt',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    if (hasLowSpo2 || hasAbnormalBP || hasFever)
+                    if (hasLowSpo2 || hasAbnormalBP || hasFever) ...[
+                      const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -2197,6 +2248,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           ),
                         ),
                       ),
+                    ],
                   ],
                 ),
                 const Divider(height: 20),
@@ -2625,6 +2677,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             'Thrice daily (TDS)',
                             'Four times daily (QID)',
                             'As needed (PRN / SOS)',
+                            'As prescribed',
+                            'As directed',
                             'STAT (Immediately)',
                             'At bedtime (HS)',
                             'Every 4 hours (Q4H)',
@@ -2682,6 +2736,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                               'Thrice daily (TDS)',
                               'Four times daily (QID)',
                               'As needed (PRN / SOS)',
+                              'As prescribed',
+                              'As directed',
                               'STAT (Immediately)',
                               'At bedtime (HS)',
                               'Every 4 hours (Q4H)',
@@ -3355,6 +3411,17 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                                   ],
                                 ),
                                 const Divider(height: 18),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    _buildMiniVitalChip('BP', _resolveVitalFromNote(note, 'blood_pressure', ['blood_pressure', 'bp'], regexPattern: r'BP:?\s*([\d/]+)'), Icons.favorite_outline),
+                                    _buildMiniVitalChip('Temp', _resolveVitalFromNote(note, 'temperature', ['temperature', 'temp'], regexPattern: r'Temp(?:erature)?:?\s*([\d.]+)'), Icons.thermostat_outlined),
+                                    _buildMiniVitalChip('Pulse', _resolveVitalFromNote(note, 'pulse', ['pulse', 'hr'], regexPattern: r'Pulse:?\s*(\d+)'), Icons.monitor_heart_outlined),
+                                    _buildMiniVitalChip('Sugar', _resolveVitalFromNote(note, 'sugar_level', ['sugar_level', 'sugar', 'glucose', 'spo2'], regexPattern: r'Sugar:?\s*(\d+)'), Icons.water_drop_outlined),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
                                 if (clinicalNotes.isNotEmpty) ...[
                                   Text(
                                     'Clinical Notes & Observations:',
@@ -3887,7 +3954,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
       summary: _fluidSummary,
       currentStaffName: _staffName,
       isMobile: isMobile,
-      onRefresh: _loadAllData,
+      onRefresh: () => _loadAllData(isSilent: true),
       onAddFluidLog: ({
         required String entryType,
         required String category,
@@ -3908,11 +3975,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           'recorded_at': (recordedAt ?? DateTime.now()).toIso8601String(),
           'shift': shift,
         });
-        await _loadAllData();
+        await _loadAllData(isSilent: true);
       },
       onDeleteFluidLog: (int logId) async {
         await _ipdController.deleteFluidLog(logId);
-        await _loadAllData();
+        await _loadAllData(isSilent: true);
       },
     );
   }
@@ -4865,11 +4932,20 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton.icon(
-                  onPressed: _submitVitals,
-                  icon: const Icon(Icons.save),
-                  label: const Text(
-                    'Record Vitals',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                  onPressed: _isSubmittingVitals ? null : _submitVitals,
+                  icon: _isSubmittingVitals
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.save),
+                  label: Text(
+                    _isSubmittingVitals ? 'Recording Vitals...' : 'Record Vitals',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
@@ -5550,9 +5626,9 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
               const SizedBox(height: 24),
 
-              // NOTES
+              // NURSING NOTES
               const Text(
-                'Nursing Observation / Notes',
+                'Nursing Notes *',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
@@ -5562,16 +5638,16 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               const SizedBox(height: 8),
 
               TextFormField(
-                controller: _obsController,
-                maxLines: 6,
+                controller: _noteController,
+                maxLines: 3,
                 decoration: InputDecoration(
                   hintText:
-                      'Enter nursing observations, symptoms, medication response...',
+                      'Enter nursing notes (e.g. Patient reports mild pain)...',
                   alignLabelWithHint: true,
                   prefixIcon: const Padding(
-                    padding: EdgeInsets.only(bottom: 110),
+                    padding: EdgeInsets.only(bottom: 50),
                     child: Icon(
-                      Icons.description_outlined,
+                      Icons.note_alt_outlined,
                       color: AppTheme.primaryColor,
                     ),
                   ),
@@ -5592,9 +5668,52 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                     ),
                   ),
                 ),
-                validator: (value) {
-                  return null;
-                },
+              ),
+
+              const SizedBox(height: 20),
+
+              // OBSERVATION
+              const Text(
+                'Observation',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+
+              const SizedBox(height: 8),
+
+              TextFormField(
+                controller: _obsController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText:
+                      'Enter observations (e.g. Patient conscious and stable)...',
+                  alignLabelWithHint: true,
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 50),
+                    child: Icon(
+                      Icons.visibility_outlined,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(
+                      color: AppTheme.primaryColor,
+                      width: 1.5,
+                    ),
+                  ),
+                ),
               ),
 
               const SizedBox(height: 30),
@@ -5778,22 +5897,22 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                         children: [
                           _buildMiniVitalChip(
                             'BP',
-                            note['blood_pressure'] ?? '--',
+                            _resolveVitalFromNote(note, 'blood_pressure', ['blood_pressure', 'bp'], regexPattern: r'BP:?\s*([\d/]+)'),
                             Icons.favorite_outline,
                           ),
                           _buildMiniVitalChip(
                             'Temp',
-                            note['temperature'] ?? '--',
+                            _resolveVitalFromNote(note, 'temperature', ['temperature', 'temp'], regexPattern: r'Temp(?:erature)?:?\s*([\d.]+)'),
                             Icons.thermostat_outlined,
                           ),
                           _buildMiniVitalChip(
                             'Pulse',
-                            note['pulse'] ?? '--',
+                            _resolveVitalFromNote(note, 'pulse', ['pulse', 'hr'], regexPattern: r'Pulse:?\s*(\d+)'),
                             Icons.monitor_heart_outlined,
                           ),
                           _buildMiniVitalChip(
                             'Sugar',
-                            note['sugar_level'] ?? '--',
+                            _resolveVitalFromNote(note, 'sugar_level', ['sugar_level', 'sugar', 'glucose', 'spo2'], regexPattern: r'Sugar:?\s*(\d+)'),
                             Icons.water_drop_outlined,
                           ),
                         ],
@@ -5811,13 +5930,70 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             color: Colors.grey.shade200,
                           ),
                         ),
-                        child: Text(
-                          note['observation'] ??
-                              'No observations added',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            height: 1.6,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (note['notes'] != null &&
+                                note['notes'].toString().trim().isNotEmpty) ...[
+                              Row(
+                                children: [
+                                  const Icon(Icons.note_alt_outlined,
+                                      size: 15, color: AppTheme.primaryColor),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Nursing Notes:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                note['notes'].toString(),
+                                style: const TextStyle(fontSize: 14, height: 1.5),
+                              ),
+                              if (note['observation'] != null &&
+                                  note['observation'].toString().trim().isNotEmpty &&
+                                  note['observation'] != note['notes'])
+                                const Divider(height: 18),
+                            ],
+                            if (note['observation'] != null &&
+                                note['observation'].toString().trim().isNotEmpty &&
+                                note['observation'] != note['notes']) ...[
+                              Row(
+                                children: [
+                                  const Icon(Icons.visibility_outlined,
+                                      size: 15, color: Color(0xFF0F5A8E)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Observation:',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: Colors.grey.shade800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                note['observation'].toString(),
+                                style: const TextStyle(fontSize: 14, height: 1.5),
+                              ),
+                            ],
+                            if ((note['notes'] == null ||
+                                    note['notes'].toString().trim().isEmpty) &&
+                                (note['observation'] == null ||
+                                    note['observation'].toString().trim().isEmpty))
+                              Text(
+                                'No observations or notes added',
+                                style: TextStyle(
+                                    color: Colors.grey.shade600, fontSize: 13),
+                              ),
+                          ],
                         ),
                       ),
                     ],
@@ -5900,7 +6076,58 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     );
   }
 
+  String _resolveVitalFromNote(
+    Map<String, dynamic> note,
+    String fieldKey,
+    List<String> snapshotKeys, {
+    String? regexPattern,
+  }) {
+    final direct = note[fieldKey]?.toString().trim();
+    if (direct != null && direct.isNotEmpty && direct != '--' && direct != 'null') {
+      return direct;
+    }
+    final snap = note['vitals_snapshot'];
+    if (snap != null) {
+      Map<String, dynamic>? snapMap;
+      if (snap is Map) {
+        snapMap = Map<String, dynamic>.from(snap);
+      } else if (snap is String && snap.isNotEmpty) {
+        try {
+          snapMap = Map<String, dynamic>.from(jsonDecode(snap));
+        } catch (_) {}
+      }
+      if (snapMap != null) {
+        for (final k in snapshotKeys) {
+          final v = snapMap[k]?.toString().trim();
+          if (v != null && v.isNotEmpty && v != '--' && v != 'null') {
+            return v;
+          }
+        }
+      }
+    }
+    if (regexPattern != null) {
+      final text = '${note['notes'] ?? ''} ${note['observation'] ?? ''}';
+      final match = RegExp(regexPattern, caseSensitive: false).firstMatch(text);
+      if (match != null && match.groupCount >= 1) {
+        return match.group(1)!.trim();
+      }
+    }
+    return '--';
+  }
+
   Widget _buildMiniVitalChip(String title, String value, IconData icon) {
+    String displayVal = value.trim();
+    if (displayVal.isNotEmpty && displayVal != '--') {
+      if (title == 'BP' && !displayVal.toLowerCase().contains('mmhg')) {
+        displayVal = '$displayVal mmHg';
+      } else if (title == 'Temp' && !displayVal.contains('°')) {
+        displayVal = '$displayVal °F';
+      } else if (title == 'Pulse' && !displayVal.toLowerCase().contains('bpm')) {
+        displayVal = '$displayVal bpm';
+      } else if (title == 'Sugar' && !displayVal.toLowerCase().contains('mg')) {
+        displayVal = '$displayVal mg/dL';
+      }
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
@@ -5914,7 +6141,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           Icon(icon, size: 15, color: AppTheme.primaryColor),
           const SizedBox(width: 6),
           Text(
-            '$title: $value',
+            '$title: $displayVal',
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
         ],

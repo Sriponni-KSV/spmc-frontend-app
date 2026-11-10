@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_notification.dart';
 import '../controllers/ipd_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 
@@ -658,6 +659,7 @@ class _FrontDeskAdmissionCounterViewState
     final formKey = GlobalKey<FormState>();
     bool isSubmitting = false;
     bool documentsVerified = false;
+    String? dialogError;
 
     // Bed selection fields
     String? selectedWardType = req['bed_type_requirement'];
@@ -707,6 +709,7 @@ class _FrontDeskAdmissionCounterViewState
         return StatefulBuilder(builder: (ctx, setD) {
           void updateBedsForWard(String? ward) {
             setD(() {
+              dialogError = null;
               selectedWardType = ward;
               selectedBedNumber = null;
               if (ward != null) {
@@ -836,7 +839,10 @@ class _FrontDeskAdmissionCounterViewState
                                    bed: 'Bed $bed',
                                },
                                onChanged: (val) {
-                                 setD(() => selectedBedNumber = val);
+                                 setD(() {
+                                   dialogError = null;
+                                   selectedBedNumber = val;
+                                 });
                                },
                                validator: (val) => val == null || val.isEmpty ? 'Please select a bed' : null,
                              ),
@@ -970,206 +976,261 @@ class _FrontDeskAdmissionCounterViewState
                     decoration: const BoxDecoration(
                       border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
                     ),
-                    child: isMobileWidth
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              StatefulBuilder(
-                                builder: (ctx2, setBtn) => ElevatedButton.icon(
-                                  onPressed: isSubmitting
-                                      ? null
-                                      : () async {
-                                          if (!formKey.currentState!.validate()) {
-                                            return;
-                                          }
-                                          setBtn(() => isSubmitting = true);
-                                          // Capture context-dependent objects before async gap
-                                          final nav = Navigator.of(ctx);
-                                          final messenger = ScaffoldMessenger.of(context);
-                                          try {
-                                            final insuranceDetails = {
-                                              'provider': insuranceProviderController.text.trim(),
-                                              'policy_no': insurancePolicyNoController.text.trim(),
-                                            };
-                                            await _ipdController.createAdmissionRecord({
-                                              'patient_id': req['patient_id'],
-                                              'appointment_id': req['appointment_id'],
-                                              'doctor_name': req['doctor_name'],
-                                              'diagnosis': req['diagnosis'],
-                                              'bed_type_requirement': selectedWardType,
-                                              'reason_for_admission': req['reason_for_admission'],
-                                              'bed_number': selectedBedNumber,
-                                              'insurance_details':
-                                                  (insuranceDetails['provider']?.isNotEmpty ?? false)
-                                                      ? insuranceDetails
-                                                      : null,
-                                              'documents_verified': documentsVerified,
-                                              'advance_payment': advancePaymentController
-                                                      .text
-                                                      .trim()
-                                                      .isNotEmpty
-                                                  ? double.tryParse(
-                                                      advancePaymentController.text.trim())
-                                                  : null,
-                                            });
-                                            nav.pop();
-                                            messenger.showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                    'Admission record created and bed allocated successfully!'),
-                                                backgroundColor: Colors.green,
-                                              ),
-                                            );
-                                            if (mounted) _fetchRequests();
-                                          } catch (e) {
-                                            setBtn(() => isSubmitting = false);
-                                            String cleanErr = e.toString()
-                                                .replaceAll('Exception: ', '')
-                                                .replaceAll('Error: ', '')
-                                                .trim();
-                                            if (cleanErr.toLowerCase().contains('violates') ||
-                                                cleanErr.toLowerCase().contains('constraint') ||
-                                                cleanErr.toLowerCase().contains('database') ||
-                                                cleanErr.toLowerCase().contains('transaction')) {
-                                              cleanErr = 'Unable to create admission record. Please check bed availability and required details, then try again.';
-                                            }
-                                            messenger.showSnackBar(SnackBar(
-                                              content: Text(cleanErr.isNotEmpty ? cleanErr : 'Unable to create admission record. Please try again.'),
-                                              backgroundColor: AppTheme.dangerColor,
-                                            ));
-                                          }
-                                        },
-                                  icon: isSubmitting
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2, color: Colors.white))
-                                      : const Icon(Icons.check_outlined,
-                                          size: 16, color: Colors.white),
-                                  label: Text(
-                                    isSubmitting
-                                        ? 'Processing...'
-                                        : 'Confirm & Create Record',
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.primaryColor,
-                                    minimumSize: const Size(double.infinity, 44),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8)),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (dialogError != null) ...[
+                          Container(
+                            width: double.infinity,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                  color: AppTheme.dangerColor.withOpacity(0.4)),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.error_outline_rounded,
+                                    size: 18, color: AppTheme.dangerColor),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    dialogError!,
+                                    style: const TextStyle(
+                                      color: AppTheme.dangerColor,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.35,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 12),
-                              OutlinedButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                style: AppTheme.cancelButton.copyWith(
-                                  minimumSize: WidgetStateProperty.all(
-                                      const Size(double.infinity, 44)),
-                                ),
-                                child: const Text('Cancel'),
-                              ),
-                            ],
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              OutlinedButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                style: AppTheme.cancelButton,
-                                child: const Text('Cancel'),
-                              ),
-                              const SizedBox(width: 12),
-                              StatefulBuilder(
-                                builder: (ctx2, setBtn) => ElevatedButton.icon(
-                                  onPressed: isSubmitting
-                                      ? null
-                                      : () async {
-                                          if (!formKey.currentState!.validate()) {
-                                            return;
-                                          }
-                                          setBtn(() => isSubmitting = true);
-                                          // Capture context-dependent objects before async gap
-                                          final nav = Navigator.of(ctx);
-                                          final messenger = ScaffoldMessenger.of(context);
-                                          try {
-                                            final insuranceDetails = {
-                                              'provider': insuranceProviderController.text.trim(),
-                                              'policy_no': insurancePolicyNoController.text.trim(),
-                                            };
-                                            await _ipdController.createAdmissionRecord({
-                                              'patient_id': req['patient_id'],
-                                              'appointment_id': req['appointment_id'],
-                                              'doctor_name': req['doctor_name'],
-                                              'diagnosis': req['diagnosis'],
-                                              'bed_type_requirement': selectedWardType,
-                                              'reason_for_admission': req['reason_for_admission'],
-                                              'bed_number': selectedBedNumber,
-                                              'insurance_details':
-                                                  (insuranceDetails['provider']?.isNotEmpty ?? false)
-                                                      ? insuranceDetails
-                                                      : null,
-                                              'documents_verified': documentsVerified,
-                                              'advance_payment': advancePaymentController
-                                                      .text
-                                                      .trim()
-                                                      .isNotEmpty
-                                                  ? double.tryParse(
-                                                      advancePaymentController.text.trim())
-                                                  : null,
-                                            });
-                                            nav.pop();
-                                            messenger.showSnackBar(
-                                              const SnackBar(
-                                                content: Text(
-                                                    'Admission record created and bed allocated successfully!'),
-                                                backgroundColor: Colors.green,
-                                              ),
-                                            );
-                                            if (mounted) _fetchRequests();
-                                          } catch (e) {
-                                            setBtn(() => isSubmitting = false);
-                                            String cleanErr = e.toString()
-                                                .replaceAll('Exception: ', '')
-                                                .replaceAll('Error: ', '')
-                                                .trim();
-                                            if (cleanErr.toLowerCase().contains('violates') ||
-                                                cleanErr.toLowerCase().contains('constraint') ||
-                                                cleanErr.toLowerCase().contains('database') ||
-                                                cleanErr.toLowerCase().contains('transaction')) {
-                                              cleanErr = 'Unable to create admission record. Please check bed availability and required details, then try again.';
-                                            }
-                                            messenger.showSnackBar(SnackBar(
-                                              content: Text(cleanErr.isNotEmpty ? cleanErr : 'Unable to create admission record. Please try again.'),
-                                              backgroundColor: AppTheme.dangerColor,
-                                            ));
-                                          }
-                                        },
-                                  icon: isSubmitting
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2, color: Colors.white))
-                                      : const Icon(Icons.check_outlined,
-                                          size: 16, color: Colors.white),
-                                  label: Text(
-                                    isSubmitting
-                                        ? 'Processing...'
-                                        : 'Confirm & Create Record',
-                                    style: const TextStyle(color: Colors.white),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.primaryColor,
-                                    minimumSize: const Size(0, 44),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8)),
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  onTap: () => setD(() => dialogError = null),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(2.0),
+                                    child: Icon(Icons.close,
+                                        size: 16, color: AppTheme.dangerColor),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
+                        ],
+                        isMobileWidth
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  StatefulBuilder(
+                                    builder: (ctx2, setBtn) => ElevatedButton.icon(
+                                      onPressed: isSubmitting
+                                          ? null
+                                          : () async {
+                                              if (!formKey.currentState!.validate()) {
+                                                return;
+                                              }
+                                              setD(() => dialogError = null);
+                                              setBtn(() => isSubmitting = true);
+                                              // Capture context-dependent objects before async gap
+                                              final nav = Navigator.of(ctx);
+                                              try {
+                                                final insuranceDetails = {
+                                                  'provider': insuranceProviderController.text.trim(),
+                                                  'policy_no': insurancePolicyNoController.text.trim(),
+                                                };
+                                                await _ipdController.createAdmissionRecord({
+                                                  'patient_id': req['patient_id'],
+                                                  'appointment_id': req['appointment_id'],
+                                                  'doctor_name': req['doctor_name'],
+                                                  'diagnosis': req['diagnosis'],
+                                                  'bed_type_requirement': selectedWardType,
+                                                  'reason_for_admission': req['reason_for_admission'],
+                                                  'bed_number': selectedBedNumber,
+                                                  'insurance_details':
+                                                      (insuranceDetails['provider']?.isNotEmpty ?? false)
+                                                          ? insuranceDetails
+                                                          : null,
+                                                  'documents_verified': documentsVerified,
+                                                  'advance_payment': advancePaymentController
+                                                          .text
+                                                          .trim()
+                                                          .isNotEmpty
+                                                      ? double.tryParse(
+                                                          advancePaymentController.text.trim())
+                                                      : null,
+                                                });
+                                                nav.pop();
+                                                AppNotification.showSuccess(
+                                                  context,
+                                                  'Admission record created and bed allocated successfully!',
+                                                  atTop: true,
+                                                );
+                                                if (mounted) _fetchRequests();
+                                              } catch (e) {
+                                                setBtn(() => isSubmitting = false);
+                                                String cleanErr = e.toString()
+                                                    .replaceAll('Exception: ', '')
+                                                    .replaceAll('Error: ', '')
+                                                    .trim();
+                                                if (cleanErr.toLowerCase().contains('violates') ||
+                                                    cleanErr.toLowerCase().contains('constraint') ||
+                                                    cleanErr.toLowerCase().contains('database') ||
+                                                    cleanErr.toLowerCase().contains('transaction')) {
+                                                  cleanErr = 'Unable to create admission record. Please check bed availability and required details, then try again.';
+                                                }
+                                                if (cleanErr.isEmpty) {
+                                                  cleanErr = 'Unable to create admission record. Please try again.';
+                                                }
+                                                setD(() => dialogError = cleanErr);
+                                                AppNotification.showError(
+                                                  ctx,
+                                                  cleanErr,
+                                                  atTop: true,
+                                                );
+                                              }
+                                            },
+                                      icon: isSubmitting
+                                          ? const SizedBox(
+                                              width: 14,
+                                              height: 14,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2, color: Colors.white))
+                                          : const Icon(Icons.check_outlined,
+                                              size: 16, color: Colors.white),
+                                      label: Text(
+                                        isSubmitting
+                                            ? 'Processing...'
+                                            : 'Confirm & Create Record',
+                                        style: const TextStyle(color: Colors.white),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.primaryColor,
+                                        minimumSize: const Size(double.infinity, 44),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  OutlinedButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    style: AppTheme.cancelButton.copyWith(
+                                      minimumSize: WidgetStateProperty.all(
+                                          const Size(double.infinity, 44)),
+                                    ),
+                                    child: const Text('Cancel'),
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  OutlinedButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    style: AppTheme.cancelButton,
+                                    child: const Text('Cancel'),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  StatefulBuilder(
+                                    builder: (ctx2, setBtn) => ElevatedButton.icon(
+                                      onPressed: isSubmitting
+                                          ? null
+                                          : () async {
+                                              if (!formKey.currentState!.validate()) {
+                                                return;
+                                              }
+                                              setD(() => dialogError = null);
+                                              setBtn(() => isSubmitting = true);
+                                              // Capture context-dependent objects before async gap
+                                              final nav = Navigator.of(ctx);
+                                              try {
+                                                final insuranceDetails = {
+                                                  'provider': insuranceProviderController.text.trim(),
+                                                  'policy_no': insurancePolicyNoController.text.trim(),
+                                                };
+                                                await _ipdController.createAdmissionRecord({
+                                                  'patient_id': req['patient_id'],
+                                                  'appointment_id': req['appointment_id'],
+                                                  'doctor_name': req['doctor_name'],
+                                                  'diagnosis': req['diagnosis'],
+                                                  'bed_type_requirement': selectedWardType,
+                                                  'reason_for_admission': req['reason_for_admission'],
+                                                  'bed_number': selectedBedNumber,
+                                                  'insurance_details':
+                                                      (insuranceDetails['provider']?.isNotEmpty ?? false)
+                                                          ? insuranceDetails
+                                                          : null,
+                                                  'documents_verified': documentsVerified,
+                                                  'advance_payment': advancePaymentController
+                                                          .text
+                                                          .trim()
+                                                          .isNotEmpty
+                                                      ? double.tryParse(
+                                                          advancePaymentController.text.trim())
+                                                      : null,
+                                                });
+                                                nav.pop();
+                                                AppNotification.showSuccess(
+                                                  context,
+                                                  'Admission record created and bed allocated successfully!',
+                                                  atTop: true,
+                                                );
+                                                if (mounted) _fetchRequests();
+                                              } catch (e) {
+                                                setBtn(() => isSubmitting = false);
+                                                String cleanErr = e.toString()
+                                                    .replaceAll('Exception: ', '')
+                                                    .replaceAll('Error: ', '')
+                                                    .trim();
+                                                if (cleanErr.toLowerCase().contains('violates') ||
+                                                    cleanErr.toLowerCase().contains('constraint') ||
+                                                    cleanErr.toLowerCase().contains('database') ||
+                                                    cleanErr.toLowerCase().contains('transaction')) {
+                                                  cleanErr = 'Unable to create admission record. Please check bed availability and required details, then try again.';
+                                                }
+                                                if (cleanErr.isEmpty) {
+                                                  cleanErr = 'Unable to create admission record. Please try again.';
+                                                }
+                                                setD(() => dialogError = cleanErr);
+                                                AppNotification.showError(
+                                                  ctx,
+                                                  cleanErr,
+                                                  atTop: true,
+                                                );
+                                              }
+                                            },
+                                      icon: isSubmitting
+                                          ? const SizedBox(
+                                              width: 14,
+                                              height: 14,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2, color: Colors.white))
+                                          : const Icon(Icons.check_outlined,
+                                              size: 16, color: Colors.white),
+                                      label: Text(
+                                        isSubmitting
+                                            ? 'Processing...'
+                                            : 'Confirm & Create Record',
+                                        style: const TextStyle(color: Colors.white),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.primaryColor,
+                                        minimumSize: const Size(0, 44),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ],
+                    ),
                   ),
                 ],
               ),

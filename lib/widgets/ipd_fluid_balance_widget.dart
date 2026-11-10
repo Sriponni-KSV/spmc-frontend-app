@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import '../utils/app_theme.dart';
 import '../utils/app_localizations.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 /// 24-Hour Intake/Output and Fluid Balance Monitoring Widget
 class IpdFluidBalanceWidget extends StatefulWidget {
@@ -46,13 +47,18 @@ double _safeToDouble(dynamic val) {
   return 0.0;
 }
 
-class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget> {
+class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final DateTime _selectedDate = DateTime.now();
   String _filterType = 'All'; // 'All', 'Intake', 'Output'
   String _selectedShiftFilter = 'All'; // 'All', 'Morning', 'Afternoon', 'Night'
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final double totalIntake = _safeToDouble(widget.summary['total_intake_ml']);
     final double totalOutput = _safeToDouble(widget.summary['total_output_ml']);
     final double netBalance = widget.summary['net_balance_ml'] != null
@@ -830,7 +836,7 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget> {
       barrierDismissible: false,
       builder: (modalCtx) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (dialogCtx, setModalState) {
             final isIntake = entryType == 'Intake';
             final activePresets = isIntake ? intakePresets : outputPresets;
 
@@ -1005,107 +1011,90 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget> {
 
                         // Category & Route Row
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Category *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<String>(
-                                        isExpanded: true,
-                                        value: category,
-                                        items: (isIntake
-                                                ? ['Oral Fluids', 'IV Fluids', 'Blood Products', 'Enteral/Tube Feed', 'Medication Infusion', 'Other Intake']
-                                                : ['Urine Output', 'Vomitus', 'Stool', 'Drains', 'Gastric Aspirate', 'Other Output'])
-                                            .map((c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(fontSize: 12))))
-                                            .toList(),
-                                        onChanged: (val) {
-                                          if (val != null) setModalState(() => category = val);
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              child: CustomDropdownSearch(
+                                label: 'Category',
+                                hint: 'Select Category',
+                                value: category,
+                                requiredMark: true,
+                                dropdownItems: isIntake
+                                    ? const [
+                                        'Oral Fluids',
+                                        'IV Fluids',
+                                        'Blood Products',
+                                        'Enteral/Tube Feed',
+                                        'Medication Infusion',
+                                        'Other Intake',
+                                      ]
+                                    : const [
+                                        'Urine Output',
+                                        'Vomitus',
+                                        'Stool',
+                                        'Drains',
+                                        'Gastric Aspirate',
+                                        'Other Output',
+                                      ],
+                                onChanged: (val) {
+                                  if (val != null) setModalState(() => category = val);
+                                },
+                                validator: (val) => val == null || val.isEmpty ? 'Category is required' : null,
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Route', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: DropdownButtonHideUnderline(
-                                      child: DropdownButton<String>(
-                                        isExpanded: true,
-                                        value: route,
-                                        items: (isIntake
-                                                ? ['Oral', 'IV Line', 'Central Line', 'Ryle Tube', 'PEG Tube', 'Blood Line']
-                                                : ['Voided', 'Foley Catheter', 'Oral/Gastric', 'Rectal', 'Abdominal Drain', 'Chest Drain'])
-                                            .map((r) => DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontSize: 12))))
-                                            .toList(),
-                                        onChanged: (val) {
-                                          if (val != null) setModalState(() => route = val);
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              child: CustomDropdownSearch(
+                                label: 'Route',
+                                hint: 'Select Route',
+                                value: route,
+                                dropdownItems: isIntake
+                                    ? const [
+                                        'Oral',
+                                        'IV Line',
+                                        'Central Line',
+                                        'Ryle Tube',
+                                        'PEG Tube',
+                                        'Blood Line',
+                                      ]
+                                    : const [
+                                        'Voided',
+                                        'Foley Catheter',
+                                        'Oral/Gastric',
+                                        'Rectal',
+                                        'Abdominal Drain',
+                                        'Chest Drain',
+                                      ],
+                                onChanged: (val) {
+                                  if (val != null) setModalState(() => route = val);
+                                },
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
 
                         // Shift & Description
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               flex: 2,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Shift', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: DropdownButtonFormField<String>(
-                                      initialValue: shift,
-                                      isExpanded: true,
-                                      decoration: const InputDecoration(
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.zero,
-                                        isDense: true,
-                                      ),
-                                      items: const [
-                                        DropdownMenuItem(value: 'Morning', child: Text('Morning (08-14h)', style: TextStyle(fontSize: 12))),
-                                        DropdownMenuItem(value: 'Afternoon', child: Text('Afternoon (14-20h)', style: TextStyle(fontSize: 12))),
-                                        DropdownMenuItem(value: 'Night', child: Text('Night (20-08h)', style: TextStyle(fontSize: 12))),
-                                      ],
-                                      onChanged: (val) {
-                                        if (val != null) setModalState(() => shift = val);
-                                      },
-                                    ),
-                                  ),
-                                ],
+                              child: CustomDropdownSearch(
+                                label: 'Shift',
+                                hint: 'Select Shift',
+                                value: shift,
+                                requiredMark: true,
+                                dropdownItems: const ['Morning', 'Afternoon', 'Night'],
+                                dropdownMap: const {
+                                  'Morning': 'Morning (08-14h)',
+                                  'Afternoon': 'Afternoon (14-20h)',
+                                  'Night': 'Night (20-08h)',
+                                },
+                                onChanged: (val) {
+                                  if (val != null) setModalState(() => shift = val);
+                                },
+                                validator: (val) => val == null || val.isEmpty ? 'Shift is required' : null,
                               ),
                             ),
                             const SizedBox(width: 12),

@@ -494,7 +494,7 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
                             child: Column(
                               children: [
                                 Text(
-                                  'SRI PONNI MULTISPECIALITY CLINIC',
+                                  'SRI PONNI MEDICAL CENTER',
                                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor, letterSpacing: 1.1),
                                 ),
                                 const SizedBox(height: 3),

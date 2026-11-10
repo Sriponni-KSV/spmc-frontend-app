@@ -105,15 +105,12 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
   void _showAddBedDialog() {
     final formKey = GlobalKey<FormState>();
     final bedNumController = TextEditingController();
-    String selectedWard = 'General';
-    String selectedStatus = 'Available';
+    String? selectedWard;
+    String? selectedStatus;
     bool isSaving = false;
     String? dialogError;
 
     final wards = List<String>.from(_availableWards);
-    if (!wards.contains(selectedWard)) {
-      wards.insert(0, selectedWard);
-    }
 
     showDialog(
       context: context,
@@ -205,7 +202,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                       controller: bedNumController,
                       textCapitalization: TextCapitalization.characters,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-]')),
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-\s]')),
                         LengthLimitingTextInputFormatter(20),
                       ],
                       decoration: InputDecoration(
@@ -232,6 +229,9 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                         if (val.trim().length < 2) {
                           return 'Minimum 2 characters required';
                         }
+                        if (!RegExp(r'[0-9]').hasMatch(val.trim())) {
+                          return 'Bed number cannot contain only alphabets. Must include numbers (e.g. G-101, B-12)';
+                        }
                         return null;
                       },
                     ),
@@ -247,9 +247,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                       dropdownItems: wards,
                       isEnabled: !isSaving,
                       onChanged: (val) {
-                        if (val != null && val.isNotEmpty) {
-                          setDialogState(() => selectedWard = val);
-                        }
+                        setDialogState(() => selectedWard = val);
                       },
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
@@ -275,13 +273,11 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                       },
                       isEnabled: !isSaving,
                       onChanged: (val) {
-                        if (val != null && val.isNotEmpty) {
-                          setDialogState(() => selectedStatus = val);
-                        }
+                        setDialogState(() => selectedStatus = val);
                       },
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
-                          return 'Status is required';
+                          return 'Initial status is required';
                         }
                         return null;
                       },
@@ -303,6 +299,14 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                               ? null
                               : () async {
                                   if (!formKey.currentState!.validate()) return;
+                                  if (selectedWard == null || selectedWard!.trim().isEmpty) {
+                                    setDialogState(() => dialogError = 'Please select a ward category');
+                                    return;
+                                  }
+                                  if (selectedStatus == null || selectedStatus!.trim().isEmpty) {
+                                    setDialogState(() => dialogError = 'Please select an initial status');
+                                    return;
+                                  }
                                   setDialogState(() {
                                     isSaving = true;
                                     dialogError = null;
@@ -313,8 +317,8 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                                     final newBedNum = bedNumController.text.trim().toUpperCase();
                                     await _ipdController.createBed(
                                       bedNumber: newBedNum,
-                                      wardType: selectedWard,
-                                      status: selectedStatus,
+                                      wardType: selectedWard!,
+                                      status: selectedStatus!,
                                     );
                                     if (mounted) {
                                       nav.pop();
@@ -503,7 +507,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                       controller: bedNumController,
                       textCapitalization: TextCapitalization.characters,
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-]')),
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\-\s]')),
                         LengthLimitingTextInputFormatter(20),
                       ],
                       decoration: InputDecoration(
@@ -525,6 +529,12 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
                           return 'Bed number is required';
+                        }
+                        if (val.trim().length < 2) {
+                          return 'Minimum 2 characters required';
+                        }
+                        if (!RegExp(r'[0-9]').hasMatch(val.trim())) {
+                          return 'Bed number cannot contain only alphabets. Must include numbers (e.g. G-101, B-12)';
                         }
                         return null;
                       },
@@ -839,6 +849,19 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
               onStatusChanged: (bed, newStatus) async {
                 final bedId = bed['id'];
                 if (bedId == null) return;
+                final bool hasActivePatient = bed['admission_id'] != null ||
+                    (bed['patient_name'] != null && bed['patient_name'].toString().trim().isNotEmpty) ||
+                    (bed['status']?.toString().toLowerCase() == 'occupied');
+                if (hasActivePatient && newStatus == 'Available') {
+                  final pName = bed['patient_name'] ?? 'admitted patient';
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Cannot mark bed ${bed['bed_number']} as Available. Active patient "$pName" is assigned to this bed. Complete the discharge process first.'),
+                      backgroundColor: AppTheme.dangerColor,
+                    ),
+                  );
+                  return;
+                }
                 try {
                   await _ipdController.updateBedStatus(id: bedId, status: newStatus);
                   if (mounted) {

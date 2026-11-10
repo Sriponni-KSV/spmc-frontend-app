@@ -48,6 +48,9 @@ import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 import '../providers/language_provider.dart';
 import '../utils/tamil_transliteration_helper.dart';
+import '../controllers/notification_controller.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../widgets/admin_global_search_overlay.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -87,6 +90,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedStaffOverviewDayIndex = (DateTime.now().weekday - 1).clamp(0, 6);
   List<UserModel> _allStaffList = [];
   bool _isLoadingDashboardStats = false;
+  List<Map<String, dynamic>> _adminNotifications = [];
+  bool _isLoadingNotifications = false;
 
   Future<List<UserModel>>? _staffFuture;
   Future<Map<String, dynamic>>? _rbacFuture;
@@ -454,6 +459,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _loadStaff();
     _loadRbacData();
     _fetchPatients();
+    _fetchAdminNotifications();
     if (_selectedIndex == 8) {
       _loadShiftData();
     }
@@ -550,10 +556,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       barrierLabel: 'Search',
       barrierColor: Colors.black.withOpacity(0.4),
       transitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (context, anim1, anim2) {
-        return SearchOverlay(
-          patients: _dbPatients.map((p) => p.toJson()).toList(),
-          onNewPatient: () => context.go('${AppRoutes.adminDashboard}?tab=2'),
+      pageBuilder: (dialogCtx, anim1, anim2) {
+        return AdminGlobalSearchOverlay(
+          patients: _dbPatients,
+          staff: _allStaffList,
+          onNavigate: (route, index) {
+            Navigator.of(dialogCtx).pop();
+            context.go(route);
+          },
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -2824,9 +2834,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      context.tr('search_anything', fallback: isMobile ? 'Search...' : 'Quick search...'),
+                      context.tr(
+                        'search_anything',
+                        fallback: isMobile
+                            ? 'Search modules, beds...'
+                            : 'Search modules, IPD beds, staff, patients (e.g. IPD Beds, Rice, Doctor)...',
+                      ),
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13.5,
                         color: AppTheme.getTextSecondaryColor(context),
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -2845,32 +2860,79 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(
-                Icons.notifications_none_outlined,
-                color: AppTheme.getTextPrimaryColor(context),
-                size: 22,
+              // Notification icon button with badge
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _adminNotifications.any((n) => n['is_read'] == false)
+                          ? Icons.notifications_active_outlined
+                          : Icons.notifications_none_outlined,
+                      color: _adminNotifications.any((n) => n['is_read'] == false)
+                          ? AppTheme.dangerColor
+                          : AppTheme.getTextPrimaryColor(context),
+                      size: 22,
+                    ),
+                    tooltip: context.tr('notifications', fallback: 'Notifications'),
+                    onPressed: _showAdminNotificationsDialog,
+                  ),
+                  if (_adminNotifications.any((n) => n['is_read'] == false))
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.dangerColor,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '${_adminNotifications.where((n) => n['is_read'] == false).length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(width: 20),
-              Icon(
-                Icons.help_outline,
-                color: AppTheme.getTextPrimaryColor(context),
-                size: 22,
+              const SizedBox(width: 8),
+              // Help / Question Mark icon button
+              IconButton(
+                icon: Icon(
+                  Icons.help_outline,
+                  color: AppTheme.getTextPrimaryColor(context),
+                  size: 22,
+                ),
+                tooltip: context.tr('help', fallback: 'Help & Operational Guide'),
+                onPressed: _showAdminHelpDialog,
               ),
-              const SizedBox(width: 20),
-              ElevatedButton(
-                onPressed: () {},
+              const SizedBox(width: 12),
+              // Share button with share icon
+              ElevatedButton.icon(
+                onPressed: _showAdminShareDialog,
+                icon: const Icon(Icons.share_outlined, size: 16),
+                label: Text(
+                  context.tr('share', fallback: 'Share'),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
-                  minimumSize: const Size(80, 40),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(90, 40),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                   elevation: 0,
-                ),
-                child: Text(
-                  context.tr('share', fallback: 'Share'),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -2884,6 +2946,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
         if (isMobile) ...[
           const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(
+              _adminNotifications.any((n) => n['is_read'] == false)
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_none_outlined,
+              color: _adminNotifications.any((n) => n['is_read'] == false)
+                  ? AppTheme.dangerColor
+                  : AppTheme.getTextPrimaryColor(context),
+              size: 20,
+            ),
+            tooltip: 'Notifications',
+            onPressed: _showAdminNotificationsDialog,
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.help_outline,
+              color: AppTheme.getTextPrimaryColor(context),
+              size: 20,
+            ),
+            tooltip: 'Help',
+            onPressed: _showAdminHelpDialog,
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.share_outlined,
+              color: AppTheme.getTextPrimaryColor(context),
+              size: 20,
+            ),
+            tooltip: 'Share',
+            onPressed: _showAdminShareDialog,
+          ),
           const AppTopBarActions(
             showClock: false,
             showLanguageToggle: false,
@@ -2903,6 +2996,693 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         bottom: 0,
       ),
       child: _buildBannerTopBar(context, isMobile),
+    );
+  }
+
+  // ─── Header Dialogs: Notifications, Help, Share ─────────────────────────────
+
+  Future<void> _fetchAdminNotifications() async {
+    if (_isLoadingNotifications) return;
+    _isLoadingNotifications = true;
+    try {
+      final list = await NotificationController().fetchNotifications();
+      if (mounted) {
+        setState(() {
+          _adminNotifications = list;
+          _isLoadingNotifications = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingNotifications = false;
+        });
+      }
+    }
+  }
+
+  void _showAdminNotificationsDialog() {
+    _fetchAdminNotifications();
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setDialogState) {
+            final unread = _adminNotifications.where((n) => n['is_read'] == false).toList();
+            final read = _adminNotifications.where((n) => n['is_read'] == true).toList();
+
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                width: 520,
+                height: 520,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.notifications_active_outlined, color: AppTheme.primaryColor, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Notifications & Alerts',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Hospital updates, catalog alerts & system logs',
+                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (unread.isNotEmpty)
+                          TextButton(
+                            onPressed: () async {
+                              for (final n in unread) {
+                                final id = n['id'];
+                                if (id is int) {
+                                  await NotificationController().markAsRead(id);
+                                }
+                              }
+                              await _fetchAdminNotifications();
+                              setDialogState(() {});
+                              setState(() {});
+                            },
+                            child: const Text('Mark all as read', style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(height: 1),
+                    const SizedBox(height: 10),
+
+                    // Notification list / Empty state
+                    Expanded(
+                      child: _adminNotifications.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.notifications_off_outlined, size: 54, color: Colors.grey.shade400),
+                                  const SizedBox(height: 14),
+                                  const Text(
+                                    'No Notifications Right Now',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    'You\'re all caught up! New operational updates,\nbed alerts, and system notices will appear here.',
+                                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView(
+                              children: [
+                                if (unread.isNotEmpty) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                                    child: Row(
+                                      children: [
+                                        const Text('NEW ALERTS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.dangerColor)),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                          decoration: BoxDecoration(color: AppTheme.dangerBg, borderRadius: BorderRadius.circular(10)),
+                                          child: Text('${unread.length}', style: const TextStyle(color: AppTheme.dangerColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  ...unread.map((n) => _buildAdminNotificationTile(n, setDialogState)),
+                                ],
+                                if (read.isNotEmpty) ...[
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 6.0),
+                                    child: Text('EARLIER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondaryColor)),
+                                  ),
+                                  ...read.map((n) => _buildAdminNotificationTile(n, setDialogState)),
+                                ],
+                              ],
+                            ),
+                    ),
+
+                    const Divider(height: 1),
+                    const SizedBox(height: 10),
+
+                    // Bottom Bar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () async {
+                            await _fetchAdminNotifications();
+                            setDialogState(() {});
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Refresh', style: TextStyle(fontSize: 12)),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                          style: AppTheme.cancelButton,
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAdminNotificationTile(Map<String, dynamic> n, StateSetter setDialogState) {
+    final bool isUnread = n['is_read'] == false;
+    final title = n['title']?.toString() ?? 'Hospital Notification';
+    final message = n['message']?.toString() ?? '';
+    final createdAt = n['created_at']?.toString();
+    String formattedDate = '-';
+    if (createdAt != null && createdAt.isNotEmpty) {
+      try {
+        final dt = DateTime.parse(createdAt).toLocal();
+        formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+      } catch (_) {
+        formattedDate = createdAt;
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isUnread ? AppTheme.primaryColor.withValues(alpha: 0.05) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isUnread ? AppTheme.primaryColor.withValues(alpha: 0.25) : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isUnread ? AppTheme.dangerBg : Colors.grey.shade200,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isUnread ? Icons.notifications_active : Icons.notifications_none,
+              color: isUnread ? AppTheme.dangerColor : AppTheme.textSecondaryColor,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
+                    fontSize: 13,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  message,
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  formattedDate,
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          ),
+          if (isUnread) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.check_circle_outline, size: 18, color: AppTheme.primaryColor),
+              tooltip: 'Mark as read',
+              onPressed: () async {
+                final id = n['id'];
+                if (id is int) {
+                  await NotificationController().markAsRead(id);
+                  await _fetchAdminNotifications();
+                  setDialogState(() {});
+                  setState(() {});
+                }
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showAdminHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: 600,
+            constraints: const BoxConstraints(maxHeight: 620),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.help_outline, color: AppTheme.primaryColor, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Admin Help & Operational Guide',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Guidance for IPD Beds, Master Catalog & Hospital Admin Operations',
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHelpSection(
+                          icon: Icons.hotel_outlined,
+                          title: 'IPD Beds Master Catalog',
+                          content: '• Adding Beds: Click "+ Add Bed". Bed numbers must be alphanumeric with at least one number (e.g. G-101, SP-205, ICU-301). Exclusively alphabetic inputs are rejected.\n'
+                              '• Ward Categories: Select from General, ICU, Semi-Private, Deluxe, etc. Ward category is mandatory and defaults to unselected placeholder.\n'
+                              '• Initial Status: Choose Available, Reserved, Under Maintenance, or Cleaning.\n'
+                              '• Occupancy Rule: Beds currently occupied by admitted patients cannot be marked Available until the patient is formally discharged.',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildHelpSection(
+                          icon: Icons.restaurant_outlined,
+                          title: 'Food Stock & Inventory Management',
+                          content: '• Stock Quantities: Enter valid numerical values up to 1,000,000. Rejects zero for initial quantities.\n'
+                              '• Expiry Dates: Approaching expiration items (< 30 days) appear under Expiring Soon Alerts with days-remaining countdowns.\n'
+                              '• Search & Filters: Use the search box above the catalog list to find groceries, consumables, or drugs by keyword.\n'
+                              '• Replenishments: Trigger automatic purchase replenishment requests when items hit low-stock thresholds.',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildHelpSection(
+                          icon: Icons.medication_outlined,
+                          title: 'Medicine Catalog & Pharmacy Master',
+                          content: '• Adding Medicines: Click "+ Add Medication". Specify drug name, category (Medicine, ICU Consumable, Surgical Item), and default dispensing unit (tabs, caps, vials, etc.).\n'
+                              '• Stock & Alert Levels: Set initial physical stock and low-stock threshold triggers.\n'
+                              '• Quick Search: Search medications by brand or generic name (e.g. Paracetamol) instantly across the table or using the top header search bar.',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildHelpSection(
+                          icon: Icons.admin_panel_settings_outlined,
+                          title: 'Role-Based Access Control (RBAC) & Staff',
+                          content: '• Staff Management: Register doctors, nurses, pharmacists, and front desk operators.\n'
+                              '• Department Permissions: Assign specific access rules and view patient medical histories securely.\n'
+                              '• Password Security: Passwords must conform to SPMC Hospital Security Policy (minimum 8 characters with numbers & symbols).',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildHelpSection(
+                          icon: Icons.support_agent_outlined,
+                          title: 'Hospital IT Helpdesk & Support',
+                          content: '• Support Email: support@sriponnimedicalcentre.com\n'
+                              '• Helpdesk Hotline: +91 431 2345678 (Ext: 1001)\n'
+                              '• Emergency HIS Support: 24/7 Operations Command Desk\n'
+                              '• Location: Sri Ponni Medical Centre, Main Block Ground Floor.',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+
+                // Footer
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                      style: AppTheme.primaryButton,
+                      child: const Text('Got It'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHelpSection({
+    required IconData icon,
+    required String title,
+    required String content,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, height: 1.45),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getCurrentPageTitle() {
+    switch (_selectedIndex) {
+      case 0:
+        return 'Admin Control Panel';
+      case 1:
+        return 'Staff Management';
+      case 2:
+        return 'Patients Registry';
+      case 3:
+        return 'Access Control (RBAC)';
+      case 4:
+        return 'Appointments Management';
+      case 5:
+        return 'OPD Management';
+      case 6:
+        return 'IPD Management';
+      case 7:
+        return 'OT Management';
+      case 8:
+        return 'Shift Allocation';
+      case 11:
+        return 'Master Catalog / Food Stock Management';
+      case 13:
+        return 'Master Catalog / Medicine Catalog';
+      case 14:
+        return 'Master Catalog / Home Visit Consumables';
+      case 15:
+        return 'Master Catalog / Carried Kit Items';
+      case 16:
+        return 'Master Catalog / IPD Beds';
+      default:
+        return 'Admin Dashboard';
+    }
+  }
+
+  void _showAdminShareDialog() {
+    final pageTitle = _getCurrentPageTitle();
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final userName = (user?.rawFullname?.isNotEmpty == true
+            ? user!.rawFullname!
+            : (user?.fullname.isNotEmpty == true ? user!.fullname : user?.role)) ??
+        'Admin';
+    final nowFormatted = DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now());
+    final currentUrl = Uri.base.toString();
+
+    final summaryText = 'Sri Ponni Medical Centre - Hospital Management System\n'
+        'Page: $pageTitle\n'
+        'Generated By: $userName\n'
+        'Timestamp: $nowFormatted\n'
+        'URL: $currentUrl';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setShareState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                width: 500,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.share_outlined, color: AppTheme.primaryColor, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Share Page & Information',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Current View: $pageTitle',
+                                style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    const Divider(height: 1),
+                    const SizedBox(height: 18),
+
+                    // Direct Page Link Box
+                    const Text('Page Direct Link', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.link, size: 18, color: AppTheme.textSecondaryColor),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              currentUrl,
+                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              minimumSize: const Size(80, 36),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () async {
+                              await Clipboard.setData(ClipboardData(text: currentUrl));
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Page link copied to clipboard!'),
+                                    backgroundColor: AppTheme.primaryColor,
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.copy, size: 14),
+                            label: const Text('Copy Link', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Share Options Row
+                    const Text('Quick Share Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        // Copy Summary Button
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: const BorderSide(color: AppTheme.primaryColor),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () async {
+                              await Clipboard.setData(ClipboardData(text: summaryText));
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Page summary copied to clipboard!'),
+                                    backgroundColor: AppTheme.secondaryColor,
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.description_outlined, size: 16, color: AppTheme.primaryColor),
+                            label: const Text('Copy Summary', style: TextStyle(color: AppTheme.primaryColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Email Share Button
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: const BorderSide(color: Color(0xFF0284C7)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () async {
+                              final emailUri = Uri(
+                                scheme: 'mailto',
+                                queryParameters: {
+                                  'subject': 'SPMC HMS - $pageTitle',
+                                  'body': 'Hi,\n\nPlease find the details for $pageTitle on Sri Ponni Medical Centre HMS:\n\n$summaryText\n\nRegards,\n$userName',
+                                },
+                              );
+                              try {
+                                if (await canLaunchUrl(emailUri)) {
+                                  await launchUrl(emailUri);
+                                } else {
+                                  await Clipboard.setData(ClipboardData(text: summaryText));
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Email client not found. Summary copied to clipboard!'),
+                                        backgroundColor: AppTheme.primaryColor,
+                                      ),
+                                    );
+                                  }
+                                }
+                              } catch (_) {
+                                await Clipboard.setData(ClipboardData(text: summaryText));
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Summary copied to clipboard!'),
+                                      backgroundColor: AppTheme.primaryColor,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.email_outlined, size: 16, color: Color(0xFF0284C7)),
+                            label: const Text('Email Details', style: TextStyle(color: Color(0xFF0284C7), fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 20),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
+
+                    // Close Button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                          style: AppTheme.cancelButton,
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -8445,13 +9225,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() {
       _isMedCatalogLoading = true;
       _medCatalogError = null;
-      _medCatalogCurrentPage = 0;
     });
     try {
-      final search = _medCatalogSearch.trim();
-      final url = search.isEmpty
-          ? '$_medBaseUrl/inventory/medicine-catalog'
-          : '$_medBaseUrl/inventory/medicine-catalog?search=${Uri.encodeComponent(search)}';
+      final url = '$_medBaseUrl/inventory/medicine-catalog';
       final resp = await ApiService.get(url);
       final body = ApiService.decodeJsonResponse(resp);
       if (mounted) {
@@ -8476,10 +9252,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _showAddMedicationDialog(bool isMobile) async {
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
-    final unitCtrl = TextEditingController(text: 'tabs');
-    final stockCtrl = TextEditingController(text: '0');
-    final thresholdCtrl = TextEditingController(text: '10');
-    String selectedCategory = 'Medicine';
+    final unitCtrl = TextEditingController();
+    final stockCtrl = TextEditingController();
+    final thresholdCtrl = TextEditingController();
+    String? selectedCategory;
     bool isControlled = false;
     bool isSaving = false;
 
@@ -8522,9 +9298,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Add New Medication',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                Text(
+                  context.tr('add_new_medication', fallback: 'Add New Medication'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
                 ),
               ],
             ),
@@ -8543,7 +9319,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         TextSpan(
                           children: [
                             TextSpan(
-                              text: 'Medication Name ',
+                              text: '${context.tr('medicine_name', fallback: 'Medication Name')} ',
                               style: TextStyle(
                                 fontFamily: 'Manrope',
                                 color: Colors.grey.shade700,
@@ -8602,7 +9378,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                       // Category
                       CustomDropdownSearch(
-                        label: 'Category',
+                        label: context.tr('med_category', fallback: 'Category'),
                         requiredMark: true,
                         hint: 'Select category',
                         value: selectedCategory,
@@ -8619,10 +9395,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                       // Default Unit
                       CustomDropdownSearch(
-                        label: 'Default Unit',
+                        label: context.tr('med_default_unit', fallback: 'Default Unit'),
                         requiredMark: true,
                         hint: 'Select unit',
-                        value: unitCtrl.text,
+                        value: unitCtrl.text.isEmpty ? null : unitCtrl.text,
                         dropdownItems: defaultUnits,
                         onChanged: (val) {
                           if (val != null) setD(() => unitCtrl.text = val);
@@ -8642,7 +9418,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Initial Stock Quantity',
+                                  context.tr('med_initial_stock', fallback: 'Initial Stock Quantity'),
                                   style: TextStyle(
                                     fontFamily: 'Manrope',
                                     color: Colors.grey.shade700,
@@ -8661,11 +9437,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   decoration: AppTheme.standardInputDecoration(
                                     label: null,
                                     prefixIcon: Icons.inventory_2_outlined,
-                                    hintText: '0',
+                                    hintText: 'Enter stock quantity',
                                   ).copyWith(counterText: ''),
                                   validator: (v) {
                                     if (v == null || v.trim().isEmpty) {
-                                      return 'Required';
+                                      return 'Please enter initial stock quantity';
+                                    }
+                                    final num = int.tryParse(v.trim());
+                                    if (num == null || num < 0) {
+                                      return 'Please enter a valid stock quantity (>= 0)';
                                     }
                                     return null;
                                   },
@@ -8679,7 +9459,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Low Stock Alert',
+                                  context.tr('med_low_stock_alert', fallback: 'Low Stock Alert'),
                                   style: TextStyle(
                                     fontFamily: 'Manrope',
                                     color: Colors.grey.shade700,
@@ -8698,11 +9478,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   decoration: AppTheme.standardInputDecoration(
                                     label: null,
                                     prefixIcon: Icons.warning_amber_outlined,
-                                    hintText: '10',
+                                    hintText: 'Enter alert threshold',
                                   ).copyWith(counterText: ''),
                                   validator: (v) {
                                     if (v == null || v.trim().isEmpty) {
-                                      return 'Required';
+                                      return 'Please enter low stock alert threshold';
+                                    }
+                                    final num = int.tryParse(v.trim());
+                                    if (num == null || num <= 0) {
+                                      return 'Please enter a threshold greater than 0';
                                     }
                                     return null;
                                   },
@@ -8738,16 +9522,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'Controlled Substance',
-                                    style: TextStyle(
+                                  Text(
+                                    context.tr('med_controlled_substance', fallback: 'Controlled Substance'),
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
                                       color: AppTheme.textPrimaryColor,
                                     ),
                                   ),
                                   Text(
-                                    'Requires special prescription & dispensing log',
+                                    context.tr('med_controlled_desc', fallback: 'Requires special prescription & dispensing log'),
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: Colors.grey.shade500,
@@ -8773,12 +9557,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 style: AppTheme.cancelButton,
-                child: const Text('Cancel'),
+                child: Text(context.tr('cancel', fallback: 'Cancel')),
               ),
               ElevatedButton(
                 onPressed: isSaving
                     ? null
                     : () async {
+                        if (selectedCategory == null || selectedCategory!.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a category'),
+                              backgroundColor: AppTheme.dangerColor,
+                            ),
+                          );
+                          return;
+                        }
+                        if (unitCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a default unit'),
+                              backgroundColor: AppTheme.dangerColor,
+                            ),
+                          );
+                          return;
+                        }
                         if (!formKey.currentState!.validate()) return;
                         setD(() => isSaving = true);
                         try {
@@ -8786,8 +9588,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             '$_medBaseUrl/inventory/medicine-catalog',
                             {
                               'name': nameCtrl.text.trim(),
-                              'category': selectedCategory,
-                              'default_unit': unitCtrl.text,
+                              'category': selectedCategory!,
+                              'default_unit': unitCtrl.text.trim(),
                               'is_controlled': isControlled,
                               'stock_quantity': int.tryParse(stockCtrl.text.trim()) ?? 0,
                               'threshold': int.tryParse(thresholdCtrl.text.trim()) ?? 10,
@@ -8827,7 +9629,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           }
                         }
                       },
-
                 style: AppTheme.primaryButton,
                 child: isSaving
                     ? const SizedBox(
@@ -8838,7 +9639,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Add Medication'),
+                    : Text(context.tr('add_medication', fallback: 'Add Medication')),
               ),
             ],
           );
@@ -9420,6 +10221,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.medication_outlined,
                             AppTheme.primaryColor,
                             'Total',
+                            context.tr('med_total', fallback: 'Total'),
                             '${_medicationCatalog.length}',
                           ),
                           const SizedBox(width: 8),
@@ -9427,6 +10229,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.science_outlined,
                             AppTheme.secondaryColor,
                             'Medicine',
+                            context.tr('medicines', fallback: 'Medicine'),
                             '${_medicationCatalog.where((m) => m['category'] == 'Medicine').length}',
                           ),
                           const SizedBox(width: 8),
@@ -9434,6 +10237,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.local_hospital_outlined,
                             const Color(0xFF7C3AED),
                             'ICU Consumable',
+                            context.tr('med_icu_consumable', fallback: 'ICU Consumable'),
                             '${_medicationCatalog.where((m) => m['category'] == 'ICU Consumable').length}',
                           ),
                           const SizedBox(width: 8),
@@ -9441,6 +10245,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.content_cut_outlined,
                             const Color(0xFFF59E0B),
                             'Surgical Item',
+                            context.tr('med_surgical_item', fallback: 'Surgical Item'),
                             '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
                           ),
                           const SizedBox(width: 8),
@@ -9448,6 +10253,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.check_circle_outline,
                             AppTheme.secondaryColor,
                             'In Stock',
+                            context.tr('med_in_stock', fallback: 'In Stock'),
                             '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) > 0).length}',
                           ),
                           const SizedBox(width: 8),
@@ -9455,6 +10261,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.remove_circle_outline,
                             AppTheme.dangerColor,
                             'Out of Stock',
+                            context.tr('med_out_of_stock', fallback: 'Out of Stock'),
                             '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) == 0).length}',
                           ),
                           const SizedBox(width: 8),
@@ -9462,6 +10269,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.lock_outline,
                             AppTheme.dangerColor,
                             'Controlled',
+                            context.tr('med_controlled_substance', fallback: 'Controlled'),
                             '${_medicationCatalog.where((m) => m['is_controlled'] == true).length}',
                           ),
                         ],
@@ -9483,9 +10291,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text(
-                          'Add Medication',
-                          style: TextStyle(
+                        label: Text(
+                          context.tr('add_medication', fallback: 'Add Medication'),
+                          style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -9506,6 +10314,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.medication_outlined,
                               AppTheme.primaryColor,
                               'Total',
+                              context.tr('med_total', fallback: 'Total'),
                               '${_medicationCatalog.length}',
                             ),
                             const SizedBox(width: 8),
@@ -9513,6 +10322,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.science_outlined,
                               AppTheme.secondaryColor,
                               'Medicine',
+                              context.tr('medicines', fallback: 'Medicine'),
                               '${_medicationCatalog.where((m) => m['category'] == 'Medicine').length}',
                             ),
                             const SizedBox(width: 8),
@@ -9520,6 +10330,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.local_hospital_outlined,
                               const Color(0xFF7C3AED),
                               'ICU Consumable',
+                              context.tr('med_icu_consumable', fallback: 'ICU Consumable'),
                               '${_medicationCatalog.where((m) => m['category'] == 'ICU Consumable').length}',
                             ),
                             const SizedBox(width: 8),
@@ -9527,12 +10338,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.content_cut_outlined,
                               const Color(0xFFF59E0B),
                               'Surgical Item',
+                              context.tr('med_surgical_item', fallback: 'Surgical Item'),
                               '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
                             ),
+                            const SizedBox(width: 8),
                             _buildMedStatChip(
                               Icons.check_circle_outline,
                               AppTheme.secondaryColor,
                               'In Stock',
+                              context.tr('med_in_stock', fallback: 'In Stock'),
                               '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) > 0).length}',
                             ),
                             const SizedBox(width: 8),
@@ -9540,6 +10354,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.remove_circle_outline,
                               AppTheme.dangerColor,
                               'Out of Stock',
+                              context.tr('med_out_of_stock', fallback: 'Out of Stock'),
                               '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) == 0).length}',
                             ),
                             const SizedBox(width: 8),
@@ -9547,6 +10362,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.lock_outline,
                               AppTheme.dangerColor,
                               'Controlled',
+                              context.tr('med_controlled_substance', fallback: 'Controlled'),
                               '${_medicationCatalog.where((m) => m['is_controlled'] == true).length}',
                             ),
                           ],
@@ -9569,9 +10385,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text(
-                          'Add Medication',
-                          style: TextStyle(
+                        label: Text(
+                          context.tr('add_medication', fallback: 'Add Medication'),
+                          style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -9625,9 +10441,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            const Text(
-              'Medication Catalog',
-              style: TextStyle(
+            Text(
+              context.tr('medication_catalog_title', fallback: 'Medication Catalog'),
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textPrimaryColor,
@@ -9636,9 +10452,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Manage the master list of medications used across the system',
-          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+        Text(
+          context.tr('medication_catalog_desc', fallback: 'Manage the master list of medications used across the system'),
+          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
         ),
       ],
     );
@@ -9652,7 +10468,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           AppTheme.standardInputDecoration(
             label: null,
             prefixIcon: Icons.search,
-            hintText: 'Search medications...',
+            hintText: context.tr('search_by_medicine_name', fallback: 'Search by medicine name'),
           ).copyWith(
             filled: true,
             fillColor: Colors.white,
@@ -9701,22 +10517,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _medCatalogCurrentPage = 0;
         });
       },
-      onSubmitted: (_) => _loadMedicationCatalog(),
+      onSubmitted: (_) {
+        setState(() {});
+      },
     );
   }
 
   Widget _buildMedStatChip(
     IconData icon,
     Color color,
-    String label,
+    String filterKey,
+    String displayLabel,
     String count,
   ) {
-    final isSelected = _selectedMedCategoryFilter == label;
+    final isSelected = _selectedMedCategoryFilter == filterKey;
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () {
         setState(() {
-          _selectedMedCategoryFilter = label;
+          _selectedMedCategoryFilter = filterKey;
           _medCatalogCurrentPage = 0;
         });
       },
@@ -9746,7 +10565,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Icon(icon, color: isSelected ? Colors.white : color, size: 14),
             const SizedBox(width: 6),
             Text(
-              label,
+              displayLabel,
               style: TextStyle(
                 fontSize: 12,
                 color: isSelected ? Colors.white : color,
@@ -9821,8 +10640,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const SizedBox(height: 16),
           Text(
             _medCatalogSearch.isNotEmpty
-                ? 'No medications match "$_medCatalogSearch"'
-                : 'No medications in catalog yet',
+                ? '${context.tr('med_no_match', fallback: 'No medications match')} "$_medCatalogSearch"'
+                : context.tr('med_empty', fallback: 'No medications in catalog yet'),
             style: TextStyle(
               fontSize: 15,
               color: Colors.grey.shade500,
@@ -9831,7 +10650,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Click "Add Medication" to add a new entry',
+            context.tr('med_click_add', fallback: 'Click "Add Medication" to add a new entry'),
             style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
           ),
         ],
@@ -9861,13 +10680,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 color: Color(0xFFF8FAFC),
                 border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Expanded(
                     flex: 4,
                     child: Text(
-                      '#  Medication Name',
-                      style: TextStyle(
+                      '#  ${context.tr('medicine_name', fallback: 'Medication Name')}',
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textSecondaryColor,
@@ -9877,8 +10696,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Category',
-                      style: TextStyle(
+                      context.tr('med_category', fallback: 'Category'),
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textSecondaryColor,
@@ -9888,8 +10707,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Unit',
-                      style: TextStyle(
+                      context.tr('med_unit', fallback: 'Unit'),
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textSecondaryColor,
@@ -9899,8 +10718,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Stock Availability',
-                      style: TextStyle(
+                      context.tr('med_stock_avail', fallback: 'Stock Availability'),
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textSecondaryColor,
@@ -9910,9 +10729,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   SizedBox(
                     width: 88,
                     child: Text(
-                      'Actions',
+                      context.tr('med_actions', fallback: 'Actions'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textSecondaryColor,
@@ -10015,7 +10834,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ),
                               ),
                               child: Text(
-                                inStock ? 'In Stock ($stockQty)' : 'Out of Stock',
+                                inStock
+                                    ? '${context.tr('med_in_stock', fallback: 'In Stock')} ($stockQty)'
+                                    : context.tr('med_out_of_stock', fallback: 'Out of Stock'),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -13511,7 +14332,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
-    String selectedType = 'Device';
+    String? selectedType;
     bool isSaving = false;
 
     final availableItemTypes = const [
@@ -13711,9 +14532,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         if (!formKey.currentState!.validate()) return;
                         setD(() => isSaving = true);
                         try {
-                          await HomeVisitService().createKitItemMaster({
+                          if (selectedType == null || selectedType!.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select an item type'),
+                              backgroundColor: AppTheme.dangerColor,
+                            ),
+                          );
+                          return;
+                        }
+                        await HomeVisitService().createKitItemMaster({
                             'name': nameCtrl.text.trim(),
-                            'item_type': selectedType,
+                            'item_type': selectedType!,
                             'description': descCtrl.text.trim().isEmpty
                                 ? null
                                 : descCtrl.text.trim(),

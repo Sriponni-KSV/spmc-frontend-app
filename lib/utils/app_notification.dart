@@ -14,6 +14,7 @@ class AppNotification {
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 4),
+    bool atTop = false,
   }) {
     show(
       context,
@@ -22,6 +23,7 @@ class AppNotification {
       backgroundColor: AppTheme.dangerColor,
       textColor: Colors.white,
       duration: duration,
+      atTop: atTop,
     );
   }
 
@@ -31,6 +33,7 @@ class AppNotification {
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 4),
+    bool atTop = false,
   }) {
     show(
       context,
@@ -39,6 +42,7 @@ class AppNotification {
       backgroundColor: AppTheme.secondaryColor,
       textColor: Colors.white,
       duration: duration,
+      atTop: atTop,
     );
   }
 
@@ -48,6 +52,7 @@ class AppNotification {
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 4),
+    bool atTop = false,
   }) {
     show(
       context,
@@ -56,6 +61,7 @@ class AppNotification {
       backgroundColor: const Color(0xFFD97706),
       textColor: Colors.white,
       duration: duration,
+      atTop: atTop,
     );
   }
 
@@ -65,6 +71,7 @@ class AppNotification {
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 4),
+    bool atTop = false,
   }) {
     show(
       context,
@@ -73,6 +80,7 @@ class AppNotification {
       backgroundColor: AppTheme.primaryColor,
       textColor: Colors.white,
       duration: duration,
+      atTop: atTop,
     );
   }
 
@@ -209,7 +217,7 @@ class AppNotification {
     return message;
   }
 
-  /// Core method to render a bottom SnackBar-style bar in the root Overlay.
+  /// Core method to render a SnackBar-style bar in the root Overlay.
   static void show(
     BuildContext context, {
     required String message,
@@ -217,6 +225,7 @@ class AppNotification {
     Color backgroundColor = const Color(0xFF334155),
     Color textColor = Colors.white,
     Duration duration = const Duration(seconds: 4),
+    bool atTop = false,
   }) {
     dismiss();
 
@@ -232,6 +241,7 @@ class AppNotification {
           backgroundColor: backgroundColor,
           textColor: textColor,
           onDismiss: dismiss,
+          atTop: atTop,
         ),
       );
 
@@ -270,6 +280,7 @@ class _NotificationBarWidget extends StatefulWidget {
   final Color backgroundColor;
   final Color textColor;
   final VoidCallback onDismiss;
+  final bool atTop;
 
   const _NotificationBarWidget({
     required this.message,
@@ -277,6 +288,7 @@ class _NotificationBarWidget extends StatefulWidget {
     required this.backgroundColor,
     required this.textColor,
     required this.onDismiss,
+    this.atTop = false,
   });
 
   @override
@@ -297,7 +309,7 @@ class _NotificationBarWidgetState extends State<_NotificationBarWidget>
       duration: const Duration(milliseconds: 250),
     );
     _offsetAnim = Tween<Offset>(
-      begin: const Offset(0, 0.4),
+      begin: widget.atTop ? const Offset(0, -0.4) : const Offset(0, 0.4),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
@@ -321,7 +333,8 @@ class _NotificationBarWidgetState extends State<_NotificationBarWidget>
     final isMobile = mediaQuery.size.width < 600;
 
     return Positioned(
-      bottom: mediaQuery.padding.bottom + 16,
+      top: widget.atTop ? (mediaQuery.padding.top + 16) : null,
+      bottom: widget.atTop ? null : (mediaQuery.padding.bottom + 16),
       left: isMobile ? 16 : (mediaQuery.size.width - 560) / 2,
       right: isMobile ? 16 : null,
       width: isMobile ? null : 560,

@@ -2357,10 +2357,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 // Right Column: Summary
                 Expanded(
                   flex: 1,
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
+                  child: SingleChildScrollView(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF1F5F9).withOpacity(0.5),
                           borderRadius: BorderRadius.circular(16),
@@ -2542,8 +2541,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
                 ),
               ],
             ),

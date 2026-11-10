@@ -28,6 +28,9 @@ class AppRouter {
   static final GlobalKey<NavigatorState> parentNavigatorKey =
       GlobalKey<NavigatorState>();
 
+  static Map<String, dynamic>? _lastKnownDoctorIpdAdmission;
+  static Map<String, dynamic>? _lastKnownNurseIpdAdmission;
+
   static PatientModel? _parsePatient(dynamic extra) {
     if (extra == null) return null;
     if (extra is PatientModel) return extra;
@@ -174,8 +177,12 @@ class AppRouter {
           if (!isNurse) {
             return AppRoutes.dashboard;
           }
-          if (path == AppRoutes.nurseIpdMonitoring && state.extra == null) {
-            return AppRoutes.nurseIpd;
+          if (path == AppRoutes.nurseIpdMonitoring) {
+            if (state.extra != null && state.extra is Map<String, dynamic>) {
+              _lastKnownNurseIpdAdmission = state.extra as Map<String, dynamic>;
+            } else if (_lastKnownNurseIpdAdmission == null) {
+              return AppRoutes.nurseIpd;
+            }
           }
           if ((path == AppRoutes.nurseViewPatient ||
                   path == AppRoutes.nurseEditPatient) &&
@@ -200,8 +207,12 @@ class AppRouter {
               state.extra == null) {
             return AppRoutes.doctorPatients;
           }
-          if (path == AppRoutes.doctorIpdMonitoring && state.extra == null) {
-            return AppRoutes.doctorIpd;
+          if (path == AppRoutes.doctorIpdMonitoring) {
+            if (state.extra != null && state.extra is Map<String, dynamic>) {
+              _lastKnownDoctorIpdAdmission = state.extra as Map<String, dynamic>;
+            } else if (_lastKnownDoctorIpdAdmission == null) {
+              return AppRoutes.doctorIpd;
+            }
           }
         } else if (path.startsWith('/reception')) {
           // Allow reception routes or redirect (in case reception features are merged with Nurse)
@@ -572,12 +583,18 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.nurseIpdMonitoring,
-          pageBuilder: (context, state) => NoTransitionPage(
-            key: const ValueKey('nurse_ipd_monitoring'),
-            child: IPDPatientDetailPage(
-              admission: (state.extra as Map<String, dynamic>?) ?? {},
-            ),
-          ),
+          pageBuilder: (context, state) {
+            if (state.extra != null && state.extra is Map<String, dynamic>) {
+              _lastKnownNurseIpdAdmission = state.extra as Map<String, dynamic>;
+            }
+            final adm = (state.extra as Map<String, dynamic>?) ?? _lastKnownNurseIpdAdmission ?? {};
+            return NoTransitionPage(
+              key: const ValueKey('nurse_ipd_monitoring'),
+              child: IPDPatientDetailPage(
+                admission: adm,
+              ),
+            );
+          },
         ),
         GoRoute(
           path: AppRoutes.nurseOt,
@@ -761,12 +778,18 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.doctorIpdMonitoring,
-          pageBuilder: (context, state) => NoTransitionPage(
-            key: const ValueKey('doctor_ipd_monitoring'),
-            child: IPDPatientDetailPage(
-              admission: (state.extra as Map<String, dynamic>?) ?? {},
-            ),
-          ),
+          pageBuilder: (context, state) {
+            if (state.extra != null && state.extra is Map<String, dynamic>) {
+              _lastKnownDoctorIpdAdmission = state.extra as Map<String, dynamic>;
+            }
+            final adm = (state.extra as Map<String, dynamic>?) ?? _lastKnownDoctorIpdAdmission ?? {};
+            return NoTransitionPage(
+              key: const ValueKey('doctor_ipd_monitoring'),
+              child: IPDPatientDetailPage(
+                admission: adm,
+              ),
+            );
+          },
         ),
         GoRoute(
           path: AppRoutes.doctorOt,
