@@ -137,8 +137,10 @@ class AppointmentModel {
 
   Map<String, dynamic> toJson() {
     return {
+      if (id != null) 'id': id,
       if (doctorId != null) 'doctor_id': doctorId,
       'patient_id': patientId,
+      if (patientDisplayId != null) 'patient_display_id': patientDisplayId,
       'patient_name': patientName,
       'department': department,
       'doctor_name': doctorName,

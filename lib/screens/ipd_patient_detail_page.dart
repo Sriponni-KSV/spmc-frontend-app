@@ -2122,31 +2122,38 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildCompactMetaItem(IconData icon, String value) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: Colors.white.withOpacity(0.9)),
-        const SizedBox(width: 5),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+    return Flexible(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white.withOpacity(0.9)),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildDetailRow(String label, String value) {
+    final bool isMobile = MediaQuery.of(context).size.width < 900;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 180,
+            width: isMobile ? 120 : 180,
             child: Text(
               '$label:',
               style: TextStyle(
@@ -2155,6 +2162,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               ),
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
@@ -2216,7 +2224,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Text(
@@ -2225,7 +2233,10 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
+<<<<<<< HEAD
                         overflow: TextOverflow.ellipsis,
+=======
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                       ),
                     ),
                     if (hasLowSpo2 || hasAbnormalBP || hasFever) ...[
@@ -2565,7 +2576,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
         child: Form(
           key: _prescFormKey,
           child: Column(
@@ -3478,10 +3489,14 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'Recorded by Nurse: ${u['nurse_name'] ?? '--'}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    Expanded(
+                                      child: Text(
+                                        'Recorded by Nurse: ${u['nurse_name'] ?? '--'}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Text(date, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                                   ],
                                 ),
@@ -3527,7 +3542,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
         child: Form(
           key: _labFormKey,
           child: Column(
@@ -4143,22 +4158,29 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.monitor_heart, color: Colors.greenAccent, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            'ICU BEDSIDE MONITOR - BED ${widget.admission['bed_number'] ?? 'ICU'}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontFamily: AppTheme.fontFamily,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.1,
+                      Expanded(
+                        child: Row(
+                          children: [
+                            const Icon(Icons.monitor_heart, color: Colors.greenAccent, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'ICU BEDSIDE MONITOR - BED ${widget.admission['bed_number'] ?? 'ICU'}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontFamily: AppTheme.fontFamily,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.1,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 8),
                       Row(
                         children: [
                           _PulseDot(active: hasData && !pulseAbnormal, alert: pulseAbnormal),
@@ -4325,16 +4347,21 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  color: Colors.grey.shade400,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.8,
-                  fontFamily: AppTheme.fontFamily,
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.8,
+                    fontFamily: AppTheme.fontFamily,
+                  ),
                 ),
               ),
+              const SizedBox(width: 6),
               Icon(
                 icon,
                 color: displayColor.withOpacity(0.7),
@@ -4714,7 +4741,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
         child: Form(
           key: _vitalsFormKey,
           child: Column(
@@ -4970,7 +4997,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isMobile ? 16 : 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

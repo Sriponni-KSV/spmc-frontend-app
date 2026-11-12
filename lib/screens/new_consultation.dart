@@ -3925,7 +3925,9 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           backgroundColor: Colors.orange,
         ),
       );
-      _formKey.currentState?.validate();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _formKey.currentState?.validate();
+      });
       return;
     }
 
@@ -3937,15 +3939,22 @@ class _NewConsultationViewState extends State<NewConsultationView> {
           backgroundColor: Colors.orange,
         ),
       );
-      _formKey.currentState?.validate();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _formKey.currentState?.validate();
+      });
       return;
     }
 
     if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
+<<<<<<< HEAD
           content: Text('Please resolve the highlighted validation errors before submitting.'),
           backgroundColor: AppTheme.dangerColor,
+=======
+          content: Text('Please fix the highlighted validation errors before submitting.'),
+          backgroundColor: Colors.orange,
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
         ),
       );
       return;
@@ -4029,6 +4038,23 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       return;
     }
 
+    final rawApptId =
+        widget.appointment.id ?? widget.initialConsultation?['appointment_id'];
+    final int? resolvedApptId = rawApptId is int
+        ? rawApptId
+        : int.tryParse(rawApptId?.toString() ?? '');
+    if (resolvedApptId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Appointment ID is missing. Please return to the queue and re-open this consultation.',
+          ),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       final finalLabs = getFinalOrderedLabs();
@@ -4045,8 +4071,13 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       }
 
       final data = {
+<<<<<<< HEAD
         if (apptId != null) 'appointment_id': apptId,
         'patient_id': patientId,
+=======
+        'appointment_id': resolvedApptId,
+        'patient_id': widget.appointment.patientId,
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
         'symptoms': _symptomsController.text.trim(),
         'diagnosis': _diagnosisController.text.trim(),
         'medications': _medications,
@@ -4083,8 +4114,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       }
 
       // Also ensure appointment vitals in database reflect current vitals
-      if (widget.appointment.id != null &&
-          (_currentAppointment.bloodPressureSystolic != null ||
+      if ((_currentAppointment.bloodPressureSystolic != null ||
               _currentAppointment.bloodPressureDiastolic != null ||
               _currentAppointment.sugarLevel != null ||
               _currentAppointment.temperature != null ||
@@ -4105,7 +4135,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             'spo2': _currentAppointment.spo2,
         };
         try {
-          await _appointmentController.updateVitals(widget.appointment.id!, vitalsData);
+          await _appointmentController.updateVitals(resolvedApptId, vitalsData);
         } catch (e) {
           debugPrint('Non-critical vitals sync warning: $e');
         }
@@ -4136,6 +4166,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         widget.onBack();
       }
     } catch (e) {
+      debugPrint('Error saving consultation: $e');
       if (mounted) {
         String errText = e.toString()
             .replaceAll('Exception: ', '')
@@ -7161,102 +7192,105 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.backgroundColor,
+        Material(
+          color: AppTheme.backgroundColor,
+          shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+            side: BorderSide(color: AppTheme.borderColor.withOpacity(0.5)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Select Standard Investigations:',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color: Colors.black,
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Select Standard Investigations:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Colors.black,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 16,
-                runSpacing: 4,
-                children: _standardLabs.keys.map((test) {
-                  return SizedBox(
-                    width: 220,
-                    child: CheckboxListTile(
-                      title: Text(test, style: const TextStyle(fontSize: 12)),
-                      value: _standardLabs[test],
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() => _standardLabs[test] = v);
-                        }
-                      },
-                    ),
-                  );
-                }).toList(),
-              ),
-              const Divider(height: 20),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: _buildSmallField(
-                      'Other Custom Lab Test',
-                      _customLabController,
-                      'e.g. Liver Function Test (LFT)',
-                      enableVoice: true,
-                      errorText: _customLabError,
-                      onChanged: (val) {
-                        if (_customLabError != null) {
-                          setState(() => _customLabError = null);
-                        }
-                      },
-                      onSubmitted: (_) => _addCustomLabTest(),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: _addCustomLabTest,
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      backgroundColor: AppTheme.secondaryColor,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    child: const Text(
-                      'Add Test',
-                      style: TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-              if (_customLabs.isNotEmpty) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: _customLabs.map((l) {
-                    return Chip(
-                      label: Text(l, style: const TextStyle(fontSize: 10)),
-                      deleteIcon: const Icon(Icons.close, size: 10),
-                      onDeleted: () {
-                        setState(() => _customLabs.remove(l));
-                      },
+                  spacing: 16,
+                  runSpacing: 4,
+                  children: _standardLabs.keys.map((test) {
+                    return SizedBox(
+                      width: 220,
+                      child: CheckboxListTile(
+                        title: Text(test, style: const TextStyle(fontSize: 12)),
+                        value: _standardLabs[test],
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() => _standardLabs[test] = v);
+                          }
+                        },
+                      ),
                     );
                   }).toList(),
                 ),
+                const Divider(height: 20),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: _buildSmallField(
+                        'Other Custom Lab Test',
+                        _customLabController,
+                        'e.g. Liver Function Test (LFT)',
+                        enableVoice: true,
+                        errorText: _customLabError,
+                        onChanged: (val) {
+                          if (_customLabError != null) {
+                            setState(() => _customLabError = null);
+                          }
+                        },
+                        onSubmitted: (_) => _addCustomLabTest(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      onPressed: _addCustomLabTest,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        backgroundColor: AppTheme.secondaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      child: const Text(
+                        'Add Test',
+                        style: TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_customLabs.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: _customLabs.map((l) {
+                      return Chip(
+                        label: Text(l, style: const TextStyle(fontSize: 10)),
+                        deleteIcon: const Icon(Icons.close, size: 10),
+                        onDeleted: () {
+                          setState(() => _customLabs.remove(l));
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ],

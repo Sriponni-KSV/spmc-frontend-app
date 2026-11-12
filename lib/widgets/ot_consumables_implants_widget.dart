@@ -285,6 +285,7 @@ class _OtConsumablesImplantsWidgetState
                       child: Row(
                         children: [
                           Expanded(
+                            flex: 6,
                             child: _buildSegmentButton(
                               index: 0,
                               label: 'Consumables & Meds',
@@ -295,6 +296,7 @@ class _OtConsumablesImplantsWidgetState
                           ),
                           const SizedBox(width: 4),
                           Expanded(
+                            flex: 5,
                             child: _buildSegmentButton(
                               index: 1,
                               label: 'Implants (UDI)',
@@ -557,15 +559,15 @@ class _OtConsumablesImplantsWidgetState
           children: [
             Icon(
               icon,
-              size: 15,
+              size: widget.isMobile ? 14 : 15,
               color: isActive ? AppTheme.primaryColor : const Color(0xFF64748B),
             ),
-            const SizedBox(width: 5),
+            SizedBox(width: widget.isMobile ? 4 : 5),
             Flexible(
               child: Text(
                 '$label ($count)',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: widget.isMobile ? 11.5 : 12,
                   fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
                   color: isActive
                       ? AppTheme.primaryColor
@@ -611,6 +613,35 @@ class _OtConsumablesImplantsWidgetState
     );
   }
 
+  Widget _buildSurgeonVerifiedBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFDEF7EC),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.check_circle,
+            size: 10,
+            color: AppTheme.secondaryColor,
+          ),
+          SizedBox(width: 3),
+          Text(
+            'Surgeon Verified',
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.secondaryColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── CONSUMABLES LIST ──
   Widget _buildConsumablesList(List<Map<String, dynamic>> consumables) {
     if (consumables.isEmpty) {
@@ -625,7 +656,7 @@ class _OtConsumablesImplantsWidgetState
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(widget.isMobile ? 10 : 12),
       itemCount: consumables.length,
       separatorBuilder: (context, index) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -659,7 +690,10 @@ class _OtConsumablesImplantsWidgetState
             : (isImp ? Icons.hardware_outlined : Icons.content_cut_outlined);
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: EdgeInsets.symmetric(
+            horizontal: widget.isMobile ? 10 : 12,
+            vertical: 10,
+          ),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(10),
@@ -673,6 +707,9 @@ class _OtConsumablesImplantsWidgetState
             ],
           ),
           child: Row(
+            crossAxisAlignment: widget.isMobile
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
@@ -706,7 +743,9 @@ class _OtConsumablesImplantsWidgetState
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Row(
+                    Wrap(
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         // Category Badge
                         Container(
@@ -814,30 +853,22 @@ class _OtConsumablesImplantsWidgetState
               ),
 
               // Quantity & Cost
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${item['quantity']} ${item['unit'] ?? 'units'}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: AppTheme.textPrimaryColor,
-                      ),
-                    ),
-                    if (totalCost > 0)
-                      Text(
-                        '₹${totalCost.toStringAsFixed(1)} (@ ₹$unitCost)',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF64748B),
-                        ),
-                      ),
-                  ],
+              if (widget.isMobile) ...[
+                const SizedBox(width: 8),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 92),
+                  child: _buildConsumableQtyColumn(
+                    item,
+                    unitCost,
+                    totalCost,
+                    alignEnd: true,
+                  ),
                 ),
-              ),
+              ] else
+                Expanded(
+                  flex: 2,
+                  child: _buildConsumableQtyColumn(item, unitCost, totalCost),
+                ),
 
               // Delete Action
               IconButton(
@@ -849,11 +880,48 @@ class _OtConsumablesImplantsWidgetState
                 ),
                 tooltip: 'Remove consumable & restore inventory',
                 visualDensity: VisualDensity.compact,
+                padding: widget.isMobile ? EdgeInsets.zero : null,
+                constraints: widget.isMobile
+                    ? const BoxConstraints(minWidth: 32, minHeight: 32)
+                    : null,
               ),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildConsumableQtyColumn(
+    Map<String, dynamic> item,
+    double unitCost,
+    double totalCost, {
+    bool alignEnd = false,
+  }) {
+    final textAlign = alignEnd ? TextAlign.end : TextAlign.start;
+    return Column(
+      crossAxisAlignment:
+          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${item['quantity']} ${item['unit'] ?? 'units'}',
+          textAlign: textAlign,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: AppTheme.textPrimaryColor,
+          ),
+        ),
+        if (totalCost > 0)
+          Text(
+            '₹${totalCost.toStringAsFixed(1)} (@ ₹$unitCost)',
+            textAlign: textAlign,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF64748B),
+            ),
+          ),
+      ],
     );
   }
 
@@ -963,51 +1031,43 @@ class _OtConsumablesImplantsWidgetState
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
+                              if (widget.isMobile)
+                                Wrap(
+                                  spacing: 6,
+                                  runSpacing: 4,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
                                       name,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 13,
                                         color: AppTheme.textPrimaryColor,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                  if (isVerified)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFDEF7EC),
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.check_circle,
-                                            size: 10,
-                                            color: AppTheme.secondaryColor,
-                                          ),
-                                          SizedBox(width: 3),
-                                          Text(
-                                            'Surgeon Verified',
-                                            style: TextStyle(
-                                              fontSize: 9.5,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.secondaryColor,
-                                            ),
-                                          ),
-                                        ],
+                                    if (isVerified) _buildSurgeonVerifiedBadge(),
+                                  ],
+                                )
+                              else
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: AppTheme.textPrimaryColor,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                ],
-                              ),
+                                    if (isVerified) ...[
+                                      const SizedBox(width: 8),
+                                      _buildSurgeonVerifiedBadge(),
+                                    ],
+                                  ],
+                                ),
                               Text(
                                 '$mfr  •  Model: $modelNum  •  Site: $site',
                                 style: const TextStyle(

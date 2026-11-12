@@ -168,47 +168,74 @@ class _TprChartsWidgetState extends State<TprChartsWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final Widget headerTitleRow = Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.show_chart_rounded, color: AppTheme.primaryColor, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          context.tr('clinical_tpr_heading', fallback: 'Clinical TPR & Vitals Progression'),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Latest Reading: ${_formatDate(latest['created_at'])} • ${list.length} Total Recordings',
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              if (widget.onLogVitalsPressed == null) {
+                return headerTitleRow;
+              }
+
+              final Widget logBtn = ElevatedButton.icon(
+                onPressed: widget.onLogVitalsPressed,
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Record Vitals', style: TextStyle(fontSize: 12)),
+                style: AppTheme.primaryButton.copyWith(
+                  padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
                 ),
-                child: const Icon(Icons.show_chart_rounded, color: AppTheme.primaryColor, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+              );
+
+              if (widget.isMobile || constraints.maxWidth < 460) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      context.tr('clinical_tpr_heading', fallback: 'Clinical TPR & Vitals Progression'),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Latest Reading: ${_formatDate(latest['created_at'])} • ${list.length} Total Recordings',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-                    ),
+                    headerTitleRow,
+                    const SizedBox(height: 12),
+                    logBtn,
                   ],
-                ),
-              ),
-              if (widget.onLogVitalsPressed != null)
-                ElevatedButton.icon(
-                  onPressed: widget.onLogVitalsPressed,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Record Vitals', style: TextStyle(fontSize: 12)),
-                  style: AppTheme.primaryButton.copyWith(
-                    padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
-                  ),
-                ),
-            ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: headerTitleRow),
+                  const SizedBox(width: 12),
+                  logBtn,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
 
@@ -299,26 +326,35 @@ class _TprChartsWidgetState extends State<TprChartsWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                  ),
                 ),
               ),
+              const SizedBox(width: 6),
               Icon(icon, size: 14, color: color),
             ],
           ),
           const SizedBox(height: 6),
           Row(
             children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isAbnormal ? color : AppTheme.textPrimaryColor,
+              Flexible(
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: isAbnormal ? color : AppTheme.textPrimaryColor,
+                  ),
                 ),
               ),
               if (isAbnormal) ...[
@@ -413,16 +449,19 @@ class _TprChartsWidgetState extends State<TprChartsWidget> {
   }
 
   Widget _buildTimelineFilter() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.history, size: 16, color: AppTheme.textSecondaryColor),
-        const SizedBox(width: 6),
-        _buildTimeFilterBtn('All', 'All Time'),
-        _buildTimeFilterBtn('7d', '7 Days'),
-        _buildTimeFilterBtn('48h', '48 Hours'),
-        _buildTimeFilterBtn('24h', '24 Hours'),
-      ],
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.history, size: 16, color: AppTheme.textSecondaryColor),
+          const SizedBox(width: 6),
+          _buildTimeFilterBtn('All', 'All Time'),
+          _buildTimeFilterBtn('7d', '7 Days'),
+          _buildTimeFilterBtn('48h', '48 Hours'),
+          _buildTimeFilterBtn('24h', '24 Hours'),
+        ],
+      ),
     );
   }
 
@@ -577,22 +616,30 @@ class _TprChartsWidgetState extends State<TprChartsWidget> {
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, size: 16, color: AppTheme.primaryColor),
+          const Icon(Icons.info_outline, size: 16, color: AppTheme.primaryColor),
           const SizedBox(width: 8),
-          Text(
-            'Reading at ${_formatDate(item['created_at'])}: ',
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
-          ),
           Expanded(
-            child: Wrap(
-              spacing: 12,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (temp != null) Text('Temp: $temp°F', style: const TextStyle(fontSize: 12, color: Color(0xFFE11D48), fontWeight: FontWeight.w600)),
-                if (pulse != null) Text('Pulse: $pulse bpm', style: const TextStyle(fontSize: 12, color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
-                if (resp != null) Text('Resp: $resp /min', style: const TextStyle(fontSize: 12, color: Color(0xFF059669), fontWeight: FontWeight.w600)),
-                if (sys != null && dia != null) Text('BP: $sys/$dia mmHg', style: const TextStyle(fontSize: 12, color: Color(0xFF7C3AED), fontWeight: FontWeight.w600)),
-                if (spo2 != null) Text('SpO2: $spo2%', style: const TextStyle(fontSize: 12, color: Colors.teal, fontWeight: FontWeight.w600)),
+                Text(
+                  'Reading at ${_formatDate(item['created_at'])}:',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    if (temp != null) Text('Temp: $temp°F', style: const TextStyle(fontSize: 12, color: Color(0xFFE11D48), fontWeight: FontWeight.w600)),
+                    if (pulse != null) Text('Pulse: $pulse bpm', style: const TextStyle(fontSize: 12, color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
+                    if (resp != null) Text('Resp: $resp /min', style: const TextStyle(fontSize: 12, color: Color(0xFF059669), fontWeight: FontWeight.w600)),
+                    if (sys != null && dia != null) Text('BP: $sys/$dia mmHg', style: const TextStyle(fontSize: 12, color: Color(0xFF7C3AED), fontWeight: FontWeight.w600)),
+                    if (spo2 != null) Text('SpO2: $spo2%', style: const TextStyle(fontSize: 12, color: Colors.teal, fontWeight: FontWeight.w600)),
+                  ],
+                ),
               ],
             ),
           ),

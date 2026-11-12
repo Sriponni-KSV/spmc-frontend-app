@@ -2961,6 +2961,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
           Row(
             children: [
               Expanded(
+                flex: 2,
                 child: OutlinedButton.icon(
                   onPressed: _isLoadingData ? null : _fetchData,
                   icon: _isLoadingData
@@ -2970,10 +2971,18 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.refresh, size: 18),
-                  label: Text(context.tr('refresh', fallback: 'Refresh')),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      context.tr('refresh', fallback: 'Refresh'),
+                      maxLines: 1,
+                      softWrap: false,
+                    ),
+                  ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTheme.primaryColor,
                     side: const BorderSide(color: AppTheme.primaryColor),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -2983,7 +2992,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                flex: 2,
+                flex: 3,
                 child: ElevatedButton.icon(
                   onPressed: () {
                     final path = GoRouterState.of(context).matchedLocation;
@@ -2996,10 +3005,18 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     }
                   },
                   icon: const Icon(Icons.add, size: 20),
-                  label: Text(context.tr('book_appointment', fallback: 'Book Appointment')),
+                  label: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      context.tr('book_appointment', fallback: 'Book Appointment'),
+                      maxLines: 1,
+                      softWrap: false,
+                    ),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     minimumSize: const Size(0, 44),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

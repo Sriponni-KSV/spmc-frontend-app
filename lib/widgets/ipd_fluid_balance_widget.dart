@@ -159,6 +159,7 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                   ],
                 ),
               ),
+              const SizedBox(width: 10),
               ElevatedButton.icon(
                 icon: const Icon(Icons.add, size: 16),
                 label: Text(widget.isMobile ? 'Log' : 'Record I/O'),
@@ -377,20 +378,48 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.schedule_rounded, size: 18, color: AppTheme.primaryColor),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Hospital Nursing Shifts Breakdown',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
-                  ),
-                  const Spacer(),
-                  Text(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final Widget titleRow = Row(
+                    children: [
+                      const Icon(Icons.schedule_rounded, size: 18, color: AppTheme.primaryColor),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Hospital Nursing Shifts Breakdown',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  );
+                  final Widget cycleText = Text(
                     '24h Hospital Cycle',
                     style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                  ),
-                ],
+                  );
+
+                  if (widget.isMobile || constraints.maxWidth < 400) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        titleRow,
+                        const SizedBox(height: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 26),
+                          child: cycleText,
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: titleRow),
+                      const SizedBox(width: 8),
+                      cycleText,
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: 14),
               LayoutBuilder(builder: (context, constraints) {
@@ -503,24 +532,52 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.bar_chart_rounded, size: 20, color: AppTheme.primaryColor),
-              const SizedBox(width: 8),
-              const Text(
-                'Intake vs Output Distribution',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
-              ),
-              const Spacer(),
-              // Legend
-              Row(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final Widget titleRow = Row(
+                children: [
+                  const Icon(Icons.bar_chart_rounded, size: 20, color: AppTheme.primaryColor),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Intake vs Output Distribution',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              );
+              final Widget legendRow = Wrap(
+                spacing: 12,
+                runSpacing: 4,
                 children: [
                   _buildLegendItem('Intake', const Color(0xFF0284C7)),
-                  const SizedBox(width: 12),
                   _buildLegendItem('Output', const Color(0xFFD97706)),
                 ],
-              ),
-            ],
+              );
+
+              if (widget.isMobile || constraints.maxWidth < 400) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleRow,
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 28),
+                      child: legendRow,
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: titleRow),
+                  const SizedBox(width: 8),
+                  legendRow,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 20),
           // Bar Chart Canvas
@@ -719,23 +776,31 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  cat,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
-                                ),
-                                if (route.isNotEmpty) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(route, style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+                                Expanded(
+                                  child: Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      Text(
+                                        cat,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                                      ),
+                                      if (route.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: Colors.grey.shade100,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(route, style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+                                        ),
+                                    ],
                                   ),
-                                ],
-                                const Spacer(),
+                                ),
+                                const SizedBox(width: 8),
                                 Text(
                                   '${isIntake ? '+' : '-'}$vol mL',
                                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: typeColor),
@@ -743,16 +808,11 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                               ],
                             ),
                             const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                Text('$timeStr • $shift Shift • By $nurse', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                                if (desc.isNotEmpty) ...[
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text('($desc)', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey.shade600), overflow: TextOverflow.ellipsis),
-                                  ),
-                                ],
-                              ],
+                            Text(
+                              '$timeStr • $shift Shift • By $nurse${desc.isNotEmpty ? ' ($desc)' : ''}',
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
@@ -869,11 +929,14 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Text(
-                              'Record ${isIntake ? 'Fluid Intake' : 'Fluid Output'}',
-                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                            Expanded(
+                              child: Text(
+                                'Record ${isIntake ? 'Fluid Intake' : 'Fluid Output'}',
+                                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                            const Spacer(),
+                            const SizedBox(width: 4),
                             IconButton(
                               icon: const Icon(Icons.close, size: 20),
                               onPressed: () => Navigator.of(modalCtx).pop(),

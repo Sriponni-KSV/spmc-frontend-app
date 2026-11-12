@@ -661,47 +661,20 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                       ),
                       if (assignedNurse != null) ...[
                         const SizedBox(height: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.shade50,
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.teal.shade100),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.person_outline,
-                                size: 12,
-                                color: Colors.teal.shade700,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Assigned Nurse: $assignedNurse',
-                                style: TextStyle(
-                                  color: Colors.teal.shade700,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        _buildAssignedNurseBadge(assignedNurse),
                       ],
                       if (isDoctor || isNurse) ...[
                         const SizedBox(height: 12),
                         const Divider(),
                         const SizedBox(height: 8),
-                        Row(
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
                           children: [
                             if (isDoctor)
-                              ..._buildDoctorAdmissionActions(adm).map((w) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: w)))
+                              ..._buildDoctorAdmissionActions(adm)
                             else if (isNurse)
-                              ..._buildNurseAdmissionActions(adm).map((w) => Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: w))),
+                              ..._buildNurseAdmissionActions(adm),
                           ],
                         ),
                       ],
@@ -749,36 +722,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                             ),
                             if (assignedNurse != null) ...[
                               const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.teal.shade50,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: Colors.teal.shade100),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.person_outline,
-                                      size: 12,
-                                      color: Colors.teal.shade700,
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Assigned Nurse: $assignedNurse',
-                                      style: TextStyle(
-                                        color: Colors.teal.shade700,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              _buildAssignedNurseBadge(assignedNurse),
                             ],
                           ],
                         ),
@@ -797,6 +741,40 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAssignedNurseBadge(String assignedNurse) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.teal.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.teal.shade100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.person_outline,
+            size: 12,
+            color: Colors.teal.shade700,
+          ),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              'Assigned Nurse: $assignedNurse',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.teal.shade700,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1238,6 +1216,15 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       return _buildEmptyState('No discharged records.', Icons.history);
     }
     return ListView.builder(
+<<<<<<< HEAD
+=======
+      padding: EdgeInsets.fromLTRB(
+        widget.isMobile ? 16 : 24,
+        widget.isMobile ? 16 : 24,
+        widget.isMobile ? 16 : 24,
+        widget.isMobile ? 84 : 24,
+      ),
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
       itemCount: discharged.length,
       itemBuilder: (context, index) {
         final adm = discharged[index];
@@ -1246,6 +1233,32 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                 'dd/MM/yyyy HH:mm',
               ).format(DateTime.parse(adm['discharge_date']).toLocal())
             : '--';
+        final doctorId = adm['doctor_display_id'] != null &&
+                adm['doctor_display_id'].toString().isNotEmpty
+            ? ' (${adm['doctor_display_id']})'
+            : '';
+
+        final Widget leadingAvatar = CircleAvatar(
+          backgroundColor: Colors.grey.shade100,
+          child: const Icon(
+            Icons.assignment_turned_in,
+            color: Colors.green,
+          ),
+        );
+        final Widget titleText = Text(
+          adm['patient_name'] ?? 'Unknown',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        );
+        final Widget subtitleText = Text(
+          'Bed: ${adm['bed_number']} • Discharged: $dischargeDateStr\nDoctor: ${adm['doctor_name']}$doctorId',
+          style: const TextStyle(height: 1.5, fontSize: 12),
+        );
+        final Widget viewSummaryBtn = TextButton.icon(
+          onPressed: () => _showDischargeSummaryView(adm),
+          icon: const Icon(Icons.description_outlined, size: 16),
+          label: Text(context.tr('view_summary', fallback: 'View Summary')),
+        );
+
         return Card(
           elevation: 0,
           margin: const EdgeInsets.only(bottom: 12),
@@ -1253,29 +1266,46 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
             borderRadius: BorderRadius.circular(12),
             side: BorderSide(color: Colors.grey.shade200),
           ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(16),
-            leading: CircleAvatar(
-              backgroundColor: Colors.grey.shade100,
-              child: const Icon(
-                Icons.assignment_turned_in,
-                color: Colors.green,
-              ),
-            ),
-            title: Text(
-              adm['patient_name'] ?? 'Unknown',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(
-              'Bed: ${adm['bed_number']} • Discharged: $dischargeDateStr\nDoctor: ${adm['doctor_name']}${adm['doctor_display_id'] != null && adm['doctor_display_id'].toString().isNotEmpty ? ' (${adm['doctor_display_id']})' : ''}',
-              style: const TextStyle(height: 1.5, fontSize: 12),
-            ),
-            trailing: TextButton.icon(
-              onPressed: () => _showDischargeSummaryView(adm),
-              icon: const Icon(Icons.description_outlined, size: 16),
-              label: Text(context.tr('view_summary', fallback: 'View Summary')),
-            ),
-          ),
+          child: widget.isMobile
+              ? Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          leadingAvatar,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                titleText,
+                                const SizedBox(height: 4),
+                                subtitleText,
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      const Divider(height: 1),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: viewSummaryBtn,
+                      ),
+                    ],
+                  ),
+                )
+              : ListTile(
+                  contentPadding: const EdgeInsets.all(16),
+                  leading: leadingAvatar,
+                  title: titleText,
+                  subtitle: subtitleText,
+                  trailing: viewSummaryBtn,
+                ),
         );
       },
     );
@@ -1340,7 +1370,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       itemCount: icuPatients.length,
       itemBuilder: (context, index) {
         final adm = icuPatients[index];
@@ -1516,11 +1546,13 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                           ),
                           label: const Text(
                             'Monitor & Notes',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(color: Colors.white, fontSize: 11),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF1A7A4A),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                           ),
                         ),
                       ),
@@ -1535,6 +1567,8 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                           ),
                           label: const Text(
                             'Emergency Action',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: Colors.deepOrange,
                               fontSize: 11,
@@ -1542,7 +1576,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                           ),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Colors.deepOrange),
-                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                           ),
                         ),
                       ),
@@ -3508,9 +3542,11 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
             children: [
               const Icon(Icons.receipt_long, color: AppTheme.primaryColor),
               const SizedBox(width: 8),
-              Text(
-                context.tr('discharge_summary_card', fallback: 'Discharge Summary Card'),
-                style: const TextStyle(fontWeight: FontWeight.bold),
+              Expanded(
+                child: Text(
+                  context.tr('discharge_summary_card', fallback: 'Discharge Summary Card'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
@@ -3580,7 +3616,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 140,
+            width: widget.isMobile ? 105 : 140,
             child: Text(
               '$label:',
               style: TextStyle(
@@ -3590,6 +3626,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
               ),
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
@@ -3850,7 +3887,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       itemCount: _handoversList.length,
       itemBuilder: (context, index) {
         final h = _handoversList[index];
@@ -3875,21 +3912,26 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${h['ward_type'] ?? 'General'} Ward · ${h['shift_name'] ?? 'Shift'}',
-                        style: const TextStyle(
-                          color: AppTheme.primaryColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${h['ward_type'] ?? 'General'} Ward · ${h['shift_name'] ?? 'Shift'}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -4072,7 +4114,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       itemCount: _auditTrailList.length,
       itemBuilder: (context, index) {
         final log = _auditTrailList[index];

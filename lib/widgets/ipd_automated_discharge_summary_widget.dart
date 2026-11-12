@@ -133,66 +133,99 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: (widget.isAlreadyDischarged ? Colors.grey : AppTheme.primaryColor).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  widget.isAlreadyDischarged ? Icons.verified_outlined : Icons.auto_awesome,
-                  color: widget.isAlreadyDischarged ? Colors.grey.shade700 : AppTheme.primaryColor,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.isAlreadyDischarged
-                          ? 'Inpatient Discharge Summary (Finalized)'
-                          : 'Automated Inpatient Discharge Summary Generator',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final Widget titleSection = Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: (widget.isAlreadyDischarged ? Colors.grey : AppTheme.primaryColor).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Aggregates admission history, daily SOAP rounds, completed investigations, procedures & medications into a certified summary.',
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    child: Icon(
+                      widget.isAlreadyDischarged ? Icons.verified_outlined : Icons.auto_awesome,
+                      color: widget.isAlreadyDischarged ? Colors.grey.shade700 : AppTheme.primaryColor,
+                      size: 24,
                     ),
-                  ],
-                ),
-              ),
-              if (!widget.isAlreadyDischarged)
-                ElevatedButton.icon(
-                  icon: _isGenerating
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.auto_awesome, size: 16),
-                  label: Text(_isGenerating ? 'Generating...' : 'Auto-Generate Summary'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.isAlreadyDischarged
+                              ? 'Inpatient Discharge Summary (Finalized)'
+                              : 'Automated Inpatient Discharge Summary Generator',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Aggregates admission history, daily SOAP rounds, completed investigations, procedures & medications into a certified summary.',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+
+              final List<Widget> actionButtons = [
+                if (!widget.isAlreadyDischarged)
+                  ElevatedButton.icon(
+                    icon: _isGenerating
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.auto_awesome, size: 16),
+                    label: Text(_isGenerating ? 'Generating...' : 'Auto-Generate Summary'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: _isGenerating ? null : _handleAutoGenerate,
+                  ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.print_outlined, size: 16),
+                  label: const Text('Preview & Print'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    side: const BorderSide(color: AppTheme.primaryColor),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  onPressed: _isGenerating ? null : _handleAutoGenerate,
+                  onPressed: _showPrintableReportDialog,
                 ),
-              const SizedBox(width: 10),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.print_outlined, size: 16),
-                label: const Text('Preview & Print'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.primaryColor,
-                  side: const BorderSide(color: AppTheme.primaryColor),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                onPressed: _showPrintableReportDialog,
-              ),
-            ],
+              ];
+
+              if (widget.isMobile || constraints.maxWidth < 680) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleSection,
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: actionButtons,
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: titleSection),
+                  const SizedBox(width: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 8,
+                    children: actionButtons,
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -322,35 +355,39 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
 
             // Action Buttons
             if (!widget.isAlreadyDischarged)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.refresh, size: 16),
-                    label: const Text('Reset Form'),
-                    style: AppTheme.cancelButton,
-                    onPressed: () {
-                      _finalDiagCtrl.clear();
-                      _treatmentSumCtrl.clear();
-                      _medPlanCtrl.clear();
-                      _followUpCtrl.clear();
-                    },
-                  ),
-                  const SizedBox(width: 14),
-                  ElevatedButton.icon(
-                    icon: _isSubmitting
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.logout, color: Colors.white, size: 16),
-                    label: Text(_isSubmitting ? 'Finalizing...' : 'Finalize & Discharge Patient'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.dangerColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 12,
+                  runSpacing: 10,
+                  children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Reset Form'),
+                      style: AppTheme.cancelButton,
+                      onPressed: () {
+                        _finalDiagCtrl.clear();
+                        _treatmentSumCtrl.clear();
+                        _medPlanCtrl.clear();
+                        _followUpCtrl.clear();
+                      },
                     ),
-                    onPressed: _isSubmitting ? null : _submitFinalDischarge,
-                  ),
-                ],
+                    ElevatedButton.icon(
+                      icon: _isSubmitting
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.logout, color: Colors.white, size: 16),
+                      label: Text(_isSubmitting ? 'Finalizing...' : 'Finalize & Discharge Patient'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.dangerColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: _isSubmitting ? null : _submitFinalDischarge,
+                    ),
+                  ],
+                ),
               ),
           ],
         ),
@@ -363,9 +400,11 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
       children: [
         Icon(icon, size: 18, color: AppTheme.primaryColor),
         const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+          ),
         ),
       ],
     );
@@ -448,8 +487,14 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
                 // Modal Top Bar
                 Row(
                   children: [
-                    const Text('Official Discharge Summary Document', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    const Spacer(),
+                    const Expanded(
+                      child: Text(
+                        'Official Discharge Summary Document',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.print, size: 16),
                       label: const Text('Print Document'),
@@ -584,23 +629,29 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
                           // Doctor Signature Section
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Prepared by: Clinical Nursing Team', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                                  Text('Hospital Seal & Verification', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                                ],
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Prepared by: Clinical Nursing Team', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                    Text('Hospital Seal & Verification', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                                  ],
+                                ),
                               ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text('Dr. $doctor', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 2),
-                                  Text('Attending Inpatient Physician', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                                  const SizedBox(height: 2),
-                                  Text('Signature & Registration Stamp', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                                ],
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text('Dr. $doctor', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold), textAlign: TextAlign.right),
+                                    const SizedBox(height: 2),
+                                    Text('Attending Inpatient Physician', style: TextStyle(fontSize: 11, color: Colors.grey.shade600), textAlign: TextAlign.right),
+                                    const SizedBox(height: 2),
+                                    Text('Signature & Registration Stamp', style: TextStyle(fontSize: 10, color: Colors.grey.shade500), textAlign: TextAlign.right),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
