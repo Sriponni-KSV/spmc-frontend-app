@@ -429,10 +429,11 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
 
     showDialog(
       context: context,
+      useRootNavigator: false,
       barrierDismissible: false,
       builder: (modalCtx) {
         return StatefulBuilder(
-          builder: (context, setModalState) {
+          builder: (dialogContext, setModalState) {
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Container(
@@ -488,6 +489,8 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
                                   value: roundType,
+                                  isDense: true,
+                                  focusColor: Colors.transparent,
                                   style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold),
                                   items: const [
                                     DropdownMenuItem(value: 'Morning Round', child: Text('Morning Consultant Round')),
@@ -496,7 +499,9 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                                     DropdownMenuItem(value: 'ICU Review', child: Text('ICU Critical Care Review')),
                                   ],
                                   onChanged: (val) {
-                                    if (val != null) setModalState(() => roundType = val);
+                                    if (val != null) {
+                                      setModalState(() => roundType = val);
+                                    }
                                   },
                                 ),
                               ),
@@ -582,7 +587,7 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                         const SizedBox(height: 14),
 
                         // ── P (Plan) ────────────────────────────────────────
-                        _buildModalSectionHeader('P', 'Plan (Medications, Lab Orders, Diet, Mobilization, Discharge Target)', const Color(0xFFD97706)),
+                        _buildModalSectionHeader('P', 'Plan (Optional - Medications, Orders, Diet, Discharge Target)', const Color(0xFFD97706)),
                         const SizedBox(height: 6),
                         TextFormField(
                           controller: planCtrl,

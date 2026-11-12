@@ -290,6 +290,46 @@ class HomeVisitController with ChangeNotifier {
     }
   }
 
+  // Generate or synchronize invoice for a home visit
+  Future<Map<String, dynamic>?> generateInvoice(
+    int visitId, {
+    double? customFee,
+    bool forceRegenerate = false,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await _service.generateInvoice(
+        visitId,
+        customFee: customFee,
+        forceRegenerate: forceRegenerate,
+      );
+      try {
+        await fetchVisitDetails(visitId);
+        await fetchVisits();
+      } catch (_) {}
+      return res;
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      return null;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // Fetch invoice details for a home visit
+  Future<Map<String, dynamic>?> fetchInvoiceForVisit(int visitId) async {
+    try {
+      return await _service.getInvoiceForVisit(visitId);
+    } catch (e) {
+      _errorMessage = e.toString().replaceAll("Exception: ", "");
+      return null;
+    }
+  }
+
   // Update Vitals Schedule Config
   Future<bool> updateVitalsConfig(String startTime, String endTime, int intervalMinutes) async {
     try {

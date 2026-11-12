@@ -36,6 +36,12 @@ class AppointmentModel {
   final String? createdAt;
   final String? updatedAt;
   final String? overrideAt;
+  final double? consultationFee;
+  final bool isFollowup;
+  final int? validityDays;
+  final String? billingPaymentStatus;
+  final int? opInvoiceId;
+  final String? opInvoiceNumber;
 
   AppointmentModel({
     this.id,
@@ -73,6 +79,12 @@ class AppointmentModel {
     this.createdAt,
     this.updatedAt,
     this.overrideAt,
+    this.consultationFee,
+    this.isFollowup = false,
+    this.validityDays,
+    this.billingPaymentStatus,
+    this.opInvoiceId,
+    this.opInvoiceNumber,
   });
 
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
@@ -112,6 +124,14 @@ class AppointmentModel {
       createdAt: json['created_at']?.toString(),
       updatedAt: json['updated_at']?.toString(),
       overrideAt: json['override_at']?.toString(),
+      consultationFee: json['consultation_fee'] != null
+          ? double.tryParse(json['consultation_fee'].toString())
+          : (json['effective_fee'] != null ? double.tryParse(json['effective_fee'].toString()) : null),
+      isFollowup: json['is_followup'] == true || json['is_followup'] == 'true' || (json['appointment_type']?.toString().toLowerCase().contains('follow') ?? false),
+      validityDays: json['validity_days'] is int ? json['validity_days'] : int.tryParse(json['validity_days']?.toString() ?? ''),
+      billingPaymentStatus: json['billing_payment_status']?.toString() ?? json['payment_status']?.toString(),
+      opInvoiceId: json['op_invoice_id'] is int ? json['op_invoice_id'] : int.tryParse(json['op_invoice_id']?.toString() ?? ''),
+      opInvoiceNumber: json['op_invoice_number']?.toString(),
     );
   }
 

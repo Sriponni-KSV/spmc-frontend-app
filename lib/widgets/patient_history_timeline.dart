@@ -107,7 +107,10 @@ class _PatientHistoryTimelineState extends State<PatientHistoryTimeline> {
         for (var c in consultations) {
           DateTime dt = DateTime.now();
           if (c['created_at'] != null) {
-            dt = DateTime.tryParse(c['created_at'].toString()) ?? DateTime.now();
+            final parsed = DateTime.tryParse(c['created_at'].toString());
+            if (parsed != null) {
+              dt = parsed.isUtc ? parsed.toLocal() : parsed;
+            }
           }
 
           final diagnosis = c['diagnosis']?.toString().trim();
@@ -155,10 +158,12 @@ class _PatientHistoryTimelineState extends State<PatientHistoryTimeline> {
             await _patientController.fetchVitalsHistory(widget.patientId);
         for (var v in vitalsList) {
           DateTime dt = DateTime.now();
-          if (v['recorded_at'] != null) {
-            dt = DateTime.tryParse(v['recorded_at'].toString()) ?? DateTime.now();
-          } else if (v['created_at'] != null) {
-            dt = DateTime.tryParse(v['created_at'].toString()) ?? DateTime.now();
+          final rawTime = v['recorded_at'] ?? v['updated_at'] ?? v['created_at'];
+          if (rawTime != null) {
+            final parsed = DateTime.tryParse(rawTime.toString());
+            if (parsed != null) {
+              dt = parsed.isUtc ? parsed.toLocal() : parsed;
+            }
           }
 
           items.add(
@@ -459,7 +464,8 @@ class _PatientHistoryTimelineState extends State<PatientHistoryTimeline> {
   }
 
   Widget _buildTimelineCard(TimelineItem item) {
-    final dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(item.date);
+    final localDate = item.date.isUtc ? item.date.toLocal() : item.date;
+    final dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(localDate);
 
     switch (item.category) {
       case 'consultation':

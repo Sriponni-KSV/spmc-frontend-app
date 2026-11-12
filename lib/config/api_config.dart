@@ -37,7 +37,15 @@ class ApiEndpoints {
         if (!kReleaseMode) {
           if (kIsWeb) {
             final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
-            if (host == 'localhost' || host == '127.0.0.1') {
+            final isLocalHost = host == 'localhost' || host == '127.0.0.1';
+            // When browser is opened via localhost, route to localhost:3001 unless envUrl explicitly targets localhost
+            if (isLocalHost) {
+              if (envUrl.contains('localhost') || envUrl.contains('127.0.0.1')) {
+                return _normalizeUrl(envUrl);
+              }
+              return 'http://localhost:$defaultLocalPort/api';
+            }
+            if (RegExp(r'^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)').hasMatch(host)) {
               return _normalizeUrl(envUrl);
             }
           } else {
@@ -52,8 +60,10 @@ class ApiEndpoints {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
       final scheme = Uri.base.scheme.startsWith('https') ? 'https' : 'http';
 
-      // A. Running locally in browser (localhost / 127.0.0.1) -> route to local backend
-      if (host == 'localhost' || host == '127.0.0.1') {
+      // A. Running locally in browser (localhost / 127.0.0.1 / Local LAN Wi-Fi IP) -> route to local backend
+      if (host == 'localhost' ||
+          host == '127.0.0.1' ||
+          RegExp(r'^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)').hasMatch(host)) {
         return '$scheme://$host:$defaultLocalPort/api';
       }
 
@@ -88,8 +98,8 @@ class ApiEndpoints {
     } catch (_) {}
 
     // 5. Mobile & Desktop Local Debug Defaults:
-    // - Android Emulator loopback: 10.0.2.2:3000
-    // - Physical Android device (via `adb reverse tcp:3000 tcp:3000`), iOS Simulator & Desktop: localhost:3000
+    // - Android Emulator loopback: 10.0.2.2:3001
+    // - Physical Android device (via `adb reverse tcp:3001 tcp:3001`), iOS Simulator & Desktop: localhost:3001
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       return 'http://10.0.2.2:$defaultLocalPort/api';
     }

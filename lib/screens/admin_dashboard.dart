@@ -48,6 +48,9 @@ import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 import '../providers/language_provider.dart';
 import '../utils/tamil_transliteration_helper.dart';
+import '../controllers/notification_controller.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../widgets/admin_global_search_overlay.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -87,6 +90,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedStaffOverviewDayIndex = (DateTime.now().weekday - 1).clamp(0, 6);
   List<UserModel> _allStaffList = [];
   bool _isLoadingDashboardStats = false;
+  List<Map<String, dynamic>> _adminNotifications = [];
+  bool _isLoadingNotifications = false;
 
   Future<List<UserModel>>? _staffFuture;
   Future<Map<String, dynamic>>? _rbacFuture;
@@ -118,6 +123,127 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   String? _selectedAllocWard;
   DateTime? _selectedAllocDate;
 
+  // History & Allocation Logs Filter State
+  String _allocLogNurseFilter = 'All';
+  DateTimeRange? _allocLogDateRangeFilter;
+  DateTime? _allocLogWeekFilter;
+  String _allocLogWeekPreset = 'All';
+  String _allocLogSearchQuery = '';
+  final TextEditingController _allocLogSearchCtrl = TextEditingController();
+
+  List<Map<String, dynamic>> get _filteredAllocations {
+    return _allocations.where((alloc) {
+      // 1. Nurse filter
+      if (_allocLogNurseFilter != 'All') {
+        final nurseName = alloc['nurse_name']?.toString() ?? '';
+        if (nurseName != _allocLogNurseFilter) return false;
+      }
+
+      // 2. Date Range filter
+      if (_allocLogDateRangeFilter != null) {
+        if (alloc['allocation_date'] == null) return false;
+        final allocDate = DateTime.tryParse(alloc['allocation_date'].toString());
+        if (allocDate == null) return false;
+        final allocDay = DateTime(allocDate.year, allocDate.month, allocDate.day);
+        final startDay = DateTime(
+          _allocLogDateRangeFilter!.start.year,
+          _allocLogDateRangeFilter!.start.month,
+          _allocLogDateRangeFilter!.start.day,
+        );
+        final endDay = DateTime(
+          _allocLogDateRangeFilter!.end.year,
+          _allocLogDateRangeFilter!.end.month,
+          _allocLogDateRangeFilter!.end.day,
+        );
+        if (allocDay.isBefore(startDay) || allocDay.isAfter(endDay)) {
+          return false;
+        }
+      }
+
+      // 3. Week filter
+      if (_allocLogWeekFilter != null) {
+        if (alloc['allocation_date'] == null) return false;
+        final allocDate = DateTime.tryParse(alloc['allocation_date'].toString());
+        if (allocDate == null) return false;
+        final allocDay = DateTime(allocDate.year, allocDate.month, allocDate.day);
+        final weekStart = _allocLogWeekFilter!;
+        final weekEnd = weekStart.add(const Duration(days: 6));
+        if (allocDay.isBefore(weekStart) || allocDay.isAfter(weekEnd)) {
+          return false;
+        }
+      }
+
+      // 4. Search query
+      if (_allocLogSearchQuery.trim().isNotEmpty) {
+        final q = _allocLogSearchQuery.trim().toLowerCase();
+        final nurseName = (alloc['nurse_name'] ?? '').toString().toLowerCase();
+        final ward = (alloc['ward_type'] ?? '').toString().toLowerCase();
+        final shift = (alloc['shift_name'] ?? '').toString().toLowerCase();
+        if (!nurseName.contains(q) && !ward.contains(q) && !shift.contains(q)) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList()
+      ..sort((a, b) {
+        // Deterministic sort: allocation_date DESC, start_time ASC, id ASC
+        final dateA = a['allocation_date']?.toString() ?? '';
+        final dateB = b['allocation_date']?.toString() ?? '';
+        final dateCmp = dateB.compareTo(dateA);
+        if (dateCmp != 0) return dateCmp;
+
+        final timeA = a['start_time']?.toString() ?? '';
+        final timeB = b['start_time']?.toString() ?? '';
+        final timeCmp = timeA.compareTo(timeB);
+        if (timeCmp != 0) return timeCmp;
+
+        final idA = (a['id'] is int) ? a['id'] as int : int.tryParse(a['id']?.toString() ?? '0') ?? 0;
+        final idB = (b['id'] is int) ? b['id'] as int : int.tryParse(b['id']?.toString() ?? '0') ?? 0;
+        return idA.compareTo(idB);
+      });
+  }
+
+  bool get _hasActiveAllocLogFilters {
+    return _allocLogNurseFilter != 'All' ||
+        _allocLogDateRangeFilter != null ||
+        _allocLogWeekPreset != 'All' ||
+        _allocLogSearchQuery.trim().isNotEmpty;
+  }
+
+  void _applyWeekPreset(String preset) {
+    setState(() {
+      _allocLogWeekPreset = preset;
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final monday = today.subtract(Duration(days: today.weekday - 1));
+
+      if (preset == 'This Week') {
+        _allocLogWeekFilter = monday;
+        _allocLogDateRangeFilter = null;
+      } else if (preset == 'Last Week') {
+        _allocLogWeekFilter = monday.subtract(const Duration(days: 7));
+        _allocLogDateRangeFilter = null;
+      } else if (preset == 'Next Week') {
+        _allocLogWeekFilter = monday.add(const Duration(days: 7));
+        _allocLogDateRangeFilter = null;
+      } else {
+        _allocLogWeekFilter = null;
+      }
+    });
+  }
+
+  void _resetAllocLogFilters() {
+    setState(() {
+      _allocLogNurseFilter = 'All';
+      _allocLogDateRangeFilter = null;
+      _allocLogWeekFilter = null;
+      _allocLogWeekPreset = 'All';
+      _allocLogSearchQuery = '';
+      _allocLogSearchCtrl.clear();
+    });
+  }
+
   int _shiftManagementSubTab = 0; // 0 = Daily Allocations, 1 = Weekly Rosters
   List<Map<String, dynamic>> _rosters = [];
   DateTime _selectedRosterWeekStart = DateTime(
@@ -125,6 +251,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     DateTime.now().month,
     DateTime.now().day,
   ).subtract(Duration(days: DateTime.now().weekday - 1));
+
+  DateTime get _currentWeekStart {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return today.subtract(Duration(days: today.weekday - 1));
+  }
+
+  bool get _isPastRosterWeek {
+    final selectedStart = DateTime(
+      _selectedRosterWeekStart.year,
+      _selectedRosterWeekStart.month,
+      _selectedRosterWeekStart.day,
+    );
+    return selectedStart.isBefore(_currentWeekStart);
+  }
 
   Future<void> _loadRosterData() async {
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedRosterWeekStart);
@@ -155,10 +296,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       }
     }
 
+    // Preserve the assigned nurse for this weekly slot even if individual dates are deleted/modified
+    Map<String, dynamic>? dominantRoster;
+    int maxDays = 0;
     for (final entry in nurseAllocations.entries) {
-      if (entry.value.length == 7) {
-        return entry.value.first;
+      if (entry.value.length > maxDays) {
+        maxDays = entry.value.length;
+        dominantRoster = entry.value.first;
       }
+    }
+
+    if (dominantRoster != null && maxDays > 0) {
+      return dominantRoster;
     }
 
     return <String, dynamic>{};
@@ -169,8 +318,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     int shiftId,
     String wardType,
   ) async {
+    if (_isPastRosterWeek) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot allocate shifts for past weeks. Past rosters are locked in read-only mode.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedRosterWeekStart);
-    if (mounted) setState(() => _isLoadingShifts = true);
+
+    // Optimistic UI update: instantly reflect the assigned nurse in the slot (0ms delay)
+    final nurse = _nurses.firstWhere(
+      (n) => n.id == nurseId,
+      orElse: () => UserModel(id: nurseId, rawFullname: 'Nurse', email: '', role: 'Nurse'),
+    );
+    final shift = _shifts.firstWhere((s) => s['id'] == shiftId, orElse: () => {});
+
+    final optimisticEntries = <Map<String, dynamic>>[];
+    for (int day = 0; day < 7; day++) {
+      optimisticEntries.add({
+        'id': -1,
+        'nurse_id': nurseId,
+        'nurse_name': nurse.fullname,
+        'shift_id': shiftId,
+        'shift_name': shift['name'] ?? '',
+        'ward_type': wardType,
+        'allocation_date': dateStr,
+      });
+    }
+    setState(() {
+      _rosters.addAll(optimisticEntries);
+    });
+
     try {
       await _shiftCtrl.saveRosterEntry(nurseId, shiftId, wardType, dateStr);
       if (mounted) {
@@ -181,25 +362,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         );
       }
-      await _loadShiftData(); // reload allocations and rosters
+      // Partial background update without triggering full page reload
+      await _loadRosterData();
+      _shiftCtrl.fetchAllocations().then((allocs) {
+        if (mounted) {
+          setState(() => _allocations = List<Map<String, dynamic>>.from(allocs));
+        }
+      });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving roster: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingShifts = false);
-      }
+      await _loadRosterData();
+      rethrow;
     }
   }
 
   Future<void> _deleteRosterEntry(int id) async {
-    if (mounted) setState(() => _isLoadingShifts = true);
+    if (_isPastRosterWeek) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot remove shifts from past weeks. Past rosters are locked in read-only mode.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
+    // Optimistic removal: instantly remove from _rosters in UI (0ms delay)
+    final target = _rosters.firstWhere((r) => r['id'] == id, orElse: () => {});
+    final targetWard = target['ward_type'];
+    final targetShiftId = target['shift_id'];
+
+    if (targetWard != null && targetShiftId != null) {
+      setState(() {
+        _rosters.removeWhere(
+          (r) => r['ward_type'] == targetWard && r['shift_id'] == targetShiftId,
+        );
+      });
+    }
+
     try {
       await _shiftCtrl.deleteRosterEntry(id);
       if (mounted) {
@@ -210,19 +409,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         );
       }
-      await _loadShiftData(); // reload allocations and rosters
+      // Partial background update without triggering full page reload
+      await _loadRosterData();
+      _shiftCtrl.fetchAllocations().then((allocs) {
+        if (mounted) {
+          setState(() => _allocations = List<Map<String, dynamic>>.from(allocs));
+        }
+      });
     } catch (e) {
+      await _loadRosterData();
+      final cleanMsg = e.toString().replaceAll('Exception: ', '').trim();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error deleting roster: $e'),
-            backgroundColor: Colors.red,
+            content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Error deleting roster.'),
+            backgroundColor: AppTheme.dangerColor,
           ),
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingShifts = false);
       }
     }
   }
@@ -236,6 +439,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _staffSearchController.dispose();
     _medSearchController.dispose();
     _hvSearchController.dispose();
+    _allocLogSearchCtrl.dispose();
     super.dispose();
   }
 
@@ -255,6 +459,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _loadStaff();
     _loadRbacData();
     _fetchPatients();
+    _fetchAdminNotifications();
     if (_selectedIndex == 8) {
       _loadShiftData();
     }
@@ -351,10 +556,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       barrierLabel: 'Search',
       barrierColor: Colors.black.withOpacity(0.4),
       transitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (context, anim1, anim2) {
-        return SearchOverlay(
-          patients: _dbPatients.map((p) => p.toJson()).toList(),
-          onNewPatient: () => context.go('${AppRoutes.adminDashboard}?tab=2'),
+      pageBuilder: (dialogCtx, anim1, anim2) {
+        return AdminGlobalSearchOverlay(
+          patients: _dbPatients,
+          staff: _allStaffList,
+          onNavigate: (route, index) {
+            Navigator.of(dialogCtx).pop();
+            context.go(route);
+          },
         );
       },
       transitionBuilder: (context, anim1, anim2, child) {
@@ -824,7 +1033,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return const AccessDeniedWidget();
       case 10:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
-          return const BillingManagementView();
+          return Localizations.override(
+            context: context,
+            locale: const Locale('en'),
+            child: const BillingManagementView(),
+          );
         }
         return const AccessDeniedWidget();
       case 11:
@@ -2430,7 +2643,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       return label;
     }
     final lower = label.trim().toLowerCase();
-    if (lower == 'home visit care' || lower.contains('home visit') || lower.contains('home care')) {
+    if (lower.contains('billing') || lower.contains('invoice')) {
+      return label; // Billing & Invoices must ALWAYS stay strictly English
+    }
+    if (lower == 'home visit care' || lower.contains('home visit')) {
       final isTamil = Provider.of<LanguageProvider>(context).isTamil;
       return isTamil ? 'வீட்டுப் பராமரிப்பு சேவை' : label;
     }
@@ -2618,9 +2834,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      context.tr('search_anything', fallback: isMobile ? 'Search...' : 'Quick search...'),
+                      context.tr(
+                        'search_anything',
+                        fallback: isMobile
+                            ? 'Search modules, beds...'
+                            : 'Search modules, IPD beds, staff, patients (e.g. IPD Beds, Rice, Doctor)...',
+                      ),
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13.5,
                         color: AppTheme.getTextSecondaryColor(context),
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -2639,32 +2860,79 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(
-                Icons.notifications_none_outlined,
-                color: AppTheme.getTextPrimaryColor(context),
-                size: 22,
+              // Notification icon button with badge
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _adminNotifications.any((n) => n['is_read'] == false)
+                          ? Icons.notifications_active_outlined
+                          : Icons.notifications_none_outlined,
+                      color: _adminNotifications.any((n) => n['is_read'] == false)
+                          ? AppTheme.dangerColor
+                          : AppTheme.getTextPrimaryColor(context),
+                      size: 22,
+                    ),
+                    tooltip: context.tr('notifications', fallback: 'Notifications'),
+                    onPressed: _showAdminNotificationsDialog,
+                  ),
+                  if (_adminNotifications.any((n) => n['is_read'] == false))
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.dangerColor,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '${_adminNotifications.where((n) => n['is_read'] == false).length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(width: 20),
-              Icon(
-                Icons.help_outline,
-                color: AppTheme.getTextPrimaryColor(context),
-                size: 22,
+              const SizedBox(width: 8),
+              // Help / Question Mark icon button
+              IconButton(
+                icon: Icon(
+                  Icons.help_outline,
+                  color: AppTheme.getTextPrimaryColor(context),
+                  size: 22,
+                ),
+                tooltip: context.tr('help', fallback: 'Help & Operational Guide'),
+                onPressed: _showAdminHelpDialog,
               ),
-              const SizedBox(width: 20),
-              ElevatedButton(
-                onPressed: () {},
+              const SizedBox(width: 12),
+              // Share button with share icon
+              ElevatedButton.icon(
+                onPressed: _showAdminShareDialog,
+                icon: const Icon(Icons.share_outlined, size: 16),
+                label: Text(
+                  context.tr('share', fallback: 'Share'),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
-                  minimumSize: const Size(80, 40),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(90, 40),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                   elevation: 0,
-                ),
-                child: Text(
-                  context.tr('share', fallback: 'Share'),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -2678,6 +2946,37 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
         if (isMobile) ...[
           const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(
+              _adminNotifications.any((n) => n['is_read'] == false)
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_none_outlined,
+              color: _adminNotifications.any((n) => n['is_read'] == false)
+                  ? AppTheme.dangerColor
+                  : AppTheme.getTextPrimaryColor(context),
+              size: 20,
+            ),
+            tooltip: 'Notifications',
+            onPressed: _showAdminNotificationsDialog,
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.help_outline,
+              color: AppTheme.getTextPrimaryColor(context),
+              size: 20,
+            ),
+            tooltip: 'Help',
+            onPressed: _showAdminHelpDialog,
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.share_outlined,
+              color: AppTheme.getTextPrimaryColor(context),
+              size: 20,
+            ),
+            tooltip: 'Share',
+            onPressed: _showAdminShareDialog,
+          ),
           const AppTopBarActions(
             showClock: false,
             showLanguageToggle: false,
@@ -2697,6 +2996,693 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         bottom: 0,
       ),
       child: _buildBannerTopBar(context, isMobile),
+    );
+  }
+
+  // ─── Header Dialogs: Notifications, Help, Share ─────────────────────────────
+
+  Future<void> _fetchAdminNotifications() async {
+    if (_isLoadingNotifications) return;
+    _isLoadingNotifications = true;
+    try {
+      final list = await NotificationController().fetchNotifications();
+      if (mounted) {
+        setState(() {
+          _adminNotifications = list;
+          _isLoadingNotifications = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingNotifications = false;
+        });
+      }
+    }
+  }
+
+  void _showAdminNotificationsDialog() {
+    _fetchAdminNotifications();
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setDialogState) {
+            final unread = _adminNotifications.where((n) => n['is_read'] == false).toList();
+            final read = _adminNotifications.where((n) => n['is_read'] == true).toList();
+
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                width: 520,
+                height: 520,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.notifications_active_outlined, color: AppTheme.primaryColor, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Notifications & Alerts',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Hospital updates, catalog alerts & system logs',
+                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (unread.isNotEmpty)
+                          TextButton(
+                            onPressed: () async {
+                              for (final n in unread) {
+                                final id = n['id'];
+                                if (id is int) {
+                                  await NotificationController().markAsRead(id);
+                                }
+                              }
+                              await _fetchAdminNotifications();
+                              setDialogState(() {});
+                              setState(() {});
+                            },
+                            child: const Text('Mark all as read', style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                          ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    const Divider(height: 1),
+                    const SizedBox(height: 10),
+
+                    // Notification list / Empty state
+                    Expanded(
+                      child: _adminNotifications.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.notifications_off_outlined, size: 54, color: Colors.grey.shade400),
+                                  const SizedBox(height: 14),
+                                  const Text(
+                                    'No Notifications Right Now',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    'You\'re all caught up! New operational updates,\nbed alerts, and system notices will appear here.',
+                                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView(
+                              children: [
+                                if (unread.isNotEmpty) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 6.0),
+                                    child: Row(
+                                      children: [
+                                        const Text('NEW ALERTS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.dangerColor)),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                          decoration: BoxDecoration(color: AppTheme.dangerBg, borderRadius: BorderRadius.circular(10)),
+                                          child: Text('${unread.length}', style: const TextStyle(color: AppTheme.dangerColor, fontSize: 10, fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  ...unread.map((n) => _buildAdminNotificationTile(n, setDialogState)),
+                                ],
+                                if (read.isNotEmpty) ...[
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 6.0),
+                                    child: Text('EARLIER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondaryColor)),
+                                  ),
+                                  ...read.map((n) => _buildAdminNotificationTile(n, setDialogState)),
+                                ],
+                              ],
+                            ),
+                    ),
+
+                    const Divider(height: 1),
+                    const SizedBox(height: 10),
+
+                    // Bottom Bar
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () async {
+                            await _fetchAdminNotifications();
+                            setDialogState(() {});
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.refresh, size: 16),
+                          label: const Text('Refresh', style: TextStyle(fontSize: 12)),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                          style: AppTheme.cancelButton,
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAdminNotificationTile(Map<String, dynamic> n, StateSetter setDialogState) {
+    final bool isUnread = n['is_read'] == false;
+    final title = n['title']?.toString() ?? 'Hospital Notification';
+    final message = n['message']?.toString() ?? '';
+    final createdAt = n['created_at']?.toString();
+    String formattedDate = '-';
+    if (createdAt != null && createdAt.isNotEmpty) {
+      try {
+        final dt = DateTime.parse(createdAt).toLocal();
+        formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
+      } catch (_) {
+        formattedDate = createdAt;
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isUnread ? AppTheme.primaryColor.withValues(alpha: 0.05) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isUnread ? AppTheme.primaryColor.withValues(alpha: 0.25) : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isUnread ? AppTheme.dangerBg : Colors.grey.shade200,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isUnread ? Icons.notifications_active : Icons.notifications_none,
+              color: isUnread ? AppTheme.dangerColor : AppTheme.textSecondaryColor,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
+                    fontSize: 13,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  message,
+                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  formattedDate,
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          ),
+          if (isUnread) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.check_circle_outline, size: 18, color: AppTheme.primaryColor),
+              tooltip: 'Mark as read',
+              onPressed: () async {
+                final id = n['id'];
+                if (id is int) {
+                  await NotificationController().markAsRead(id);
+                  await _fetchAdminNotifications();
+                  setDialogState(() {});
+                  setState(() {});
+                }
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showAdminHelpDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: 600,
+            constraints: const BoxConstraints(maxHeight: 620),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.help_outline, color: AppTheme.primaryColor, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Admin Help & Operational Guide',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Guidance for IPD Beds, Master Catalog & Hospital Admin Operations',
+                            style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHelpSection(
+                          icon: Icons.hotel_outlined,
+                          title: 'IPD Beds Master Catalog',
+                          content: '• Adding Beds: Click "+ Add Bed". Bed numbers must be alphanumeric with at least one number (e.g. G-101, SP-205, ICU-301). Exclusively alphabetic inputs are rejected.\n'
+                              '• Ward Categories: Select from General, ICU, Semi-Private, Deluxe, etc. Ward category is mandatory and defaults to unselected placeholder.\n'
+                              '• Initial Status: Choose Available, Reserved, Under Maintenance, or Cleaning.\n'
+                              '• Occupancy Rule: Beds currently occupied by admitted patients cannot be marked Available until the patient is formally discharged.',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildHelpSection(
+                          icon: Icons.restaurant_outlined,
+                          title: 'Food Stock & Inventory Management',
+                          content: '• Stock Quantities: Enter valid numerical values up to 1,000,000. Rejects zero for initial quantities.\n'
+                              '• Expiry Dates: Approaching expiration items (< 30 days) appear under Expiring Soon Alerts with days-remaining countdowns.\n'
+                              '• Search & Filters: Use the search box above the catalog list to find groceries, consumables, or drugs by keyword.\n'
+                              '• Replenishments: Trigger automatic purchase replenishment requests when items hit low-stock thresholds.',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildHelpSection(
+                          icon: Icons.medication_outlined,
+                          title: 'Medicine Catalog & Pharmacy Master',
+                          content: '• Adding Medicines: Click "+ Add Medication". Specify drug name, category (Medicine, ICU Consumable, Surgical Item), and default dispensing unit (tabs, caps, vials, etc.).\n'
+                              '• Stock & Alert Levels: Set initial physical stock and low-stock threshold triggers.\n'
+                              '• Quick Search: Search medications by brand or generic name (e.g. Paracetamol) instantly across the table or using the top header search bar.',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildHelpSection(
+                          icon: Icons.admin_panel_settings_outlined,
+                          title: 'Role-Based Access Control (RBAC) & Staff',
+                          content: '• Staff Management: Register doctors, nurses, pharmacists, and front desk operators.\n'
+                              '• Department Permissions: Assign specific access rules and view patient medical histories securely.\n'
+                              '• Password Security: Passwords must conform to SPMC Hospital Security Policy (minimum 8 characters with numbers & symbols).',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildHelpSection(
+                          icon: Icons.support_agent_outlined,
+                          title: 'Hospital IT Helpdesk & Support',
+                          content: '• Support Email: support@sriponnimedicalcentre.com\n'
+                              '• Helpdesk Hotline: +91 431 2345678 (Ext: 1001)\n'
+                              '• Emergency HIS Support: 24/7 Operations Command Desk\n'
+                              '• Location: Sri Ponni Medical Centre, Main Block Ground Floor.',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+
+                // Footer
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                      style: AppTheme.primaryButton,
+                      child: const Text('Got It'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHelpSection({
+    required IconData icon,
+    required String title,
+    required String content,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, height: 1.45),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getCurrentPageTitle() {
+    switch (_selectedIndex) {
+      case 0:
+        return 'Admin Control Panel';
+      case 1:
+        return 'Staff Management';
+      case 2:
+        return 'Patients Registry';
+      case 3:
+        return 'Access Control (RBAC)';
+      case 4:
+        return 'Appointments Management';
+      case 5:
+        return 'OPD Management';
+      case 6:
+        return 'IPD Management';
+      case 7:
+        return 'OT Management';
+      case 8:
+        return 'Shift Allocation';
+      case 11:
+        return 'Master Catalog / Food Stock Management';
+      case 13:
+        return 'Master Catalog / Medicine Catalog';
+      case 14:
+        return 'Master Catalog / Home Visit Consumables';
+      case 15:
+        return 'Master Catalog / Carried Kit Items';
+      case 16:
+        return 'Master Catalog / IPD Beds';
+      default:
+        return 'Admin Dashboard';
+    }
+  }
+
+  void _showAdminShareDialog() {
+    final pageTitle = _getCurrentPageTitle();
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final userName = (user?.rawFullname?.isNotEmpty == true
+            ? user!.rawFullname!
+            : (user?.fullname.isNotEmpty == true ? user!.fullname : user?.role)) ??
+        'Admin';
+    final nowFormatted = DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now());
+    final currentUrl = Uri.base.toString();
+
+    final summaryText = 'Sri Ponni Medical Centre - Hospital Management System\n'
+        'Page: $pageTitle\n'
+        'Generated By: $userName\n'
+        'Timestamp: $nowFormatted\n'
+        'URL: $currentUrl';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setShareState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                width: 500,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.share_outlined, color: AppTheme.primaryColor, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Share Page & Information',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Current View: $pageTitle',
+                                style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    const Divider(height: 1),
+                    const SizedBox(height: 18),
+
+                    // Direct Page Link Box
+                    const Text('Page Direct Link', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.borderColor),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.link, size: 18, color: AppTheme.textSecondaryColor),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              currentUrl,
+                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              minimumSize: const Size(80, 36),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: () async {
+                              await Clipboard.setData(ClipboardData(text: currentUrl));
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Page link copied to clipboard!'),
+                                    backgroundColor: AppTheme.primaryColor,
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.copy, size: 14),
+                            label: const Text('Copy Link', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Share Options Row
+                    const Text('Quick Share Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        // Copy Summary Button
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: const BorderSide(color: AppTheme.primaryColor),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () async {
+                              await Clipboard.setData(ClipboardData(text: summaryText));
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Page summary copied to clipboard!'),
+                                    backgroundColor: AppTheme.secondaryColor,
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.description_outlined, size: 16, color: AppTheme.primaryColor),
+                            label: const Text('Copy Summary', style: TextStyle(color: AppTheme.primaryColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Email Share Button
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: const BorderSide(color: Color(0xFF0284C7)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () async {
+                              final emailUri = Uri(
+                                scheme: 'mailto',
+                                queryParameters: {
+                                  'subject': 'SPMC HMS - $pageTitle',
+                                  'body': 'Hi,\n\nPlease find the details for $pageTitle on Sri Ponni Medical Centre HMS:\n\n$summaryText\n\nRegards,\n$userName',
+                                },
+                              );
+                              try {
+                                if (await canLaunchUrl(emailUri)) {
+                                  await launchUrl(emailUri);
+                                } else {
+                                  await Clipboard.setData(ClipboardData(text: summaryText));
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Email client not found. Summary copied to clipboard!'),
+                                        backgroundColor: AppTheme.primaryColor,
+                                      ),
+                                    );
+                                  }
+                                }
+                              } catch (_) {
+                                await Clipboard.setData(ClipboardData(text: summaryText));
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Summary copied to clipboard!'),
+                                      backgroundColor: AppTheme.primaryColor,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.email_outlined, size: 16, color: Color(0xFF0284C7)),
+                            label: const Text('Email Details', style: TextStyle(color: Color(0xFF0284C7), fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 20),
+                    const Divider(height: 1),
+                    const SizedBox(height: 12),
+
+                    // Close Button
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(dialogCtx).pop(),
+                          style: AppTheme.cancelButton,
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -3078,7 +4064,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   children: [
                     _buildActionGridItem(
                       Icons.receipt_long_outlined,
-                      context.tr('billing', fallback: 'Billing &\nInvoices'),
+                      'Billing &\nInvoices',
                       () => context.go(AppRoutes.adminBilling),
                     ),
                     const SizedBox(width: 12),
@@ -3108,7 +4094,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 const SizedBox(width: 12),
                 _buildActionGridItem(
                   Icons.receipt_long_outlined,
-                  context.tr('billing', fallback: 'Billing &\nInvoices'),
+                  'Billing &\nInvoices',
                   () => context.go(AppRoutes.adminBilling),
                 ),
                 const SizedBox(width: 12),
@@ -4110,7 +5096,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildShiftManagement(bool isMobile) {
-    if (_isLoadingShifts) {
+    if (_isLoadingShifts && _shifts.isEmpty && _allocations.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -4427,28 +5413,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  Widget _buildAssignedNurseChip(String nurseName, int rosterId) {
+  Widget _buildAssignedNurseChip(
+    String nurseName,
+    int rosterId, {
+    bool isReadOnly = false,
+  }) {
     final avatarColors = AppTheme.getAvatarColors(nurseName);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withOpacity(0.06),
+        color: isReadOnly
+            ? const Color(0xFFF1F5F9)
+            : AppTheme.primaryColor.withOpacity(0.06),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2)),
+        border: Border.all(
+          color: isReadOnly
+              ? Colors.grey.shade300
+              : AppTheme.primaryColor.withOpacity(0.2),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
             radius: 11,
-            backgroundColor: avatarColors['bg'],
+            backgroundColor: isReadOnly ? Colors.grey.shade400 : avatarColors['bg'],
             child: Text(
               nurseName.isNotEmpty
                   ? nurseName.substring(0, 1).toUpperCase()
                   : 'N',
               style: TextStyle(
-                color: avatarColors['text'],
+                color: isReadOnly ? Colors.white : avatarColors['text'],
                 fontWeight: FontWeight.bold,
                 fontSize: 9,
               ),
@@ -4458,29 +5454,66 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           Flexible(
             child: Text(
               nurseName,
-              style: const TextStyle(
-                color: AppTheme.primaryColor,
+              style: TextStyle(
+                color: isReadOnly
+                    ? AppTheme.textPrimaryColor
+                    : AppTheme.primaryColor,
                 fontWeight: FontWeight.bold,
                 fontSize: 12,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 6),
-          GestureDetector(
-            onTap: () => _deleteRosterEntry(rosterId),
-            child: Icon(
-              Icons.cancel,
-              size: 14,
-              color: Colors.redAccent.shade400,
+          if (!isReadOnly) ...[
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => _deleteRosterEntry(rosterId),
+              child: Icon(
+                Icons.cancel,
+                size: 14,
+                color: Colors.redAccent.shade400,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildAssignNurseButton(String ward, int shiftId) {
+  Widget _buildAssignNurseButton(
+    String ward,
+    int shiftId, {
+    bool isReadOnly = false,
+  }) {
+    if (isReadOnly) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: 13,
+              color: Colors.grey.shade500,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              'Locked',
+              style: TextStyle(
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
@@ -4525,10 +5558,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showNurseSelectionDialog(String ward, int shiftId) {
+    if (_isPastRosterWeek) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot assign shifts for past weeks. Past rosters are locked in read-only mode.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (ctx) {
         String searchQuery = '';
+        String? dialogError;
+        bool isSaving = false;
+        int? savingNurseId;
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             final filteredNurses = _nurses.where((n) {
@@ -4564,6 +5609,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    if (dialogError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: AppTheme.dangerColor.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 18,
+                              color: AppTheme.dangerColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                dialogError!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.dangerColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     TextField(
                       decoration: InputDecoration(
                         isDense: true,
@@ -4591,6 +5674,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       onChanged: (val) {
                         setDialogState(() {
                           searchQuery = val;
+                          dialogError = null;
                         });
                       },
                     ),
@@ -4618,16 +5702,61 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               nurse.fullname,
                             );
 
+                            final existingRoster = _rosters.firstWhere(
+                              (r) =>
+                                  r['nurse_id']?.toString() == nurse.id.toString() &&
+                                  !(r['ward_type']?.toString().toLowerCase() == ward.toLowerCase() &&
+                                      r['shift_id']?.toString() == shiftId.toString()),
+                              orElse: () => {},
+                            );
+                            final bool isAlreadyAssigned =
+                                existingRoster.isNotEmpty;
+
                             return Card(
                               elevation: 0,
-                              color: Colors.transparent,
+                              color: isAlreadyAssigned
+                                  ? AppTheme.dangerColor.withOpacity(0.04)
+                                  : Colors.transparent,
                               margin: const EdgeInsets.only(bottom: 6),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(10),
-                                onTap: () {
-                                  Navigator.pop(ctx);
-                                  _saveRosterEntry(nurse.id, shiftId, ward);
-                                },
+                                onTap: isSaving
+                                    ? null
+                                    : () async {
+                                        if (isAlreadyAssigned) {
+                                          setDialogState(() {
+                                            dialogError =
+                                                '${nurse.fullname} is already assigned to ${existingRoster['ward_type']} Ward (${existingRoster['shift_name']}) for this week. A staff member cannot be assigned to multiple shifts on the same day.';
+                                          });
+                                          return;
+                                        }
+                                        setDialogState(() {
+                                          isSaving = true;
+                                          savingNurseId = nurse.id;
+                                          dialogError = null;
+                                        });
+                                        try {
+                                          await _saveRosterEntry(nurse.id, shiftId, ward);
+                                          if (dialogCtx.mounted) {
+                                            Navigator.pop(dialogCtx);
+                                          }
+                                        } catch (e) {
+                                          final cleanMsg = e
+                                              .toString()
+                                              .replaceAll('Exception: ', '')
+                                              .replaceAll('Error: ', '')
+                                              .trim();
+                                          if (dialogCtx.mounted) {
+                                            setDialogState(() {
+                                              isSaving = false;
+                                              savingNurseId = null;
+                                              dialogError = cleanMsg.isNotEmpty
+                                                  ? cleanMsg
+                                                  : 'Failed to save roster entry.';
+                                            });
+                                          }
+                                        }
+                                      },
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 8,
@@ -4667,7 +5796,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                                     AppTheme.textPrimaryColor,
                                               ),
                                             ),
-                                            if (nurse.staffUniqueId != null &&
+                                            if (isAlreadyAssigned) ...[
+                                              const SizedBox(height: 3),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.amber.shade50,
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                  border: Border.all(
+                                                    color:
+                                                        Colors.amber.shade300,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  'Assigned: ${existingRoster['ward_type']} (${existingRoster['shift_name']})',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                    color:
+                                                        Colors.amber.shade900,
+                                                  ),
+                                                ),
+                                              ),
+                                            ] else if (nurse.staffUniqueId != null &&
                                                 nurse
                                                     .staffUniqueId!
                                                     .isNotEmpty) ...[
@@ -4684,11 +5840,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                           ],
                                         ),
                                       ),
-                                      const Icon(
-                                        Icons.chevron_right,
-                                        size: 16,
-                                        color: Colors.grey,
-                                      ),
+                                      if (isSaving && savingNurseId == nurse.id)
+                                        const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: AppTheme.primaryColor,
+                                          ),
+                                        )
+                                      else if (isAlreadyAssigned)
+                                        const Icon(
+                                          Icons.block_rounded,
+                                          size: 18,
+                                          color: AppTheme.dangerColor,
+                                        )
+                                      else
+                                        const Icon(
+                                          Icons.chevron_right,
+                                          size: 16,
+                                          color: Colors.grey,
+                                        ),
                                     ],
                                   ),
                                 ),
@@ -4714,7 +5886,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _autoAllocateThisWeek() async {
-    final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
+    if (_isPastRosterWeek) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot allocate shifts for past weeks. Past rosters are locked in read-only mode.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
 
     if (_nurses.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -4765,6 +5945,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           child: Text(
             'This will automatically assign shifts for the selected week ($weekStartStr - $weekEndStr) '
             'using the available nurses in the system.\n\n'
+            'Staff members will be fairly distributed with at most one shift per day to prevent double-booking.\n\n'
             'Existing assignments in this week will be overwritten.\n\n'
             'Do you want to proceed?',
             softWrap: true,
@@ -4789,113 +5970,32 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (confirm != true) return;
 
-    // Define all target slots: each ward combined with each shift
-    List<Map<String, dynamic>> slotsToAssign = [];
-    for (final ward in WARD_TYPES) {
-      for (final shift in _shifts) {
-        slotsToAssign.add({'ward': ward, 'shift_id': shift['id']});
-      }
-    }
-
-    // Build the pool of nurse IDs
-    final List<int> nurseIdsPool = _nurses.map((n) => n.id).toList();
-    final List<int> targetNurseIds = [...nurseIdsPool];
-
-    // If we have fewer unique nurses than slots, backfill/repeat the pool
-    while (targetNurseIds.length < slotsToAssign.length) {
-      targetNurseIds.addAll(nurseIdsPool.isNotEmpty ? nurseIdsPool : [1]);
-    }
-
-    final List<int> finalNurseIds = targetNurseIds.sublist(
-      0,
-      slotsToAssign.length,
-    );
-
-    // Helper to check for continuous shifts
-    bool areShiftsContinuous(Map<String, dynamic> s1, Map<String, dynamic> s2) {
-      final end1 = s1['end_time']?.toString().trim();
-      final start1 = s1['start_time']?.toString().trim();
-      final end2 = s2['end_time']?.toString().trim();
-      final start2 = s2['start_time']?.toString().trim();
-
-      if (end1 == null || start1 == null || end2 == null || start2 == null)
-        return false;
-      return end1 == start2 || end2 == start1;
-    }
-
-    bool isValidRoster(List<int> list) {
-      final Map<int, List<Map<String, dynamic>>> nurseShifts = {};
-      for (int i = 0; i < list.length; i++) {
-        final nurseId = list[i];
-        final slot = slotsToAssign[i];
-        final shiftId = slot['shift_id'] as int;
-
-        final shiftDetail = _shifts.firstWhere(
-          (s) => s['id'] == shiftId,
-          orElse: () => <String, dynamic>{},
-        );
-        if (shiftDetail.isEmpty) continue;
-
-        if (!nurseShifts.containsKey(nurseId)) {
-          nurseShifts[nurseId] = [];
-        }
-
-        for (final assignedShift in nurseShifts[nurseId]!) {
-          if (assignedShift['id'] == shiftId) return false;
-          if (areShiftsContinuous(assignedShift, shiftDetail)) return false;
-        }
-
-        nurseShifts[nurseId]!.add(shiftDetail);
-      }
-      return true;
-    }
-
-    bool foundValid = false;
-    for (int iter = 0; iter < 1000; iter++) {
-      finalNurseIds.shuffle();
-      if (isValidRoster(finalNurseIds)) {
-        foundValid = true;
-        break;
-      }
-    }
-
     final targetWeekStartStr = DateFormat(
       'yyyy-MM-dd',
     ).format(_selectedRosterWeekStart);
     setState(() => _isLoadingShifts = true);
 
     try {
-      int successCount = 0;
-      for (int i = 0; i < slotsToAssign.length; i++) {
-        final slot = slotsToAssign[i];
-        final nurseId = finalNurseIds[i];
-        await _shiftCtrl.saveRosterEntry(
-          nurseId,
-          slot['shift_id'],
-          slot['ward'],
-          targetWeekStartStr,
-        );
-        successCount++;
-      }
-
+      final res = await _shiftCtrl.autoAllocateRosters(targetWeekStartStr);
       await _loadRosterData();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Successfully allocated $successCount shifts for this week!',
+              res['message'] ?? 'Successfully allocated shifts for this week!',
             ),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
+      final cleanMsg = e.toString().replaceAll('Exception: ', '').trim();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to auto-allocate: $e'),
-            backgroundColor: Colors.red,
+            content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Failed to auto-allocate shifts.'),
+            backgroundColor: AppTheme.dangerColor,
           ),
         );
       }
@@ -4907,6 +6007,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _autoShuffleNextWeek() async {
+    final nextWeekStart = _selectedRosterWeekStart.add(const Duration(days: 7));
+    if (nextWeekStart.isBefore(_currentWeekStart)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot allocate shifts for past weeks. Past rosters are locked in read-only mode.'),
+          backgroundColor: AppTheme.dangerColor,
+        ),
+      );
+      return;
+    }
+
     final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
 
     // 1. Collect active assignments of the current week
@@ -4938,7 +6049,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return;
       }
 
-      // Auto-populate all slots to allocate automatically
       for (final ward in WARD_TYPES) {
         for (final shift in _shifts) {
           activeSlots.add({
@@ -4952,7 +6062,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
 
     // 2. Confirm dialog with the user showing next week's dates
-    final nextWeekStart = _selectedRosterWeekStart.add(const Duration(days: 7));
     final nextWeekStartStr = DateFormat('dd MMM').format(nextWeekStart);
     final nextWeekEndStr = DateFormat(
       'dd MMM yyyy',
@@ -4980,10 +6089,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           isEmptyRoster
               ? 'This will automatically allocate shifts for the next week ($nextWeekStartStr - $nextWeekEndStr) '
                     'using the available nurses in the system.\n\n'
+                    'Staff members will be fairly distributed with at most one shift per day to prevent double-booking.\n\n'
                     'Existing assignments in the target week will be overwritten.\n\n'
                     'Do you want to proceed?'
               : 'This will automatically assign shifts for the next week ($nextWeekStartStr - $nextWeekEndStr) '
-                    'by shuffling the ${activeSlots.length} nurse assignments from the current week.\n\n'
+                    'by shuffling nurse assignments from the current week.\n\n'
+                    'Staff members will be fairly distributed with at most one shift per day to prevent double-booking.\n\n'
                     'Existing assignments in the target week will be overwritten.\n\n'
                     'Do you want to proceed?',
         ),
@@ -5008,137 +6119,69 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     if (confirm != true) return;
 
-    // 3. Create a pool of unique nurse IDs to assign to the active slots
-    // We prioritize the nurse IDs that are already active this week
-    final List<int> activeNurseIds = activeSlots
-        .map((s) => s['nurse_id'] as int)
-        .toSet()
-        .toList();
-    activeNurseIds.remove(0); // Remove placeholder id
-    final List<int> targetNurseIds = [...activeNurseIds];
-
-    // If we have fewer unique active nurses than active slots, backfill from the general nurses pool
-    if (targetNurseIds.length < activeSlots.length) {
-      for (final nurse in _nurses) {
-        if (!targetNurseIds.contains(nurse.id)) {
-          targetNurseIds.add(nurse.id);
-        }
-        if (targetNurseIds.length >= activeSlots.length) {
-          break;
-        }
-      }
-    }
-
-    // If we STILL don't have enough unique nurses, repeat the pool
-    final List<int> fallbackNursePool = _nurses.map((n) => n.id).toList();
-    while (targetNurseIds.length < activeSlots.length) {
-      targetNurseIds.addAll(
-        fallbackNursePool.isNotEmpty ? fallbackNursePool : [1],
-      );
-    }
-
-    final List<int> finalNurseIds = targetNurseIds.sublist(
-      0,
-      activeSlots.length,
-    );
-
-    // Helper to verify if a nurse is assigned to continuous shifts or duplicates on the same shift
-    bool areShiftsContinuous(Map<String, dynamic> s1, Map<String, dynamic> s2) {
-      final end1 = s1['end_time']?.toString().trim();
-      final start1 = s1['start_time']?.toString().trim();
-      final end2 = s2['end_time']?.toString().trim();
-      final start2 = s2['start_time']?.toString().trim();
-
-      if (end1 == null || start1 == null || end2 == null || start2 == null)
-        return false;
-
-      // Check if s1 ends when s2 starts, or s2 ends when s1 starts
-      return end1 == start2 || end2 == start1;
-    }
-
-    bool isValidRoster(List<int> list) {
-      final Map<int, List<Map<String, dynamic>>> nurseShifts = {};
-      for (int i = 0; i < list.length; i++) {
-        final nurseId = list[i];
-        final slot = activeSlots[i];
-        final shiftId = slot['shift_id'] as int;
-
-        final shiftDetail = _shifts.firstWhere(
-          (s) => s['id'] == shiftId,
-          orElse: () => <String, dynamic>{},
-        );
-        if (shiftDetail.isEmpty) continue;
-
-        if (!nurseShifts.containsKey(nurseId)) {
-          nurseShifts[nurseId] = [];
-        }
-
-        for (final assignedShift in nurseShifts[nurseId]!) {
-          if (assignedShift['id'] == shiftId) return false;
-          if (areShiftsContinuous(assignedShift, shiftDetail)) return false;
-        }
-
-        nurseShifts[nurseId]!.add(shiftDetail);
-      }
-      return true;
-    }
-
-    bool foundValid = false;
-    for (int iter = 0; iter < 1000; iter++) {
-      finalNurseIds.shuffle();
-      if (isValidRoster(finalNurseIds)) {
-        foundValid = true;
-        break;
-      }
-    }
-
-    // 4. Save slots for next week using the shuffled list
     final targetWeekStartStr = DateFormat('yyyy-MM-dd').format(nextWeekStart);
 
     setState(() => _isLoadingShifts = true);
 
     try {
-      int successCount = 0;
-      for (int i = 0; i < activeSlots.length; i++) {
-        final slot = activeSlots[i];
-        final nurseId = finalNurseIds[i];
-        await _shiftCtrl.saveRosterEntry(
-          nurseId,
-          slot['shift_id'],
-          slot['ward'],
-          targetWeekStartStr,
-        );
-        successCount++;
-      }
-
-      // Navigate to next week to show results immediately
-      setState(() {
-        _selectedRosterWeekStart = nextWeekStart;
-      });
-      await _loadRosterData();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isEmptyRoster
-                  ? 'Successfully allocated $successCount shifts for the next week!'
-                  : 'Successfully shuffled and assigned $successCount shifts for the next week!',
+      if (isEmptyRoster) {
+        final res = await _shiftCtrl.autoAllocateRosters(targetWeekStartStr);
+        setState(() {
+          _selectedRosterWeekStart = nextWeekStart;
+        });
+        await _loadRosterData();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(res['message'] ?? 'Successfully allocated shifts for the next week!'),
+              backgroundColor: Colors.green,
             ),
-            backgroundColor: Colors.green,
-          ),
-        );
+          );
+        }
+      } else {
+        // Shuffle existing unique nurses without double-booking
+        final List<int> uniqueNursePool = _nurses.map((n) => n.id).toList()..shuffle();
+        final int assignCount = activeSlots.length < uniqueNursePool.length
+            ? activeSlots.length
+            : uniqueNursePool.length;
+        final List<int> finalNurseIds = uniqueNursePool.sublist(0, assignCount);
+
+        int successCount = 0;
+        for (int i = 0; i < assignCount; i++) {
+          final slot = activeSlots[i];
+          final nurseId = finalNurseIds[i];
+          await _shiftCtrl.saveRosterEntry(
+            nurseId,
+            slot['shift_id'],
+            slot['ward'],
+            targetWeekStartStr,
+          );
+          successCount++;
+        }
+
+        setState(() {
+          _selectedRosterWeekStart = nextWeekStart;
+        });
+        await _loadRosterData();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Successfully shuffled and assigned $successCount shifts for the next week without double-booking!',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
+      final cleanMsg = e.toString().replaceAll('Exception: ', '').trim();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              isEmptyRoster
-                  ? 'Failed to auto-allocate: $e'
-                  : 'Error shuffling roster: $e',
-            ),
-            backgroundColor: Colors.red,
+            content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Error shuffling roster.'),
+            backgroundColor: AppTheme.dangerColor,
           ),
         );
       }
@@ -5197,7 +6240,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           OutlinedButton.icon(
-                            onPressed: _autoAllocateThisWeek,
+                            onPressed: _isPastRosterWeek ? null : _autoAllocateThisWeek,
                             icon: const Icon(Icons.auto_awesome, size: 14),
                             label: const Text(
                               'Auto-Allocate This Week',
@@ -5221,7 +6264,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                           OutlinedButton.icon(
-                            onPressed: _autoShuffleNextWeek,
+                            onPressed: _isPastRosterWeek ? null : _autoShuffleNextWeek,
                             icon: const Icon(Icons.shuffle_rounded, size: 14),
                             label: const Text(
                               'Shuffle Next Week',
@@ -5284,13 +6327,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       ),
                                     ],
                                   ),
-                                  child: Text(
-                                    '$weekStartStr - $weekEndStr',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: AppTheme.primaryColor,
-                                    ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '$weekStartStr - $weekEndStr',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      if (_isPastRosterWeek) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade100,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.amber.shade400),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.lock_outline, size: 11, color: Colors.amber.shade900),
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                'Locked',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.amber.shade900,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                                 IconButton(
@@ -5345,7 +6419,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           OutlinedButton.icon(
-                            onPressed: _autoAllocateThisWeek,
+                            onPressed: _isPastRosterWeek ? null : _autoAllocateThisWeek,
                             icon: const Icon(Icons.auto_awesome, size: 14),
                             label: const Text(
                               'Auto-Allocate This Week',
@@ -5369,7 +6443,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                           ),
                           OutlinedButton.icon(
-                            onPressed: _autoShuffleNextWeek,
+                            onPressed: _isPastRosterWeek ? null : _autoShuffleNextWeek,
                             icon: const Icon(Icons.shuffle_rounded, size: 14),
                             label: const Text(
                               'Auto-Shuffle Next Week',
@@ -5434,13 +6508,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       ),
                                     ],
                                   ),
-                                  child: Text(
-                                    '$weekStartStr - $weekEndStr',
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: AppTheme.primaryColor,
-                                    ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '$weekStartStr - $weekEndStr',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: AppTheme.primaryColor,
+                                        ),
+                                      ),
+                                      if (_isPastRosterWeek) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade100,
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(color: Colors.amber.shade400),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.lock_outline, size: 11, color: Colors.amber.shade900),
+                                              const SizedBox(width: 2),
+                                              Text(
+                                                'Locked',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.amber.shade900,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                                 IconButton(
@@ -5527,7 +6632,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             ),
                             const SizedBox(height: 12),
                             ElevatedButton.icon(
-                              onPressed: _autoAllocateThisWeek,
+                              onPressed: _isPastRosterWeek ? null : _autoAllocateThisWeek,
                               icon: const Icon(Icons.auto_awesome, size: 14),
                               label: const Text('Auto-Allocate This Week'),
                               style: ElevatedButton.styleFrom(
@@ -5572,7 +6677,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   ),
                                   const SizedBox(height: 10),
                                   ElevatedButton.icon(
-                                    onPressed: _autoAllocateThisWeek,
+                                    onPressed: _isPastRosterWeek ? null : _autoAllocateThisWeek,
                                     icon: const Icon(
                                       Icons.auto_awesome,
                                       size: 14,
@@ -5965,17 +7070,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showAllocateNurseDialog() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     setState(() {
       _selectedAllocNurse = null;
       _selectedAllocShift = null;
       _selectedAllocWard = null;
-      _selectedAllocDate = DateTime.now(); // default to today's date
+      _selectedAllocDate = today; // default to today's date
     });
 
     showDialog(
       context: context,
       builder: (ctx) {
         final WARD_TYPES = ['General', 'ICU', 'Private', 'Semi-Private'];
+        String? allocError;
+        bool isSaving = false;
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             return AlertDialog(
@@ -6004,6 +7113,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (allocError != null) ...[
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.dangerColor.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppTheme.dangerColor.withOpacity(0.4),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(
+                                Icons.error_outline,
+                                size: 18,
+                                color: AppTheme.dangerColor,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  allocError!,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.dangerColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const Divider(height: 16),
                       const SizedBox(height: 12),
                       Container(
@@ -6143,19 +7290,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       const SizedBox(height: 6),
                       InkWell(
                         onTap: () async {
+                          final now = DateTime.now();
+                          final today = DateTime(now.year, now.month, now.day);
+                          final initial = _selectedAllocDate != null &&
+                                  !_selectedAllocDate!.isBefore(today)
+                              ? _selectedAllocDate!
+                              : today;
+
                           final picked = await showDatePicker(
                             context: dialogCtx,
-                            initialDate: _selectedAllocDate ?? DateTime.now(),
-                            firstDate: DateTime.now().subtract(
-                              const Duration(days: 30),
-                            ),
+                            initialDate: initial,
+                            firstDate: today,
                             lastDate: DateTime.now().add(
-                              const Duration(days: 90),
+                              const Duration(days: 365),
                             ),
+                            initialEntryMode: DatePickerEntryMode.calendarOnly,
+                            selectableDayPredicate: (day) {
+                              final d = DateTime(day.year, day.month, day.day);
+                              return !d.isBefore(today);
+                            },
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.light(
+                                    primary: AppTheme.primaryColor,
+                                    onPrimary: Colors.white,
+                                    onSurface: AppTheme.textPrimaryColor,
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
                           );
                           if (picked != null) {
-                            setDialogState(() => _selectedAllocDate = picked);
-                            setState(() => _selectedAllocDate = picked);
+                            if (picked.isBefore(today)) {
+                              setDialogState(() {
+                                allocError = 'Allocation date cannot be in the past.';
+                              });
+                            } else {
+                              setDialogState(() {
+                                _selectedAllocDate = picked;
+                                allocError = null;
+                              });
+                              setState(() => _selectedAllocDate = picked);
+                            }
                           }
                         },
                         child: Container(
@@ -6224,27 +7402,101 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     minimumSize: const Size(130, 48),
                     elevation: 0,
                   ),
-                  onPressed: () async {
-                    if (_selectedAllocNurse == null ||
-                        _selectedAllocShift == null ||
-                        _selectedAllocWard == null ||
-                        _selectedAllocDate == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Please select Nurse, Shift, Ward, and Date.',
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final now = DateTime.now();
+                          final today = DateTime(now.year, now.month, now.day);
+
+                          if (_selectedAllocNurse == null ||
+                              _selectedAllocShift == null ||
+                              _selectedAllocWard == null ||
+                              _selectedAllocDate == null) {
+                            setDialogState(() {
+                              allocError =
+                                  'Please select Nurse, Shift, Ward, and Date.';
+                            });
+                            return;
+                          }
+
+                          final allocDay = DateTime(
+                            _selectedAllocDate!.year,
+                            _selectedAllocDate!.month,
+                            _selectedAllocDate!.day,
+                          );
+                          if (allocDay.isBefore(today)) {
+                            setDialogState(() {
+                              allocError =
+                                  'Allocation date cannot be in the past.';
+                            });
+                            return;
+                          }
+
+                          setDialogState(() {
+                            isSaving = true;
+                            allocError = null;
+                          });
+
+                          final dateStr = DateFormat('yyyy-MM-dd')
+                              .format(_selectedAllocDate!);
+
+                          try {
+                            await _shiftCtrl.createAllocation(
+                              _selectedAllocNurse!.id,
+                              _selectedAllocShift!['id'],
+                              _selectedAllocWard!,
+                              dateStr,
+                            );
+                            if (mounted) {
+                              Navigator.pop(dialogCtx);
+                              setState(() {
+                                _selectedAllocNurse = null;
+                                _selectedAllocShift = null;
+                                _selectedAllocWard = null;
+                                _selectedAllocDate = null;
+                              });
+                              // Partial async update of allocations without full page reload
+                              _shiftCtrl.fetchAllocations().then((allocs) {
+                                if (mounted) {
+                                  setState(() => _allocations =
+                                      List<Map<String, dynamic>>.from(allocs));
+                                }
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('Nurse allocated successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            final cleanMsg = e
+                                .toString()
+                                .replaceAll('Exception: ', '')
+                                .replaceAll('Error: ', '')
+                                .trim();
+                            setDialogState(() {
+                              isSaving = false;
+                              allocError = cleanMsg.isNotEmpty
+                                  ? cleanMsg
+                                  : 'Failed to allocate nurse. Please check for scheduling conflicts.';
+                            });
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
                           ),
+                        )
+                      : const Text(
+                          'Save Allocation',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                      );
-                      return;
-                    }
-                    Navigator.pop(dialogCtx);
-                    _submitAllocation();
-                  },
-                  child: const Text(
-                    'Save Allocation',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
                 ),
               ],
             );
@@ -6256,6 +7508,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildAllocationLogsCard() {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
+
+    // Collect unique nurse names for filter dropdown
+    final Set<String> nurseNameSet = {};
+    for (final a in _allocations) {
+      final name = a['nurse_name']?.toString().trim();
+      if (name != null && name.isNotEmpty) {
+        nurseNameSet.add(name);
+      }
+    }
+    for (final n in _nurses) {
+      if (n.fullname.trim().isNotEmpty) {
+        nurseNameSet.add(n.fullname.trim());
+      }
+    }
+    final List<String> uniqueNurseNames = nurseNameSet.toList()..sort();
+
+    final filteredList = _filteredAllocations;
 
     return Card(
       elevation: 0,
@@ -6286,16 +7555,278 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   ),
                 ),
+                if (_allocations.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${filteredList.length} of ${_allocations.length} records',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
+                  ),
               ],
             ),
             const Divider(height: 24),
-            if (_allocations.isEmpty)
+
+            // --- History Filter Controls (by Nurse, Date Range, or Week) ---
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                // 1. Instant Text Search
+                SizedBox(
+                  width: isMobile ? double.infinity : 200,
+                  height: 40,
+                  child: TextField(
+                    controller: _allocLogSearchCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Search nurse, ward...',
+                      hintStyle: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                      prefixIcon: const Icon(Icons.search, size: 16, color: AppTheme.textSecondaryColor),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+                      filled: true,
+                      fillColor: const Color(0xFFF1F5F9),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        _allocLogSearchQuery = val;
+                      });
+                    },
+                  ),
+                ),
+
+                // 2. Nurse Filter Dropdown
+                Container(
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: _allocLogNurseFilter != 'All'
+                        ? AppTheme.primaryColor.withOpacity(0.06)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _allocLogNurseFilter != 'All'
+                          ? AppTheme.primaryColor
+                          : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _allocLogNurseFilter,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _allocLogNurseFilter != 'All'
+                            ? AppTheme.primaryColor
+                            : AppTheme.textPrimaryColor,
+                      ),
+                      dropdownColor: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      onChanged: (val) {
+                        if (val != null) {
+                          setState(() => _allocLogNurseFilter = val);
+                        }
+                      },
+                      items: [
+                        const DropdownMenuItem(value: 'All', child: Text('All Nurses')),
+                        ...uniqueNurseNames.map(
+                          (name) => DropdownMenuItem(value: name, child: Text(name)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 3. Date / Date Range Picker
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                      initialDateRange: _allocLogDateRangeFilter,
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.light(
+                              primary: AppTheme.primaryColor,
+                              onPrimary: Colors.white,
+                              onSurface: AppTheme.textPrimaryColor,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) {
+                      setState(() {
+                        _allocLogDateRangeFilter = picked;
+                        _allocLogWeekFilter = null;
+                        _allocLogWeekPreset = 'All';
+                      });
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    decoration: BoxDecoration(
+                      color: _allocLogDateRangeFilter != null
+                          ? AppTheme.primaryColor.withOpacity(0.06)
+                          : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: _allocLogDateRangeFilter != null
+                            ? AppTheme.primaryColor
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.date_range_rounded,
+                          size: 15,
+                          color: _allocLogDateRangeFilter != null
+                              ? AppTheme.primaryColor
+                              : AppTheme.textSecondaryColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _allocLogDateRangeFilter != null
+                              ? '${DateFormat('dd MMM').format(_allocLogDateRangeFilter!.start)} - ${DateFormat('dd MMM').format(_allocLogDateRangeFilter!.end)}'
+                              : 'Filter by Date',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: _allocLogDateRangeFilter != null
+                                ? AppTheme.primaryColor
+                                : AppTheme.textSecondaryColor,
+                          ),
+                        ),
+                        if (_allocLogDateRangeFilter != null) ...[
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() => _allocLogDateRangeFilter = null);
+                            },
+                            child: const Icon(Icons.close, size: 14, color: AppTheme.primaryColor),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 4. Week Filter Preset Dropdown
+                Container(
+                  height: 40,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: _allocLogWeekPreset != 'All'
+                        ? AppTheme.primaryColor.withOpacity(0.06)
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _allocLogWeekPreset != 'All'
+                          ? AppTheme.primaryColor
+                          : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _allocLogWeekPreset,
+                      icon: const Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _allocLogWeekPreset != 'All'
+                            ? AppTheme.primaryColor
+                            : AppTheme.textPrimaryColor,
+                      ),
+                      dropdownColor: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      onChanged: (val) {
+                        if (val != null) {
+                          _applyWeekPreset(val);
+                        }
+                      },
+                      items: const [
+                        DropdownMenuItem(value: 'All', child: Text('All Weeks')),
+                        DropdownMenuItem(value: 'This Week', child: Text('This Week')),
+                        DropdownMenuItem(value: 'Last Week', child: Text('Last Week')),
+                        DropdownMenuItem(value: 'Next Week', child: Text('Next Week')),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 5. Clear Filters Button
+                if (_hasActiveAllocLogFilters)
+                  TextButton.icon(
+                    onPressed: _resetAllocLogFilters,
+                    icon: const Icon(
+                      Icons.filter_alt_off_rounded,
+                      size: 14,
+                      color: AppTheme.dangerColor,
+                    ),
+                    label: const Text(
+                      'Clear Filters',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.dangerColor,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            if (filteredList.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 40),
                 child: Center(
-                  child: Text(
-                    'No shift allocations logged.',
-                    style: TextStyle(color: Colors.grey.shade500),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.filter_list_off, size: 36, color: Colors.grey.shade400),
+                      const SizedBox(height: 10),
+                      Text(
+                        _allocations.isEmpty
+                            ? 'No shift allocations logged.'
+                            : 'No allocation logs match the selected filter criteria.',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      ),
+                      if (_hasActiveAllocLogFilters) ...[
+                        const SizedBox(height: 10),
+                        TextButton(
+                          onPressed: _resetAllocLogFilters,
+                          child: const Text('Reset Filters'),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               )
@@ -6345,7 +7876,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 DataColumn(label: Text('Status')),
                                 DataColumn(label: Text('Actions')),
                               ],
-                              rows: _allocations.map((alloc) {
+                              rows: filteredList.map((alloc) {
                                 final dateStr = alloc['allocation_date'] != null
                                     ? DateFormat('dd-MM-yyyy').format(
                                         DateTime.parse(
@@ -7206,6 +8737,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _showShiftDialog(Map<String, dynamic>? shift) {
     final nameCtrl = TextEditingController(text: shift?['name'] ?? '');
+    String? nameError;
+    String? dialogError;
+    bool isSaving = false;
     TimeOfDay? startTime = shift != null
         ? TimeOfDay(
             hour: int.parse(shift['start_time'].split(':')[0]),
@@ -7228,71 +8762,129 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               title: Text(
                 shift == null ? 'Define Shift Schedule' : 'Edit Shift Schedule',
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    maxLength: 20,
-                    decoration: const InputDecoration(
-                      labelText: 'Shift Name',
-                      hintText: 'e.g., Morning, Evening, Night',
-                      counterText: '',
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (dialogError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.dangerColor.withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.error_outline, size: 20, color: AppTheme.dangerColor),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                dialogError!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.dangerColor,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    TextField(
+                      controller: nameCtrl,
+                      maxLength: 30,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
+                      ],
+                      onChanged: (val) {
+                        setDialogState(() {
+                          dialogError = null;
+                          final trimmed = val.trim();
+                          if (trimmed.isEmpty) {
+                            nameError = 'Shift Name is required.';
+                          } else if (trimmed.length < 2) {
+                            nameError = 'Shift Name must be at least 2 characters.';
+                          } else if (RegExp(r'[0-9]').hasMatch(val)) {
+                            nameError = 'Numbers are not allowed in Shift Name.';
+                          } else if (RegExp(r'[^a-zA-Z\s]').hasMatch(val)) {
+                            nameError = 'Special characters are not allowed in Shift Name.';
+                          } else {
+                            nameError = null;
+                          }
+                        });
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Shift Name',
+                        hintText: 'e.g., Morning, Evening, Night',
+                        counterText: '',
+                        errorText: nameError,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        startTime != null
-                            ? 'Start Time: ${startTime!.format(dialogCtx)}'
-                            : 'Choose Start Time',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await showTimePicker(
-                            context: dialogCtx,
-                            initialTime:
-                                startTime ??
-                                const TimeOfDay(hour: 8, minute: 0),
-                          );
-                          if (picked != null) {
-                            setDialogState(() => startTime = picked);
-                          }
-                        },
-                        child: const Text('Pick'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        endTime != null
-                            ? 'End Time: ${endTime!.format(dialogCtx)}'
-                            : 'Choose End Time',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          final picked = await showTimePicker(
-                            context: dialogCtx,
-                            initialTime:
-                                endTime ?? const TimeOfDay(hour: 16, minute: 0),
-                          );
-                          if (picked != null) {
-                            setDialogState(() => endTime = picked);
-                          }
-                        },
-                        child: const Text('Pick'),
-                      ),
-                    ],
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          startTime != null
+                              ? 'Start Time: ${startTime!.format(dialogCtx)}'
+                              : 'Choose Start Time',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            final picked = await showTimePicker(
+                              context: dialogCtx,
+                              initialTime:
+                                  startTime ??
+                                  const TimeOfDay(hour: 8, minute: 0),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                startTime = picked;
+                                dialogError = null;
+                              });
+                            }
+                          },
+                          child: const Text('Pick'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          endTime != null
+                              ? 'End Time: ${endTime!.format(dialogCtx)}'
+                              : 'Choose End Time',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        TextButton(
+                          onPressed: () async {
+                            final picked = await showTimePicker(
+                              context: dialogCtx,
+                              initialTime:
+                                  endTime ?? const TimeOfDay(hour: 16, minute: 0),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                endTime = picked;
+                                dialogError = null;
+                              });
+                            }
+                          },
+                          child: const Text('Pick'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 OutlinedButton(
@@ -7308,7 +8900,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     minimumSize: const Size(130, 48),
                   ),
-                  onPressed: () => Navigator.pop(dialogCtx),
+                  onPressed: isSaving ? null : () => Navigator.pop(dialogCtx),
                   child: const Text(
                     'Cancel',
                     style: TextStyle(fontWeight: FontWeight.bold),
@@ -7328,58 +8920,125 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     minimumSize: const Size(130, 48),
                     elevation: 0,
                   ),
-                  onPressed: () async {
-                    if (nameCtrl.text.isEmpty ||
-                        startTime == null ||
-                        endTime == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please complete all shift details.'),
-                        ),
-                      );
-                      return;
-                    }
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          final trimmedName = nameCtrl.text.trim();
+                          String? validationMsg;
+                          if (trimmedName.isEmpty) {
+                            validationMsg = 'Shift Name is required.';
+                          } else if (trimmedName.length < 2) {
+                            validationMsg = 'Shift Name must be at least 2 characters.';
+                          } else if (trimmedName.length > 30) {
+                            validationMsg = 'Shift Name cannot exceed 30 characters.';
+                          } else if (RegExp(r'[0-9]').hasMatch(nameCtrl.text)) {
+                            validationMsg = 'Numbers are not allowed in Shift Name.';
+                          } else if (RegExp(r'[^a-zA-Z\s]').hasMatch(nameCtrl.text)) {
+                            validationMsg = 'Special characters are not allowed in Shift Name.';
+                          } else if (startTime == null || endTime == null) {
+                            validationMsg = 'Please complete both start and end time.';
+                          } else if (startTime!.hour == endTime!.hour && startTime!.minute == endTime!.minute) {
+                            validationMsg = 'Shift start time and end time cannot be identical.';
+                          }
 
-                    final startStr =
-                        '${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}:00';
-                    final endStr =
-                        '${endTime!.hour.toString().padLeft(2, '0')}:${endTime!.minute.toString().padLeft(2, '0')}:00';
+                          if (validationMsg != null) {
+                            setDialogState(() {
+                              if (trimmedName.isEmpty ||
+                                  trimmedName.length < 2 ||
+                                  RegExp(r'[0-9]').hasMatch(nameCtrl.text) ||
+                                  RegExp(r'[^a-zA-Z\s]').hasMatch(nameCtrl.text)) {
+                                nameError = validationMsg;
+                              }
+                              dialogError = validationMsg;
+                            });
+                            return;
+                          }
 
-                    try {
-                      if (shift == null) {
-                        await _shiftCtrl.createShift(
-                          nameCtrl.text,
-                          startStr,
-                          endStr,
-                        );
-                      } else {
-                        await _shiftCtrl.updateShift(
-                          shift['id'],
-                          nameCtrl.text,
-                          startStr,
-                          endStr,
-                        );
-                      }
-                      Navigator.pop(dialogCtx);
-                      _loadShiftData();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Shift schedule saved successfully!'),
+                          final startStr =
+                              '${startTime!.hour.toString().padLeft(2, '0')}:${startTime!.minute.toString().padLeft(2, '0')}:00';
+                          final endStr =
+                              '${endTime!.hour.toString().padLeft(2, '0')}:${endTime!.minute.toString().padLeft(2, '0')}:00';
+                          final startPrefix = startStr.substring(0, 5);
+                          final endPrefix = endStr.substring(0, 5);
+
+                          // Check duplicate timings in existing shifts
+                          final dup = _shifts.firstWhere(
+                            (s) {
+                              if (shift != null && s['id'] == shift['id']) return false;
+                              final sStart = s['start_time'].toString().substring(0, 5);
+                              final sEnd = s['end_time'].toString().substring(0, 5);
+                              return sStart == startPrefix && sEnd == endPrefix;
+                            },
+                            orElse: () => {},
+                          );
+                          if (dup.isNotEmpty) {
+                            final dupName = dup['name'] ?? 'existing shift';
+                            setDialogState(() {
+                              dialogError =
+                                  'A shift with this time range already exists ($dupName). Duplicate shift timings are not allowed.';
+                            });
+                            return;
+                          }
+
+                          try {
+                            setDialogState(() {
+                              isSaving = true;
+                              dialogError = null;
+                            });
+                            if (shift == null) {
+                              await _shiftCtrl.createShift(
+                                trimmedName,
+                                startStr,
+                                endStr,
+                              );
+                            } else {
+                              await _shiftCtrl.updateShift(
+                                shift['id'],
+                                trimmedName,
+                                startStr,
+                                endStr,
+                              );
+                            }
+                            Navigator.pop(dialogCtx);
+                            // Partial async update of shifts without full page reload
+                            _shiftCtrl.fetchShifts().then((shifts) {
+                              if (mounted) {
+                                setState(() => _shifts = List<Map<String, dynamic>>.from(shifts));
+                              }
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Shift schedule saved successfully!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } catch (e) {
+                            final cleanMsg = e
+                                .toString()
+                                .replaceAll('Exception: ', '')
+                                .replaceAll('Error: ', '')
+                                .trim();
+                            setDialogState(() {
+                              isSaving = false;
+                              dialogError = cleanMsg.isNotEmpty
+                                  ? cleanMsg
+                                  : 'Unable to save shift schedule. Please try again.';
+                            });
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Save',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
-                      );
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  },
-                  child: const Text(
-                    'Save',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
                 ),
               ],
             );
@@ -7422,13 +9081,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
     if (confirm == true) {
+      // Instantaneous optimistic removal
+      setState(() {
+        _shifts.removeWhere((s) => s['id'] == id);
+      });
       try {
         await _shiftCtrl.deleteShift(id);
-        _loadShiftData();
+        _shiftCtrl.fetchShifts().then((shifts) {
+          if (mounted) {
+            setState(() => _shifts = List<Map<String, dynamic>>.from(shifts));
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Shift schedule deleted successfully!')),
         );
       } catch (e) {
+        _shiftCtrl.fetchShifts().then((shifts) {
+          if (mounted) {
+            setState(() => _shifts = List<Map<String, dynamic>>.from(shifts));
+          }
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
@@ -7510,14 +9182,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (confirm == true) {
       try {
         await _shiftCtrl.deleteAllocation(id);
-        _loadShiftData();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Allocation deleted successfully!')),
-        );
+        if (mounted) {
+          setState(() {
+            _allocations.removeWhere((a) => a['id'] == id);
+          });
+          _loadShiftData();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Allocation deleted successfully!')),
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-        );
+        if (mounted) {
+          final cleanMsg = e.toString().replaceAll('Exception: ', '').trim();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Error deleting allocation.'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+        }
       }
     }
   }
@@ -7542,13 +9225,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     setState(() {
       _isMedCatalogLoading = true;
       _medCatalogError = null;
-      _medCatalogCurrentPage = 0;
     });
     try {
-      final search = _medCatalogSearch.trim();
-      final url = search.isEmpty
-          ? '$_medBaseUrl/inventory/medicine-catalog'
-          : '$_medBaseUrl/inventory/medicine-catalog?search=${Uri.encodeComponent(search)}';
+      final url = '$_medBaseUrl/inventory/medicine-catalog';
       final resp = await ApiService.get(url);
       final body = ApiService.decodeJsonResponse(resp);
       if (mounted) {
@@ -7573,10 +9252,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _showAddMedicationDialog(bool isMobile) async {
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
-    final unitCtrl = TextEditingController(text: 'tabs');
-    final stockCtrl = TextEditingController(text: '0');
-    final thresholdCtrl = TextEditingController(text: '10');
-    String selectedCategory = 'Medicine';
+    final unitCtrl = TextEditingController();
+    final stockCtrl = TextEditingController();
+    final thresholdCtrl = TextEditingController();
+    String? selectedCategory;
     bool isControlled = false;
     bool isSaving = false;
 
@@ -7619,9 +9298,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const Text(
-                  'Add New Medication',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                Text(
+                  context.tr('add_new_medication', fallback: 'Add New Medication'),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
                 ),
               ],
             ),
@@ -7640,7 +9319,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         TextSpan(
                           children: [
                             TextSpan(
-                              text: 'Medication Name ',
+                              text: '${context.tr('medicine_name', fallback: 'Medication Name')} ',
                               style: TextStyle(
                                 fontFamily: 'Manrope',
                                 color: Colors.grey.shade700,
@@ -7699,7 +9378,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                       // Category
                       CustomDropdownSearch(
-                        label: 'Category',
+                        label: context.tr('med_category', fallback: 'Category'),
                         requiredMark: true,
                         hint: 'Select category',
                         value: selectedCategory,
@@ -7716,10 +9395,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                       // Default Unit
                       CustomDropdownSearch(
-                        label: 'Default Unit',
+                        label: context.tr('med_default_unit', fallback: 'Default Unit'),
                         requiredMark: true,
                         hint: 'Select unit',
-                        value: unitCtrl.text,
+                        value: unitCtrl.text.isEmpty ? null : unitCtrl.text,
                         dropdownItems: defaultUnits,
                         onChanged: (val) {
                           if (val != null) setD(() => unitCtrl.text = val);
@@ -7739,7 +9418,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Initial Stock Quantity',
+                                  context.tr('med_initial_stock', fallback: 'Initial Stock Quantity'),
                                   style: TextStyle(
                                     fontFamily: 'Manrope',
                                     color: Colors.grey.shade700,
@@ -7758,11 +9437,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   decoration: AppTheme.standardInputDecoration(
                                     label: null,
                                     prefixIcon: Icons.inventory_2_outlined,
-                                    hintText: '0',
+                                    hintText: 'Enter stock quantity',
                                   ).copyWith(counterText: ''),
                                   validator: (v) {
                                     if (v == null || v.trim().isEmpty) {
-                                      return 'Required';
+                                      return 'Please enter initial stock quantity';
+                                    }
+                                    final num = int.tryParse(v.trim());
+                                    if (num == null || num < 0) {
+                                      return 'Please enter a valid stock quantity (>= 0)';
                                     }
                                     return null;
                                   },
@@ -7776,7 +9459,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Low Stock Alert',
+                                  context.tr('med_low_stock_alert', fallback: 'Low Stock Alert'),
                                   style: TextStyle(
                                     fontFamily: 'Manrope',
                                     color: Colors.grey.shade700,
@@ -7795,11 +9478,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   decoration: AppTheme.standardInputDecoration(
                                     label: null,
                                     prefixIcon: Icons.warning_amber_outlined,
-                                    hintText: '10',
+                                    hintText: 'Enter alert threshold',
                                   ).copyWith(counterText: ''),
                                   validator: (v) {
                                     if (v == null || v.trim().isEmpty) {
-                                      return 'Required';
+                                      return 'Please enter low stock alert threshold';
+                                    }
+                                    final num = int.tryParse(v.trim());
+                                    if (num == null || num <= 0) {
+                                      return 'Please enter a threshold greater than 0';
                                     }
                                     return null;
                                   },
@@ -7835,16 +9522,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'Controlled Substance',
-                                    style: TextStyle(
+                                  Text(
+                                    context.tr('med_controlled_substance', fallback: 'Controlled Substance'),
+                                    style: const TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontSize: 13,
                                       color: AppTheme.textPrimaryColor,
                                     ),
                                   ),
                                   Text(
-                                    'Requires special prescription & dispensing log',
+                                    context.tr('med_controlled_desc', fallback: 'Requires special prescription & dispensing log'),
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: Colors.grey.shade500,
@@ -7870,12 +9557,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
                 style: AppTheme.cancelButton,
-                child: const Text('Cancel'),
+                child: Text(context.tr('cancel', fallback: 'Cancel')),
               ),
               ElevatedButton(
                 onPressed: isSaving
                     ? null
                     : () async {
+                        if (selectedCategory == null || selectedCategory!.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a category'),
+                              backgroundColor: AppTheme.dangerColor,
+                            ),
+                          );
+                          return;
+                        }
+                        if (unitCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select a default unit'),
+                              backgroundColor: AppTheme.dangerColor,
+                            ),
+                          );
+                          return;
+                        }
                         if (!formKey.currentState!.validate()) return;
                         setD(() => isSaving = true);
                         try {
@@ -7883,8 +9588,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             '$_medBaseUrl/inventory/medicine-catalog',
                             {
                               'name': nameCtrl.text.trim(),
-                              'category': selectedCategory,
-                              'default_unit': unitCtrl.text,
+                              'category': selectedCategory!,
+                              'default_unit': unitCtrl.text.trim(),
                               'is_controlled': isControlled,
                               'stock_quantity': int.tryParse(stockCtrl.text.trim()) ?? 0,
                               'threshold': int.tryParse(thresholdCtrl.text.trim()) ?? 10,
@@ -7924,7 +9629,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           }
                         }
                       },
-
                 style: AppTheme.primaryButton,
                 child: isSaving
                     ? const SizedBox(
@@ -7935,7 +9639,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           color: Colors.white,
                         ),
                       )
-                    : const Text('Add Medication'),
+                    : Text(context.tr('add_medication', fallback: 'Add Medication')),
               ),
             ],
           );
@@ -8517,6 +10221,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.medication_outlined,
                             AppTheme.primaryColor,
                             'Total',
+                            context.tr('med_total', fallback: 'Total'),
                             '${_medicationCatalog.length}',
                           ),
                           const SizedBox(width: 8),
@@ -8524,6 +10229,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.science_outlined,
                             AppTheme.secondaryColor,
                             'Medicine',
+                            context.tr('medicines', fallback: 'Medicine'),
                             '${_medicationCatalog.where((m) => m['category'] == 'Medicine').length}',
                           ),
                           const SizedBox(width: 8),
@@ -8531,6 +10237,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.local_hospital_outlined,
                             const Color(0xFF7C3AED),
                             'ICU Consumable',
+                            context.tr('med_icu_consumable', fallback: 'ICU Consumable'),
                             '${_medicationCatalog.where((m) => m['category'] == 'ICU Consumable').length}',
                           ),
                           const SizedBox(width: 8),
@@ -8538,6 +10245,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.content_cut_outlined,
                             const Color(0xFFF59E0B),
                             'Surgical Item',
+                            context.tr('med_surgical_item', fallback: 'Surgical Item'),
                             '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
                           ),
                           const SizedBox(width: 8),
@@ -8545,6 +10253,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.check_circle_outline,
                             AppTheme.secondaryColor,
                             'In Stock',
+                            context.tr('med_in_stock', fallback: 'In Stock'),
                             '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) > 0).length}',
                           ),
                           const SizedBox(width: 8),
@@ -8552,6 +10261,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.remove_circle_outline,
                             AppTheme.dangerColor,
                             'Out of Stock',
+                            context.tr('med_out_of_stock', fallback: 'Out of Stock'),
                             '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) == 0).length}',
                           ),
                           const SizedBox(width: 8),
@@ -8559,6 +10269,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                             Icons.lock_outline,
                             AppTheme.dangerColor,
                             'Controlled',
+                            context.tr('med_controlled_substance', fallback: 'Controlled'),
                             '${_medicationCatalog.where((m) => m['is_controlled'] == true).length}',
                           ),
                         ],
@@ -8580,9 +10291,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text(
-                          'Add Medication',
-                          style: TextStyle(
+                        label: Text(
+                          context.tr('add_medication', fallback: 'Add Medication'),
+                          style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -8603,6 +10314,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.medication_outlined,
                               AppTheme.primaryColor,
                               'Total',
+                              context.tr('med_total', fallback: 'Total'),
                               '${_medicationCatalog.length}',
                             ),
                             const SizedBox(width: 8),
@@ -8610,6 +10322,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.science_outlined,
                               AppTheme.secondaryColor,
                               'Medicine',
+                              context.tr('medicines', fallback: 'Medicine'),
                               '${_medicationCatalog.where((m) => m['category'] == 'Medicine').length}',
                             ),
                             const SizedBox(width: 8),
@@ -8617,6 +10330,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.local_hospital_outlined,
                               const Color(0xFF7C3AED),
                               'ICU Consumable',
+                              context.tr('med_icu_consumable', fallback: 'ICU Consumable'),
                               '${_medicationCatalog.where((m) => m['category'] == 'ICU Consumable').length}',
                             ),
                             const SizedBox(width: 8),
@@ -8624,12 +10338,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.content_cut_outlined,
                               const Color(0xFFF59E0B),
                               'Surgical Item',
+                              context.tr('med_surgical_item', fallback: 'Surgical Item'),
                               '${_medicationCatalog.where((m) => m['category'] == 'Surgical Item').length}',
                             ),
+                            const SizedBox(width: 8),
                             _buildMedStatChip(
                               Icons.check_circle_outline,
                               AppTheme.secondaryColor,
                               'In Stock',
+                              context.tr('med_in_stock', fallback: 'In Stock'),
                               '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) > 0).length}',
                             ),
                             const SizedBox(width: 8),
@@ -8637,6 +10354,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.remove_circle_outline,
                               AppTheme.dangerColor,
                               'Out of Stock',
+                              context.tr('med_out_of_stock', fallback: 'Out of Stock'),
                               '${_medicationCatalog.where((m) => (int.tryParse(m['stock_quantity']?.toString() ?? '0') ?? 0) == 0).length}',
                             ),
                             const SizedBox(width: 8),
@@ -8644,6 +10362,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               Icons.lock_outline,
                               AppTheme.dangerColor,
                               'Controlled',
+                              context.tr('med_controlled_substance', fallback: 'Controlled'),
                               '${_medicationCatalog.where((m) => m['is_controlled'] == true).length}',
                             ),
                           ],
@@ -8666,9 +10385,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                         ),
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text(
-                          'Add Medication',
-                          style: TextStyle(
+                        label: Text(
+                          context.tr('add_medication', fallback: 'Add Medication'),
+                          style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -8722,9 +10441,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            const Text(
-              'Medication Catalog',
-              style: TextStyle(
+            Text(
+              context.tr('medication_catalog_title', fallback: 'Medication Catalog'),
+              style: const TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.textPrimaryColor,
@@ -8733,9 +10452,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Manage the master list of medications used across the system',
-          style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+        Text(
+          context.tr('medication_catalog_desc', fallback: 'Manage the master list of medications used across the system'),
+          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
         ),
       ],
     );
@@ -8749,7 +10468,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           AppTheme.standardInputDecoration(
             label: null,
             prefixIcon: Icons.search,
-            hintText: 'Search medications...',
+            hintText: context.tr('search_by_medicine_name', fallback: 'Search by medicine name'),
           ).copyWith(
             filled: true,
             fillColor: Colors.white,
@@ -8798,22 +10517,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           _medCatalogCurrentPage = 0;
         });
       },
-      onSubmitted: (_) => _loadMedicationCatalog(),
+      onSubmitted: (_) {
+        setState(() {});
+      },
     );
   }
 
   Widget _buildMedStatChip(
     IconData icon,
     Color color,
-    String label,
+    String filterKey,
+    String displayLabel,
     String count,
   ) {
-    final isSelected = _selectedMedCategoryFilter == label;
+    final isSelected = _selectedMedCategoryFilter == filterKey;
     return InkWell(
       borderRadius: BorderRadius.circular(8),
       onTap: () {
         setState(() {
-          _selectedMedCategoryFilter = label;
+          _selectedMedCategoryFilter = filterKey;
           _medCatalogCurrentPage = 0;
         });
       },
@@ -8843,7 +10565,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Icon(icon, color: isSelected ? Colors.white : color, size: 14),
             const SizedBox(width: 6),
             Text(
-              label,
+              displayLabel,
               style: TextStyle(
                 fontSize: 12,
                 color: isSelected ? Colors.white : color,
@@ -8918,8 +10640,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           const SizedBox(height: 16),
           Text(
             _medCatalogSearch.isNotEmpty
-                ? 'No medications match "$_medCatalogSearch"'
-                : 'No medications in catalog yet',
+                ? '${context.tr('med_no_match', fallback: 'No medications match')} "$_medCatalogSearch"'
+                : context.tr('med_empty', fallback: 'No medications in catalog yet'),
             style: TextStyle(
               fontSize: 15,
               color: Colors.grey.shade500,
@@ -8928,7 +10650,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Click "Add Medication" to add a new entry',
+            context.tr('med_click_add', fallback: 'Click "Add Medication" to add a new entry'),
             style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
           ),
         ],
@@ -8958,13 +10680,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 color: Color(0xFFF8FAFC),
                 border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Expanded(
                     flex: 4,
                     child: Text(
-                      '#  Medication Name',
-                      style: TextStyle(
+                      '#  ${context.tr('medicine_name', fallback: 'Medication Name')}',
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textSecondaryColor,
@@ -8974,8 +10696,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Category',
-                      style: TextStyle(
+                      context.tr('med_category', fallback: 'Category'),
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textSecondaryColor,
@@ -8985,8 +10707,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Unit',
-                      style: TextStyle(
+                      context.tr('med_unit', fallback: 'Unit'),
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textSecondaryColor,
@@ -8996,8 +10718,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      'Stock Availability',
-                      style: TextStyle(
+                      context.tr('med_stock_avail', fallback: 'Stock Availability'),
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textSecondaryColor,
@@ -9007,9 +10729,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   SizedBox(
                     width: 88,
                     child: Text(
-                      'Actions',
+                      context.tr('med_actions', fallback: 'Actions'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textSecondaryColor,
@@ -9112,7 +10834,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                 ),
                               ),
                               child: Text(
-                                inStock ? 'In Stock ($stockQty)' : 'Out of Stock',
+                                inStock
+                                    ? '${context.tr('med_in_stock', fallback: 'In Stock')} ($stockQty)'
+                                    : context.tr('med_out_of_stock', fallback: 'Out of Stock'),
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -12608,7 +14332,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final formKey = GlobalKey<FormState>();
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
-    String selectedType = 'Device';
+    String? selectedType;
     bool isSaving = false;
 
     final availableItemTypes = const [
@@ -12808,9 +14532,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         if (!formKey.currentState!.validate()) return;
                         setD(() => isSaving = true);
                         try {
-                          await HomeVisitService().createKitItemMaster({
+                          if (selectedType == null || selectedType!.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select an item type'),
+                              backgroundColor: AppTheme.dangerColor,
+                            ),
+                          );
+                          return;
+                        }
+                        await HomeVisitService().createKitItemMaster({
                             'name': nameCtrl.text.trim(),
-                            'item_type': selectedType,
+                            'item_type': selectedType!,
                             'description': descCtrl.text.trim().isEmpty
                                 ? null
                                 : descCtrl.text.trim(),

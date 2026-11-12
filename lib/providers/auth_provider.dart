@@ -5,6 +5,7 @@ import '../controllers/auth_controller.dart';
 import '../exceptions/network_exception.dart';
 import '../models/user_model.dart';
 import '../services/token_service.dart';
+import '../utils/unsaved_changes_helper.dart';
 
 class AuthProvider extends ChangeNotifier {
 
@@ -186,6 +187,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    UnsavedChangesHelper.clear();
     await TokenService.deleteToken();
     await TokenService.deleteUser();
     _user = null;

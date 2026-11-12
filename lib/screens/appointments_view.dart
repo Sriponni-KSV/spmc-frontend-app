@@ -15,11 +15,13 @@ import '../controllers/admin_controller.dart';
 import '../controllers/appointment_controller.dart';
 import '../widgets/appointment_details_dialog.dart';
 import '../widgets/check_in_vitals_dialog.dart';
+import '../widgets/billing_receipt_dialog.dart';
 import 'mocdoc_appointments_view.dart';
 import '../utils/date_formatter.dart';
 import '../utils/tamil_transliteration_helper.dart';
 import '../providers/language_provider.dart';
 import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
 class AppointmentsView extends StatefulWidget {
   final bool startWithBookingForm;
@@ -47,7 +49,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   String _searchQuery = '';
   final TextEditingController _apptSearchController = TextEditingController();
   DateTime? _filterDate = DateTime.now();
-  String _selectedApptType = 'Routine';
+  String? _selectedApptType;
   final List<String> _apptTypes = [
     'Routine',
     'Follow Up',
@@ -139,7 +141,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     return 'Table';
   }
 
-  String _getTranslatedApptType(String type) {
+  String _getTranslatedApptType(String? type) {
+    if (type == null || type.trim().isEmpty) return '';
     switch (type.toLowerCase().trim()) {
       case 'routine':
         return context.tr('appt_type_routine', fallback: 'Routine');
@@ -462,6 +465,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
   }
 
   Future<void> _startConsultation(AppointmentModel appt) async {
+    final userRole = Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
+    if (userRole.toLowerCase() == 'nurse') return;
     try {
       await _appointmentController.updateStatus(appt.id!, 'In Consultation');
       _fetchData();
@@ -1161,12 +1166,18 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     children: [
                       _buildFieldLabel(context.tr('appointment_type_req', fallback: 'Appointment Type *')),
                       _buildDropdown<String>(
-                        hint: '',
+                        hint: context.tr('select_appointment_type', fallback: 'Select Appointment Type'),
                         value: _selectedApptType,
                         items: _apptTypes,
                         itemLabel: (s) => _getTranslatedApptType(s),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty || _selectedApptType == null || _selectedApptType!.trim().isEmpty) {
+                            return context.tr('appointment_type_required', fallback: 'Appointment Type is required');
+                          }
+                          return null;
+                        },
                         onChanged: (val) =>
-                            setState(() => _selectedApptType = val ?? ''),
+                            setState(() => _selectedApptType = val),
                       ),
                       const SizedBox(height: 16),
                       _buildFieldLabel(context.tr('reason_req', fallback: 'Reason *')),
@@ -1574,7 +1585,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           _selectedTime!,
                         ),
 
-                      if (_selectedApptType.isNotEmpty)
+                      if (_selectedApptType != null && _selectedApptType!.isNotEmpty)
                         _buildSummaryItem(
                           Icons.info_outline,
                           context.tr('type_heading', fallback: 'Type'),
@@ -1587,10 +1598,23 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                             (_selectedPatient != null &&
                                 _selectedDoctor != null &&
                                 _bookingDate != null &&
-                                _selectedTime != null)
+                                _selectedTime != null &&
+                                _selectedApptType != null &&
+                                _selectedApptType!.isNotEmpty)
                             ? () async {
                                 try {
                                   _validateVitals();
+                                  if (_selectedApptType == null || _selectedApptType!.trim().isEmpty) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          context.tr('appointment_type_required', fallback: 'Appointment Type is required'),
+                                        ),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                    return;
+                                  }
                                   final hasVitalsDuringBooking =
                                       _bpSystolicController.text.trim().isNotEmpty &&
                                       _tempController.text.trim().isNotEmpty;
@@ -1604,7 +1628,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                       'dd/MM/yyyy',
                                     ).format(_bookingDate!),
                                     appointmentTime: _selectedTime!,
-                                    appointmentType: _selectedApptType,
+                                    appointmentType: _selectedApptType!,
                                     bloodPressureSystolic: int.tryParse(
                                       _bpSystolicController.text,
                                     ),
@@ -1645,17 +1669,21 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   _clearSelections();
                                   _fetchData(); // Refresh the table
                                 } catch (e) {
+                                  final cleanMsg = e.toString()
+                                      .replaceAll('Exception: ', '')
+                                      .replaceAll('Error: ', '')
+                                      .trim();
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Error: $e'),
-                                      backgroundColor: Colors.red,
+                                      content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Unable to book appointment. Please try again.'),
+                                      backgroundColor: AppTheme.dangerColor,
                                     ),
                                   );
                                 }
                               }
                             : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
+                          backgroundColor: AppTheme.primaryColor,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 40,
@@ -1892,12 +1920,18 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               children: [
                                 _buildFieldLabel(context.tr('appointment_type_req', fallback: 'Appointment Type *')),
                                 _buildDropdown<String>(
-                                  hint: '',
+                                  hint: context.tr('select_appointment_type', fallback: 'Select Appointment Type'),
                                   value: _selectedApptType,
                                   items: _apptTypes,
                                   itemLabel: (s) => _getTranslatedApptType(s),
+                                  validator: (val) {
+                                    if (val == null || val.trim().isEmpty || _selectedApptType == null || _selectedApptType!.trim().isEmpty) {
+                                      return context.tr('appointment_type_required', fallback: 'Appointment Type is required');
+                                    }
+                                    return null;
+                                  },
                                   onChanged: (val) =>
-                                      setState(() => _selectedApptType = val ?? ''),
+                                      setState(() => _selectedApptType = val),
                                 ),
                                 const SizedBox(height: 16),
                                 _buildFieldLabel(context.tr('reason_req', fallback: 'Reason *')),
@@ -2323,10 +2357,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 // Right Column: Summary
                 Expanded(
                   flex: 1,
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
+                  child: SingleChildScrollView(
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF1F5F9).withOpacity(0.5),
                           borderRadius: BorderRadius.circular(16),
@@ -2378,7 +2411,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 _selectedTime!,
                               ),
 
-                            if (_selectedApptType.isNotEmpty)
+                            if (_selectedApptType != null && _selectedApptType!.isNotEmpty)
                               _buildSummaryItem(
                                 Icons.info_outline,
                                 context.tr('type_heading', fallback: 'Type'),
@@ -2391,10 +2424,23 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   (_selectedPatient != null &&
                                       _selectedDoctor != null &&
                                       _bookingDate != null &&
-                                      _selectedTime != null)
+                                      _selectedTime != null &&
+                                      _selectedApptType != null &&
+                                      _selectedApptType!.isNotEmpty)
                                   ? () async {
                                       try {
                                         _validateVitals();
+                                        if (_selectedApptType == null || _selectedApptType!.trim().isEmpty) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                context.tr('appointment_type_required', fallback: 'Appointment Type is required'),
+                                              ),
+                                              backgroundColor: Colors.red,
+                                            ),
+                                          );
+                                          return;
+                                        }
                                         final hasVitalsDuringBooking =
                                             _bpSystolicController.text.trim().isNotEmpty &&
                                             _tempController.text.trim().isNotEmpty;
@@ -2408,7 +2454,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                             'dd/MM/yyyy',
                                           ).format(_bookingDate!),
                                           appointmentTime: _selectedTime!,
-                                          appointmentType: _selectedApptType,
+                                          appointmentType: _selectedApptType!,
                                           bloodPressureSystolic: int.tryParse(
                                             _bpSystolicController.text,
                                           ),
@@ -2452,19 +2498,23 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                         _clearSelections();
                                         _fetchData(); // Refresh the table
                                       } catch (e) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Error: $e'),
-                                            backgroundColor: Colors.red,
-                                          ),
-                                        );
-                                      }
+                                          final cleanMsg = e.toString()
+                                              .replaceAll('Exception: ', '')
+                                              .replaceAll('Error: ', '')
+                                              .trim();
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Unable to book appointment. Please try again.'),
+                                              backgroundColor: AppTheme.dangerColor,
+                                            ),
+                                          );
+                                        }
                                     }
                                   : null,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
+                                backgroundColor: AppTheme.primaryColor,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 20,
@@ -2491,8 +2541,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
                 ),
               ],
             ),
@@ -2738,7 +2787,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     _sugarController.clear();
     _tempController.clear();
     _reasonController.clear();
-    _selectedApptType = 'Routine';
+    _selectedApptType = null;
   }
 
   Widget _buildFormCard({
@@ -2793,6 +2842,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     required List<T> items,
     required String Function(T) itemLabel,
     required Function(T?) onChanged,
+    FormFieldValidator<String>? validator,
   }) {
     final map = <String, String>{};
     for (int i = 0; i < items.length; i++) {
@@ -2808,9 +2858,11 @@ class _AppointmentsViewState extends State<AppointmentsView> {
     }
     
     return CustomDropdownSearch(
-      label: hint,
+      label: '',
+      hint: hint.isNotEmpty ? hint : 'Select...',
       value: selectedIndexString,
       dropdownMap: map,
+      validator: validator,
       onChanged: (val) {
         if (val != null) {
           final idx = int.tryParse(val);
@@ -3570,9 +3622,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                 _buildTableHeader('Department', flex: 2),
                 _buildTableHeader('Doctor', flex: 3),
                 _buildTableHeader('Type', flex: 2),
-                _buildTableHeader('Reason', flex: 3),
+                _buildTableHeader('Reason', flex: 2),
                 _buildTableHeader('Status', flex: 2),
-                _buildTableHeader('Actions', flex: 2, leftPadding: 16),
+                _buildTableHeader('Actions', flex: 3, leftPadding: 8),
               ],
             ),
           ),
@@ -3824,13 +3876,46 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         ),
                       ),
-                    if (appt.status == 'Waiting')
+                    if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                        appt.status == 'Waiting')
                       ElevatedButton.icon(
                         onPressed: () => _startConsultation(appt),
                         icon: const Icon(Icons.play_arrow_rounded, size: 14, color: Colors.white),
                         label: const Text('Start Consult', style: TextStyle(fontSize: 11)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.secondaryColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          minimumSize: const Size(0, 36),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        ),
+                      ),
+                    if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                        appt.status != 'Cancelled')
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          BillingReceiptDialog.show(
+                            context,
+                            appointmentId: appt.id,
+                            onPaymentSuccess: _fetchData,
+                          );
+                        },
+                        icon: Icon(
+                          (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                              ? Icons.receipt_long
+                              : Icons.payment,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        label: Text(
+                          (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                              ? 'Receipt'
+                              : 'Collect Fee',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                              ? const Color(0xFF16A34A)
+                              : const Color(0xFFD97706),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           minimumSize: const Size(0, 36),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
@@ -4416,7 +4501,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 3,
+            flex: 2,
             child: Tooltip(
               message: reason,
               child: Text(
@@ -4447,9 +4532,9 @@ class _AppointmentsViewState extends State<AppointmentsView> {
             ),
           ),
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Padding(
-              padding: const EdgeInsets.only(left: 16.0),
+              padding: const EdgeInsets.only(left: 8.0),
               child: Wrap(
                 spacing: 6,
                 runSpacing: 4,
@@ -4469,7 +4554,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       onTap: () => _checkInAppointment(appt),
                     ),
                   ],
-                  if (status == 'Waiting') ...[
+                  if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                      status == 'Waiting') ...[
                     _buildActionLabel(
                       Icons.play_arrow_outlined,
                       'Start Consult',
@@ -4483,6 +4569,27 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                       'Vitals',
                       const Color(0xFF0F766E),
                       onTap: () => _checkInAppointment(appt),
+                    ),
+                  ],
+                  if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                      status != 'Cancelled') ...[
+                    _buildActionLabel(
+                      (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                          ? Icons.receipt_long_outlined
+                          : Icons.payment_outlined,
+                      (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                          ? 'Receipt'
+                          : 'Collect Fee',
+                      (appt.billingPaymentStatus == 'Paid' || appt.consultationFee == 0)
+                          ? const Color(0xFF16A34A)
+                          : const Color(0xFFD97706),
+                      onTap: () {
+                        BillingReceiptDialog.show(
+                          context,
+                          appointmentId: appt.id,
+                          onPaymentSuccess: _fetchData,
+                        );
+                      },
                     ),
                   ],
                   if (status == 'Confirmed' ||

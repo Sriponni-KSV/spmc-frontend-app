@@ -47,6 +47,7 @@ class LiveSpeechService {
   }) async {
     if (_isListening) {
       await stopListening();
+      await Future.delayed(const Duration(milliseconds: 60));
     }
 
     if (kIsWeb) {
@@ -81,6 +82,7 @@ class LiveSpeechService {
         onError: (err) {
           _isListening = false;
           _webSoundSimulationTimer?.cancel();
+          abort();
           onError?.call(err);
         },
         lang: lang,
@@ -134,11 +136,13 @@ class LiveSpeechService {
 
     if (kIsWeb) {
       stopWebSpeechRecognition();
+      await Future.delayed(const Duration(milliseconds: 40));
       return;
     }
 
     try {
       await _speech.stop();
+      await Future.delayed(const Duration(milliseconds: 40));
     } catch (_) {}
   }
 
@@ -149,11 +153,13 @@ class LiveSpeechService {
 
     if (kIsWeb) {
       abortWebSpeechRecognition();
+      await Future.delayed(const Duration(milliseconds: 40));
       return;
     }
 
     try {
       await _speech.cancel();
+      await Future.delayed(const Duration(milliseconds: 40));
     } catch (_) {}
   }
 }

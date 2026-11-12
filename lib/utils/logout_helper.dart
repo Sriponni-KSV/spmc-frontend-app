@@ -6,9 +6,11 @@ import '../providers/language_provider.dart';
 import '../core/routes/route_constants.dart';
 import 'app_theme.dart';
 import 'app_localizations.dart';
+import 'unsaved_changes_helper.dart';
 
 class LogoutHelper {
   static Future<void> logout(BuildContext context) async {
+    UnsavedChangesHelper.clear();
     try {
       Provider.of<LanguageProvider>(context, listen: false).resetToDefault();
     } catch (_) {}
@@ -94,6 +96,7 @@ class LogoutHelper {
                   child: ElevatedButton(
                     onPressed: () async {
                       Navigator.pop(dialogContext); // Close dialog
+                      UnsavedChangesHelper.clear();
                       try {
                         Provider.of<LanguageProvider>(context, listen: false).resetToDefault();
                       } catch (_) {}

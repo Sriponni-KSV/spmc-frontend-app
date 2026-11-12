@@ -18,6 +18,7 @@ import '../utils/unsaved_changes_helper.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/consultation_documents_view.dart';
 import '../widgets/check_in_vitals_dialog.dart';
+import '../widgets/billing_receipt_dialog.dart';
 
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -1964,7 +1965,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ),
                         ),
                       ],
-                      if (app.status == 'Waiting') ...[
+                      if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                          app.status == 'Waiting') ...[
                         ElevatedButton.icon(
                           onPressed: () => _startConsultation(app),
                           icon: const Icon(
@@ -1981,6 +1983,48 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.secondaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ],
+
+                      if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                          app.status != 'Cancelled') ...[
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            BillingReceiptDialog.show(
+                              context,
+                              appointmentId: app.id,
+                              onPaymentSuccess: _loadData,
+                            );
+                          },
+                          icon: Icon(
+                            (app.billingPaymentStatus == 'Paid' || app.consultationFee == 0)
+                                ? Icons.receipt_long
+                                : Icons.payment,
+                            size: 15,
+                            color: Colors.white,
+                          ),
+                          label: Text(
+                            (app.billingPaymentStatus == 'Paid' || app.consultationFee == 0)
+                                ? 'Receipt'
+                                : 'Collect Fee',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: (app.billingPaymentStatus == 'Paid' || app.consultationFee == 0)
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFFD97706),
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
@@ -2232,7 +2276,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                             ),
                           ),
                         ],
-                        if (app.status == 'Waiting') ...[
+                        if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+                            app.status == 'Waiting') ...[
                           ElevatedButton.icon(
                             onPressed: () => _startConsultation(app),
                             icon: const Icon(
@@ -3375,6 +3420,8 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   }
 
   Future<void> _startConsultation(AppointmentModel app) async {
+    final userRole = Provider.of<AuthProvider>(context, listen: false).user?.role ?? '';
+    if (userRole.toLowerCase() == 'nurse') return;
     try {
       await _appointmentController.updateStatus(app.id!, 'In Consultation');
       _loadData();

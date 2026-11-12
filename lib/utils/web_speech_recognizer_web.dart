@@ -3,14 +3,33 @@ import 'dart:js' as js;
 
 void _ensureJsSpeechRecognizer() {
   try {
+    if (js.context.hasProperty('speechRecognizer') &&
+        js.context['speechRecognizer'] != null &&
+        js.context['speechRecognizer']['_isV2'] == true) {
+      return;
+    }
+  } catch (_) {}
+
+  try {
     final jsCode = '''
     (function() {
+      if (window.speechRecognizer && window.speechRecognizer._isV2) {
+        return;
+      }
+
       // Clean up previous instance if reloading
       if (window.speechRecognizer && window.speechRecognizer.recognition) {
-        try { window.speechRecognizer.recognition.abort(); } catch(e) {}
+        try {
+          window.speechRecognizer.recognition.onstart = null;
+          window.speechRecognizer.recognition.onresult = null;
+          window.speechRecognizer.recognition.onerror = null;
+          window.speechRecognizer.recognition.onend = null;
+          window.speechRecognizer.recognition.abort();
+        } catch(e) {}
       }
 
       window.speechRecognizer = {
+        _isV2: true,
         recognition: null,
         isUserListening: false,
         isReady: true,
@@ -20,6 +39,8 @@ void _ensureJsSpeechRecognizer() {
         accumulatedFinal: '',
         sessionFinal: '',
         targetLang: 'en-IN',
+        _restartTimer: null,
+        _retryTimer: null,
 
         isSupported: function() {
           return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
@@ -32,32 +53,49 @@ void _ensureJsSpeechRecognizer() {
             return false;
           }
 
+          if (this._restartTimer) {
+            clearTimeout(this._restartTimer);
+            this._restartTimer = null;
+          }
+          if (this._retryTimer) {
+            clearTimeout(this._retryTimer);
+            this._retryTimer = null;
+          }
+
           this.onResultCallback = onResult;
           this.onStatusCallback = onStatus;
           this.onErrorCallback = onError;
           this.isUserListening = true;
           this.accumulatedFinal = '';
           this.sessionFinal = '';
-          this.targetLang = lang || 'en-IN';
+          this.targetLang = (lang && lang.trim()) ? lang.trim() : 'en-IN';
 
-          this._createAndStartRecognition();
+          this._stopCurrentRecognition();
+          this._safeStart(0);
           return true;
         },
 
-        _createAndStartRecognition: function() {
+        _stopCurrentRecognition: function() {
+          if (this.recognition) {
+            const oldRec = this.recognition;
+            this.recognition = null;
+            oldRec.onstart = null;
+            oldRec.onresult = null;
+            oldRec.onerror = null;
+            oldRec.onend = null;
+            try {
+              oldRec.abort();
+            } catch(e) {}
+          }
+        },
+
+        _safeStart: function(attempt) {
           if (!this.isUserListening) return;
 
           const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-          if (this.recognition) {
-            try {
-              this.recognition.onstart = null;
-              this.recognition.onend = null;
-              this.recognition.onerror = null;
-              this.recognition.onresult = null;
-              this.recognition.abort();
-            } catch(e) {}
-            this.recognition = null;
-          }
+          if (!SpeechRecognition) return;
+
+          this._stopCurrentRecognition();
 
           try {
             const rec = new SpeechRecognition();
@@ -74,6 +112,7 @@ void _ensureJsSpeechRecognizer() {
             };
 
             rec.onresult = (event) => {
+              if (!this.isUserListening) return;
               let finalChunk = '';
               let interimChunk = '';
 
@@ -102,72 +141,115 @@ void _ensureJsSpeechRecognizer() {
             };
 
             rec.onerror = (event) => {
-              if (event.error === 'no-speech' || event.error === 'aborted') {
+              if (!this.isUserListening) return;
+              const err = event.error;
+
+              if (err === 'no-speech' || err === 'aborted') {
                 return;
               }
-              if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-                this.isUserListening = false;
+
+              this.isUserListening = false;
+              this._stopCurrentRecognition();
+
+              if (err === 'not-allowed' || err === 'service-not-allowed') {
                 if (this.onErrorCallback) this.onErrorCallback("Microphone permission denied. Please allow microphone access in your browser address bar.");
                 if (this.onStatusCallback) this.onStatusCallback('notListening');
-              } else if (event.error === 'audio-capture') {
-                this.isUserListening = false;
+              } else if (err === 'audio-capture') {
                 if (this.onErrorCallback) this.onErrorCallback("No microphone found or microphone is in use by another application.");
                 if (this.onStatusCallback) this.onStatusCallback('notListening');
-              } else if (event.error === 'network') {
-                this.isUserListening = false;
+              } else if (err === 'network') {
                 if (this.onErrorCallback) this.onErrorCallback("Network error during speech recognition. Please check your internet connection.");
                 if (this.onStatusCallback) this.onStatusCallback('notListening');
               } else {
-                if (this.onErrorCallback) this.onErrorCallback("Speech error: " + event.error);
+                console.warn("Speech error:", err);
+                if (this.onErrorCallback) this.onErrorCallback("Speech recognition error: " + err);
+                if (this.onStatusCallback) this.onStatusCallback('notListening');
               }
             };
 
             rec.onend = () => {
+              if (this.recognition !== rec) return;
+
               if (this.isUserListening) {
                 if (this.sessionFinal) {
                   this.accumulatedFinal = (this.accumulatedFinal ? this.accumulatedFinal + ' ' : '') + this.sessionFinal;
                   this.sessionFinal = '';
                 }
-                setTimeout(() => {
+                clearTimeout(this._restartTimer);
+                this._restartTimer = setTimeout(() => {
                   if (this.isUserListening) {
-                    this._createAndStartRecognition();
+                    this._safeStart(0);
                   }
                 }, 100);
               } else {
+                this.recognition = null;
                 if (this.onStatusCallback) this.onStatusCallback('notListening');
               }
             };
 
             rec.start();
           } catch(err) {
-            if (this.onErrorCallback) this.onErrorCallback(err.toString());
+            const errStr = (err && err.message) ? err.message : String(err);
+            console.warn("Speech start exception (attempt " + attempt + "):", errStr);
+
+            if (attempt < 5 && this.isUserListening && (
+              errStr.includes('already started') ||
+              errStr.includes('InvalidStateError') ||
+              errStr.includes('busy') ||
+              errStr.includes('failed')
+            )) {
+              clearTimeout(this._retryTimer);
+              this._retryTimer = setTimeout(() => {
+                if (this.isUserListening) {
+                  this._safeStart(attempt + 1);
+                }
+              }, 120 + (attempt * 80));
+              return;
+            }
+
+            this.isUserListening = false;
+            this._stopCurrentRecognition();
+            if (this.onErrorCallback) this.onErrorCallback(errStr);
+            if (this.onStatusCallback) this.onStatusCallback('notListening');
           }
         },
 
         stop: function() {
           this.isUserListening = false;
+          if (this._restartTimer) {
+            clearTimeout(this._restartTimer);
+            this._restartTimer = null;
+          }
+          if (this._retryTimer) {
+            clearTimeout(this._retryTimer);
+            this._retryTimer = null;
+          }
           if (this.sessionFinal) {
             this.accumulatedFinal = (this.accumulatedFinal ? this.accumulatedFinal + ' ' : '') + this.sessionFinal;
             this.sessionFinal = '';
           }
-          if (this.recognition) {
-            try {
-              this.recognition.stop();
-            } catch(e) {}
+          this._stopCurrentRecognition();
+          if (this.onStatusCallback) {
+            try { this.onStatusCallback('notListening'); } catch(e) {}
           }
-          if (this.onStatusCallback) this.onStatusCallback('notListening');
         },
 
         abort: function() {
           this.isUserListening = false;
+          if (this._restartTimer) {
+            clearTimeout(this._restartTimer);
+            this._restartTimer = null;
+          }
+          if (this._retryTimer) {
+            clearTimeout(this._retryTimer);
+            this._retryTimer = null;
+          }
           this.accumulatedFinal = '';
           this.sessionFinal = '';
-          if (this.recognition) {
-            try {
-              this.recognition.abort();
-            } catch(e) {}
+          this._stopCurrentRecognition();
+          if (this.onStatusCallback) {
+            try { this.onStatusCallback('notListening'); } catch(e) {}
           }
-          if (this.onStatusCallback) this.onStatusCallback('notListening');
         }
       };
     })();

@@ -13,13 +13,14 @@ import 'controllers/home_visit_controller.dart';
 import 'services/connectivity_service.dart';
 import 'widgets/offline_banner.dart';
 import 'core/routes/app_router.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'config/api_config.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   usePathUrlStrategy(); // Clean URL paths without hashes (#)
   try {
-    await dotenv.load(fileName: "assets/.env");
+    await dotenv.load(fileName: ".env");
   } catch (_) {}
 
   final authProvider = AuthProvider();

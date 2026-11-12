@@ -632,7 +632,7 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Top Bar: Bed Number + Status Icon
+              // Top Bar: Bed Number + Status Badge
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -653,12 +653,34 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.all(5),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
-                      color: status.primaryColor.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: status.borderColor, width: 1),
+                      boxShadow: [
+                        BoxShadow(
+                          color: status.primaryColor.withValues(alpha: 0.08),
+                          blurRadius: 3,
+                          offset: const Offset(0, 1),
+                        ),
+                      ],
                     ),
-                    child: Icon(status.icon, size: 14, color: status.primaryColor),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(status.icon, size: 12, color: status.primaryColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          status.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: status.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -721,22 +743,24 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    status == BedStatus.occupied
-                        ? (doctorName.isNotEmpty ? 'Dr. $doctorName' : 'Admitted')
-                        : status == BedStatus.available
-                            ? 'Ready for intake'
-                            : status == BedStatus.reserved
-                                ? 'Reserved'
-                                : status == BedStatus.cleaning
-                                    ? 'Sanitizing'
-                                    : 'Under repair',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: status.primaryColor.withValues(alpha: 0.9),
+                  Expanded(
+                    child: Text(
+                      status == BedStatus.occupied
+                          ? (doctorName.isNotEmpty ? 'Occupied • Dr. $doctorName' : 'Occupied • Admitted')
+                          : status == BedStatus.available
+                              ? 'Available • Ready for intake'
+                              : status == BedStatus.reserved
+                                  ? 'Reserved • Awaiting patient'
+                                  : status == BedStatus.cleaning
+                                      ? 'Sanitizing / Cleaning'
+                                      : 'Under Maintenance',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: status.primaryColor.withValues(alpha: 0.95),
+                      ),
                     ),
                   ),
                   Icon(
@@ -1055,6 +1079,10 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
     String label,
     IconData icon,
   ) {
+    final bool hasActivePatient = bed['admission_id'] != null ||
+        (bed['patient_name'] != null && bed['patient_name'].toString().trim().isNotEmpty) ||
+        (bed['status']?.toString().toLowerCase() == 'occupied');
+
     return OutlinedButton.icon(
       icon: Icon(icon, size: 15, color: newStatus.primaryColor),
       label: Text(label, style: TextStyle(color: newStatus.primaryColor, fontSize: 12, fontWeight: FontWeight.bold)),
@@ -1065,6 +1093,36 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       onPressed: () {
+        if (hasActivePatient && newStatus == BedStatus.available) {
+          final patientName = bed['patient_name'] ?? 'admitted patient';
+          final bedNum = bed['bed_number'] ?? 'this bed';
+          showDialog(
+            context: modalCtx,
+            builder: (dCtx) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Colors.red),
+                  SizedBox(width: 8),
+                  Text('Occupied Bed Validation', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Text(
+                'Bed $bedNum is currently assigned to active inpatient "$patientName".\n\n'
+                'An occupied bed cannot be marked as Available without completing the patient\'s discharge process.',
+                style: const TextStyle(fontSize: 13, height: 1.4),
+              ),
+              actions: [
+                ElevatedButton(
+                  onPressed: () => Navigator.of(dCtx).pop(),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+                  child: const Text('OK', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+
         Navigator.of(modalCtx).pop();
         if (widget.onStatusChanged != null) {
           widget.onStatusChanged!(bed, newStatus.label);

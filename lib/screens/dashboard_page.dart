@@ -341,6 +341,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   void dispose() {
+    try { ScaffoldMessenger.of(context).clearSnackBars(); } catch (_) {}
     _notificationsTimer?.cancel();
     _mainFocusNode.dispose();
     _qualFocusNode.dispose();
@@ -560,6 +561,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   bool _isDoctorMatch(AppointmentModel appt, UserModel? user) {
     if (user == null) return false;
+    if (user.role == 'Admin' || user.role == 'Super Admin') return true;
     if (appt.doctorId != null && user.id != null && appt.doctorId == user.id) {
       return true;
     }
@@ -569,18 +571,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         user.staffUniqueId!.isNotEmpty) {
       if (appt.doctorDisplayId == user.staffUniqueId) return true;
     }
-    String clean(String s) {
-      s = s.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
-      if (s.startsWith('dr.')) s = s.substring(3).trim();
-      if (s.startsWith('dr ')) s = s.substring(2).trim();
-      if (s.contains(' - ')) s = s.split(' - ')[0].trim();
-      return s;
-    }
-
-    final cDoc = clean(appt.doctorName);
-    final cUser = clean(user.rawFullname ?? user.fullname);
-    if (cDoc.isEmpty || cUser.isEmpty) return false;
-    return cDoc == cUser;
+    return _isDoctorNameMatch(appt.doctorName, user);
   }
 
   bool _isDoctorNameMatch(dynamic docName, UserModel? user) {
@@ -900,19 +891,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return NewConsultationView(
         appointment: _activeAppointment!,
         initialConsultation: existingConsul.isNotEmpty ? existingConsul : null,
-        onBack: () {
+        onBack: () async {
+          // Fetch fresh data BEFORE navigating so mounted checks inside them still pass
           if (mounted) {
             setState(() => _activeAppointment = null);
-          }
-          if (_selectedIndex == 0) {
-            context.go(AppRoutes.doctorDashboard);
-          } else {
-            context.go(AppRoutes.doctorPatients);
+            // Await all refreshes before navigating so status is up-to-date
+            await Future.wait([
+              _fetchDoctorData(),      // Refresh appointment list status (picks up Completed/Admitted)
+              _fetchConsultations(),   // Refresh consultations list
+              _fetchLabReports(),      // Refresh lab reports list
+            ]);
           }
           if (mounted) {
-            _fetchConsultations(); // Refresh after potentially saving/updating
-            _fetchDoctorData(); // Refresh appointment list status
-            _fetchLabReports(); // Refresh lab reports list to show newly ordered tests instantly
+            if (_selectedIndex == 0) {
+              context.go(AppRoutes.doctorDashboard);
+            } else {
+              context.go(AppRoutes.doctorPatients);
+            }
           }
         },
       );
@@ -1833,7 +1828,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFFF1F7FB) : Colors.transparent,
         borderRadius: const BorderRadius.only(
           topRight: Radius.circular(8),
           bottomRight: Radius.circular(8),
@@ -1847,7 +1841,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               )
             : null,
       ),
-      child: ListTile(
+      child: Material(
+        color: isActive ? const Color(0xFFF1F7FB) : Colors.transparent,
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(8),
+          bottomRight: Radius.circular(8),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         title: Text(
@@ -1888,7 +1889,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         onTap: onTap,
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildSearchAndDetailsPanel(
@@ -5226,6 +5228,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildStatsRow(bool isMobile) {
     // Calculate real stats
     final now = DateTime.now();
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
 
     final int todayCount = _doctorAppointments
         .where((a) =>
@@ -5234,18 +5237,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .length;
     final int confirmedCount = _doctorAppointments
         .where((a) =>
-            a.status == 'Confirmed' ||
-            a.status == 'Scheduled' ||
-            a.status == 'Waiting' ||
-            a.status == 'Checked-in' ||
-            a.status == 'In Consultation')
+            a.status.toLowerCase() == 'confirmed' ||
+            a.status.toLowerCase() == 'scheduled')
         .length;
-    final int totalAppointments = _doctorAppointments.length;
-    final int completedCount = _doctorAppointments
-        .where((a) =>
-            a.status == 'Completed' ||
-            a.status == 'Consulted' ||
-            a.status == 'Admitted')
+    final int totalAppointments = _doctorAppointments
+        .where((a) => a.status.toLowerCase() != 'cancelled')
+        .length;
+    final int completedCount = _consultations
+        .where((c) => _isDoctorNameMatch(c['doctor_name'], user))
         .length;
 
     final statItems = [

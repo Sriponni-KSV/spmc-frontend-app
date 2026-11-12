@@ -16,6 +16,8 @@ class DoctorModel {
   final String? clinicLocation;
   final String? consultationFee;
   final String? areasOfExpertise;
+  final int? followupValidityDays;
+  final String? followupFee;
   final String? morningStartTime;
   final String? morningEndTime;
   final String? eveningStartTime;
@@ -39,6 +41,8 @@ class DoctorModel {
     this.clinicLocation,
     this.consultationFee,
     this.areasOfExpertise,
+    this.followupValidityDays,
+    this.followupFee,
     this.morningStartTime,
     this.morningEndTime,
     this.eveningStartTime,
@@ -79,6 +83,8 @@ class DoctorModel {
       clinicLocation: json['clinic_location'] ?? json['clinicLocation'],
       consultationFee: (json['consultation_fee'] ?? json['consultationFee'])?.toString(),
       areasOfExpertise: json['areas_of_expertise'] ?? json['areasOfExpertise'],
+      followupValidityDays: json['followup_validity_days'] != null ? int.tryParse(json['followup_validity_days'].toString()) : 7,
+      followupFee: (json['followup_fee'] ?? '0.00')?.toString(),
       morningStartTime: json['morning_start_time'] ?? json['morningStartTime'],
       morningEndTime: json['morning_end_time'] ?? json['morningEndTime'],
       eveningStartTime: json['evening_start_time'] ?? json['eveningStartTime'],
@@ -105,6 +111,8 @@ class DoctorModel {
       'clinic_location': clinicLocation,
       'consultation_fee': consultationFee,
       'areas_of_expertise': areasOfExpertise,
+      if (followupValidityDays != null) 'followup_validity_days': followupValidityDays,
+      if (followupFee != null) 'followup_fee': followupFee,
       if (morningStartTime != null) 'morning_start_time': morningStartTime,
       if (morningEndTime != null) 'morning_end_time': morningEndTime,
       if (eveningStartTime != null) 'evening_start_time': eveningStartTime,
