@@ -904,7 +904,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
 
   Widget _buildHeaderBar() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -912,23 +912,25 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
       ),
       child: widget.isMobile
           ? Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildHeaderTitle(),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(child: _buildSearchBar()),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     IconButton(
                       tooltip: _isGridView ? 'Switch to Table View' : 'Switch to Graphical Ward Grid',
                       icon: Icon(
                         _isGridView ? Icons.table_chart_outlined : Icons.grid_view_rounded,
                         color: AppTheme.primaryColor,
                       ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                       onPressed: () => setState(() => _isGridView = !_isGridView),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     _buildAddButton(),
                   ],
                 ),
@@ -936,9 +938,9 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
             )
           : Row(
               children: [
-                _buildHeaderTitle(),
-                const Spacer(),
-                SizedBox(width: 300, child: _buildSearchBar()),
+                Expanded(child: _buildHeaderTitle()),
+                const SizedBox(width: 16),
+                SizedBox(width: 280, child: _buildSearchBar()),
                 const SizedBox(width: 12),
                 IconButton(
                   tooltip: _isGridView ? 'Switch to Table View' : 'Switch to Graphical Ward Grid',
@@ -964,6 +966,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
   Widget _buildHeaderTitle() {
     return Row(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           padding: const EdgeInsets.all(10),
@@ -977,27 +980,29 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
             size: 24,
           ),
         ),
-        const SizedBox(width: 14),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              context.tr('ipd_bed_catalog', fallback: 'IPD Beds Master Catalog'),
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimaryColor,
+        const SizedBox(width: 12),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                context.tr('ipd_bed_catalog', fallback: 'IPD Beds Master Catalog'),
+                style: TextStyle(
+                  fontSize: widget.isMobile ? 16.5 : 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimaryColor,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              context.tr('manage_ipd_beds_subtitle', fallback: 'Configure hospital beds, wards, and admission availability'),
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondaryColor,
+              const SizedBox(height: 2),
+              Text(
+                context.tr('manage_ipd_beds_subtitle', fallback: 'Configure hospital beds, wards, and admission availability'),
+                style: TextStyle(
+                  fontSize: widget.isMobile ? 11.5 : 12,
+                  color: AppTheme.textSecondaryColor,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -1043,7 +1048,13 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
       onPressed: _showAddBedDialog,
       icon: const Icon(Icons.add, size: 18),
       label: Text(context.tr('add_bed', fallback: 'Add Bed')),
-      style: AppTheme.primaryButton,
+      style: widget.isMobile
+          ? AppTheme.primaryButton.copyWith(
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+            )
+          : AppTheme.primaryButton,
     );
   }
 
@@ -1108,7 +1119,10 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
 
   Widget _buildKpiCard(String label, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.isMobile ? 12 : 18,
+        vertical: widget.isMobile ? 12 : 16,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -1118,33 +1132,34 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(widget.isMobile ? 8 : 10),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: color, size: 22),
+            child: Icon(icon, color: color, size: widget.isMobile ? 18 : 22),
           ),
-          const SizedBox(width: 14),
+          SizedBox(width: widget.isMobile ? 10 : 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 22,
+                  style: TextStyle(
+                    fontSize: widget.isMobile ? 20 : 22,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.textPrimaryColor,
                   ),
                 ),
                 Text(
                   label,
-                  style: const TextStyle(
-                    fontSize: 12,
+                  style: TextStyle(
+                    fontSize: widget.isMobile ? 11.5 : 12,
                     fontWeight: FontWeight.w500,
                     color: AppTheme.textSecondaryColor,
                   ),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -1293,16 +1308,22 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
         children: [
           // Table header info
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            padding: EdgeInsets.fromLTRB(
+              widget.isMobile ? 16 : 20,
+              16,
+              widget.isMobile ? 16 : 20,
+              12,
+            ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Hospital Beds ($totalItems beds found)',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
+                Expanded(
+                  child: Text(
+                    'Hospital Beds ($totalItems beds found)',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimaryColor,
+                    ),
                   ),
                 ),
                 if (_isLoading)
@@ -1593,10 +1614,13 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               _buildWardBadge(ward),
-              const Spacer(),
               Text(
                 'Updated: $updated',
                 style: const TextStyle(

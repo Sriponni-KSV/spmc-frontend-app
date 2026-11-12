@@ -1490,7 +1490,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     children: [
                       const Icon(Icons.warning, size: 10, color: Colors.red),
                       const SizedBox(width: 4),
-                      Text('Delayed: ${req['delay_reason']}', style: const TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.w600)),
+                      Flexible(
+                        child: Text('Delayed: ${req['delay_reason']}', style: const TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.w600)),
+                      ),
                     ],
                   ),
                 ),
@@ -1832,26 +1834,30 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
             const Divider(height: 1, color: AppTheme.borderColor),
             const SizedBox(height: 16),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 4,
-                      height: 16,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'TEST PARAMETER MEASUREMENTS',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryColor, letterSpacing: 0.3),
-                    ),
-                  ],
+                Container(
+                  width: 4,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                if (resultsList.isNotEmpty)
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'TEST PARAMETER MEASUREMENTS',
+                    style: TextStyle(
+                      fontSize: isMobile ? 12 : 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+                if (resultsList.isNotEmpty) ...[
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
@@ -1863,6 +1869,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                       style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
                     ),
                   ),
+                ],
               ],
             ),
             const SizedBox(height: 12),
@@ -1876,6 +1883,71 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 ),
                 child: const Text('No parameters registered for this test', style: TextStyle(fontStyle: FontStyle.italic, fontSize: 13, color: AppTheme.textSecondaryColor)),
               )
+            else if (isMobile)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: resultsList.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final res = entry.value;
+                    final isEven = idx % 2 == 0;
+                    final paramName = res['parameter']?.toString() ?? '';
+                    final valStr = res['value']?.toString() ?? '';
+                    final unitStr = (res['unit']?.toString() ?? '').trim();
+                    final refStr = (res['reference_range']?.toString() ?? '').trim();
+                    final fullValue = unitStr.isNotEmpty ? '$valStr $unitStr' : valStr;
+
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isEven ? Colors.white : const Color(0xFFFBFDFF),
+                        border: idx < resultsList.length - 1
+                            ? const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1))
+                            : null,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            paramName,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.07),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              fullValue,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                          ),
+                          if (refStr.isNotEmpty) ...[
+                            const SizedBox(height: 5),
+                            Text(
+                              'Reference Range: $refStr',
+                              style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryColor),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              )
             else
               Container(
                 decoration: BoxDecoration(
@@ -1885,19 +1957,12 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: Table(
-                  columnWidths: isMobile
-                      ? const {
-                          0: FlexColumnWidth(2.2),
-                          1: FlexColumnWidth(1.6),
-                          2: FlexColumnWidth(1.0),
-                          3: FlexColumnWidth(1.6),
-                        }
-                      : const {
-                          0: FlexColumnWidth(2.2),
-                          1: FlexColumnWidth(1.5),
-                          2: FlexColumnWidth(1.0),
-                          3: FlexColumnWidth(1.8),
-                        },
+                  columnWidths: const {
+                    0: FlexColumnWidth(2.2),
+                    1: FlexColumnWidth(1.5),
+                    2: FlexColumnWidth(1.0),
+                    3: FlexColumnWidth(1.8),
+                  },
                   children: [
                     TableRow(
                       decoration: const BoxDecoration(
@@ -1905,21 +1970,21 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
                       ),
                       children: [
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: isMobile ? 8.0 : 12.0, vertical: 10.0),
-                          child: const Text('Parameter', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                          child: Text('Parameter', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
                         ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: isMobile ? 8.0 : 12.0, vertical: 10.0),
-                          child: const Text('Observed Value', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                          child: Text('Observed Value', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
                         ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: isMobile ? 6.0 : 10.0, vertical: 10.0),
-                          child: const Text('Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+                          child: Text('Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
                         ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: isMobile ? 8.0 : 12.0, vertical: 10.0),
-                          child: const Text('Reference Range', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                          child: Text('Reference Range', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
                         ),
                       ],
                     ),
@@ -1934,14 +1999,14 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         ),
                         children: [
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8.0 : 12.0, vertical: 10.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
                             child: Text(
                               res['parameter'] ?? '',
                               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                             ),
                           ),
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8.0 : 12.0, vertical: 8.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
@@ -1959,14 +2024,14 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                             ),
                           ),
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 6.0 : 10.0, vertical: 10.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
                             child: Text(
                               res['unit'] ?? '',
                               style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
                             ),
                           ),
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8.0 : 12.0, vertical: 10.0),
+                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
                             child: Text(
                               res['reference_range'] ?? '',
                               style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
@@ -3266,10 +3331,13 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.people_outline, color: AppTheme.primaryColor, size: 20),
               SizedBox(width: 8),
-              Text('Technicians Shift Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              Expanded(
+                child: Text('Technicians Shift Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
             ],
           ),
           const Divider(height: 24, color: AppTheme.borderColor),
@@ -3301,6 +3369,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                             ],
                           ),
                         ),
+                        const SizedBox(width: 8),
                         DropdownButtonHideUnderline(
                           child: Container(
                             height: 32,
@@ -3394,10 +3463,13 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.settings_outlined, color: AppTheme.primaryColor, size: 20),
               SizedBox(width: 8),
-              Text('Analyzer Equipment Operating Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              Expanded(
+                child: Text('Analyzer Equipment Operating Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              ),
             ],
           ),
           const Divider(height: 24, color: AppTheme.borderColor),
@@ -3429,6 +3501,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                             ],
                           ),
                         ),
+                        const SizedBox(width: 8),
                         DropdownButtonHideUnderline(
                           child: Container(
                             height: 32,

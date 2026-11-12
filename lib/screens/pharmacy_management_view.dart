@@ -334,14 +334,22 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
         Container(
           padding: EdgeInsets.fromLTRB(widget.isMobile ? 16 : 24, 24, widget.isMobile ? 16 : 24, 0),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(context.tr('pharmacy_management', fallback: 'Pharmacy Management'), style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(context.tr('manage_pharmacy_subtitle', fallback: 'Dispensing · Stock Monitoring · Controlled Drug Audit'),
-                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13)),
-              ]),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    context.tr('pharmacy_management', fallback: 'Pharmacy Management'),
+                    style: TextStyle(fontSize: widget.isMobile ? 22 : 26, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    context.tr('manage_pharmacy_subtitle', fallback: 'Dispensing · Stock Monitoring · Controlled Drug Audit'),
+                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                  ),
+                ]),
+              ),
+              const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.refresh_rounded, color: AppTheme.primaryColor),
                 onPressed: _loadAll,
@@ -620,11 +628,13 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+          padding: EdgeInsets.fromLTRB(widget.isMobile ? 16 : 20, 18, widget.isMobile ? 16 : 20, 12),
           child: Row(children: [
             const Icon(Icons.history_rounded, color: AppTheme.primaryColor, size: 18),
             const SizedBox(width: 8),
-            const Text('Recent Dispensing Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            const Expanded(
+              child: Text('Recent Dispensing Activity', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ),
           ]),
         ),
         const Divider(height: 1),
@@ -646,7 +656,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
         : '--';
     return Column(children: [
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 14 : 20, vertical: 12),
         child: Row(children: [
           Container(
             padding: const EdgeInsets.all(7),
@@ -665,6 +675,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                 style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
           ])),
+          const SizedBox(width: 8),
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(time, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
             const SizedBox(height: 2),
@@ -1239,7 +1250,7 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
         DateTime.tryParse(createdAtStr)?.toLocal().day == DateTime.now().day;
 
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: EdgeInsets.all(widget.isMobile ? 16 : 22),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -1260,17 +1271,19 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                   border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.3)),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      'NEW MEDICATION PRESCRIBED TODAY',
-                      style: const TextStyle(
-                        color: AppTheme.dangerColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                        letterSpacing: 0.5,
+                    Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor, size: 18),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'NEW MEDICATION PRESCRIBED TODAY',
+                        style: TextStyle(
+                          color: AppTheme.dangerColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
                   ],
@@ -1350,6 +1363,56 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                       : AppTheme.dangerColor.withValues(alpha: 0.25));
               final stockTextColor = stock['available'] == true ? AppTheme.successColor : AppTheme.dangerColor;
 
+              final statusBadges = <Widget>[
+                if (isToday) _statusBadge('NEW TODAY', AppTheme.logoRed),
+                if (stock['is_controlled'] == true)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.dangerColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.lock, size: 10, color: AppTheme.dangerColor),
+                        SizedBox(width: 3),
+                        Text(
+                          'CONTROLLED',
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: AppTheme.dangerColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      stock['available'] == true ? Icons.check_circle : Icons.error_outline,
+                      color: stockTextColor,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        stock['registered'] == true
+                            ? 'Stock: ${stock['qty']} $displayUnit'
+                            : 'Not in inventory',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: stockTextColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ];
+
               return Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
@@ -1361,60 +1424,36 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            drugName,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    if (widget.isMobile) ...[
+                      Text(
+                        drugName,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: statusBadges,
+                      ),
+                    ] else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              drugName,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
                           ),
-                        ),
-                        if (isToday) ...[
-                          _statusBadge('NEW TODAY', AppTheme.logoRed),
                           const SizedBox(width: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: statusBadges,
+                          ),
                         ],
-                        if (stock['is_controlled'] == true)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            margin: const EdgeInsets.only(right: 6),
-                            decoration: BoxDecoration(
-                              color: AppTheme.dangerColor.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.lock, size: 10, color: AppTheme.dangerColor),
-                                SizedBox(width: 3),
-                                Text(
-                                  'CONTROLLED',
-                                  style: TextStyle(
-                                    fontSize: 8,
-                                    color: AppTheme.dangerColor,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        Icon(
-                          stock['available'] == true ? Icons.check_circle : Icons.error_outline,
-                          color: stockTextColor,
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          stock['registered'] == true
-                              ? 'Stock: ${stock['qty']} $displayUnit'
-                              : 'Not in inventory',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: stockTextColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 12,
@@ -1445,11 +1484,13 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                             children: [
                               Icon(Icons.event, size: 12, color: color),
                               const SizedBox(width: 4),
-                              Text(
-                                isExpired
-                                    ? 'EXPIRED ${DateFormat('dd MMM yyyy').format(exp!)}'
-                                    : 'Expiry: ${exp != null ? DateFormat('dd MMM yyyy').format(exp) : 'Unknown'} (${daysLeft}d)',
-                                style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+                              Expanded(
+                                child: Text(
+                                  isExpired
+                                      ? 'EXPIRED ${DateFormat('dd MMM yyyy').format(exp!)}'
+                                      : 'Expiry: ${exp != null ? DateFormat('dd MMM yyyy').format(exp) : 'Unknown'} (${daysLeft}d)',
+                                  style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+                                ),
                               ),
                             ],
                           );
@@ -1504,7 +1545,9 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(displayUnit, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                          Flexible(
+                            child: Text(displayUnit, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                          ),
                         ],
                       ),
                     ],
@@ -1528,13 +1571,16 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                   ),
                   onPressed: () => _dispensePrescription(pres),
                   icon: const Icon(Icons.check_circle_outline, size: 18),
-                  label: const Text('Confirm & Dispense Medications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  label: const FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('Confirm & Dispense Medications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  ),
                 ),
               )
             else
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 decoration: BoxDecoration(
                   color: AppTheme.successBg,
                   borderRadius: BorderRadius.circular(10),
@@ -1545,9 +1591,12 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                   children: [
                     const Icon(Icons.check, color: AppTheme.successColor, size: 18),
                     const SizedBox(width: 8),
-                    Text(
-                      'This prescription has already been dispensed',
-                      style: TextStyle(color: AppTheme.successColor, fontWeight: FontWeight.bold),
+                    Flexible(
+                      child: Text(
+                        'This prescription has already been dispensed',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppTheme.successColor, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ],
                 ),
@@ -1595,102 +1644,125 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
     return SingleChildScrollView(
       padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          const Icon(Icons.lock_outlined, color: Color(0xFF7C3AED), size: 20),
-          const SizedBox(width: 8),
-          const Text('Controlled Drug Register', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              '${filtered.length} items',
-              style: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 11),
-            ),
-          ),
-        ]),
-        const SizedBox(height: 16),
-        
-        Row(
+        Wrap(
+          spacing: 10,
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(
-              child: TextField(
-                controller: _ctrlSearchController,
-                style: TextStyle(
-                  color: AppTheme.getTextPrimaryColor(context),
-                  fontSize: 14,
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outlined, color: Color(0xFF7C3AED), size: 20),
+                SizedBox(width: 8),
+                Flexible(
+                  child: Text('Controlled Drug Register', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
-                onChanged: (v) => setState(() {
-                  _ctrlSearchQuery = v;
-                  _ctrlPage = 0;
-                }),
-                decoration: InputDecoration(
-                  hintText: 'Search controlled drugs...',
-                  hintStyle: TextStyle(fontSize: 13, color: AppTheme.getTextSecondaryColor(context)),
-                  prefixIcon: Icon(Icons.search, size: 18, color: AppTheme.getTextSecondaryColor(context)),
-                  suffixIcon: _ctrlSearchQuery.isNotEmpty
-                      ? MouseRegion(
-                          cursor: SystemMouseCursors.click,
-                          child: GestureDetector(
-                            onTap: () {
-                              _ctrlSearchController.clear();
-                              setState(() {
-                                _ctrlSearchQuery = '';
-                                _ctrlPage = 0;
-                              });
-                            },
-                            child: Icon(
-                              Icons.close,
-                              size: 16,
-                              color: AppTheme.getTextSecondaryColor(context),
-                            ),
-                          ),
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: AppTheme.getCardColor(context),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
-                  ),
-                ),
-              ),
+              ],
             ),
-            const SizedBox(width: 12),
-            SizedBox(
-              width: 180,
-              child: CustomDropdownSearch(
-                label: '',
-                value: _selectedCtrlCategory,
-                dropdownItems: categories,
-                height: 44,
-                borderColor: AppTheme.borderColor,
-                borderWidth: 1.0,
-                focusedBorderColor: AppTheme.primaryColor,
-                focusedBorderWidth: 1.0,
-                onChanged: (val) {
-                  if (val != null) {
-                    setState(() {
-                      _selectedCtrlCategory = val;
-                      _ctrlPage = 0;
-                    });
-                  }
-                },
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF7C3AED).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${filtered.length} items',
+                style: const TextStyle(color: Color(0xFF7C3AED), fontWeight: FontWeight.bold, fontSize: 11),
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 16),
+
+        Builder(
+          builder: (context) {
+            final searchField = TextField(
+              controller: _ctrlSearchController,
+              style: TextStyle(
+                color: AppTheme.getTextPrimaryColor(context),
+                fontSize: 14,
+              ),
+              onChanged: (v) => setState(() {
+                _ctrlSearchQuery = v;
+                _ctrlPage = 0;
+              }),
+              decoration: InputDecoration(
+                hintText: 'Search controlled drugs...',
+                hintStyle: TextStyle(fontSize: 13, color: AppTheme.getTextSecondaryColor(context)),
+                prefixIcon: Icon(Icons.search, size: 18, color: AppTheme.getTextSecondaryColor(context)),
+                suffixIcon: _ctrlSearchQuery.isNotEmpty
+                    ? MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: GestureDetector(
+                          onTap: () {
+                            _ctrlSearchController.clear();
+                            setState(() {
+                              _ctrlSearchQuery = '';
+                              _ctrlPage = 0;
+                            });
+                          },
+                          child: Icon(
+                            Icons.close,
+                            size: 16,
+                            color: AppTheme.getTextSecondaryColor(context),
+                          ),
+                        ),
+                      )
+                    : null,
+                filled: true,
+                fillColor: AppTheme.getCardColor(context),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                ),
+              ),
+            );
+            final categoryDropdown = CustomDropdownSearch(
+              label: '',
+              value: _selectedCtrlCategory,
+              dropdownItems: categories,
+              height: 44,
+              borderColor: AppTheme.borderColor,
+              borderWidth: 1.0,
+              focusedBorderColor: AppTheme.primaryColor,
+              focusedBorderWidth: 1.0,
+              onChanged: (val) {
+                if (val != null) {
+                  setState(() {
+                    _selectedCtrlCategory = val;
+                    _ctrlPage = 0;
+                  });
+                }
+              },
+            );
+
+            if (widget.isMobile) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  searchField,
+                  const SizedBox(height: 10),
+                  categoryDropdown,
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: searchField),
+                const SizedBox(width: 12),
+                SizedBox(width: 180, child: categoryDropdown),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 16),
 
@@ -1907,8 +1979,8 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
           child: Row(children: [
             Icon(icon, color: iconColor, size: 18),
             const SizedBox(width: 8),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            const Spacer(),
+            Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
+            const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(color: iconColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
@@ -1970,69 +2042,74 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
     if (totalPages <= 1) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text(
-            context.pageOfTotal(_ctrlPage + 1, totalPages),
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppTheme.textSecondaryColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 16),
-          OutlinedButton(
-            onPressed: _ctrlPage > 0
-                ? () => setState(() => _ctrlPage--)
-                : null,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(80, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              side: BorderSide(
-                color: _ctrlPage > 0
-                    ? AppTheme.primaryColor
-                    : AppTheme.borderColor,
+      padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 12 : 16, vertical: 12),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            Text(
+              context.pageOfTotal(_ctrlPage + 1, totalPages),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondaryColor,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.chevron_left, size: 18),
-                Text(context.tr('prev', fallback: 'Prev')),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: _ctrlPage < totalPages - 1
-                ? () => setState(() => _ctrlPage++)
-                : null,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(80, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            if (!widget.isMobile) const SizedBox(width: 8),
+            OutlinedButton(
+              onPressed: _ctrlPage > 0
+                  ? () => setState(() => _ctrlPage--)
+                  : null,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(76, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                side: BorderSide(
+                  color: _ctrlPage > 0
+                      ? AppTheme.primaryColor
+                      : AppTheme.borderColor,
+                ),
               ),
-              side: BorderSide(
-                color: _ctrlPage < totalPages - 1
-                    ? AppTheme.primaryColor
-                    : AppTheme.borderColor,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.chevron_left, size: 18),
+                  Text(context.tr('prev', fallback: 'Prev')),
+                ],
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(context.tr('next', fallback: 'Next')),
-                const Icon(Icons.chevron_right, size: 18),
-              ],
+            OutlinedButton(
+              onPressed: _ctrlPage < totalPages - 1
+                  ? () => setState(() => _ctrlPage++)
+                  : null,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(76, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                side: BorderSide(
+                  color: _ctrlPage < totalPages - 1
+                      ? AppTheme.primaryColor
+                      : AppTheme.borderColor,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(context.tr('next', fallback: 'Next')),
+                  const Icon(Icons.chevron_right, size: 18),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

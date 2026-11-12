@@ -564,7 +564,295 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
 
     final isMobile = MediaQuery.of(context).size.width < 600;
 
+    final infoCells = [
+      _infoColumn(context.tr('patient_name_label', fallback: 'Patient Name'), patientDisplayName),
+      _infoColumn(context.tr('patient_id_label', fallback: 'Patient ID'), widget.visit.patientDisplayId ?? 'N/A'),
+      _infoColumn(context.tr('scheduled_date_label', fallback: 'Scheduled Date'), widget.visit.scheduledDate),
+      _infoColumn(context.tr('verified_attender_label', fallback: 'Verified Attender'), attenderDisplayName),
+      _infoColumn(context.tr('attender_relation_label', fallback: 'Attender Relation'), widget.visit.attenderRelation ?? 'Attender'),
+      _infoColumn(context.tr('assigned_nurse_label', fallback: 'Assigned Nurse'), nurseDisplayName),
+    ];
+    final colsPerRow = isMobile ? 2 : 3;
+
+    final summaryCard = Container(
+      padding: EdgeInsets.all(isMobile ? 12 : 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < infoCells.length; i += colsPerRow) ...[
+            if (i > 0) const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (int j = 0; j < colsPerRow; j++) ...[
+                  if (j > 0) const SizedBox(width: 10),
+                  Expanded(
+                    child: i + j < infoCells.length
+                        ? infoCells[i + j]
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ],
+            ),
+          ],
+          if ((widget.visit.feedback != null && widget.visit.feedback!.trim().isNotEmpty) ||
+              (_invoiceData['visit'] is Map && _invoiceData['visit']['feedback'] != null && _invoiceData['visit']['feedback'].toString().trim().isNotEmpty)) ...[
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.record_voice_over_outlined, size: 16, color: AppTheme.primaryColor),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('visit_attender_feedback', fallback: 'Visit & Attender Feedback'),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        (widget.visit.feedback != null && widget.visit.feedback!.trim().isNotEmpty)
+                            ? widget.visit.feedback!
+                            : _invoiceData['visit']['feedback'].toString(),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF334155),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+
+    final chargesHeader = SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 4,
+        children: [
+          Text(
+            context.tr('itemized_service_care_charges', fallback: 'Itemized Service & Care Charges:'),
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+          TextButton.icon(
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.primaryColor,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              visualDensity: VisualDensity.compact,
+            ),
+            icon: const Icon(Icons.edit_outlined, size: 15),
+            label: Text(
+              context.tr('edit_consultation_fee', fallback: 'Edit Fee'),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+            ),
+            onPressed: () {
+              double currentFee = 500.0;
+              for (final it in items) {
+                final itName = it['item_name']?.toString() ?? '';
+                if (_isConsultationFeeItem(itName)) {
+                  currentFee = (it['unit_price'] != null)
+                      ? double.tryParse(it['unit_price'].toString()) ?? 500.0
+                      : 500.0;
+                  break;
+                }
+              }
+              _showEditFeeDialog(context, currentFee);
+            },
+          ),
+        ],
+      ),
+    );
+
+    final itemListView = ListView.separated(
+      shrinkWrap: isMobile,
+      physics: isMobile ? const NeverScrollableScrollPhysics() : null,
+      itemCount: items.length,
+      separatorBuilder: (context, index) => const Divider(height: 1),
+      itemBuilder: (context, idx) {
+        final item = items[idx];
+        final itemName = item['item_name']?.toString() ?? 'Item';
+        final isFeeItem = _isConsultationFeeItem(itemName);
+        final qty = item['quantity'] ?? 1;
+        final unitPrice = (item['unit_price'] != null)
+            ? double.tryParse(item['unit_price'].toString()) ?? 0.0
+            : 0.0;
+        final subtotal = (item['subtotal'] != null)
+            ? double.tryParse(item['subtotal'].toString()) ?? 0.0
+            : (qty * unitPrice);
+
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 12, vertical: 10),
+          child: Row(
+            children: [
+              Expanded(
+                flex: isMobile ? 4 : 5,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _translateItemName(context, itemName),
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    if (isFeeItem)
+                      Tooltip(
+                        message: context.tr('edit_consultation_fee', fallback: 'Edit Fee'),
+                        child: InkWell(
+                          onTap: () => _showEditFeeDialog(context, unitPrice),
+                          borderRadius: BorderRadius.circular(4),
+                          child: Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Icon(
+                              Icons.edit_outlined,
+                              size: 14,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  '$qty',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  '₹${unitPrice.toStringAsFixed(2)}',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontSize: 11.5),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  '₹${subtotal.toStringAsFixed(2)}',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    final itemizedTable = Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        mainAxisSize: isMobile ? MainAxisSize.min : MainAxisSize.max,
+        children: [
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 12, vertical: 10),
+            decoration: const BoxDecoration(
+              color: Color(0xFFEDF2F7),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: isMobile ? 4 : 5,
+                  child: Text(context.tr('service_item_description', fallback: 'Service / Item Description'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  flex: 2,
+                  child: Text(context.tr('qty_label', fallback: 'Qty'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  flex: 3,
+                  child: Text(context.tr('unit_price', fallback: 'Unit Price'), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  flex: 3,
+                  child: Text(context.tr('subtotal_header', fallback: 'Subtotal'), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                ),
+              ],
+            ),
+          ),
+          if (isMobile) itemListView else Expanded(child: itemListView),
+        ],
+      ),
+    );
+
+    final totalBanner = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              context.tr('net_total_bill_amount', fallback: 'Net Total Bill Amount:'),
+              style: TextStyle(
+                fontSize: isMobile ? 14 : 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryColor,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '₹${totalAmount.toStringAsFixed(2)}',
+            style: TextStyle(
+              fontSize: isMobile ? 18 : 22,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryColor,
+            ),
+          ),
+        ],
+      ),
+    );
+
     return Dialog(
+<<<<<<< HEAD
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
         insetPadding: EdgeInsets.all(isMobile ? 12.0 : 20.0),
         child: Container(
@@ -1066,6 +1354,125 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
                   onPressed: () => _showPrintReceiptSheet(context, invoice, items, netAmount, paidAmount, balanceDue),
                 ),
               ],
+=======
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+      insetPadding: EdgeInsets.all(isMobile ? 12.0 : 24.0),
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: 650,
+          maxHeight: MediaQuery.of(context).size.height * 0.88,
+        ),
+        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.receipt_long, color: AppTheme.primaryColor, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.tr('home_visit_billing_invoice', fallback: 'Home Visit Billing Invoice'),
+                        style: TextStyle(
+                          fontSize: isMobile ? 15 : 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                          fontFamily: 'Inter',
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${context.tr('invoice_num_label', fallback: 'Invoice #:')} $invoiceNumber',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                          fontFamily: 'Inter',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _getTranslatedStatus(context, status),
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF92400E),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Divider(height: isMobile ? 20 : 32),
+
+            if (isMobile) ...[
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      summaryCard,
+                      const SizedBox(height: 16),
+                      chargesHeader,
+                      const SizedBox(height: 8),
+                      itemizedTable,
+                      const SizedBox(height: 14),
+                      totalBanner,
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ] else ...[
+              summaryCard,
+              const SizedBox(height: 16),
+              chargesHeader,
+              const SizedBox(height: 8),
+              Expanded(child: itemizedTable),
+              const SizedBox(height: 14),
+              totalBanner,
+              const SizedBox(height: 16),
+            ],
+
+            // Dialog Close Button (52px high per Style Guide)
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                style: AppTheme.dangerButton,
+                onPressed: () {
+                  ModalHistoryHelper.skipNextHistoryBack();
+                  Navigator.of(context).pop();
+                  if (widget.onCloseAndComplete != null) {
+                    widget.onCloseAndComplete!();
+                  }
+                },
+                child: Text(context.tr('close_and_complete', fallback: 'Close & Complete'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             ),
           ],
         ),

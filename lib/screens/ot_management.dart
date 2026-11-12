@@ -2706,16 +2706,19 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500)),
-              const SizedBox(height: 10),
-              Text(value, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
-              const SizedBox(height: 6),
-              Text(subText, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 12.5, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 10),
+                Text(value, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor)),
+                const SizedBox(height: 6),
+                Text(subText, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
+              ],
+            ),
           ),
+          const SizedBox(width: 12),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -2761,12 +2764,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         children: [
           // Header
           Container(
+<<<<<<< HEAD
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+=======
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             decoration: BoxDecoration(
               color: isOccupied ? color.withOpacity(0.04) : Colors.grey.shade50,
               borderRadius: const BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
               border: Border(bottom: BorderSide(color: isOccupied ? color.withOpacity(0.12) : Colors.grey.shade100)),
             ),
+<<<<<<< HEAD
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -2818,6 +2826,71 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   ),
                 ),
               ],
+=======
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Icon(Icons.meeting_room_outlined, size: 15, color: isOccupied ? color : AppTheme.textSecondaryColor),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              roomName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontWeight: FontWeight.bold, color: isOccupied ? color : AppTheme.textPrimaryColor, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.56),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isOccupied ? color.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: isOccupied ? color : Colors.green,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: isOccupied ? color : Colors.green,
+                                      blurRadius: 4,
+                                      spreadRadius: 1,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                isOccupied ? activeInRoom.status.toUpperCase() : 'AVAILABLE',
+                                style: TextStyle(color: isOccupied ? color : Colors.green, fontSize: 9, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             ),
           ),
           // Content
@@ -2825,6 +2898,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: isOccupied
+<<<<<<< HEAD
                   ? SingleChildScrollView(
                       physics: const NeverScrollableScrollPhysics(),
                       child: Column(
@@ -2846,6 +2920,96 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           ),
                           const SizedBox(height: 6),
                           Row(
+=======
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              activeInRoom.patientName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.textPrimaryColor),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${activeInRoom.age} yrs • ${activeInRoom.gender} • Blood: ${activeInRoom.bloodGroup}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.healing, size: 12, color: AppTheme.textSecondaryColor),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                activeInRoom.surgeryType ?? '',
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.person, size: 12, color: AppTheme.textSecondaryColor),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Surgeon: ${activeInRoom.surgeon ?? 'TBD'}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 11.5, color: AppTheme.textPrimaryColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        // Progress Bar representing case completion
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Surgery Progress', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                                Text(
+                                  '${(_getCaseProgress(activeInRoom.status) * 100).toInt()}%',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: _getCaseProgress(activeInRoom.status),
+                                color: color,
+                                backgroundColor: color.withOpacity(0.1),
+                                minHeight: 6,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: () {
+                            _selectOtCase(activeInRoom);
+                            setState(() {
+                              _activeTab = 1; // Go to active patients registry
+                            });
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                             children: [
                               const Icon(Icons.healing, size: 12, color: AppTheme.textSecondaryColor),
                               const SizedBox(width: 6),
@@ -2955,12 +3119,13 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   Widget _buildIntegrationPanel() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       decoration: AppTheme.cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+<<<<<<< HEAD
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Row(
@@ -2999,9 +3164,28 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
           ),
           const SizedBox(height: 16),
+=======
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.hub_outlined, color: AppTheme.primaryColor, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'ERP Modular Integration Hub (Simulated)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: widget.isMobile ? 14 : 15,
+                    color: AppTheme.textPrimaryColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: widget.isMobile ? 12 : 16),
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
           Wrap(
-            spacing: 12,
-            runSpacing: 12,
+            spacing: widget.isMobile ? 8 : 12,
+            runSpacing: widget.isMobile ? 8 : 12,
             children: [
               _buildIntegrationTag(
                 'IPD Integration',
@@ -3042,6 +3226,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   Widget _buildIntegrationTag(String title, String description, IconData icon) {
     return Tooltip(
+<<<<<<< HEAD
       message: 'Click to open $title live status and ERP details\n$description',
       child: Material(
         color: Colors.transparent,
@@ -3087,6 +3272,30 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 const SizedBox(width: 6),
                 const Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFF16A34A)),
               ],
+=======
+      message: description,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 10 : 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.green.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.green.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                title,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade900),
+              ),
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             ),
           ),
         ),
@@ -4955,7 +5164,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         children: [
           // PAC Status Card
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(widget.isMobile ? 14 : 16),
             decoration: BoxDecoration(
               color: isCleared
                   ? AppTheme.secondaryColor.withOpacity(0.08)
@@ -4967,44 +5176,42 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     : AppTheme.dangerColor.withOpacity(0.3),
               ),
             ),
-            child: Row(
-              children: [
-                Icon(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact = widget.isMobile || constraints.maxWidth < 560;
+                final statusIcon = Icon(
                   isCleared ? Icons.verified_user : Icons.warning_amber_rounded,
                   color: isCleared ? AppTheme.secondaryColor : AppTheme.dangerColor,
-                  size: 28,
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Pre-Anaesthetic Clearance (PAC) Status: ${otCase.pacStatus.toUpperCase()}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: isCleared ? AppTheme.secondaryColor : AppTheme.dangerColor,
-                        ),
+                  size: isCompact ? 24 : 28,
+                );
+                final statusDetails = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pre-Anaesthetic Clearance (PAC) Status: ${otCase.pacStatus.toUpperCase()}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: isCompact ? 13.5 : 14,
+                        color: isCleared ? AppTheme.secondaryColor : AppTheme.dangerColor,
                       ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isCleared
+                          ? 'Patient has verified Pre-Anaesthetic Clearance and is clinically authorized for OT induction.'
+                          : 'Patient is NOT cleared. Surgery cannot proceed until an Anaesthetist records clearance.',
+                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                    ),
+                    if (otCase.pacClearedBy != null) ...[
                       const SizedBox(height: 4),
                       Text(
-                        isCleared
-                            ? 'Patient has verified Pre-Anaesthetic Clearance and is clinically authorized for OT induction.'
-                            : 'Patient is NOT cleared. Surgery cannot proceed until an Anaesthetist records clearance.',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                        'Authorized by: ${otCase.pacClearedBy} ${otCase.pacClearedAt != null ? "• " + DateFormat("dd/MM/yyyy hh:mm a").format(otCase.pacClearedAt!) : ""}',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
                       ),
-                      if (otCase.pacClearedBy != null) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          'Authorized by: ${otCase.pacClearedBy} ${otCase.pacClearedAt != null ? "• " + DateFormat("dd/MM/yyyy hh:mm a").format(otCase.pacClearedAt!) : ""}',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
-                        ),
-                      ],
                     ],
-                  ),
-                ),
-                ElevatedButton.icon(
+                  ],
+                );
+                final actionButton = ElevatedButton.icon(
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -5026,8 +5233,36 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                ),
-              ],
+                );
+
+                if (isCompact) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          statusIcon,
+                          const SizedBox(width: 12),
+                          Expanded(child: statusDetails),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      actionButton,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    statusIcon,
+                    const SizedBox(width: 14),
+                    Expanded(child: statusDetails),
+                    const SizedBox(width: 12),
+                    actionButton,
+                  ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 20),
@@ -5165,6 +5400,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             verified ? Icons.check_circle_outline : Icons.cancel_outlined,
@@ -5172,12 +5408,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             size: 18,
           ),
           const SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13, 
-              color: verified ? Colors.green.shade800 : Colors.red.shade800,
-              fontWeight: verified ? FontWeight.w600 : FontWeight.normal
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13, 
+                color: verified ? Colors.green.shade800 : Colors.red.shade800,
+                fontWeight: verified ? FontWeight.w600 : FontWeight.normal
+              ),
             ),
           ),
         ],
@@ -5190,21 +5428,24 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     final pac = otCase.pacDetails;
     
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(Icons.medical_services_outlined, color: AppTheme.primaryColor, size: 22),
               const SizedBox(width: 8),
-              const Text(
-                'Pre-Anesthetic Assessment (PAC) Clearance',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: AppTheme.textPrimaryColor,
-                  fontFamily: 'Manrope',
+              Expanded(
+                child: Text(
+                  'Pre-Anesthetic Assessment (PAC) Clearance',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: widget.isMobile ? 15 : 16,
+                    color: AppTheme.textPrimaryColor,
+                    fontFamily: 'Manrope',
+                  ),
                 ),
               ),
             ],
@@ -5311,21 +5552,24 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(Icons.medical_services_outlined, color: AppTheme.primaryColor, size: 22),
               const SizedBox(width: 8),
-              Text(
-                'Pre-Anesthetic Assessment (PAC) Clearance Form',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: AppTheme.textPrimaryColor,
-                  fontFamily: 'Manrope',
+              Expanded(
+                child: Text(
+                  'Pre-Anesthetic Assessment (PAC) Clearance Form',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: widget.isMobile ? 15 : 16,
+                    color: AppTheme.textPrimaryColor,
+                    fontFamily: 'Manrope',
+                  ),
                 ),
               ),
             ],
@@ -5615,13 +5859,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             children: [
               Icon(icon, color: iconColor, size: 20),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: AppTheme.textPrimaryColor,
-                  fontFamily: 'Manrope',
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppTheme.textPrimaryColor,
+                    fontFamily: 'Manrope',
+                  ),
                 ),
               ),
             ],
@@ -5748,7 +5994,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     final anaNotes = pacData['userNotes'] ?? '';
     
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -5862,7 +6108,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     final isClosed = otCase.status == 'OT Case Closed';
     
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -5882,9 +6128,11 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   children: [
                     Icon(Icons.calendar_month, color: AppTheme.primaryColor, size: 18),
                     SizedBox(width: 8),
-                    Text(
-                      'Scheduled Surgery Booking Info',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                    Expanded(
+                      child: Text(
+                        'Scheduled Surgery Booking Info',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                      ),
                     ),
                   ],
                 ),
@@ -5953,12 +6201,13 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 150,
+            width: widget.isMobile ? 115 : 150,
             child: Text(
               label,
               style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600),
             ),
           ),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
@@ -5984,6 +6233,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+<<<<<<< HEAD
           Icon(icon, size: 11, color: color ?? AppTheme.textSecondaryColor),
           const SizedBox(width: 3),
           Text(
@@ -5992,6 +6242,18 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               fontSize: 10,
               fontWeight: FontWeight.w500,
               color: color ?? AppTheme.textPrimaryColor,
+=======
+          Icon(icon, size: 13, color: color ?? AppTheme.textSecondaryColor),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: color ?? AppTheme.textPrimaryColor,
+              ),
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             ),
           ),
         ],
@@ -6720,6 +6982,30 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       assignedRoles = 'PACU Nurse & Doctor';
     }
 
+    final stepBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        'STEP $stepNumber OF 8',
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+      ),
+    );
+    final statusBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppTheme.borderColor),
+      ),
+      child: Text(
+        otCase.status,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textPrimaryColor),
+      ),
+    );
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -6730,43 +7016,44 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  borderRadius: BorderRadius.circular(8),
+          if (widget.isMobile) ...[
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [stepBadge, statusBadge],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(stepIcon, size: 18, color: AppTheme.primaryColor),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    stepTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor),
+                  ),
                 ),
-                child: Text(
-                  'STEP $stepNumber OF 8',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+              ],
+            ),
+          ] else
+            Row(
+              children: [
+                stepBadge,
+                const SizedBox(width: 10),
+                Icon(stepIcon, size: 18, color: AppTheme.primaryColor),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    stepTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Icon(stepIcon, size: 18, color: AppTheme.primaryColor),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  stepTitle,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppTheme.borderColor),
-                ),
-                child: Text(
-                  otCase.status,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textPrimaryColor),
-                ),
-              ),
-            ],
-          ),
+                statusBadge,
+              ],
+            ),
           const SizedBox(height: 8),
           Text(
             stepDesc,
@@ -6774,12 +7061,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           ),
           const SizedBox(height: 6),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(Icons.badge_outlined, size: 13, color: AppTheme.textMutedColor),
               const SizedBox(width: 4),
-              Text(
-                'Designated Roles: $assignedRoles',
-                style: const TextStyle(fontSize: 11, color: AppTheme.textMutedColor, fontStyle: FontStyle.italic),
+              Expanded(
+                child: Text(
+                  'Designated Roles: $assignedRoles',
+                  style: const TextStyle(fontSize: 11, color: AppTheme.textMutedColor, fontStyle: FontStyle.italic),
+                ),
               ),
             ],
           ),

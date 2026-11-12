@@ -1087,15 +1087,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       children: [
         // Fixed Top Bar
         Container(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 10),
+          padding: EdgeInsets.fromLTRB(
+            isMobile ? 16 : 24,
+            isMobile ? 14 : 20,
+            isMobile ? 16 : 24,
+            10,
+          ),
           color: Colors.transparent,
           child: _buildBannerTopBar(context, isMobile),
         ),
         // Scrollable Content
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 24.0,
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16.0 : 24.0,
               vertical: 16.0,
             ),
             child: Column(
@@ -1110,7 +1115,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   const SizedBox(height: 24),
                   _buildQuickActions(isMobile),
                   const SizedBox(height: 24),
-                  _buildAlertsSection(),
+                  _buildAlertsSection(true),
                 ] else
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1130,7 +1135,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           children: [
                             _buildQuickActions(false),
                             const SizedBox(height: 24),
-                            _buildAlertsSection(),
+                            _buildAlertsSection(false),
                           ],
                         ),
                       ),
@@ -3702,12 +3707,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         const SizedBox(height: 2),
         Row(
           children: const [
-            Text(
-              'System Admin',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.textPrimaryColor,
+            Flexible(
+              child: Text(
+                'System Admin',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimaryColor,
+                ),
               ),
             ),
             SizedBox(width: 8),
@@ -3890,10 +3899,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildAlertsSection() {
+  Widget _buildAlertsSection([bool isMobile = false]) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -4009,7 +4018,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Widget _buildQuickActions([bool isMobile = false]) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -4186,6 +4195,215 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final int todayOnDutyCount = weeklyData.length > todayIndex ? weeklyData[todayIndex].toInt() : 0;
     final breakdown = _getDayStaffBreakdown(selectedDayIndex);
 
+    final Widget headerIconBadge = Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Icon(
+        Icons.groups_outlined,
+        color: AppTheme.primaryColor,
+        size: 22,
+      ),
+    );
+
+    final Widget headerTitleColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.tr('staff_roster', fallback: 'Staff On-Duty Roster'),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 17,
+            color: AppTheme.textPrimaryColor,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        const SizedBox(height: 3),
+        Text(
+          context.tr('staff_roster_sub', fallback: 'Daily scheduled hospital duty presence (Mon – Sun)'),
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppTheme.textSecondaryColor,
+            fontWeight: FontWeight.w500,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+
+    Widget buildTodayStatusPill(double maxWidth) => ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: AppTheme.secondaryColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppTheme.secondaryColor.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                color: AppTheme.secondaryColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                context.tr(
+                  'today_on_duty',
+                  fallback: 'Today: $todayOnDutyCount On Duty',
+                  params: {'count': '$todayOnDutyCount'},
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.secondaryColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final Widget roleFilterMenu = PopupMenuButton<String>(
+      tooltip: 'Filter staff role',
+      initialValue: _selectedStaffOverviewFilter,
+      onSelected: (String val) {
+        setState(() {
+          _selectedStaffOverviewFilter = val;
+        });
+      },
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: AppTheme.borderColor),
+      ),
+      color: Colors.white,
+      elevation: 4,
+      itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(
+          value: 'This Week',
+          child: Row(
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 16,
+                color: AppTheme.primaryColor,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'All Staff',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'Doctors',
+          child: Row(
+            children: [
+              Icon(
+                Icons.medical_services_outlined,
+                size: 16,
+                color: AppTheme.primaryColor,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Doctors Only',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'Nurses',
+          child: Row(
+            children: [
+              Icon(
+                Icons.health_and_safety_outlined,
+                size: 16,
+                color: AppTheme.secondaryColor,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Nurses Only',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'Admin & Support',
+          child: Row(
+            children: [
+              Icon(
+                Icons.admin_panel_settings_outlined,
+                size: 16,
+                color: AppTheme.warningColor,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Admin & Support',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.borderColor),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _selectedStaffOverviewFilter == 'This Week'
+                  ? 'All Roles'
+                  : _selectedStaffOverviewFilter,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimaryColor,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.keyboard_arrow_down,
+              size: 15,
+              color: AppTheme.textSecondaryColor,
+            ),
+          ],
+        ),
+      ),
+    );
+
     return Container(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
       decoration: BoxDecoration(
@@ -4196,216 +4414,45 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.groups_outlined,
-                  color: AppTheme.primaryColor,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+          // Header Row (stacks controls cleanly on mobile / narrow panes)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final Widget todayPill = buildTodayStatusPill(constraints.maxWidth);
+              if (isMobile || constraints.maxWidth < 440) {
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      context.tr('staff_roster', fallback: 'Staff On-Duty Roster'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 17,
-                        color: AppTheme.textPrimaryColor,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        headerIconBadge,
+                        const SizedBox(width: 12),
+                        Expanded(child: headerTitleColumn),
+                      ],
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      context.tr('staff_roster_sub', fallback: 'Daily scheduled hospital duty presence (Mon – Sun)'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppTheme.textSecondaryColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [todayPill, roleFilterMenu],
                     ),
                   ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Today status pill
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondaryColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppTheme.secondaryColor.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: AppTheme.secondaryColor,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      context.tr(
-                        'today_on_duty',
-                        fallback: 'Today: $todayOnDutyCount On Duty',
-                        params: {'count': '$todayOnDutyCount'},
-                      ),
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.secondaryColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              // Filter Popup
-              PopupMenuButton<String>(
-                tooltip: 'Filter staff role',
-                initialValue: _selectedStaffOverviewFilter,
-                onSelected: (String val) {
-                  setState(() {
-                    _selectedStaffOverviewFilter = val;
-                  });
-                },
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  side: const BorderSide(color: AppTheme.borderColor),
-                ),
-                color: Colors.white,
-                elevation: 4,
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: 'This Week',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 16,
-                          color: AppTheme.primaryColor,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'All Staff',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'Doctors',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.medical_services_outlined,
-                          size: 16,
-                          color: AppTheme.primaryColor,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Doctors Only',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'Nurses',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.health_and_safety_outlined,
-                          size: 16,
-                          color: AppTheme.secondaryColor,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Nurses Only',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const PopupMenuItem<String>(
-                    value: 'Admin & Support',
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.admin_panel_settings_outlined,
-                          size: 16,
-                          color: AppTheme.warningColor,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Admin & Support',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  headerIconBadge,
+                  const SizedBox(width: 12),
+                  Expanded(child: headerTitleColumn),
+                  const SizedBox(width: 8),
+                  todayPill,
+                  const SizedBox(width: 8),
+                  roleFilterMenu,
                 ],
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.borderColor),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _selectedStaffOverviewFilter == 'This Week'
-                            ? 'All Roles'
-                            : _selectedStaffOverviewFilter,
-                        style: const TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimaryColor,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 15,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+              );
+            },
           ),
 
           const SizedBox(height: 14),
@@ -4539,7 +4586,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
                   return Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2.5),
+                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 1.5 : 2.5),
                       child: InkWell(
                         onTap: () {
                           setState(() {
@@ -4549,7 +4596,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         borderRadius: BorderRadius.circular(10),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
                           decoration: BoxDecoration(
                             color: isSelected
                                 ? AppTheme.primaryColor
@@ -4578,37 +4625,44 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    day,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : (isToday
-                                              ? AppTheme.secondaryColor
-                                              : AppTheme.textPrimaryColor),
-                                    ),
-                                  ),
-                                  if (isToday) ...[
-                                    const SizedBox(width: 3),
-                                    Container(
-                                      width: 5,
-                                      height: 5,
-                                      decoration: BoxDecoration(
-                                        color: isSelected ? Colors.white : AppTheme.secondaryColor,
-                                        shape: BoxShape.circle,
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      day,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : (isToday
+                                                ? AppTheme.secondaryColor
+                                                : AppTheme.textPrimaryColor),
                                       ),
                                     ),
+                                    if (isToday) ...[
+                                      const SizedBox(width: 3),
+                                      Container(
+                                        width: 5,
+                                        height: 5,
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? Colors.white : AppTheme.secondaryColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
                               const SizedBox(height: 4),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isMobile ? 4 : 6,
+                                  vertical: 1.5,
+                                ),
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? Colors.white.withValues(alpha: 0.22)
@@ -4623,16 +4677,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                     width: 0.8,
                                   ),
                                 ),
-                                child: Text(
-                                  '$count',
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : (isToday
-                                            ? AppTheme.secondaryColor
-                                            : AppTheme.textPrimaryColor),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    '$count',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: isSelected
+                                          ? Colors.white
+                                          : (isToday
+                                              ? AppTheme.secondaryColor
+                                              : AppTheme.textPrimaryColor),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -4684,9 +4741,41 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final int totalOnDuty = (breakdown['totalOnDuty'] as int?) ?? 0;
     final int totalOffDuty = (breakdown['totalOffDuty'] as int?) ?? 0;
 
+    final Widget onDutyBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.secondaryColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$totalOnDuty On Duty',
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.secondaryColor,
+        ),
+      ),
+    );
+
+    final Widget offDutyBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE2E8F0),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        '$totalOffDuty Off Duty',
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.textSecondaryColor,
+        ),
+      ),
+    );
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isMobile ? 12 : 16),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
@@ -4696,67 +4785,62 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Breakdown Header
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.calendar_month_outlined,
-                  size: 16,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  '$selectedDayFull Roster ${isSelectedToday ? '(Today)' : ''}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: AppTheme.textPrimaryColor,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final Widget titleRow = Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.calendar_month_outlined,
+                      size: 16,
+                      color: AppTheme.primaryColor,
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              // On-duty badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondaryColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '$totalOnDuty On Duty',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.secondaryColor,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '$selectedDayFull Roster ${isSelectedToday ? '(Today)' : ''}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: AppTheme.textPrimaryColor,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              // Off-duty badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '$totalOffDuty Off Duty',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textSecondaryColor,
-                  ),
-                ),
-              ),
-            ],
+                ],
+              );
+
+              if (isMobile || constraints.maxWidth < 380) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleRow,
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [onDutyBadge, offDutyBadge],
+                    ),
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: titleRow),
+                  const SizedBox(width: 8),
+                  onDutyBadge,
+                  const SizedBox(width: 6),
+                  offDutyBadge,
+                ],
+              );
+            },
           ),
 
           const SizedBox(height: 14),
@@ -4928,12 +5012,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       children: [
         Icon(icon, size: 15, color: iconColor),
         const SizedBox(width: 6),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: AppTheme.textPrimaryColor,
+        Flexible(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimaryColor,
+            ),
           ),
         ),
         const SizedBox(width: 6),
@@ -5001,28 +5089,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                name,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: isOnDuty ? AppTheme.textPrimaryColor : const Color(0xFF64748B),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isOnDuty ? AppTheme.textPrimaryColor : const Color(0xFF64748B),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                subtitle,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: isOnDuty ? AppTheme.textSecondaryColor : const Color(0xFF94A3B8),
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: 1),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isOnDuty ? AppTheme.textSecondaryColor : const Color(0xFF94A3B8),
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(width: 6),
           Container(

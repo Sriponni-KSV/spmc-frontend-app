@@ -372,12 +372,15 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.all(3),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildTabBtn(MarViewTab.matrix, 'Schedule Matrix', Icons.grid_on_rounded),
-          _buildTabBtn(MarViewTab.history, 'Audit & History Log', Icons.history_rounded),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTabBtn(MarViewTab.matrix, 'Schedule Matrix', Icons.grid_on_rounded),
+            _buildTabBtn(MarViewTab.history, 'Audit & History Log', Icons.history_rounded),
+          ],
+        ),
       ),
     );
   }
@@ -461,40 +464,54 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
             // Search / Filter Row
             Padding(
               padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 40,
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (val) => setState(() => _searchQuery = val),
-                        decoration: InputDecoration(
-                          hintText: 'Filter medications...',
-                          prefixIcon: const Icon(Icons.search, size: 16),
-                          filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade200)),
-                        ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final Widget searchBox = SizedBox(
+                    height: 40,
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (val) => setState(() => _searchQuery = val),
+                      decoration: InputDecoration(
+                        hintText: 'Filter medications...',
+                        prefixIcon: const Icon(Icons.search, size: 16),
+                        filled: true,
+                        fillColor: const Color(0xFFF8FAFC),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade200)),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  // Legend
-                  Row(
+                  );
+                  final Widget legendWrap = Wrap(
+                    spacing: 10,
+                    runSpacing: 6,
                     children: [
                       _buildMatrixLegendBadge('Given', const Color(0xFF10B981)),
-                      const SizedBox(width: 8),
                       _buildMatrixLegendBadge('Scheduled', const Color(0xFF2563EB)),
-                      const SizedBox(width: 8),
                       _buildMatrixLegendBadge('Omitted', const Color(0xFFEF4444)),
-                      const SizedBox(width: 8),
                       _buildMatrixLegendBadge('Refused', const Color(0xFF8B5CF6)),
                     ],
-                  ),
-                ],
+                  );
+
+                  if (widget.isMobile || constraints.maxWidth < 620) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        searchBox,
+                        const SizedBox(height: 10),
+                        legendWrap,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: searchBox),
+                      const SizedBox(width: 14),
+                      legendWrap,
+                    ],
+                  );
+                },
               ),
             ),
             const Divider(height: 1),
@@ -808,12 +825,12 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                         children: [
                           Text(medName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
                           const SizedBox(height: 6),
-                          Row(
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
                             children: [
                               _buildMiniDetailBadge('Dose', dosage),
-                              const SizedBox(width: 8),
                               _buildMiniDetailBadge('Route', route),
-                              const SizedBox(width: 8),
                               _buildMiniDetailBadge('Time Slot', slotKey),
                             ],
                           ),
@@ -882,22 +899,25 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                     const SizedBox(height: 20),
 
                     // Buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () => Navigator.of(modalCtx).pop(),
-                          style: AppTheme.cancelButton,
-                          child: const Text('Cancel'),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.check, size: 16),
-                          label: const Text('Sign & Administer Dose'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF10B981),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 12,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () => Navigator.of(modalCtx).pop(),
+                            style: AppTheme.cancelButton,
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.check, size: 16),
+                            label: const Text('Sign & Administer Dose'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           onPressed: !confirmedRights
@@ -917,15 +937,16 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                                       ? '[Slot:$slotKey] $userRemarks'
                                       : '[Slot:$slotKey]';
 
-                                  widget.onAdministerDose(
-                                    prescriptionId: prescription['id'],
-                                    status: 'Given',
-                                    remarks: taggedRemarks,
-                                    administeredAt: slotTime.toUtc().toIso8601String(),
-                                  );
-                                },
-                        ),
-                      ],
+                                    widget.onAdministerDose(
+                                      prescriptionId: prescription['id'],
+                                      status: 'Given',
+                                      remarks: taggedRemarks,
+                                      administeredAt: slotTime.toUtc().toIso8601String(),
+                                    );
+                                  },
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1076,48 +1097,52 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                     const SizedBox(height: 20),
 
                     // Buttons
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () => Navigator.of(modalCtx).pop(),
-                          style: AppTheme.cancelButton,
-                          child: const Text('Cancel'),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange.shade800,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    SizedBox(
+                      width: double.infinity,
+                      child: Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 12,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () => Navigator.of(modalCtx).pop(),
+                            style: AppTheme.cancelButton,
+                            child: const Text('Cancel'),
                           ),
-                          onPressed: () {
-                            Navigator.of(modalCtx).pop();
-                            final fullRemark = customReasonController.text.trim().isNotEmpty
-                                ? '$selectedReason: ${customReasonController.text.trim()}'
-                                : selectedReason;
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange.shade800,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () {
+                              Navigator.of(modalCtx).pop();
+                              final fullRemark = customReasonController.text.trim().isNotEmpty
+                                  ? '$selectedReason: ${customReasonController.text.trim()}'
+                                  : selectedReason;
 
-                            final slotTime = DateTime(
-                              _selectedDate.year,
-                              _selectedDate.month,
-                              _selectedDate.day,
-                              int.parse(slotKey.split(':')[0]),
-                              int.parse(slotKey.split(':')[1]),
-                            );
+                              final slotTime = DateTime(
+                                _selectedDate.year,
+                                _selectedDate.month,
+                                _selectedDate.day,
+                                int.parse(slotKey.split(':')[0]),
+                                int.parse(slotKey.split(':')[1]),
+                              );
 
-                            final taggedRemarks = '[Slot:$slotKey] $fullRemark';
+                              final taggedRemarks = '[Slot:$slotKey] $fullRemark';
 
-                            widget.onAdministerDose(
-                              prescriptionId: prescription['id'],
-                              status: selectedCategory,
-                              remarks: taggedRemarks,
-                              administeredAt: slotTime.toUtc().toIso8601String(),
-                            );
-                          },
-                          child: const Text('Confirm & Log Deviation'),
-                        ),
-                      ],
+                              widget.onAdministerDose(
+                                prescriptionId: prescription['id'],
+                                status: selectedCategory,
+                                remarks: taggedRemarks,
+                                administeredAt: slotTime.toUtc().toIso8601String(),
+                              );
+                            },
+                            child: const Text('Confirm & Log Deviation'),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1192,16 +1217,19 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Filter Chips
-          Row(
-            children: [
-              _buildHistoryFilterChip('All', 'All Logs (${widget.medicationLogs.length})'),
-              const SizedBox(width: 8),
-              _buildHistoryFilterChip('Given', 'Given'),
-              const SizedBox(width: 8),
-              _buildHistoryFilterChip('Omitted', 'Omitted'),
-              const SizedBox(width: 8),
-              _buildHistoryFilterChip('Refused', 'Refused'),
-            ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildHistoryFilterChip('All', 'All Logs (${widget.medicationLogs.length})'),
+                const SizedBox(width: 8),
+                _buildHistoryFilterChip('Given', 'Given'),
+                const SizedBox(width: 8),
+                _buildHistoryFilterChip('Omitted', 'Omitted'),
+                const SizedBox(width: 8),
+                _buildHistoryFilterChip('Refused', 'Refused'),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           const Divider(height: 1),
@@ -1276,16 +1304,24 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                drugName,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                              Expanded(
+                                child: Wrap(
+                                  spacing: 6,
+                                  runSpacing: 2,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      drugName,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
+                                    ),
+                                    if (dosage.isNotEmpty)
+                                      Text('($dosage)', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                                  ],
+                                ),
                               ),
-                              if (dosage.isNotEmpty) ...[
-                                const SizedBox(width: 6),
-                                Text('($dosage)', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                              ],
-                              const Spacer(),
+                              const SizedBox(width: 8),
                               Text(timeStr, style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                             ],
                           ),
@@ -1304,9 +1340,12 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                'Signed by: $nurseName',
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                              Expanded(
+                                child: Text(
+                                  'Signed by: $nurseName',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                           ),

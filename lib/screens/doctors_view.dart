@@ -719,15 +719,21 @@ class _DoctorsViewState extends State<DoctorsView> {
 
           // Next Available Label
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.calendar_today, size: 14, color: AppTheme.primaryColor),
+              const Padding(
+                padding: EdgeInsets.only(top: 1),
+                child: Icon(Icons.calendar_today, size: 14, color: AppTheme.primaryColor),
+              ),
               const SizedBox(width: 8),
-              Text(
-                '${context.tr('next_available', fallback: 'Next available')}: $nextAvailable',
-                style: const TextStyle(
-                  color: AppTheme.primaryColor,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 12,
+              Expanded(
+                child: Text(
+                  '${context.tr('next_available', fallback: 'Next available')}: $nextAvailable',
+                  style: const TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -806,183 +812,182 @@ class _DoctorsViewState extends State<DoctorsView> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          child: Container(
-            width: 700,
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
+        builder: (context, setDialogState) {
+          final isMobile = MediaQuery.of(context).size.width < 600;
+          return Dialog(
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 40,
+              vertical: 24,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header section
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.05),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(24),
-                      topRight: Radius.circular(24),
-                    ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            child: Container(
+              width: double.infinity,
+              constraints: BoxConstraints(
+                maxWidth: 700,
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            canEdit ? 'Edit Doctor Profile' : 'Doctor Professional Profile',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimaryColor,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.close),
-                            style: IconButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              padding: const EdgeInsets.all(8),
-                            ),
-                          ),
-                        ],
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header section
+                  Container(
+                    padding: EdgeInsets.all(isMobile ? 16 : 24),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.05),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(24),
+                        topRight: Radius.circular(24),
                       ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 32,
-                            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                            child: Text(
-                              doctor.fullname.substring(0, 1).toUpperCase(),
-                              style: const TextStyle(
-                                color: AppTheme.primaryColor,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                canEdit ? 'Edit Doctor Profile' : 'Doctor Professional Profile',
+                                style: TextStyle(
+                                  fontSize: isMobile ? 17 : 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Dr. ${doctor.fullname}',
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimaryColor,
-                                  ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(Icons.close),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                padding: const EdgeInsets.all(8),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: isMobile ? 12 : 16),
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: isMobile ? 24 : 32,
+                              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                              child: Text(
+                                doctor.fullname.substring(0, 1).toUpperCase(),
+                                style: TextStyle(
+                                  color: AppTheme.primaryColor,
+                                  fontSize: isMobile ? 20 : 24,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                if (doctor.staffUniqueId != null && doctor.staffUniqueId!.isNotEmpty) ...[
+                              ),
+                            ),
+                            SizedBox(width: isMobile ? 14 : 20),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Dr. ${doctor.fullname}',
+                                    style: TextStyle(
+                                      fontSize: isMobile ? 18 : 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.textPrimaryColor,
+                                    ),
+                                  ),
+                                  if (doctor.staffUniqueId != null && doctor.staffUniqueId!.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      doctor.staffUniqueId!,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: AppTheme.textSecondaryColor,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 2),
                                   Text(
-                                    doctor.staffUniqueId!,
-                                    style: const TextStyle(
-                                      fontSize: 14,
+                                    doctor.specialization ?? 'General Medicine',
+                                    style: TextStyle(
+                                      fontSize: isMobile ? 14 : 16,
                                       color: AppTheme.textSecondaryColor,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ],
-                                const SizedBox(height: 2),
-                                Text(
-                                  doctor.specialization ?? 'General Medicine',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: AppTheme.textSecondaryColor,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                
-                // Form content
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Section: Basic Info
-                        _buildProfileSection(
-                          title: 'Basic Information',
-                          icon: Icons.person_outline,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                   child: canEdit 
-                                     ? _buildModernField('Full Name', fullnameController,
-                                         maxLength: 60,
-                                         textCapitalization: TextCapitalization.words,
-                                         inputFormatters: [
-                                           FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s.]')),
-                                           const CapitalizeWordsInputFormatter(),
-                                         ],
-                                       )
-                                     : _buildDetailItem('Full Name', fullnameController.text),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: canEdit
+
+                  // Form content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.all(isMobile ? 16 : 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Section: Basic Info
+                          _buildProfileSection(
+                            title: 'Basic Information',
+                            icon: Icons.person_outline,
+                            children: [
+                              _buildDialogResponsivePair(
+                                isMobile,
+                                canEdit
+                                    ? _buildModernField('Full Name', fullnameController,
+                                        maxLength: 60,
+                                        textCapitalization: TextCapitalization.words,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s.]')),
+                                          const CapitalizeWordsInputFormatter(),
+                                        ],
+                                      )
+                                    : _buildDetailItem('Full Name', fullnameController.text),
+                                canEdit
                                     ? _buildModernField('Email', emailController,
                                         maxLength: 50,
                                         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9@._\-]'))],
                                       )
                                     : _buildDetailItem('Email', emailController.text),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: canEdit
+                              ),
+                              SizedBox(height: isMobile ? 12 : 16),
+                              _buildDialogResponsivePair(
+                                isMobile,
+                                canEdit
                                     ? _buildModernField('Mobile Number', mobileController,
                                         isNumeric: true,
                                         maxLength: 10,
                                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                       )
                                     : _buildDetailItem('Mobile Number', mobileController.text),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: canEdit
+                                canEdit
                                     ? _buildModernField('Medical License', licenseController,
                                         maxLength: 20,
                                         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]'))],
                                       )
                                     : _buildDetailItem('Medical License', licenseController.text),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: canEdit
+                              ),
+                              SizedBox(height: isMobile ? 12 : 16),
+                              _buildDialogResponsivePair(
+                                isMobile,
+                                canEdit
                                     ? _buildModernDropdown(
                                         label: 'Specialization',
                                         value: selectedSpecId,
@@ -990,114 +995,95 @@ class _DoctorsViewState extends State<DoctorsView> {
                                         onChanged: (val) => setDialogState(() => selectedSpecId = val),
                                       )
                                     : _buildDetailItem(
-                                        'Specialization', 
-                                        selectedSpecId != null 
-                                          ? specializations.firstWhere((s) => s['id'] == selectedSpecId)['name']
-                                          : 'N/A'
+                                        'Specialization',
+                                        selectedSpecId != null
+                                            ? specializations.firstWhere((s) => s['id'] == selectedSpecId)['name']
+                                            : 'N/A',
                                       ),
-                                ),
-                                const SizedBox(width: 16),
-                                const Spacer(),
-                              ],
-                            ),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Section: Professional Details
-                        _buildProfileSection(
-                          title: 'Professional Details',
-                          icon: Icons.work_outline,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: canEdit
+                                null,
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Section: Professional Details
+                          _buildProfileSection(
+                            title: 'Professional Details',
+                            icon: Icons.work_outline,
+                            children: [
+                              _buildDialogResponsivePair(
+                                isMobile,
+                                canEdit
                                     ? _buildModernField('Experience (years)', experienceController,
                                         isNumeric: true,
                                         maxLength: 2,
                                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                       )
                                     : _buildDetailItem('Experience', '${experienceController.text} years'),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: canEdit
+                                canEdit
                                     ? _buildModernField('Patients Attended', patientsController,
                                         isNumeric: true,
                                         maxLength: 6,
                                         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                       )
                                     : _buildDetailItem('Patients Attended', patientsController.text),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            canEdit
-                              ? _buildModernField('Qualification', qualificationController,
-                                  maxLength: 100,
-                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
-                                )
-                              : _buildDetailItem('Qualification', qualificationController.text),
-                            const SizedBox(height: 16),
-                            canEdit
-                              ? _buildModernField('Areas of Expertise', expertiseController,
-                                  hint: 'Comma separated',
-                                  maxLength: 100,
-                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,]'))],
-                                )
-                              : _buildDetailItem('Areas of Expertise', expertiseController.text),
-                            const SizedBox(height: 16),
-                            canEdit
-                              ? _buildModernField('Bio', bioController, maxLines: 3, maxLength: 500)
-                              : _buildDetailItem('Bio', bioController.text),
-                          ],
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Section: Clinic & Availability
-                        _buildProfileSection(
-                          title: 'Clinic & Availability',
-                          icon: Icons.access_time,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: canEdit
+                              ),
+                              const SizedBox(height: 16),
+                              canEdit
+                                ? _buildModernField('Qualification', qualificationController,
+                                    maxLength: 100,
+                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
+                                  )
+                                : _buildDetailItem('Qualification', qualificationController.text),
+                              const SizedBox(height: 16),
+                              canEdit
+                                ? _buildModernField('Areas of Expertise', expertiseController,
+                                    hint: 'Comma separated',
+                                    maxLength: 100,
+                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,]'))],
+                                  )
+                                : _buildDetailItem('Areas of Expertise', expertiseController.text),
+                              const SizedBox(height: 16),
+                              canEdit
+                                ? _buildModernField('Bio', bioController, maxLines: 3, maxLength: 500)
+                                : _buildDetailItem('Bio', bioController.text),
+                            ],
+                          ),
+
+                          const SizedBox(height: 24),
+
+                          // Section: Clinic & Availability
+                          _buildProfileSection(
+                            title: 'Clinic & Availability',
+                            icon: Icons.access_time,
+                            children: [
+                              _buildDialogResponsivePair(
+                                isMobile,
+                                canEdit
                                     ? _buildModernField('Clinic Name', clinicNameController,
                                         maxLength: 60,
                                         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .]'))],
                                       )
                                     : _buildDetailItem('Clinic Name', clinicNameController.text),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: canEdit
+                                canEdit
                                     ? _buildModernField('Clinic Location', clinicLocationController,
                                         maxLength: 80,
                                         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9 ,.-]'))],
                                       )
                                     : _buildDetailItem('Clinic Location', clinicLocationController.text),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: canEdit
+                              ),
+                              SizedBox(height: isMobile ? 12 : 16),
+                              _buildDialogResponsivePair(
+                                isMobile,
+                                canEdit
                                     ? _buildModernField('Consultation Fee', feeController,
                                         isNumeric: true,
                                         maxLength: 8,
                                         inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
                                       )
                                     : _buildDetailItem('Consultation Fee', feeController.text),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: canEdit
+                                canEdit
                                     ? _buildModernField('Morning Start Time', morningStartTimeController,
                                         hint: 'e.g. 09:00 AM',
                                         maxLength: 10,
@@ -1111,189 +1097,226 @@ class _DoctorsViewState extends State<DoctorsView> {
                                                 ? 'Starts at ${morningStartTimeController.text}'
                                                 : 'Not Configured',
                                       ),
+                              ),
+                              if (canEdit) ...[
+                                SizedBox(height: isMobile ? 12 : 16),
+                                _buildDialogResponsivePair(
+                                  isMobile,
+                                  _buildModernField('Morning End Time', morningEndTimeController,
+                                    hint: 'e.g. 01:00 PM',
+                                    maxLength: 10,
+                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
+                                  ),
+                                  _buildModernField('Evening Start Time', eveningStartTimeController,
+                                    hint: 'e.g. 04:00 PM',
+                                    maxLength: 10,
+                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
+                                  ),
+                                ),
+                                SizedBox(height: isMobile ? 12 : 16),
+                                _buildDialogResponsivePair(
+                                  isMobile,
+                                  _buildModernField('Evening End Time', eveningEndTimeController,
+                                    hint: 'e.g. 08:00 PM',
+                                    maxLength: 10,
+                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
+                                  ),
+                                  null,
+                                ),
+                              ] else ...[
+                                const SizedBox(height: 16),
+                                _buildDetailItem(
+                                  'Evening Shift',
+                                  eveningStartTimeController.text.isNotEmpty && eveningEndTimeController.text.isNotEmpty
+                                      ? '${eveningStartTimeController.text} to ${eveningEndTimeController.text}'
+                                      : eveningStartTimeController.text.isNotEmpty
+                                          ? 'Starts at ${eveningStartTimeController.text}'
+                                          : 'Not Configured',
                                 ),
                               ],
-                            ),
-                            if (canEdit) ...[
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildModernField('Morning End Time', morningEndTimeController,
-                                      hint: 'e.g. 01:00 PM',
-                                      maxLength: 10,
-                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
-                                    ),
+                              const SizedBox(height: 20),
+                              if (!canEdit)
+                                _buildDetailItem('Available Days', selectedDays.isNotEmpty ? selectedDays.join(', ') : 'Not Provided')
+                              else ...[
+                                const Text(
+                                  'Available Days',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textPrimaryColor,
                                   ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: _buildModernField('Evening Start Time', eveningStartTimeController,
-                                      hint: 'e.g. 04:00 PM',
-                                      maxLength: 10,
-                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildModernField('Evening End Time', eveningEndTimeController,
-                                      hint: 'e.g. 08:00 PM',
-                                      maxLength: 10,
-                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  const Expanded(child: SizedBox.shrink()),
-                                ],
-                              ),
-                            ] else ...[
-                              const SizedBox(height: 16),
-                              _buildDetailItem(
-                                'Evening Shift',
-                                eveningStartTimeController.text.isNotEmpty && eveningEndTimeController.text.isNotEmpty
-                                    ? '${eveningStartTimeController.text} to ${eveningEndTimeController.text}'
-                                    : eveningStartTimeController.text.isNotEmpty
-                                        ? 'Starts at ${eveningStartTimeController.text}'
-                                        : 'Not Configured',
-                              ),
-                            ],
-                            const SizedBox(height: 20),
-                            if (!canEdit)
-                              _buildDetailItem('Available Days', selectedDays.isNotEmpty ? selectedDays.join(', ') : 'Not Provided')
-                            else ...[
-                              const Text(
-                                'Available Days',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppTheme.textPrimaryColor,
                                 ),
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: weekDays.map((day) {
-                                  final isSelected = selectedDays.contains(day);
-                                  return InkWell(
-                                    onTap: () {
-                                      setDialogState(() {
-                                        if (isSelected) selectedDays.remove(day);
-                                        else selectedDays.add(day);
-                                      });
-                                    },
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: isSelected ? AppTheme.primaryColor : Colors.white,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: weekDays.map((day) {
+                                    final isSelected = selectedDays.contains(day);
+                                    return InkWell(
+                                      onTap: () {
+                                        setDialogState(() {
+                                          if (isSelected) selectedDays.remove(day);
+                                          else selectedDays.add(day);
+                                        });
+                                      },
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? AppTheme.primaryColor : Colors.white,
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          day,
+                                          style: TextStyle(
+                                            color: isSelected ? Colors.white : AppTheme.textSecondaryColor,
+                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                            fontSize: 12,
+                                          ),
                                         ),
                                       ),
-                                      child: Text(
-                                        day,
-                                        style: TextStyle(
-                                          color: isSelected ? Colors.white : AppTheme.textSecondaryColor,
-                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
                             ],
-                          ],
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                
-                // Actions
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border(top: BorderSide(color: AppTheme.borderColor.withOpacity(0.5))),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: AppTheme.cancelButton.copyWith(
-                          minimumSize: MaterialStateProperty.all(const Size(120, 48)),
-                        ),
-                        child: Text(canEdit ? 'Cancel' : 'Close'),
+
+                  // Actions
+                  Container(
+                    padding: EdgeInsets.all(isMobile ? 16 : 24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(24),
+                        bottomRight: Radius.circular(24),
                       ),
-                      if (canEdit) ...[
-                        const SizedBox(width: 16),
-                        ElevatedButton(
-                          onPressed: () async {
-                            try {
-                              await _adminController.updateStaff(
-                                id: doctor.id,
-                                fullname: fullnameController.text,
-                                email: emailController.text,
-                                mobile: mobileController.text,
-                                role: 'Doctor',
-                                medicalLicense: licenseController.text,
-                                specializationId: selectedSpecId,
-                                qualification: qualificationController.text,
-                                experience: experienceController.text,
-                                patientsAttended: int.tryParse(patientsController.text) ?? 0,
-                                bio: bioController.text,
-                                availableDays: selectedDays,
-                                morningStartTime: morningStartTimeController.text.trim().isNotEmpty ? morningStartTimeController.text.trim() : null,
-                                morningEndTime: morningEndTimeController.text.trim().isNotEmpty ? morningEndTimeController.text.trim() : null,
-                                eveningStartTime: eveningStartTimeController.text.trim().isNotEmpty ? eveningStartTimeController.text.trim() : null,
-                                eveningEndTime: eveningEndTimeController.text.trim().isNotEmpty ? eveningEndTimeController.text.trim() : null,
-                                slotStartTime: morningStartTimeController.text.trim().isNotEmpty ? morningStartTimeController.text.trim() : startTimeController.text,
-                                slotEndTime: eveningEndTimeController.text.trim().isNotEmpty ? eveningEndTimeController.text.trim() : endTimeController.text,
-                                clinicName: clinicNameController.text,
-                                clinicLocation: clinicLocationController.text,
-                                consultationFee: double.tryParse(feeController.text.replaceAll(RegExp(r'[^0-9.]'), '')),
-                                areasOfExpertise: expertiseController.text,
-                              );
-                              if (context.mounted) {
-                                Navigator.pop(context);
-                                _loadDoctors();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Profile updated successfully'), backgroundColor: Colors.green),
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                                );
-                              }
-                            }
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 0,
+                      border: Border(top: BorderSide(color: AppTheme.borderColor.withOpacity(0.5))),
+                    ),
+                    child: Builder(
+                      builder: (context) {
+                        final cancelBtn = OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: AppTheme.cancelButton.copyWith(
+                            minimumSize: MaterialStateProperty.all(Size(isMobile ? 0 : 120, 48)),
                           ),
-                          child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ],
+                          child: Text(canEdit ? 'Cancel' : 'Close'),
+                        );
+                        final saveBtn = canEdit
+                            ? ElevatedButton(
+                                onPressed: () async {
+                                  try {
+                                    await _adminController.updateStaff(
+                                      id: doctor.id,
+                                      fullname: fullnameController.text,
+                                      email: emailController.text,
+                                      mobile: mobileController.text,
+                                      role: 'Doctor',
+                                      medicalLicense: licenseController.text,
+                                      specializationId: selectedSpecId,
+                                      qualification: qualificationController.text,
+                                      experience: experienceController.text,
+                                      patientsAttended: int.tryParse(patientsController.text) ?? 0,
+                                      bio: bioController.text,
+                                      availableDays: selectedDays,
+                                      morningStartTime: morningStartTimeController.text.trim().isNotEmpty ? morningStartTimeController.text.trim() : null,
+                                      morningEndTime: morningEndTimeController.text.trim().isNotEmpty ? morningEndTimeController.text.trim() : null,
+                                      eveningStartTime: eveningStartTimeController.text.trim().isNotEmpty ? eveningStartTimeController.text.trim() : null,
+                                      eveningEndTime: eveningEndTimeController.text.trim().isNotEmpty ? eveningEndTimeController.text.trim() : null,
+                                      slotStartTime: morningStartTimeController.text.trim().isNotEmpty ? morningStartTimeController.text.trim() : startTimeController.text,
+                                      slotEndTime: eveningEndTimeController.text.trim().isNotEmpty ? eveningEndTimeController.text.trim() : endTimeController.text,
+                                      clinicName: clinicNameController.text,
+                                      clinicLocation: clinicLocationController.text,
+                                      consultationFee: double.tryParse(feeController.text.replaceAll(RegExp(r'[^0-9.]'), '')),
+                                      areasOfExpertise: expertiseController.text,
+                                    );
+                                    if (context.mounted) {
+                                      Navigator.pop(context);
+                                      _loadDoctors();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Profile updated successfully'), backgroundColor: Colors.green),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                      );
+                                    }
+                                  }
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isMobile ? 16 : 32,
+                                    vertical: isMobile ? 14 : 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  elevation: 0,
+                                ),
+                                child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+                              )
+                            : null;
+
+                        if (isMobile && saveBtn != null) {
+                          return Row(
+                            children: [
+                              Expanded(child: cancelBtn),
+                              const SizedBox(width: 12),
+                              Expanded(child: saveBtn),
+                            ],
+                          );
+                        }
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            cancelBtn,
+                            if (saveBtn != null) ...[
+                              const SizedBox(width: 16),
+                              saveBtn,
+                            ],
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
+    );
+  }
+
+  Widget _buildDialogResponsivePair(bool isMobile, Widget first, Widget? second) {
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          first,
+          if (second != null) ...[
+            const SizedBox(height: 12),
+            second,
+          ],
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: first),
+        const SizedBox(width: 16),
+        Expanded(child: second ?? const SizedBox.shrink()),
+      ],
     );
   }
 
@@ -1351,12 +1374,14 @@ class _DoctorsViewState extends State<DoctorsView> {
               children: [
                 Icon(icon, size: 20, color: AppTheme.primaryColor),
                 const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimaryColor,
+                    ),
                   ),
                 ),
               ],

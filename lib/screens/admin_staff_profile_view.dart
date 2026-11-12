@@ -224,7 +224,7 @@ class AdminStaffProfileView extends StatelessWidget {
           ),
           const SizedBox(height: 32),
           Container(
-            padding: const EdgeInsets.all(AppTheme.paddingLarge),
+            padding: EdgeInsets.all(isMobile ? 16.0 : AppTheme.paddingLarge),
             decoration: AppTheme.cardDecoration,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,23 +233,41 @@ class AdminStaffProfileView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: 110, height: 110,
+                      width: isMobile ? 72 : 110,
+                      height: isMobile ? 72 : 110,
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(colors: [AppTheme.primaryColor, Color(0xFF1E3A8A)]),
                         shape: BoxShape.circle,
                       ),
                       child: Center(
-                        child: Text((user.rawFullname ?? '').isNotEmpty ? user.rawFullname![0].toUpperCase() : 'S', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Colors.white)),
+                        child: Text(
+                          (user.rawFullname ?? '').isNotEmpty ? user.rawFullname![0].toUpperCase() : 'S',
+                          style: TextStyle(
+                            fontSize: isMobile ? 30 : 48,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 32),
+                    SizedBox(width: isMobile ? 16 : 32),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(user.rawFullname ?? '', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF2D3748))),
+                          Text(
+                            user.rawFullname ?? '',
+                            style: TextStyle(
+                              fontSize: isMobile ? 22 : 28,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFF2D3748),
+                            ),
+                          ),
                           const SizedBox(height: 8),
-                          Row(
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 6,
+                            crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
                               Text(
                                 user.role,
@@ -259,7 +277,6 @@ class AdminStaffProfileView extends StatelessWidget {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(width: 12),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(

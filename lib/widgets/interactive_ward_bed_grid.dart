@@ -500,63 +500,99 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
         children: [
           // Section Header
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            padding: EdgeInsets.symmetric(
+              horizontal: widget.isMobile ? 16 : 20,
+              vertical: 14,
+            ),
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withValues(alpha: 0.04),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: const Border(bottom: BorderSide(color: AppTheme.borderColor)),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  wardName == 'ICU' ? Icons.monitor_heart : Icons.bedroom_parent_outlined,
-                  color: AppTheme.primaryColor,
-                  size: 20,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  '$wardName Ward',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '$available / $total Available',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final Widget titleRow = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      wardName == 'ICU' ? Icons.monitor_heart : Icons.bedroom_parent_outlined,
                       color: AppTheme.primaryColor,
+                      size: 20,
                     ),
-                  ),
-                ),
-                if (occupied > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: BedStatus.occupied.primaryColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '$occupied Occupied',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: BedStatus.occupied.primaryColor,
+                    const SizedBox(width: 10),
+                    Flexible(
+                      child: Text(
+                        '$wardName Ward',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimaryColor,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ],
+                  ],
+                );
+
+                final Widget badgesWrap = Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '$available / $total Available',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                      ),
+                    ),
+                    if (occupied > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: BedStatus.occupied.primaryColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '$occupied Occupied',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: BedStatus.occupied.primaryColor,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+
+                if (widget.isMobile || constraints.maxWidth < 460) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      titleRow,
+                      const SizedBox(height: 8),
+                      badgesWrap,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Flexible(child: titleRow),
+                    const SizedBox(width: 12),
+                    badgesWrap,
+                  ],
+                );
+              },
             ),
           ),
 
@@ -581,7 +617,7 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
                     crossAxisCount: crossAxisCount,
                     crossAxisSpacing: 14,
                     mainAxisSpacing: 14,
-                    childAspectRatio: 1.15,
+                    childAspectRatio: crossAxisCount <= 2 ? 1.05 : 1.15,
                   ),
                   itemCount: wardBeds.length,
                   itemBuilder: (context, index) {
@@ -636,22 +672,27 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: status.borderColor),
-                    ),
-                    child: Text(
-                      bedNumber,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: status.primaryColor,
+                  Flexible(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: status.borderColor),
+                      ),
+                      child: Text(
+                        bedNumber,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: status.primaryColor,
+                        ),
                       ),
                     ),
                   ),
+                  const SizedBox(width: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
@@ -703,6 +744,8 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
                     const SizedBox(height: 2),
                     Text(
                       '${patientAge != null ? '$patientAge y • ' : ''}$patientGender',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey.shade600,
@@ -728,6 +771,8 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
                     Expanded(
                       child: Text(
                         status.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -746,6 +791,7 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
                   Expanded(
                     child: Text(
                       status == BedStatus.occupied
+<<<<<<< HEAD
                           ? (doctorName.isNotEmpty ? 'Occupied • Dr. $doctorName' : 'Occupied • Admitted')
                           : status == BedStatus.available
                               ? 'Available • Ready for intake'
@@ -754,15 +800,31 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
                                   : status == BedStatus.cleaning
                                       ? 'Sanitizing / Cleaning'
                                       : 'Under Maintenance',
+=======
+                          ? (doctorName.isNotEmpty ? 'Dr. $doctorName' : 'Admitted')
+                          : status == BedStatus.available
+                              ? 'Ready for intake'
+                              : status == BedStatus.reserved
+                                  ? 'Reserved'
+                                  : status == BedStatus.cleaning
+                                      ? 'Sanitizing'
+                                      : 'Under repair',
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 10,
+<<<<<<< HEAD
                         fontWeight: FontWeight.w600,
                         color: status.primaryColor.withValues(alpha: 0.95),
+=======
+                        fontWeight: FontWeight.w500,
+                        color: status.primaryColor.withValues(alpha: 0.9),
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                       ),
                     ),
                   ),
+                  const SizedBox(width: 4),
                   Icon(
                     Icons.chevron_right,
                     size: 14,

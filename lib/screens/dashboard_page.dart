@@ -1842,6 +1842,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             : null,
       ),
       child: Material(
+<<<<<<< HEAD
         color: isActive ? const Color(0xFFF1F7FB) : Colors.transparent,
         borderRadius: const BorderRadius.only(
           topRight: Radius.circular(8),
@@ -1858,36 +1859,55 @@ class _DashboardScreenState extends State<DashboardScreen> {
             color: isActive ? AppTheme.primaryColor : const Color(0xFF2D3748),
             fontSize: 14,
           ),
+=======
+        type: MaterialType.transparency,
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(8),
+          bottomRight: Radius.circular(8),
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: isActive ? AppTheme.primaryColor : Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                count.toString(),
-                style: TextStyle(
-                  color: isActive ? Colors.white : Colors.grey.shade700,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          title: Text(
+            label,
+            style: TextStyle(
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              color: isActive ? AppTheme.primaryColor : const Color(0xFF2D3748),
+              fontSize: 14,
+            ),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isActive ? AppTheme.primaryColor : Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  count.toString(),
+                  style: TextStyle(
+                    color: isActive ? Colors.white : Colors.grey.shade700,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            if (!isActive) ...[
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right,
-                size: 14,
-                color: AppTheme.textSecondaryColor,
-              ),
+              if (!isActive) ...[
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 14,
+                  color: AppTheme.textSecondaryColor,
+                ),
+              ],
             ],
-          ],
+          ),
+          onTap: onTap,
         ),
-        onTap: onTap,
       ),
     ),
   );
@@ -1937,7 +1957,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             itemCount: filtered.length,
             itemBuilder: (context, index) {
               final c = filtered[index];
-              return Container(
+    return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -2178,7 +2198,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     
                     final isCompleted = status == 'Completed';
                     
-                    return Container(
+    return Container(
                       margin: const EdgeInsets.only(top: 8),
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -2229,7 +2249,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               final paramName = p['parameter'] ?? '';
                               final valStr = '${p['value'] ?? ''} ${p['unit'] ?? ''}'.trim();
                               final refRange = p['reference_range']?.toString().trim() ?? '';
-                              return Container(
+    return Container(
                                 margin: const EdgeInsets.symmetric(vertical: 3.0),
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 decoration: BoxDecoration(
@@ -2371,7 +2391,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (context, constraints) {
         final bool isCompact = constraints.maxWidth < 650;
         if (isCompact) {
-          return Container(
+    return Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 4.0),
             child: Column(
@@ -3378,7 +3398,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       Color accentColor,
       List<Widget> fields,
     ) {
-      return Container(
+    return Container(
         padding: EdgeInsets.all(isMobile ? 16 : 24),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -6624,7 +6644,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       : '${overdueDuration.inMinutes}m overdue'))
                               : 'Overdue';
 
-                          return Container(
+    return Container(
                             margin: const EdgeInsets.only(bottom: 8),
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
@@ -7310,7 +7330,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           }
                         : null,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? 12.0 : 16.0,
+                        vertical: 14.0,
+                      ),
                       child: Row(
                         children: [
                           Container(
@@ -7473,7 +7496,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   if (isCompleted && isExpanded)
                     Container(
-                      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+                      padding: EdgeInsets.only(
+                        left: isMobile ? 12 : 16,
+                        right: isMobile ? 12 : 16,
+                        bottom: 16,
+                      ),
                       color: Colors.white,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -7597,6 +7624,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           const SizedBox(height: 8),
                           if (resultsList.isEmpty)
                             const Text('No parameter details available.', style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12))
+                          else if (isMobile)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.borderColor),
+                              ),
+                              child: Column(
+                                children: List.generate(resultsList.length, (idx) {
+                                  final res = resultsList[idx];
+                                  final param = res['parameter']?.toString() ?? '';
+                                  final val = res['value']?.toString() ?? '';
+                                  final unit = (res['unit']?.toString() ?? '').trim();
+                                  final refRange = (res['reference_range']?.toString() ?? '').trim();
+                                  final valueWithUnit = unit.isNotEmpty ? '$val $unit' : val;
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    decoration: idx < resultsList.length - 1
+                                        ? const BoxDecoration(
+                                            border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+                                          )
+                                        : null,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                param,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: AppTheme.textPrimaryColor,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                              child: Text(
+                                                valueWithUnit,
+                                                textAlign: TextAlign.end,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppTheme.textPrimaryColor,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        if (refRange.isNotEmpty) ...[
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Ref Range: $refRange',
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: AppTheme.textSecondaryColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  );
+                                }),
+                              ),
+                            )
                           else
                             Table(
                               columnWidths: const {
@@ -7642,12 +7737,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           if (req['attachment_url'] != null && req['attachment_url'].toString().isNotEmpty) ...[
                             const SizedBox(height: 12),
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Icon(Icons.picture_as_pdf, color: Colors.red, size: 16),
                                 const SizedBox(width: 8),
-                                Text(
-                                  'Report Document: ${req['attachment_url']}',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                Expanded(
+                                  child: Text(
+                                    'Report Document: ${req['attachment_url']}',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
                                 ),
                               ],
                             ),

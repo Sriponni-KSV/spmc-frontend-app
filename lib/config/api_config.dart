@@ -12,7 +12,7 @@ class ApiEndpoints {
       'https://spmc-backend.onrender.com/api';
 
   /// Default local backend port
-  static const String defaultLocalPort = '3001';
+  static const String defaultLocalPort = '3000';
 
   /// Optional compile-time environment override (--dart-define=BASE_URL=...)
   static const String environmentBaseUrl = String.fromEnvironment(
@@ -21,7 +21,7 @@ class ApiEndpoints {
   );
 
   /// Gets the active base URL dynamically:
-  /// - On Localhost (Web/Desktop/Mobile): Routes to Local backend (http://localhost:3001/api).
+  /// - On Localhost (Web/Desktop/Mobile): Routes to Local backend (http://localhost:3000/api).
   /// - On Vercel (*.vercel.app): Routes to Testing backend (https://spmc-backend.onrender.com/api).
   /// - On Live Domain (*.sriponnimedicalcentre.com) & Production APK: Routes to Production backend (https://hms.sriponnimedicalcentre.com/api).
   static String get baseUrl {
