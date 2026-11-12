@@ -1441,29 +1441,32 @@ class _AdminAppointmentManagementState
             0,
           ),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Appointments',
-                    style: TextStyle(
-                      fontSize: isMobile ? 20 : 26,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimaryColor,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Appointments',
+                      style: TextStyle(
+                        fontSize: isMobile ? 20 : 26,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textPrimaryColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'View, edit, cancel and reschedule appointments',
-                    style: TextStyle(
-                      color: AppTheme.textSecondaryColor,
-                      fontSize: 13,
+                    const SizedBox(height: 4),
+                    const Text(
+                      'View, edit, cancel and reschedule appointments',
+                      style: TextStyle(
+                        color: AppTheme.textSecondaryColor,
+                        fontSize: 13,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 12),
               OutlinedButton.icon(
                 onPressed: _isLoading ? null : _loadData,
                 icon: _isLoading
@@ -1480,7 +1483,10 @@ class _AdminAppointmentManagementState
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isMobile ? 12 : 16,
+                    vertical: 10,
+                  ),
                 ),
               ),
             ],
@@ -2079,8 +2085,8 @@ class _AdminAppointmentManagementState
                       child: ConstrainedBox(
                         constraints: BoxConstraints(minWidth: constraints.maxWidth),
                         child: DataTable(
-                          horizontalMargin: 20,
-                          columnSpacing: 24,
+                          horizontalMargin: isMobile ? 12 : 20,
+                          columnSpacing: isMobile ? 16 : 24,
                           headingRowHeight: 52,
                           dataRowMinHeight: 58,
                           dataRowMaxHeight: 72,
@@ -2436,69 +2442,77 @@ class _AdminAppointmentManagementState
     if (totalPages <= 1) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Text(
-            context.pageOfTotal(_currentPage + 1, totalPages),
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppTheme.textSecondaryColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(width: 16),
-          OutlinedButton(
-            onPressed: _currentPage > 0
-                ? () => setState(() => _currentPage--)
-                : null,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(80, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              side: BorderSide(
-                color: _currentPage > 0
-                    ? AppTheme.primaryColor
-                    : AppTheme.borderColor,
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 24,
+        vertical: isMobile ? 12 : 16,
+      ),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            Text(
+              context.pageOfTotal(_currentPage + 1, totalPages),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppTheme.textSecondaryColor,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.chevron_left, size: 18),
-                Text(context.tr('prev', fallback: 'Prev')),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          OutlinedButton(
-            onPressed: _currentPage < totalPages - 1
-                ? () => setState(() => _currentPage++)
-                : null,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(80, 36),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            if (!isMobile) const SizedBox(width: 8),
+            OutlinedButton(
+              onPressed: _currentPage > 0
+                  ? () => setState(() => _currentPage--)
+                  : null,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(76, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                side: BorderSide(
+                  color: _currentPage > 0
+                      ? AppTheme.primaryColor
+                      : AppTheme.borderColor,
+                ),
               ),
-              side: BorderSide(
-                color: _currentPage < totalPages - 1
-                    ? AppTheme.primaryColor
-                    : AppTheme.borderColor,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.chevron_left, size: 18),
+                  Text(context.tr('prev', fallback: 'Prev')),
+                ],
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(context.tr('next', fallback: 'Next')),
-                const Icon(Icons.chevron_right, size: 18),
-              ],
+            OutlinedButton(
+              onPressed: _currentPage < totalPages - 1
+                  ? () => setState(() => _currentPage++)
+                  : null,
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(76, 36),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                side: BorderSide(
+                  color: _currentPage < totalPages - 1
+                      ? AppTheme.primaryColor
+                      : AppTheme.borderColor,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(context.tr('next', fallback: 'Next')),
+                  const Icon(Icons.chevron_right, size: 18),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

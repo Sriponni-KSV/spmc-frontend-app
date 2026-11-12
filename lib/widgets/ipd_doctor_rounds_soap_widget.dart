@@ -114,13 +114,15 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           context.tr('daily_rounds_title', fallback: 'Daily Physician Rounds (SOAP Notes)'),
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
                         ),
-                        const SizedBox(width: 10),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
@@ -142,6 +144,7 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                   ],
                 ),
               ),
+              const SizedBox(width: 10),
               ElevatedButton.icon(
                 icon: const Icon(Icons.add, size: 16),
                 label: Text(widget.isMobile ? 'Round' : 'Conduct Round (SOAP)'),
@@ -273,37 +276,56 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
         children: [
           // Card Header
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
             ),
-            child: Row(
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 10,
+              runSpacing: 6,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    roundType.toUpperCase(),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
-                  ),
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 10,
+                  runSpacing: 4,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        roundType.toUpperCase(),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.calendar_today_outlined, size: 13, color: Colors.grey.shade500),
+                        const SizedBox(width: 4),
+                        Text(dateStr, style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Icon(Icons.calendar_today_outlined, size: 13, color: Colors.grey.shade500),
-                const SizedBox(width: 4),
-                Text(dateStr, style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500)),
-                const Spacer(),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.person_pin_circle_outlined, size: 15, color: AppTheme.secondaryColor),
                     const SizedBox(width: 4),
-                    Text(
-                      'Dr. $doctor',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                    Flexible(
+                      child: Text(
+                        'Dr. $doctor',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                      ),
                     ),
                   ],
                 ),
@@ -314,15 +336,19 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
           // Vitals Snapshot Bar (if saved with round)
           if (vitals != null && vitals.isNotEmpty)
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               color: const Color(0xFFF1F5F9).withValues(alpha: 0.5),
-              child: Row(
+              child: Wrap(
+                spacing: 10,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  const Text('Rounds Vitals: ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
-                  if (vitals['bp'] != null) Text('BP: ${vitals['bp']}  ', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                  if (vitals['pulse'] != null) Text('HR: ${vitals['pulse']} bpm  ', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                  if (vitals['temp'] != null) Text('Temp: ${vitals['temp']} °F  ', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                  if (vitals['spo2'] != null) Text('SpO2: ${vitals['spo2']}%  ', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  const Text('Rounds Vitals:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  if (vitals['bp'] != null) Text('BP: ${vitals['bp']}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  if (vitals['pulse'] != null) Text('HR: ${vitals['pulse']} bpm', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  if (vitals['temp'] != null) Text('Temp: ${vitals['temp']} °F', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                  if (vitals['spo2'] != null) Text('SpO2: ${vitals['spo2']}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                 ],
               ),
             ),
@@ -433,13 +459,59 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
       barrierDismissible: false,
       builder: (modalCtx) {
         return StatefulBuilder(
+<<<<<<< HEAD
           builder: (dialogContext, setModalState) {
+=======
+          builder: (context, setModalState) {
+            final isMobile = MediaQuery.of(context).size.width < 600;
+            final attendingText = Text(
+              'Attending: Dr. ${widget.currentDoctorName}',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            );
+            Widget buildDropdown({required bool expand}) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: roundType,
+                    isExpanded: expand,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textPrimaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'Morning Round', child: Text('Morning Consultant Round')),
+                      DropdownMenuItem(value: 'Evening Round', child: Text('Evening Review Round')),
+                      DropdownMenuItem(value: 'Special Review', child: Text('Special Clinical Review')),
+                      DropdownMenuItem(value: 'ICU Review', child: Text('ICU Critical Care Review')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setModalState(() => roundType = val);
+                    },
+                  ),
+                ),
+              );
+            }
+
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             return Dialog(
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 14 : 40,
+                vertical: 20,
+              ),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Container(
-                width: 680,
-                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-                padding: const EdgeInsets.all(24),
+                width: double.infinity,
+                constraints: BoxConstraints(
+                  maxWidth: 680,
+                  maxHeight: MediaQuery.of(context).size.height * 0.88,
+                ),
+                padding: EdgeInsets.all(isMobile ? 16 : 24),
                 child: Form(
                   key: formKey,
                   child: SingleChildScrollView(
@@ -459,10 +531,14 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                               child: const Icon(Icons.assignment_ind_outlined, color: AppTheme.secondaryColor, size: 22),
                             ),
                             const SizedBox(width: 12),
-                            const Expanded(
+                            Expanded(
                               child: Text(
                                 'Physician Daily Round & SOAP Assessment',
-                                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                                style: TextStyle(
+                                  fontSize: isMobile ? 15.5 : 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
                               ),
                             ),
                             IconButton(
@@ -476,16 +552,18 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                         const SizedBox(height: 16),
 
                         // Round Type Picker
-                        Row(
-                          children: [
-                            const Text('Round Type:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            const SizedBox(width: 12),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(8),
+                        if (isMobile)
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('Round Type:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: buildDropdown(expand: true)),
+                                ],
                               ),
+<<<<<<< HEAD
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
                                   value: roundType,
@@ -503,34 +581,53 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                                       setModalState(() => roundType = val);
                                     }
                                   },
+=======
+                              const SizedBox(height: 8),
+                              attendingText,
+                            ],
+                          )
+                        else
+                          SizedBox(
+                            width: double.infinity,
+                            child: Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('Round Type:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    const SizedBox(width: 12),
+                                    buildDropdown(expand: false),
+                                  ],
+>>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                                 ),
-                              ),
+                                attendingText,
+                              ],
                             ),
-                            const Spacer(),
-                            Text('Attending: Dr. ${widget.currentDoctorName}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                          ],
-                        ),
+                          ),
                         const SizedBox(height: 16),
 
                         // Pain Score Slider / Chips
-                        Row(
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             const Text('Patient Pain Score (0 - 10):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            const SizedBox(width: 10),
                             ...[0, 2, 4, 6, 8, 10].map((score) {
                               final isSel = painScore == score;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 4),
-                                child: ChoiceChip(
-                                  label: Text('$score', style: const TextStyle(fontSize: 11)),
-                                  selected: isSel,
-                                  selectedColor: score > 6 ? Colors.red : (score > 3 ? Colors.orange : AppTheme.secondaryColor),
-                                  backgroundColor: const Color(0xFFF1F5F9),
-                                  labelStyle: TextStyle(color: isSel ? Colors.white : AppTheme.textPrimaryColor, fontWeight: FontWeight.bold),
-                                  onSelected: (val) {
-                                    if (val) setModalState(() => painScore = score);
-                                  },
-                                ),
+                              return ChoiceChip(
+                                label: Text('$score', style: const TextStyle(fontSize: 11)),
+                                selected: isSel,
+                                selectedColor: score > 6 ? Colors.red : (score > 3 ? Colors.orange : AppTheme.secondaryColor),
+                                backgroundColor: const Color(0xFFF1F5F9),
+                                labelStyle: TextStyle(color: isSel ? Colors.white : AppTheme.textPrimaryColor, fontWeight: FontWeight.bold),
+                                onSelected: (val) {
+                                  if (val) setModalState(() => painScore = score);
+                                },
                               );
                             }),
                           ],
@@ -602,20 +699,21 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                         const SizedBox(height: 24),
 
                         // Buttons
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            OutlinedButton(
+                        Builder(
+                          builder: (context) {
+                            final cancelBtn = OutlinedButton(
                               onPressed: () => Navigator.of(modalCtx).pop(),
                               style: AppTheme.cancelButton,
                               child: const Text('Cancel'),
-                            ),
-                            const SizedBox(width: 12),
-                            ElevatedButton(
+                            );
+                            final saveBtn = ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.secondaryColor,
                                 foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isMobile ? 12 : 22,
+                                  vertical: 12,
+                                ),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               onPressed: () async {
@@ -642,9 +740,30 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                                   roundDate: DateTime.now(),
                                 );
                               },
-                              child: const Text('Sign & Save SOAP Round'),
-                            ),
-                          ],
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('Sign & Save SOAP Round', maxLines: 1),
+                              ),
+                            );
+
+                            if (isMobile) {
+                              return Row(
+                                children: [
+                                  Expanded(flex: 2, child: cancelBtn),
+                                  const SizedBox(width: 10),
+                                  Expanded(flex: 3, child: saveBtn),
+                                ],
+                              );
+                            }
+                            return Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                cancelBtn,
+                                const SizedBox(width: 12),
+                                saveBtn,
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
