@@ -538,55 +538,59 @@ class _AdminGlobalSearchOverlayState extends State<AdminGlobalSearchOverlay> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppTheme.borderColor),
       ),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(module.icon, color: AppTheme.primaryColor, size: 20),
-        ),
-        title: Row(
-          children: [
-            Text(
-              module.title,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+      child: Material(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppTheme.borderColor),
-              ),
-              child: Text(
-                module.category,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryColor),
-              ),
-            ),
-          ],
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 2),
-          child: Text(
-            module.description,
-            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            child: Icon(module.icon, color: AppTheme.primaryColor, size: 20),
           ),
+          title: Row(
+            children: [
+              Text(
+                module.title,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.borderColor),
+                ),
+                child: Text(
+                  module.category,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryColor),
+                ),
+              ),
+            ],
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              module.description,
+              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppTheme.primaryColor),
+          onTap: () {
+            widget.onNavigate(module.route, module.index);
+          },
         ),
-        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppTheme.primaryColor),
-        onTap: () {
-          widget.onNavigate(module.route, module.index);
-        },
       ),
     );
   }
@@ -598,49 +602,53 @@ class _AdminGlobalSearchOverlayState extends State<AdminGlobalSearchOverlay> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppTheme.borderColor),
       ),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        leading: CircleAvatar(
-          radius: 18,
-          backgroundColor: AppTheme.secondaryColor.withValues(alpha: 0.15),
-          child: Text(
-            initials,
-            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.secondaryColor, fontSize: 13),
+      child: Material(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          leading: CircleAvatar(
+            radius: 18,
+            backgroundColor: AppTheme.secondaryColor.withValues(alpha: 0.15),
+            child: Text(
+              initials,
+              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.secondaryColor, fontSize: 13),
+            ),
           ),
-        ),
-        title: Row(
-          children: [
-            Text(
-              name,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppTheme.secondaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
+          title: Row(
+            children: [
+              Text(
+                name,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
               ),
-              child: Text(
-                staff.role,
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.secondaryColor),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondaryColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  staff.role,
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.secondaryColor),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          subtitle: Text(
+            staff.email,
+            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+          ),
+          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppTheme.textSecondaryColor),
+          onTap: () {
+            widget.onNavigate(AppRoutes.adminUsers, 1);
+          },
         ),
-        subtitle: Text(
-          staff.email,
-          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-        ),
-        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppTheme.textSecondaryColor),
-        onTap: () {
-          widget.onNavigate(AppRoutes.adminUsers, 1);
-        },
       ),
     );
   }
@@ -654,52 +662,56 @@ class _AdminGlobalSearchOverlayState extends State<AdminGlobalSearchOverlay> {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppTheme.borderColor),
       ),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-        leading: CircleAvatar(
-          radius: 18,
-          backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-          child: Text(
-            pInitials,
-            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 12),
-          ),
-        ),
-        title: Row(
-          children: [
-            Text(
-              patient.name,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+      child: Material(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          leading: CircleAvatar(
+            radius: 18,
+            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+            child: Text(
+              pInitials,
+              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryColor, fontSize: 12),
             ),
-            if (pid.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: AppTheme.borderColor),
-                ),
-                child: Text(
-                  pid,
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryColor),
-                ),
+          ),
+          title: Row(
+            children: [
+              Text(
+                patient.name,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
               ),
+              if (pid.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Text(
+                    pid,
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.textSecondaryColor),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
+          subtitle: Text(
+            'Phone: ${patient.phone} • Age: ${patient.age}',
+            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+          ),
+          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppTheme.textSecondaryColor),
+          onTap: () {
+            widget.onNavigate(AppRoutes.adminPatients, 2);
+          },
         ),
-        subtitle: Text(
-          'Phone: ${patient.phone} • Age: ${patient.age}',
-          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-        ),
-        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppTheme.textSecondaryColor),
-        onTap: () {
-          widget.onNavigate(AppRoutes.adminPatients, 2);
-        },
       ),
     );
   }

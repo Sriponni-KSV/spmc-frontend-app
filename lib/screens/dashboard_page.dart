@@ -1828,7 +1828,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: isActive ? const Color(0xFFF1F7FB) : Colors.transparent,
         borderRadius: const BorderRadius.only(
           topRight: Radius.circular(8),
           bottomRight: Radius.circular(8),
@@ -1842,7 +1841,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               )
             : null,
       ),
-      child: ListTile(
+      child: Material(
+        color: isActive ? const Color(0xFFF1F7FB) : Colors.transparent,
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(8),
+          bottomRight: Radius.circular(8),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         title: Text(
@@ -1883,7 +1889,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         onTap: onTap,
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildSearchAndDetailsPanel(

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_notification.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/ot_controller.dart';
 import '../screens/ot_management.dart'; // To use OtCase and IntraOpLog models
@@ -515,8 +516,10 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
   // Save parsed dictation content to EMR database
   Future<void> _saveToPatientFile() async {
     if (_selectedCase == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a patient OT case first.'), backgroundColor: AppTheme.logoRed),
+      AppNotification.showError(
+        context,
+        'Please select a patient OT case first.',
+        atTop: true,
       );
       return;
     }
@@ -594,16 +597,17 @@ class _OtDictationDashboardViewState extends State<OtDictationDashboardView> wit
 
     try {
       await _otController.updateOtCase(_selectedCase!.dbId!, updates);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('EMR updated successfully for ${_selectedCase!.patientName}! Surgery marked as Completed.'),
-          backgroundColor: AppTheme.secondaryColor,
-        ),
+      AppNotification.showSuccess(
+        context,
+        'EMR updated successfully for ${_selectedCase!.patientName}! Surgery marked as Completed.',
+        atTop: true,
       );
       _loadOtCases(); // Reload cases from backend to capture the saved updates
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update patient record: $e'), backgroundColor: AppTheme.logoRed),
+      AppNotification.showError(
+        context,
+        'Failed to update patient record: $e',
+        atTop: true,
       );
     } finally {
       setState(() {

@@ -1,8 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'app_theme.dart';
+import '../core/routes/app_router.dart';
 
-/// Root-level Overlay bar notification (styled like a standard bottom SnackBar)
+/// Root-level Overlay bar notification (styled like a top floating banner)
 /// that always displays in front of all dialogs, modals, and popups.
 class AppNotification {
   static OverlayEntry? _currentEntry;
@@ -14,7 +15,7 @@ class AppNotification {
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 4),
-    bool atTop = false,
+    bool atTop = true,
   }) {
     show(
       context,
@@ -33,7 +34,7 @@ class AppNotification {
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 4),
-    bool atTop = false,
+    bool atTop = true,
   }) {
     show(
       context,
@@ -52,7 +53,7 @@ class AppNotification {
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 4),
-    bool atTop = false,
+    bool atTop = true,
   }) {
     show(
       context,
@@ -71,7 +72,7 @@ class AppNotification {
     String message, {
     String? title,
     Duration duration = const Duration(seconds: 4),
-    bool atTop = false,
+    bool atTop = true,
   }) {
     show(
       context,
@@ -217,7 +218,7 @@ class AppNotification {
     return message;
   }
 
-  /// Core method to render a SnackBar-style bar in the root Overlay.
+  /// Core method to render a floating notification banner in the root Overlay.
   static void show(
     BuildContext context, {
     required String message,
@@ -225,51 +226,89 @@ class AppNotification {
     Color backgroundColor = const Color(0xFF334155),
     Color textColor = Colors.white,
     Duration duration = const Duration(seconds: 4),
-    bool atTop = false,
+    bool atTop = true,
   }) {
     dismiss();
 
     final localizedMessage = localizeMessage(context, message);
 
     try {
-      final overlay = Overlay.of(context, rootOverlay: true);
-
-      _currentEntry = OverlayEntry(
-        builder: (ctx) => _NotificationBarWidget(
-          message: localizedMessage,
-          icon: icon,
-          backgroundColor: backgroundColor,
-          textColor: textColor,
-          onDismiss: dismiss,
-          atTop: atTop,
-        ),
-      );
-
-      overlay.insert(_currentEntry!);
-
-      _dismissTimer = Timer(duration, () {
-        dismiss();
-      });
-    } catch (_) {
+      OverlayState? overlay;
       try {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(localizedMessage),
+        overlay = Navigator.of(context, rootNavigator: true).overlay;
+      } catch (_) {}
+      try {
+        overlay ??= AppRouter.parentNavigatorKey.currentState?.overlay;
+      } catch (_) {}
+      overlay ??= Overlay.maybeOf(context, rootOverlay: true);
+      overlay ??= Overlay.maybeOf(context);
+      try {
+        overlay ??= Overlay.of(context);
+      } catch (_) {}
+
+      if (overlay != null && overlay.mounted) {
+        _currentEntry = OverlayEntry(
+          builder: (ctx) => _NotificationBarWidget(
+            message: localizedMessage,
+            icon: icon,
             backgroundColor: backgroundColor,
-            duration: duration,
+            textColor: textColor,
+            onDismiss: dismiss,
+            atTop: atTop,
           ),
         );
-      } catch (_) {}
+
+        overlay.insert(_currentEntry!);
+
+        _dismissTimer = Timer(duration, () {
+          dismiss();
+        });
+        return;
+      }
+    } catch (e) {
+      debugPrint('AppNotification overlay insert error: $e');
     }
+
+    // Fallback: floating SnackBar positioned at TOP if overlay insertion was unmounted
+    try {
+      final screenH = MediaQuery.of(context).size.height;
+      final topMargin = screenH > 160 ? screenH - 120 : 20.0;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(icon, color: textColor, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  localizedMessage,
+                  style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: backgroundColor,
+          duration: duration,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(
+            bottom: topMargin,
+            left: 20,
+            right: 20,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+      );
+    } catch (_) {}
   }
 
   /// Dismiss the active overlay notification bar.
   static void dismiss() {
     _dismissTimer?.cancel();
     _dismissTimer = null;
-    if (_currentEntry != null && _currentEntry!.mounted) {
-      _currentEntry!.remove();
-    }
+    try {
+      _currentEntry?.remove();
+    } catch (_) {}
     _currentEntry = null;
   }
 }
@@ -288,7 +327,7 @@ class _NotificationBarWidget extends StatefulWidget {
     required this.backgroundColor,
     required this.textColor,
     required this.onDismiss,
-    this.atTop = false,
+    this.atTop = true,
   });
 
   @override
@@ -330,18 +369,19 @@ class _NotificationBarWidgetState extends State<_NotificationBarWidget>
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final isMobile = mediaQuery.size.width < 600;
+    final screenW = mediaQuery.size.width;
+    final notifWidth = (screenW - 32).clamp(280.0, 580.0);
+    final left = (screenW - notifWidth) / 2;
 
     return Positioned(
       top: widget.atTop ? (mediaQuery.padding.top + 16) : null,
       bottom: widget.atTop ? null : (mediaQuery.padding.bottom + 16),
-      left: isMobile ? 16 : (mediaQuery.size.width - 560) / 2,
-      right: isMobile ? 16 : null,
-      width: isMobile ? null : 560,
+      left: left,
+      width: notifWidth,
       child: Material(
         color: Colors.transparent,
-        elevation: 6,
-        borderRadius: BorderRadius.circular(8),
+        elevation: 999,
+        borderRadius: BorderRadius.circular(10),
         child: SlideTransition(
           position: _offsetAnim,
           child: FadeTransition(
@@ -350,11 +390,11 @@ class _NotificationBarWidgetState extends State<_NotificationBarWidget>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: widget.backgroundColor,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.22),
-                    blurRadius: 12,
+                    color: Colors.black.withOpacity(0.3),
+                    blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
                 ],
@@ -369,7 +409,7 @@ class _NotificationBarWidgetState extends State<_NotificationBarWidget>
                       style: TextStyle(
                         fontSize: 13.5,
                         color: widget.textColor,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         fontFamily: 'Inter',
                       ),
                     ),

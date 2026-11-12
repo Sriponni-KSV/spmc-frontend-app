@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_notification.dart';
 import '../screens/ot_management.dart';
 import '../controllers/ot_controller.dart';
 
@@ -167,28 +168,18 @@ class _PacAssessmentDialogState extends State<PacAssessmentDialog> {
 
       if (mounted) {
         Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Text('PAC Assessment recorded: [$_clearanceDecision] for ${widget.otCase.patientName}'),
-              ],
-            ),
-            backgroundColor: _getDecisionColor(_clearanceDecision),
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppNotification.showSuccess(
+          context,
+          'PAC Assessment recorded: [$_clearanceDecision] for ${widget.otCase.patientName}',
+          atTop: true,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error recording PAC clearance: $e'),
-            backgroundColor: AppTheme.dangerColor,
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppNotification.showError(
+          context,
+          'Error recording PAC clearance: $e',
+          atTop: true,
         );
       }
     } finally {

@@ -59,7 +59,8 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
       _currentTopBanner?.remove();
       _currentTopBanner = null;
 
-      final overlay = (targetCtx != null ? Overlay.maybeOf(targetCtx) : null) ??
+      final overlay = Overlay.maybeOf(context, rootOverlay: true) ??
+                      (targetCtx != null ? Overlay.maybeOf(targetCtx) : null) ??
                       Overlay.maybeOf(context) ??
                       Overlay.of(context);
       late OverlayEntry entry;
@@ -70,6 +71,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
           right: 20,
           child: Material(
             color: Colors.transparent,
+            elevation: 10,
             child: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 580),
@@ -137,27 +139,29 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
         }
       });
     } catch (_) {
-      final topMargin = MediaQuery.of(context).size.height - 90;
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(isError ? Icons.error_outline : Icons.check_circle_outline, color: Colors.white, size: 18),
-              const SizedBox(width: 10),
-              Expanded(child: Text(message, style: const TextStyle(fontWeight: FontWeight.w600))),
-            ],
+      try {
+        final topMargin = MediaQuery.of(context).size.height - 90;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(isError ? Icons.error_outline : Icons.check_circle_outline, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(child: Text(message, style: const TextStyle(fontWeight: FontWeight.w600))),
+              ],
+            ),
+            backgroundColor: isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(
+              bottom: topMargin > 50 ? topMargin : 50,
+              left: 24,
+              right: 24,
+            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
-          backgroundColor: isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(
-            bottom: topMargin > 50 ? topMargin : 50,
-            left: 24,
-            right: 24,
-          ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+        );
+      } catch (_) {}
     }
   }
 
@@ -354,42 +358,47 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
             ),
             content: SizedBox(
               width: widget.isMobile ? double.infinity : 420,
-              child: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (dialogError != null) ...[
-                        Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 14),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF2F2),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFF87171)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (dialogError != null) ...[
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFF87171)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              dialogError!,
+                              style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
                           ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  dialogError!,
-                                  style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () => setD(() => dialogError = null),
-                                child: const Icon(Icons.close, color: Color(0xFFDC2626), size: 16),
-                              ),
-                            ],
+                          GestureDetector(
+                            onTap: () => setD(() => dialogError = null),
+                            child: const Icon(Icons.close, color: Color(0xFFDC2626), size: 16),
                           ),
-                        ),
-                      ],
-                      // ── Supply Category dropdown (only for general inventory) ──
+                        ],
+                      ),
+                    ),
+                  ],
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Form(
+                        key: formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // ── Supply Category dropdown (only for general inventory) ──
                       if (!widget.isFoodStockOnly) ...[
                         CustomDropdownSearch(
                           label: 'Supply Category',
@@ -645,6 +654,9 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
             actions: widget.isMobile
                 ? [
                     Row(
@@ -1153,42 +1165,47 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
           ),
           content: SizedBox(
             width: widget.isMobile ? double.infinity : 420,
-            child: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (editError != null) ...[
-                      Container(
-                        width: double.infinity,
-                        margin: const EdgeInsets.only(bottom: 14),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF2F2),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFF87171)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (editError != null) ...[
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFF87171)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            editError!,
+                            style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.error_outline, color: Color(0xFFDC2626), size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                editError!,
-                                style: const TextStyle(color: Color(0xFFDC2626), fontSize: 12, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () => setD(() => editError = null),
-                              child: const Icon(Icons.close, color: Color(0xFFDC2626), size: 16),
-                            ),
-                          ],
+                        GestureDetector(
+                          onTap: () => setD(() => editError = null),
+                          child: const Icon(Icons.close, color: Color(0xFFDC2626), size: 16),
                         ),
-                      ),
-                    ],
-                    Text('Item Name *', style: TextStyle(fontFamily: 'Manrope', color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                ],
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Item Name *', style: TextStyle(fontFamily: 'Manrope', color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: nameCtrl,
@@ -1298,6 +1315,9 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
               ),
             ),
           ),
+        ],
+      ),
+    ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx, false),
