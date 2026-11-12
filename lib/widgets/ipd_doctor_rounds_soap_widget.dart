@@ -459,9 +459,6 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
       barrierDismissible: false,
       builder: (modalCtx) {
         return StatefulBuilder(
-<<<<<<< HEAD
-          builder: (dialogContext, setModalState) {
-=======
           builder: (context, setModalState) {
             final isMobile = MediaQuery.of(context).size.width < 600;
             final attendingText = Text(
@@ -479,6 +476,7 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                   child: DropdownButton<String>(
                     value: roundType,
                     isExpanded: expand,
+                    focusColor: Colors.transparent,
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.textPrimaryColor,
@@ -497,8 +495,6 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                 ),
               );
             }
-
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             return Dialog(
               insetPadding: EdgeInsets.symmetric(
                 horizontal: isMobile ? 14 : 40,
@@ -563,25 +559,6 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                                   Expanded(child: buildDropdown(expand: true)),
                                 ],
                               ),
-<<<<<<< HEAD
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: roundType,
-                                  isDense: true,
-                                  focusColor: Colors.transparent,
-                                  style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold),
-                                  items: const [
-                                    DropdownMenuItem(value: 'Morning Round', child: Text('Morning Consultant Round')),
-                                    DropdownMenuItem(value: 'Evening Round', child: Text('Evening Review Round')),
-                                    DropdownMenuItem(value: 'Special Review', child: Text('Special Clinical Review')),
-                                    DropdownMenuItem(value: 'ICU Review', child: Text('ICU Critical Care Review')),
-                                  ],
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      setModalState(() => roundType = val);
-                                    }
-                                  },
-=======
                               const SizedBox(height: 8),
                               attendingText,
                             ],
@@ -602,7 +579,6 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                                     const SizedBox(width: 12),
                                     buildDropdown(expand: false),
                                   ],
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                                 ),
                                 attendingText,
                               ],

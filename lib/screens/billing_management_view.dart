@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:math' as math;
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../controllers/billing_controller.dart';
@@ -588,187 +589,8 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         ),
                       ),
                     ],
-<<<<<<< HEAD
                   ),
                   const SizedBox(height: 24),
-=======
-                  ] else ...[
-                    _buildLabel('Add Service to Bill'),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CustomDropdownSearch(
-                            label: '',
-                            hint: 'Choose Service',
-                            dropdownMap: {
-                              for (var s in _catalogServices.where((x) => x['category'] != 'IP'))
-                                s['id'].toString(): '${s['name']} (₹${s['price']})'
-                            },
-                            onChanged: (val) {
-                              if (val != null) {
-                                final svc = _catalogServices.firstWhere((s) => s['id'].toString() == val);
-                                _addQbItem(svc);
-                              }
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // Bill Items Table Card
-          Card(
-            elevation: 0,
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: AppTheme.borderColor),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(isMobile ? 14.0 : 20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Selected Bill Items', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
-                  const SizedBox(height: 16),
-                  if (_qbSelectedItems.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 40.0),
-                      child: Center(child: Text('No items added. Select a service above.', style: TextStyle(color: Colors.grey.shade500))),
-                    )
-                  else
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _qbSelectedItems.length,
-                      separatorBuilder: (c, i) => const Divider(),
-                      itemBuilder: (context, index) {
-                        final item = _qbSelectedItems[index];
-                        final qty = item['quantity'] as int;
-                        final price = item['unit_price'] as double;
-                        final total = qty * price;
-
-                        final qtyStepper = Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppTheme.borderColor),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline, size: 18),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                onPressed: () {
-                                  setState(() {
-                                    if (qty > 1) {
-                                      item['quantity'] = qty - 1;
-                                    } else {
-                                      _qbSelectedItems.removeAt(index);
-                                    }
-                                  });
-                                },
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
-                                child: Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add_circle_outline, size: 18),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                onPressed: () {
-                                  setState(() {
-                                    item['quantity'] = qty + 1;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-
-                        final deleteBtn = IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                          padding: isMobile ? EdgeInsets.zero : const EdgeInsets.all(8),
-                          constraints: isMobile ? const BoxConstraints(minWidth: 32, minHeight: 32) : null,
-                          onPressed: () {
-                            setState(() {
-                              _qbSelectedItems.removeAt(index);
-                            });
-                          },
-                        );
-
-                        if (isMobile) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        item['item_name'],
-                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '₹${total.toStringAsFixed(2)}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    deleteBtn,
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    qtyStepper,
-                                    const Spacer(),
-                                    Text(
-                                      'Unit: ₹${price.toStringAsFixed(2)}',
-                                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-
-                        return Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Text(item['item_name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                            ),
-                            const SizedBox(width: 8),
-                            qtyStepper,
-                            Expanded(
-                              flex: 2,
-                              child: Text('₹${price.toStringAsFixed(2)}', textAlign: TextAlign.right),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text('₹${total.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            const SizedBox(width: 4),
-                            deleteBtn,
-                          ],
-                        );
-                      },
-                    ),
-                  
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                   if (_qbSelectedItems.isNotEmpty) ...[
                     const Divider(height: 32, thickness: 1.2),
                     _buildSummaryRow('Subtotal', subtotal),
@@ -4999,7 +4821,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
             final double folioDiscount = double.tryParse((folioTotals['discount'] ?? 0).toString()) ?? 0.0;
             final double netFolioTotal = double.tryParse((folioTotals['net_total'] ?? 0).toString()) ?? (grossFolioTotal - folioDiscount);
             final double totalAdvancesPaid = double.tryParse((folioTotals['advance_paid'] ?? 0).toString()) ?? 0.0;
-            final double remainingBalance = double.tryParse((folioTotals['balance_due'] ?? 0).toString()) ?? Math.max(0.0, netFolioTotal - totalAdvancesPaid);
+            final double remainingBalance = double.tryParse((folioTotals['balance_due'] ?? 0).toString()) ?? math.max(0.0, netFolioTotal - totalAdvancesPaid);
 
             final roomCharges = (unifiedFolio['room_charges'] as Map<String, dynamic>?) ?? {};
             final nursingServices = (unifiedFolio['nursing_services'] as Map<String, dynamic>?) ?? {};
@@ -5670,7 +5492,6 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
 
             ];
 
-<<<<<<< HEAD
             return AlertDialog(
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
@@ -5715,287 +5536,8 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                             Text(
                               'UHID: ${admission['patient_display_id'] ?? '—'}  •  Bed: ${bedDetails['bed_number'] ?? '—'} (${bedDetails['ward_type'] ?? 'Ward'})  •  Doctor: ${admission['doctor_name'] ?? 'Attending Clinician'}',
                               style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
-=======
-            final dIsMobile = MediaQuery.of(context).size.width < 700;
-            final serviceDropdown = CustomDropdownSearch(
-              label: '',
-              hint: 'Select Service',
-              value: selectedSvcId,
-              dropdownMap: {
-                for (var s in _catalogServices.where((x) => x['category'] != 'OP'))
-                  s['id'].toString(): '${s['name']} (₹${s['price']})'
-              },
-              onChanged: (val) {
-                if (val != null) {
-                  final sObj = _catalogServices.firstWhere((x) => x['id'].toString() == val);
-                  setSheetState(() {
-                    selectedSvcId = val;
-                    ipSvcPriceCtrl.text = sObj['price'].toString();
-                  });
-                }
-              },
-            );
-            final priceField = SizedBox(
-              height: 48,
-              child: TextFormField(
-                controller: ipSvcPriceCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(hintText: 'Price', contentPadding: EdgeInsets.symmetric(horizontal: 8)),
-              ),
-            );
-            final qtyField = SizedBox(
-              height: 48,
-              child: TextFormField(
-                controller: ipSvcQtyCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(hintText: 'Qty', contentPadding: EdgeInsets.symmetric(horizontal: 8)),
-              ),
-            );
-            final addServiceBtn = IconButton(
-              icon: const Icon(Icons.add_circle, color: AppTheme.secondaryColor, size: 28),
-              padding: dIsMobile ? EdgeInsets.zero : const EdgeInsets.all(8),
-              constraints: dIsMobile ? const BoxConstraints(minWidth: 36, minHeight: 36) : null,
-              onPressed: () async {
-                if (selectedSvcId == null) return;
-                final double pr = double.tryParse(ipSvcPriceCtrl.text) ?? 0.0;
-                final int qt = int.tryParse(ipSvcQtyCtrl.text) ?? 1;
-                final sObj = _catalogServices.firstWhere((x) => x['id'].toString() == selectedSvcId);
-
-                try {
-                  int invoiceId;
-                  if (activeInvoice == null) {
-                    final newInv = await _billingCtrl.createInvoice(
-                      patientId: admission['patient_id'],
-                      admissionType: 'IP',
-                      admissionId: admissionId,
-                      items: [
-                        {
-                          'service_id': sObj['id'],
-                          'item_name': sObj['name'],
-                          'quantity': qt,
-                          'unit_price': pr
-                        }
-                      ],
-                      discount: 0,
-                    );
-                    invoiceId = newInv['id'];
-                  } else {
-                    invoiceId = activeInvoice!['id'];
-                    await _billingCtrl.addInvoiceItem(
-                      invoiceId: invoiceId,
-                      itemName: sObj['name'],
-                      unitPrice: pr,
-                      quantity: qt,
-                      serviceId: sObj['id'],
-                    );
-                  }
-
-                  setSheetState(() {
-                    selectedSvcId = null;
-                    ipSvcPriceCtrl.clear();
-                    ipSvcQtyCtrl.text = '1';
-                  });
-
-                  await fetchSummary();
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error adding item: $e'), backgroundColor: Colors.red));
-                }
-              },
-            );
-
-            final leftPanel = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Bed accommodation charges card
-                Card(
-                  elevation: 0,
-                  color: Colors.grey.shade50,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey.shade200)),
-                  child: Padding(
-                    padding: EdgeInsets.all(dIsMobile ? 12.0 : 16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Bed / Accommodation Charges', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        const SizedBox(height: 10),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text('${bedDetails['ward_type']} Ward (Bed: ${bedDetails['bed_number']})', style: const TextStyle(fontWeight: FontWeight.w600)),
-                            ),
-                            const SizedBox(width: 8),
-                            Text('₹${bedRate.toStringAsFixed(2)} / day'),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: [
-                            Expanded(child: Text('Admission Duration: $bedDays Days')),
-                            const SizedBox(width: 8),
-                            Text('₹${bedTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Added Services list
-                const Text('Other Added Services / Items', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 8),
-
-                // Form to add custom/catalog service
-                Container(
-                  padding: EdgeInsets.all(dIsMobile ? 10 : 12),
-                  decoration: BoxDecoration(color: const Color(0xFFF1F7FB), borderRadius: BorderRadius.circular(10)),
-                  child: dIsMobile
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            serviceDropdown,
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(flex: 3, child: priceField),
-                                const SizedBox(width: 8),
-                                Expanded(flex: 2, child: qtyField),
-                                const SizedBox(width: 8),
-                                addServiceBtn,
-                              ],
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                             ),
                           ],
-                        )
-                      : Row(
-                          children: [
-                            Expanded(flex: 3, child: serviceDropdown),
-                            const SizedBox(width: 8),
-                            SizedBox(width: 80, child: priceField),
-                            const SizedBox(width: 8),
-                            SizedBox(width: 60, child: qtyField),
-                            const SizedBox(width: 8),
-                            addServiceBtn,
-                          ],
-                        ),
-                ),
-                const SizedBox(height: 12),
-
-                if (addedWorksheetItems.isEmpty)
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: dIsMobile ? 16.0 : 24.0),
-                    child: Center(child: Text('No additional service items added yet.', style: TextStyle(color: Colors.grey.shade400, fontSize: 13))),
-                  )
-                else
-                  ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: addedWorksheetItems.length,
-                    separatorBuilder: (c, i) => const Divider(),
-                    itemBuilder: (scCtx, index) {
-                      final item = addedWorksheetItems[index];
-                      final qty = item['quantity'] as int? ?? 1;
-                      final price = double.parse(item['unit_price'].toString());
-                      final sub = qty * price;
-
-                      return ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(item['item_name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        subtitle: Text('$qty x ₹${price.toStringAsFixed(2)}'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text('₹${sub.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            const SizedBox(width: 4),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                              onPressed: () async {
-                                try {
-                                  await _billingCtrl.deleteInvoiceItem(item['id']);
-                                  await fetchSummary();
-                                } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-              ],
-            );
-
-            final depositsListWidget = advancesPaid.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12.0),
-                    child: Center(child: Text('No deposits recorded.', style: TextStyle(color: Colors.grey.shade400, fontSize: 12))),
-                  )
-                : ListView.builder(
-                    shrinkWrap: dIsMobile,
-                    physics: dIsMobile ? const NeverScrollableScrollPhysics() : null,
-                    itemCount: advancesPaid.length,
-                    itemBuilder: (payCtx, index) {
-                      final pay = advancesPaid[index];
-                      final date = DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.parse(pay['payment_date']).toLocal());
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 2,
-                            children: [
-                              Text('₹${double.parse(pay['amount'].toString()).toStringAsFixed(2)} (${pay['payment_mode']})', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              Text(date, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  );
-
-            final rightPanel = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Worksheet billing calculation panel
-                Container(
-                  padding: EdgeInsets.all(dIsMobile ? 12 : 16),
-                  decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
-                  child: Column(
-                    children: [
-                      _buildSummaryRow('Bed Total ($bedDays Days)', bedTotal),
-                      const SizedBox(height: 8),
-                      _buildSummaryRow('Other Services', itemsTotal),
-                      const Divider(height: 20),
-                      _buildSummaryRow('Total Bill', totalAmount, isBold: true),
-                      const SizedBox(height: 8),
-                      _buildSummaryRow('Discounts', disc, color: Colors.redAccent),
-                      const Divider(height: 20),
-                      _buildSummaryRow('Net Bill Amount', netAmount, isBold: true, color: AppTheme.primaryColor),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Deposits / Advances card
-                const Text('Advances & Deposits Paid', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 44,
-                        child: TextFormField(
-                          controller: depositAmtCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(hintText: 'Deposit Amount (₹)'),
                         ),
                       ),
                       IconButton(
@@ -6016,7 +5558,6 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
-<<<<<<< HEAD
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -6121,147 +5662,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                           ),
                         ],
                       ),
-=======
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () async {
-                        final double amt = double.tryParse(depositAmtCtrl.text) ?? 0;
-                        if (amt <= 0) return;
-                        try {
-                          int invoiceId;
-                          if (activeInvoice == null) {
-                            final newInv = await _billingCtrl.createInvoice(
-                              patientId: admission['patient_id'],
-                              admissionType: 'IP',
-                              admissionId: admissionId,
-                              items: [],
-                              discount: 0,
-                            );
-                            invoiceId = newInv['id'];
-                          } else {
-                            invoiceId = activeInvoice!['id'];
-                          }
-
-                          await _billingCtrl.recordPayment(
-                            invoiceId: invoiceId,
-                            amount: amt,
-                            paymentMode: 'Cash',
-                          );
-
-                          depositAmtCtrl.clear();
-                          await fetchSummary();
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: EdgeInsets.symmetric(horizontal: dIsMobile ? 12 : 16, vertical: 12),
-                      ),
-                      child: const Text('Add Deposit'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                if (dIsMobile) depositsListWidget else Expanded(child: depositsListWidget),
-                const Divider(),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text('Remaining Balance:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    ),
-                    const SizedBox(width: 8),
-                    Text('₹${remainingBalance.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: remainingBalance > 0 ? Colors.redAccent : Colors.green)),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _openFinalDischargePanel(admissionId, remainingBalance, addedWorksheetItems, disc);
-                        },
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.logoRed, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 14)),
-                        child: const Text('Discharge & Final Settle', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            );
-
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              insetPadding: EdgeInsets.symmetric(
-                horizontal: dIsMobile ? 12 : 24,
-                vertical: 20,
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
               ),
-              titlePadding: EdgeInsets.fromLTRB(dIsMobile ? 16 : 24, 16, dIsMobile ? 10 : 16, 8),
-              contentPadding: EdgeInsets.fromLTRB(dIsMobile ? 14 : 24, 8, dIsMobile ? 14 : 24, dIsMobile ? 16 : 20),
-              title: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'IP Billing Worksheet - ${admission['patient_name']}',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: dIsMobile ? 16 : 18,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ],
-              ),
-              content: dIsMobile
-                  ? SizedBox(
-                      width: double.maxFinite,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.78),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              leftPanel,
-                              const Divider(height: 28),
-                              rightPanel,
-                            ],
-                          ),
-                        ),
-                      ),
-                    )
-                  : SizedBox(
-                      width: 900,
-                      height: MediaQuery.of(context).size.height * 0.8,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 5,
-                            child: SingleChildScrollView(child: leftPanel),
-                          ),
-                          const VerticalDivider(width: 32),
-                          Expanded(
-                            flex: 4,
-                            child: rightPanel,
-                          ),
-                        ],
-                      ),
-                    ),
             );
           },
         );
@@ -6468,7 +5869,6 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
       builder: (ctx) {
         return StatefulBuilder(
           builder: (dCtx, setDState) {
-<<<<<<< HEAD
             void autoFillFromClinicalData() {
               setDState(() {
                 finalDiagCtrl.text = clinicalData['final_diagnosis'] ?? clinicalData['provisional_diagnosis'] ?? '';
@@ -6487,14 +5887,10 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
             }
 
             final bool isMobileDischarge = MediaQuery.of(dCtx).size.width < 800;
-=======
-            final dIsMobile = MediaQuery.of(context).size.width < 600;
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             return AlertDialog(
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-<<<<<<< HEAD
               insetPadding: isMobileDischarge
                   ? const EdgeInsets.symmetric(horizontal: 10, vertical: 14)
                   : const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
@@ -6540,22 +5936,6 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               content: SingleChildScrollView(
                 child: SizedBox(
                   width: isMobileDischarge ? double.maxFinite : 780,
-=======
-              insetPadding: EdgeInsets.symmetric(
-                horizontal: dIsMobile ? 14 : 24,
-                vertical: 20,
-              ),
-              titlePadding: EdgeInsets.fromLTRB(dIsMobile ? 16 : 24, 18, dIsMobile ? 16 : 24, 8),
-              contentPadding: EdgeInsets.fromLTRB(dIsMobile ? 16 : 24, 8, dIsMobile ? 16 : 24, 12),
-              actionsPadding: EdgeInsets.fromLTRB(dIsMobile ? 16 : 24, 8, dIsMobile ? 16 : 24, 18),
-              title: Text(
-                'Final Discharge Settlement',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: dIsMobile ? 18 : 20),
-              ),
-              content: SingleChildScrollView(
-                child: SizedBox(
-                  width: dIsMobile ? double.maxFinite : 500,
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -6719,14 +6099,14 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                   onChanged: (val) {
                                     final d = double.tryParse(val) ?? 0.0;
                                     setDState(() {
-                                      balancePayCtrl.text = Math.max(0.0, balance - (d - oldDiscount)).toStringAsFixed(0);
+                                      balancePayCtrl.text = math.max(0.0, balance - (d - oldDiscount)).toStringAsFixed(0);
                                     });
                                   },
                                 ),
                               ],
                             ),
                           ),
-                          SizedBox(width: dIsMobile ? 12 : 16),
+                          SizedBox(width: isMobileDischarge ? 12 : 16),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -6744,183 +6124,137 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                       ),
                       const SizedBox(height: 14),
                       _buildLabel('Payment Mode'),
-<<<<<<< HEAD
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: ['Cash', 'Card', 'UPI', 'Insurance', 'Cheque'].map((mode) {
                           final selected = payMode == mode;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8.0),
-                            child: ChoiceChip(
-                              label: Text(mode),
-                              selected: selected,
-                              selectedColor: AppTheme.primaryColor,
-                              labelStyle: TextStyle(color: selected ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
-                              backgroundColor: Colors.grey.shade100,
-                              onSelected: (val) {
-                                if (val) setDState(() => payMode = mode);
-                              },
-                            ),
+                          return ChoiceChip(
+                            label: Text(mode),
+                            selected: selected,
+                            selectedColor: AppTheme.primaryColor,
+                            labelStyle: TextStyle(color: selected ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 12),
+                            backgroundColor: Colors.grey.shade100,
+                            onSelected: (val) {
+                              if (val) setDState(() => payMode = mode);
+                            },
                           );
                         }).toList(),
                       ),
                       const SizedBox(height: 14),
                       _buildLabel('Transaction Reference / Receipt Note'),
                       TextFormField(controller: finalRefCtrl, decoration: const InputDecoration(hintText: 'e.g. UPI Ref / Card Auth No / Cheque No / Notes')),
-=======
-                      _buildPaymentModeWrap(payMode, (mode) => setDState(() => payMode = mode)),
-                      const SizedBox(height: 16),
-                      _buildLabel('Transaction Reference'),
-                      TextFormField(controller: finalRefCtrl, decoration: const InputDecoration(hintText: 'Optional')),
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                     ],
                   ),
                 ),
               ),
               actions: [
-<<<<<<< HEAD
-                OutlinedButton(onPressed: () => Navigator.pop(ctx), style: AppTheme.cancelButton, child: const Text('Back to Worksheet')),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.done_all, size: 18),
-                  label: const Text('Confirm Discharge & Final Settle', style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.logoRed,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () async {
-                    if (finalDiagCtrl.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Final Diagnosis is mandatory for certified discharge.'), backgroundColor: Colors.red));
-                      return;
-                    }
-                    if (treatmentSumCtrl.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Treatment Summary is required for discharge report.'), backgroundColor: Colors.red));
-                      return;
-                    }
-
-                    final messenger = ScaffoldMessenger.of(context);
-                    final navigator = Navigator.of(ctx);
-
-                    try {
-                      final discTotal = double.tryParse(discCtrl.text) ?? 0.0;
-
-                      // Flatten all unified folio items across all departments so the complete bill is saved
-                      final List<Map<String, dynamic>> consolidatedItems = [];
-                      for (var cat in ['room_charges', 'nursing_services', 'doctor_rounds', 'pharmacy_items', 'lab_investigations', 'ot_charges', 'other_charges']) {
-                        final catObj = (unifiedFolio[cat] as Map<String, dynamic>?) ?? {};
-                        final itemsArr = List<Map<String, dynamic>>.from(catObj['items'] ?? []);
-                        for (var it in itemsArr) {
-                          consolidatedItems.add({
-                            'service_id': it['service_id'],
-                            'item_name': it['item_name'],
-                            'quantity': it['quantity'] ?? 1,
-                            'unit_price': double.tryParse((it['unit_price'] ?? 0).toString()) ?? 0.0,
-                            'subtotal': double.tryParse((it['subtotal'] ?? 0).toString()) ?? 0.0,
-                          });
-                        }
-                      }
-
-                      final res = await _billingCtrl.dischargeAndSettleIP(
-                        admissionId: admissionId,
-                        dischargeSummary: treatmentSumCtrl.text.trim(),
-                        finalDiagnosis: finalDiagCtrl.text.trim(),
-                        treatmentSummary: treatmentSumCtrl.text.trim(),
-                        medicationPlan: medsPlanCtrl.text.trim(),
-                        dischargeInstructions: instructionsCtrl.text.trim(),
-                        followUpDate: followUpCtrl.text.trim(),
-                        clearanceStatuses: clearances,
-                        structuredDischargeData: {
-                          'clearances': clearances,
-                          'clinical_summary': {
-                            'final_diagnosis': finalDiagCtrl.text.trim(),
-                            'treatment_summary': treatmentSumCtrl.text.trim(),
-                            'medication_plan': medsPlanCtrl.text.trim(),
-                            'discharge_instructions': instructionsCtrl.text.trim(),
-                            'follow_up_date': followUpCtrl.text.trim(),
-                          },
-                          'folio_totals': unifiedFolio['totals']
-                        },
-                        items: otherItems.map((x) => {
-                          'service_id': x['service_id'],
-                          'item_name': x['item_name'],
-                          'quantity': x['quantity'] ?? 1,
-                          'unit_price': double.parse(x['unit_price'].toString())
-                        }).toList(),
-                        folioItems: consolidatedItems,
-                        discount: discTotal,
-                        finalPaymentMode: payMode,
-                        transactionReference: finalRefCtrl.text.trim()
-                      );
-
-                      if (ctx.mounted) navigator.pop();
-                      if (mounted) {
-                        _loadIpAdmissions();
-                        _loadInvoices();
-
-                        messenger.showSnackBar(
-                          const SnackBar(
-                            content: Text('Patient successfully discharged! Bed transitioned to Cleaning status. Inpatient folio settled.'),
-                            backgroundColor: Color(0xFF059669),
-                            duration: Duration(seconds: 3),
-                          ),
-                        );
-
-                        // Open final invoice receipt dialog with print capability
-                        if (res['invoice'] != null && res['invoice']['id'] != null) {
-                          _showInvoiceReceiptDialog(res['invoice']['id']);
-                        }
-                      }
-                    } catch (e) {
-                      messenger.showSnackBar(SnackBar(content: Text('Error settling discharge: $e'), backgroundColor: Colors.red));
-                    }
-                  },
-                )
-=======
                 Wrap(
                   alignment: WrapAlignment.end,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   spacing: 10,
                   runSpacing: 8,
                   children: [
-                    OutlinedButton(onPressed: () => Navigator.pop(ctx), style: AppTheme.cancelButton, child: const Text('Back')),
-                    ElevatedButton(
+                    OutlinedButton(onPressed: () => Navigator.pop(ctx), style: AppTheme.cancelButton, child: const Text('Back to Worksheet')),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.done_all, size: 18),
+                      label: const Text('Confirm Discharge & Final Settle', style: TextStyle(fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.logoRed,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
                       onPressed: () async {
-                        if (summaryCtrl.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Discharge Summary is required'), backgroundColor: Colors.red));
+                        if (finalDiagCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Final Diagnosis is mandatory for certified discharge.'), backgroundColor: Colors.red));
                           return;
                         }
+                        if (treatmentSumCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Treatment Summary is required for discharge report.'), backgroundColor: Colors.red));
+                          return;
+                        }
+
+                        final messenger = ScaffoldMessenger.of(context);
+                        final navigator = Navigator.of(ctx);
+
                         try {
                           final discTotal = double.tryParse(discCtrl.text) ?? 0.0;
 
-                          await _billingCtrl.dischargeAndSettleIP(
+                          // Flatten all unified folio items across all departments so the complete bill is saved
+                          final List<Map<String, dynamic>> consolidatedItems = [];
+                          for (var cat in ['room_charges', 'nursing_services', 'doctor_rounds', 'pharmacy_items', 'lab_investigations', 'ot_charges', 'other_charges']) {
+                            final catObj = (unifiedFolio[cat] as Map<String, dynamic>?) ?? {};
+                            final itemsArr = List<Map<String, dynamic>>.from(catObj['items'] ?? []);
+                            for (var it in itemsArr) {
+                              consolidatedItems.add({
+                                'service_id': it['service_id'],
+                                'item_name': it['item_name'],
+                                'quantity': it['quantity'] ?? 1,
+                                'unit_price': double.tryParse((it['unit_price'] ?? 0).toString()) ?? 0.0,
+                                'subtotal': double.tryParse((it['subtotal'] ?? 0).toString()) ?? 0.0,
+                              });
+                            }
+                          }
+
+                          final res = await _billingCtrl.dischargeAndSettleIP(
                             admissionId: admissionId,
-                            dischargeSummary: summaryCtrl.text.trim(),
-                            items: items.map((x) => {
+                            dischargeSummary: treatmentSumCtrl.text.trim(),
+                            finalDiagnosis: finalDiagCtrl.text.trim(),
+                            treatmentSummary: treatmentSumCtrl.text.trim(),
+                            medicationPlan: medsPlanCtrl.text.trim(),
+                            dischargeInstructions: instructionsCtrl.text.trim(),
+                            followUpDate: followUpCtrl.text.trim(),
+                            clearanceStatuses: clearances,
+                            structuredDischargeData: {
+                              'clearances': clearances,
+                              'clinical_summary': {
+                                'final_diagnosis': finalDiagCtrl.text.trim(),
+                                'treatment_summary': treatmentSumCtrl.text.trim(),
+                                'medication_plan': medsPlanCtrl.text.trim(),
+                                'discharge_instructions': instructionsCtrl.text.trim(),
+                                'follow_up_date': followUpCtrl.text.trim(),
+                              },
+                              'folio_totals': unifiedFolio['totals']
+                            },
+                            items: otherItems.map((x) => {
                               'service_id': x['service_id'],
                               'item_name': x['item_name'],
-                              'quantity': x['quantity'],
+                              'quantity': x['quantity'] ?? 1,
                               'unit_price': double.parse(x['unit_price'].toString())
                             }).toList(),
+                            folioItems: consolidatedItems,
                             discount: discTotal,
                             finalPaymentMode: payMode,
                             transactionReference: finalRefCtrl.text.trim()
                           );
 
-                          Navigator.pop(ctx);
-                          _loadIpAdmissions();
-                          _loadInvoices();
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Patient discharged and billing settled!'), backgroundColor: Colors.green));
+                          if (ctx.mounted) navigator.pop();
+                          if (mounted) {
+                            _loadIpAdmissions();
+                            _loadInvoices();
+
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Patient successfully discharged! Bed transitioned to Cleaning status. Inpatient folio settled.'),
+                                backgroundColor: Color(0xFF059669),
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
+
+                            // Open final invoice receipt dialog with print capability
+                            if (res['invoice'] != null && res['invoice']['id'] != null) {
+                              _showInvoiceReceiptDialog(res['invoice']['id']);
+                            }
+                          }
                         } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error discharging: $e'), backgroundColor: Colors.red));
+                          messenger.showSnackBar(SnackBar(content: Text('Error settling discharge: $e'), backgroundColor: Colors.red));
                         }
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.logoRed, foregroundColor: Colors.white, elevation: 0),
-                      child: const Text('Confirm Discharge & Settle'),
                     ),
                   ],
                 ),
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
               ],
             );
           },
@@ -7104,7 +6438,6 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                             ),
                             const SizedBox(height: 12),
 
-<<<<<<< HEAD
                             // Date-wise cards
                             if (visits.isEmpty) ...[
                               Padding(
@@ -7130,31 +6463,6 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                   ),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
-=======
-                      _buildSummaryRow('Total Amount', double.parse(inv['total_amount'].toString())),
-                      const SizedBox(height: 6),
-                      _buildSummaryRow('Discount Offered', double.parse(inv['discount'].toString()), color: Colors.red),
-                      const SizedBox(height: 6),
-                      _buildSummaryRow('Net Amount Due', double.parse(inv['net_amount'].toString()), isBold: true, color: AppTheme.primaryColor),
-                      const SizedBox(height: 6),
-                      _buildSummaryRow('Paid Amount', double.parse(inv['paid_amount'].toString()), color: Colors.green),
-                      
-                      const Divider(height: 24),
-                      const Text('Payments History:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor)),
-                      const SizedBox(height: 8),
-                      payments.isEmpty
-                          ? Center(child: Text('No payments recorded.', style: TextStyle(color: Colors.grey.shade400, fontSize: 12)))
-                          : Column(
-                              children: payments.map((pay) {
-                                final pDate = DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.parse(pay['payment_date']).toLocal());
-                                return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                                  child: Wrap(
-                                    alignment: WrapAlignment.spaceBetween,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
-                                    spacing: 8,
-                                    runSpacing: 2,
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                                     children: [
                                       // Date Banner
                                       Container(
@@ -7422,79 +6730,11 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                     ),
                                   ],
                                 ),
-<<<<<<< HEAD
                               ),
                             ],
                           ],
                         ),
                       ),
-=======
-                                const SizedBox(height: 12),
-                                _buildLabel('Payment Mode'),
-                                _buildPaymentModeWrap(
-                                  payMode,
-                                  (mode) => setDState(() => payMode = mode),
-                                  spacing: 6,
-                                  fontSize: 12,
-                                ),
-                                const SizedBox(height: 12),
-                                _buildLabel('Transaction Reference'),
-                                TextFormField(
-                                  controller: collectRefCtrl,
-                                  decoration: const InputDecoration(hintText: 'Optional', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    TextButton(
-                                      onPressed: () => setDState(() => showPaymentForm = false),
-                                      child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    ElevatedButton(
-                                      onPressed: () async {
-                                        final double amt = double.tryParse(collectAmtCtrl.text) ?? 0;
-                                        if (amt < 0) return;
-                                        final double pct = double.tryParse(discountPercentCtrl.text) ?? 0.0;
-                                        final double total = double.parse(inv['total_amount'].toString());
-                                        final double discAmt = total * (pct / 100.0);
-                                        try {
-                                          await _billingCtrl.recordPayment(
-                                            invoiceId: invoiceId,
-                                            amount: amt,
-                                            paymentMode: payMode,
-                                            transactionReference: collectRefCtrl.text.trim(),
-                                            discount: discAmt,
-                                          );
-                                          
-                                          ScaffoldMessenger.of(dCtx).showSnackBar(const SnackBar(content: Text('Payment recorded successfully!'), backgroundColor: Colors.green));
-                                          
-                                          setDState(() {
-                                            loading = true;
-                                            showPaymentForm = false;
-                                            collectAmtCtrl.clear();
-                                            collectRefCtrl.clear();
-                                          });
-                                          _loadInvoices();
-                                        } catch (e) {
-                                          ScaffoldMessenger.of(dCtx).showSnackBar(SnackBar(content: Text('Error recording payment: $e'), backgroundColor: Colors.red));
-                                        }
-                                      },
-                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
-                                      child: const Text('Submit Payment'),
-                                    )
-                                  ],
-                                )
-                              ],
-                            ),
-                          )
-                        ]
-                      ]
-                    ],
-                  ),
-                ),
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
               ),
               actions: [
                 Wrap(

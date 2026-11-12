@@ -2918,15 +2918,9 @@ class _MocDocAppointmentsViewState extends State<MocDocAppointmentsView> {
             padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-<<<<<<< HEAD
-              childAspectRatio: 1.25,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-=======
               childAspectRatio: isMobile ? 0.92 : 1.35,
               crossAxisSpacing: isMobile ? 10 : 12,
               mainAxisSpacing: isMobile ? 10 : 12,
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             ),
             itemCount: displaySlots.length,
             itemBuilder: (context, idx) {

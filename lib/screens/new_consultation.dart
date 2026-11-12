@@ -3948,13 +3948,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
     if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-<<<<<<< HEAD
           content: Text('Please resolve the highlighted validation errors before submitting.'),
           backgroundColor: AppTheme.dangerColor,
-=======
-          content: Text('Please fix the highlighted validation errors before submitting.'),
-          backgroundColor: Colors.orange,
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
         ),
       );
       return;
@@ -4071,13 +4066,8 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       }
 
       final data = {
-<<<<<<< HEAD
-        if (apptId != null) 'appointment_id': apptId,
-        'patient_id': patientId,
-=======
         'appointment_id': resolvedApptId,
-        'patient_id': widget.appointment.patientId,
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
+        'patient_id': patientId,
         'symptoms': _symptomsController.text.trim(),
         'diagnosis': _diagnosisController.text.trim(),
         'medications': _medications,

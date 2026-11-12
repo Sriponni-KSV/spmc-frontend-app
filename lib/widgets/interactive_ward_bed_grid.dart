@@ -791,16 +791,6 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
                   Expanded(
                     child: Text(
                       status == BedStatus.occupied
-<<<<<<< HEAD
-                          ? (doctorName.isNotEmpty ? 'Occupied • Dr. $doctorName' : 'Occupied • Admitted')
-                          : status == BedStatus.available
-                              ? 'Available • Ready for intake'
-                              : status == BedStatus.reserved
-                                  ? 'Reserved • Awaiting patient'
-                                  : status == BedStatus.cleaning
-                                      ? 'Sanitizing / Cleaning'
-                                      : 'Under Maintenance',
-=======
                           ? (doctorName.isNotEmpty ? 'Dr. $doctorName' : 'Admitted')
                           : status == BedStatus.available
                               ? 'Ready for intake'
@@ -809,18 +799,12 @@ class _InteractiveWardBedGridState extends State<InteractiveWardBedGrid> {
                                   : status == BedStatus.cleaning
                                       ? 'Sanitizing'
                                       : 'Under repair',
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 10,
-<<<<<<< HEAD
-                        fontWeight: FontWeight.w600,
-                        color: status.primaryColor.withValues(alpha: 0.95),
-=======
                         fontWeight: FontWeight.w500,
                         color: status.primaryColor.withValues(alpha: 0.9),
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                       ),
                     ),
                   ),
