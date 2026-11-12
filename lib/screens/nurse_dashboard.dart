@@ -31,6 +31,8 @@ import '../config/nurse_nav_config.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 import '../providers/language_provider.dart';
+import '../services/api_service.dart';
+import '../config/api_config.dart';
 
 class NurseDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -89,6 +91,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   bool _isLoadingShiftStatus = false;
   List<Map<String, dynamic>> _handovers = [];
   List<Map<String, dynamic>> _liveNotifications = [];
+  List<Map<String, dynamic>> _activeIcuAlerts = [];
   final LanguageProvider _englishOnlyProvider = LanguageProvider();
 
   @override
@@ -165,6 +168,24 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     }
   }
 
+  Future<void> _fetchIcuAlerts() async {
+    try {
+      final res = await ApiService.get('${ApiEndpoints.baseUrl}/ipd/icu/dashboard');
+      if (res.statusCode == 200) {
+        final body = ApiService.decodeJsonResponse(res);
+        if (body['success'] == true && body['data'] is List) {
+          if (mounted) {
+            setState(() {
+              _activeIcuAlerts = List<Map<String, dynamic>>.from(body['data']);
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching ICU dashboard alerts: $e');
+    }
+  }
+
   Future<void> _fetchData() async {
     await Future.wait([
       _fetchPatients(),
@@ -173,6 +194,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       _fetchHandovers(),
       _fetchDashboardStats(),
       _fetchNotifications(),
+      _fetchIcuAlerts(),
     ]);
   }
 
@@ -1528,6 +1550,92 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
     // Build LIVE alerts list only
     final List<Widget> liveAlertWidgets = [];
+
+    // 0. Live Critical ICU Alerts
+    for (final alert in _activeIcuAlerts) {
+      final alertId = alert['id'];
+      final patientName = alert['patient_name'] ?? 'ICU Patient';
+      final bedNum = alert['bed_number'] ?? '--';
+      final alertMsg = alert['alert_message'] ?? alert['alert_type'] ?? 'Critical Alert';
+
+      liveAlertWidgets.add(
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.red.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: const Border(left: BorderSide(color: Colors.red, width: 3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CRITICAL ICU ALERT: $patientName (Bed $bedNum)',
+                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      alertMsg,
+                      style: TextStyle(color: Colors.red.shade900, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (alertId != null)
+                SizedBox(
+                  height: 32,
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      try {
+                        final res = await ApiService.post('${ApiEndpoints.baseUrl}/ipd/icu-alerts/$alertId/resolve', {});
+                        if (res.statusCode == 200) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('ICU Alert resolved successfully'), backgroundColor: Colors.green),
+                            );
+                          }
+                          _fetchData();
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error resolving alert: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.check, size: 15, color: Colors.white),
+                    label: const Text(
+                      'Resolve',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
 
     // 1. Live Active Shift Alert (Applicable only for IPD)
     if (_activeShiftData != null) {

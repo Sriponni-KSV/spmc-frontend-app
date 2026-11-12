@@ -70,8 +70,13 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
   /// Evaluates which time slots are scheduled based on frequency
   bool _isSlotScheduled(String frequency, String slotKey) {
     final f = frequency.toUpperCase().trim();
-    if (f.contains('STAT') || f.contains('PRN') || f.contains('SOS')) {
-      return true; // Available on demand
+    if (f.contains('STAT') ||
+        f.contains('PRN') ||
+        f.contains('SOS') ||
+        f.contains('AS PRESCRIBED') ||
+        f.contains('AS DIRECTED') ||
+        f.contains('AS NEEDED')) {
+      return true; // Available on demand across all slots
     }
     if (f.contains('QID') || f.contains('4 TIMES') || f.contains('1-1-1-1')) {
       return true; // All 4 slots

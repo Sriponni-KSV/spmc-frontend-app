@@ -5,6 +5,9 @@ import '../utils/app_theme.dart';
 import '../utils/date_formatter.dart';
 import '../models/appointment_model.dart';
 import '../controllers/appointment_controller.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import 'billing_receipt_dialog.dart';
 
 class AppointmentDetailsDialog extends StatefulWidget {
   final AppointmentModel appointment;
@@ -495,6 +498,31 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
                       ],
                     ),
                   ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildInfoItem(
+                  'Consultation Fee',
+                  widget.appointment.isFollowup
+                      ? '₹0.00 (Free Follow-up)'
+                      : '₹${(widget.appointment.consultationFee ?? 300).toStringAsFixed(2)}',
+                  icon: Icons.payments_outlined,
+                ),
+              ),
+              Expanded(
+                child: _buildInfoItem(
+                  'OP Billing & Status',
+                  widget.appointment.opInvoiceNumber != null
+                      ? '${widget.appointment.opInvoiceNumber} • ${widget.appointment.billingPaymentStatus ?? "Unpaid"}'
+                      : (widget.appointment.isFollowup
+                          ? 'Settled (Free Follow-up)'
+                          : (widget.appointment.billingPaymentStatus ?? 'Pending Payment')),
+                  icon: Icons.receipt_long_outlined,
                 ),
               ),
             ],
@@ -1303,6 +1331,39 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
+              widget.appointment.id != null && widget.appointment.status != 'Cancelled') ...[
+            ElevatedButton.icon(
+              onPressed: () {
+                BillingReceiptDialog.show(
+                  context,
+                  appointmentId: widget.appointment.id,
+                  onPaymentSuccess: widget.onRefresh,
+                );
+              },
+              icon: Icon(
+                (widget.appointment.billingPaymentStatus == 'Paid' || widget.appointment.consultationFee == 0)
+                    ? Icons.receipt_long
+                    : Icons.payment,
+                size: 16,
+              ),
+              label: Text(
+                (widget.appointment.billingPaymentStatus == 'Paid' || widget.appointment.consultationFee == 0)
+                    ? 'Receipt'
+                    : 'Collect Fee',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: (widget.appointment.billingPaymentStatus == 'Paid' || widget.appointment.consultationFee == 0)
+                    ? const Color(0xFF16A34A)
+                    : const Color(0xFFD97706),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
           TextButton(
             onPressed: () => Navigator.pop(context),
             style: TextButton.styleFrom(

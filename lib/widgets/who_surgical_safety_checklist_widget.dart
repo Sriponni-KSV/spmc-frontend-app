@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
+import '../utils/app_notification.dart';
 import '../screens/ot_management.dart';
 import '../controllers/ot_controller.dart';
 
@@ -74,6 +75,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
 
       setState(() {
         _checklist = Map<String, dynamic>.from(updatedCase.whoChecklist);
+        widget.otCase.whoChecklist = updatedCase.whoChecklist;
+        widget.otCase.auditLogs = updatedCase.auditLogs;
       });
 
       if (widget.onChecklistUpdated != null) {
@@ -81,28 +84,18 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Text('WHO Checklist [${_getStageTitle(stage)}] verified and recorded successfully.'),
-              ],
-            ),
-            backgroundColor: AppTheme.secondaryColor,
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppNotification.showSuccess(
+          context,
+          'WHO Checklist [${_getStageTitle(stage)}] verified and recorded successfully.',
+          atTop: true,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error saving checklist: $e'),
-            backgroundColor: AppTheme.dangerColor,
-            behavior: SnackBarBehavior.floating,
-          ),
+        AppNotification.showError(
+          context,
+          'Error saving checklist: $e',
+          atTop: true,
         );
       }
     } finally {
@@ -748,31 +741,34 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
+      child: Material(
         color: value ? AppTheme.primaryColor.withOpacity(0.03) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: value ? AppTheme.primaryColor.withOpacity(0.3) : AppTheme.borderColor,
-        ),
-      ),
-      child: CheckboxListTile(
-        value: value,
-        onChanged: (val) => onChanged(val ?? false),
-        activeColor: AppTheme.primaryColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        controlAffinity: ListTileControlAffinity.leading,
-        contentPadding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 8 : 12, vertical: 2),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: widget.isMobile ? 12 : 13,
-            fontWeight: FontWeight.w600,
-            color: value ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(
+            color: value ? AppTheme.primaryColor.withOpacity(0.3) : AppTheme.borderColor,
           ),
         ),
-        subtitle: Text(
-          subtitle,
-          style: TextStyle(fontSize: widget.isMobile ? 10 : 11, color: AppTheme.textSecondaryColor),
+        clipBehavior: Clip.antiAlias,
+        child: CheckboxListTile(
+          value: value,
+          onChanged: (val) => onChanged(val ?? false),
+          activeColor: AppTheme.primaryColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 8 : 12, vertical: 2),
+          title: Text(
+            title,
+            style: TextStyle(
+              fontSize: widget.isMobile ? 12 : 13,
+              fontWeight: FontWeight.w600,
+              color: value ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+            ),
+          ),
+          subtitle: Text(
+            subtitle,
+            style: TextStyle(fontSize: widget.isMobile ? 10 : 11, color: AppTheme.textSecondaryColor),
+          ),
         ),
       ),
     );
@@ -783,39 +779,105 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
     required Map<String, dynamic> currentData,
     required bool allRequiredChecked,
   }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: ElevatedButton.icon(
-        onPressed: _isSaving
-            ? null
-            : () {
-                currentData['is_completed'] = allRequiredChecked;
-                _saveStage(stageKey, currentData);
-              },
-        icon: _isSaving
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-              )
-            : Icon(
-                allRequiredChecked ? Icons.check_circle : Icons.save_outlined,
-                size: 18,
-              ),
-        label: Text(
-          allRequiredChecked
-              ? 'Complete & Sign Off Stage'
-              : 'Save Progress (Items Incomplete)',
-          style: TextStyle(fontSize: widget.isMobile ? 13 : 14, fontWeight: FontWeight.bold),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!allRequiredChecked) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF2F2),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.dangerColor.withOpacity(0.4)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, color: AppTheme.dangerColor, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'All mandatory checklist items must be checked before verification.',
+                    style: TextStyle(
+                      fontSize: widget.isMobile ? 11.5 : 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.dangerColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton.icon(
+            onPressed: _isSaving
+                ? null
+                : () {
+                    if (!allRequiredChecked) {
+                      AppNotification.showError(
+                        context,
+                        'All mandatory checklist items must be checked before verification.',
+                        atTop: true,
+                      );
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          title: const Row(
+                            children: [
+                              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+                              SizedBox(width: 10),
+                              Text('Validation Error', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            ],
+                          ),
+                          content: const Text(
+                            'All mandatory checklist items must be checked before verification.',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          actions: [
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.primaryColor,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              child: const Text('OK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      );
+                      return;
+                    }
+                    currentData['is_completed'] = true;
+                    _saveStage(stageKey, currentData);
+                  },
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : Icon(
+                    allRequiredChecked ? Icons.check_circle : Icons.warning_amber_rounded,
+                    size: 18,
+                  ),
+            label: Text(
+              'Verify & Submit Stage',
+              style: TextStyle(fontSize: widget.isMobile ? 13 : 14, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: allRequiredChecked ? AppTheme.secondaryColor : const Color(0xFFF59E0B),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
+          ),
         ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: allRequiredChecked ? AppTheme.secondaryColor : AppTheme.primaryColor,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          elevation: 0,
-        ),
-      ),
+      ],
     );
   }
 }

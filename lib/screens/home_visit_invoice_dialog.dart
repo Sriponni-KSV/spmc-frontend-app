@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../models/home_visit_model.dart';
-import '../utils/app_localizations.dart';
-import '../utils/tamil_transliteration_helper.dart';
 import '../utils/modal_history_helper.dart';
 import '../utils/app_notification.dart';
 import '../services/home_visit_service.dart';
 import '../controllers/home_visit_controller.dart';
+import '../controllers/billing_controller.dart';
+import '../utils/receipt_printer.dart';
 
 class HomeVisitInvoiceDialog extends StatefulWidget {
   final Map<String, dynamic> invoiceData;
@@ -29,6 +30,14 @@ class HomeVisitInvoiceDialog extends StatefulWidget {
 class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
   late Map<String, dynamic> _invoiceData;
   bool _isUpdatingFee = false;
+  bool _isSyncing = false;
+  bool _showPaymentForm = false;
+  bool _isSubmittingPayment = false;
+  String _payMode = 'Cash';
+
+  final TextEditingController _collectAmtCtrl = TextEditingController();
+  final TextEditingController _collectRefCtrl = TextEditingController();
+  final TextEditingController _discountCtrl = TextEditingController(text: '0');
 
   @override
   void initState() {
@@ -36,113 +45,42 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
     _invoiceData = Map<String, dynamic>.from(widget.invoiceData);
   }
 
-  String _getTranslatedStatus(BuildContext context, String status) {
+  @override
+  void dispose() {
+    _collectAmtCtrl.dispose();
+    _collectRefCtrl.dispose();
+    _discountCtrl.dispose();
+    super.dispose();
+  }
+
+  String _getStatusText(String status) {
     final s = status.toLowerCase().trim();
-    if (s == 'paid') return context.tr('paid', fallback: 'Paid');
-    if (s == 'unpaid') return context.tr('unpaid', fallback: 'Unpaid');
-    if (s == 'pending') return context.tr('pending', fallback: 'Pending');
+    if (s == 'paid') return 'Paid';
+    if (s == 'unpaid') return 'Unpaid';
+    if (s == 'pending') return 'Pending';
+    if (s == 'partially paid') return 'Partially Paid';
     return status;
   }
 
-  String _translateFrequency(String freq) {
-    final lower = freq.toLowerCase().trim();
-    if (lower == 'once daily' || lower == '1 time daily' || lower == '1 - 0 - 0' || lower == 'od') {
-      return 'தினமும் ஒரு முறை (Once Daily)';
-    }
-    if (lower == 'twice daily' || lower == '2 times daily' || lower == '1 - 0 - 1' || lower == 'bd') {
-      return 'தினமும் இரு முறை (Twice Daily)';
-    }
-    if (lower == 'three times daily' || lower == '3 times daily' || lower == '1 - 1 - 1' || lower == 'tds') {
-      return 'தினமும் மூன்று முறை (TDS)';
-    }
-    if (lower == 'four times daily' || lower == 'qid') {
-      return 'தினமும் 4 முறை (QID)';
-    }
-    if (lower == 'as needed' || lower == 'sos') {
-      return 'தேவைப்படும் போது (SOS)';
-    }
-    if (lower == 'stat' || lower == 'immediately') {
-      return 'உடனடியாக (STAT)';
-    }
-    return freq;
-  }
-
-  String _translateItemName(BuildContext context, String name) {
-    if (Localizations.localeOf(context).languageCode != 'ta') {
-      return name;
-    }
-    final trimmed = name.trim();
-    final lower = trimmed.toLowerCase();
-
-    // 1. Home visit base consultation & nursing care fee
-    if (lower.contains('home visit consultation') ||
-        (lower.contains('basic nursing care') && lower.contains('fee')) ||
-        lower == 'home visit consultation & basic nursing care fee') {
-      return 'வீட்டுப் பராமரிப்பு ஆலோசனை & அடிப்படை செவிலியர் கட்டணம் (Home Visit Fee)';
-    }
-
-    // 2. Nail Trimming & Hygiene Care Activity
-    if (lower.contains('nail trimming')) {
-      return 'நகங்கள் வெட்டுதல் & சுகாதார பராமரிப்பு (Nail Trimming & Hygiene Care)';
-    }
-
-    // 3. Dressing Procedure with details
-    if (lower.startsWith('dressing procedure')) {
-      final parenMatch = RegExp(r'dressing procedure\s*(\(.*\))?', caseSensitive: false).firstMatch(trimmed);
-      if (parenMatch != null && parenMatch.group(1) != null) {
-        return 'கட்டு கட்டும் செயல்முறை ${parenMatch.group(1)}';
-      }
-      return 'கட்டு கட்டும் செயல்முறை (Dressing Procedure)';
-    }
-
-    // 4. Procedure: <Proc Name> (<Frequency>)
-    if (lower.startsWith('procedure:')) {
-      final content = trimmed.substring('procedure:'.length).trim();
-      final match = RegExp(r'^(.*?)(?:\s*\((.*?)\))?$').firstMatch(content);
-      if (match != null) {
-        final rawProcName = match.group(1)?.trim() ?? content;
-        final rawFreq = match.group(2)?.trim();
-        final translatedProc = context.translateProcedure(rawProcName);
-        if (rawFreq != null && rawFreq.isNotEmpty) {
-          final translatedFreq = _translateFrequency(rawFreq);
-          return 'செயல்முறை: $translatedProc ($translatedFreq)';
+  String _cleanEnglishItemName(String name) {
+    if (name.trim().isEmpty) return name;
+    final parenMatch = RegExp(r'\(([^)]+)\)').firstMatch(name);
+    if (parenMatch != null) {
+      final insideParen = parenMatch.group(1)!.trim();
+      if (RegExp(r'[a-zA-Z]').hasMatch(insideParen) && !RegExp(r'[\u0B80-\u0BFF]').hasMatch(insideParen)) {
+        if (RegExp(r'[\u0B80-\u0BFF]').hasMatch(name)) {
+          final prefix = name.contains(':') ? '${name.split(':').first}: ' : '';
+          return '$prefix$insideParen';
         }
-        return 'செயல்முறை: $translatedProc';
       }
-      return 'செயல்முறை: ${context.translateProcedure(content)}';
     }
-
-    // 5. Medicine: <Med Name> (<Dosage>)
-    if (lower.startsWith('medicine:')) {
-      final content = trimmed.substring('medicine:'.length).trim();
-      final match = RegExp(r'^(.*?)(?:\s*\((.*?)\))?$').firstMatch(content);
-      if (match != null) {
-        final rawMedName = match.group(1)?.trim() ?? content;
-        final rawDosage = match.group(2)?.trim();
-        final translatedMed = context.translateMedicine(rawMedName);
-        if (rawDosage != null && rawDosage.isNotEmpty) {
-          return 'மருந்து: $translatedMed ($rawDosage)';
-        }
-        return 'மருந்து: $translatedMed';
+    if (RegExp(r'[\u0B80-\u0BFF]').hasMatch(name)) {
+      final stripped = name.replaceAll(RegExp(r'[\u0B80-\u0BFF]'), '').trim();
+      if (stripped.isNotEmpty && RegExp(r'[a-zA-Z]').hasMatch(stripped)) {
+        return stripped.replaceAll(RegExp(r'^[^\w]+|[^\w)]+$'), '').trim();
       }
-      return 'மருந்து: ${context.translateMedicine(content)}';
     }
-
-    // 6. Consumable: <Item Name>
-    if (lower.startsWith('consumable:')) {
-      final content = trimmed.substring('consumable:'.length).trim();
-      return 'உபயோகப் பொருள்: ${context.translateConsumable(content)}';
-    }
-
-    // 7. General Fallbacks
-    final cName = context.translateConsumable(trimmed);
-    if (cName != trimmed) return cName;
-    final pName = context.translateProcedure(trimmed);
-    if (pName != trimmed) return pName;
-    final mName = context.translateMedicine(trimmed);
-    if (mName != trimmed) return mName;
-
-    return trimmed;
+    return name;
   }
 
   bool _isConsultationFeeItem(String itemName) {
@@ -176,9 +114,9 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                editCtx.tr('edit_consultation_fee', fallback: 'Edit Consultation Fee'),
-                style: const TextStyle(
+              child: const Text(
+                'Edit Consultation Fee',
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.primaryColor,
@@ -193,9 +131,9 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                editCtx.tr('consultation_fee_label', fallback: 'Home Visit Consultation & Basic Nursing Care Fee'),
-                style: const TextStyle(fontSize: 13, color: Colors.black87),
+              const Text(
+                'Home Visit Consultation & Basic Nursing Care Fee',
+                style: TextStyle(fontSize: 13, color: Colors.black87),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -206,7 +144,7 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
                   FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
                 ],
                 decoration: InputDecoration(
-                  labelText: editCtx.tr('fee_amount_label', fallback: 'Fee Amount (₹)'),
+                  labelText: 'Fee Amount (₹)',
                   prefixIcon: const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Center(
@@ -229,11 +167,11 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
                 ),
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
-                    return editCtx.tr('fee_required', fallback: 'Please enter consultation fee');
+                    return 'Please enter consultation fee';
                   }
                   final parsed = double.tryParse(val.trim());
                   if (parsed == null || parsed < 0 || parsed > 50000) {
-                    return editCtx.tr('enter_valid_fee', fallback: 'Please enter a valid amount (₹0 - ₹50,000)');
+                    return 'Please enter a valid amount (₹0 - ₹50,000)';
                   }
                   return null;
                 },
@@ -244,7 +182,7 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(editCtx).pop(),
-            child: Text(editCtx.tr('cancel', fallback: 'Cancel')),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             style: AppTheme.primaryButton,
@@ -268,7 +206,7 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
                 } catch (_) {}
                 AppNotification.showSuccess(
                   this.context,
-                  this.context.tr('fee_updated_success', fallback: 'Consultation fee updated successfully'),
+                  'Consultation fee updated successfully',
                 );
               } catch (e) {
                 if (!mounted) return;
@@ -279,398 +217,866 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
                 );
               }
             },
-            child: Text(editCtx.tr('save', fallback: 'Save')),
+            child: const Text('Save'),
           ),
         ],
       ),
     );
   }
 
+  Future<void> _syncBillItems() async {
+    setState(() => _isSyncing = true);
+    try {
+      final updatedData = await HomeVisitService().generateInvoice(
+        widget.visit.id,
+        forceRegenerate: true,
+      );
+      if (!mounted) return;
+      setState(() {
+        _invoiceData = Map<String, dynamic>.from(updatedData);
+        _isSyncing = false;
+      });
+      try {
+        final ctrl = Provider.of<HomeVisitController>(context, listen: false);
+        ctrl.fetchVisitDetails(widget.visit.id);
+        ctrl.fetchVisits();
+      } catch (_) {}
+      AppNotification.showSuccess(
+        context,
+        'Invoice synchronized with latest visit care records!',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSyncing = false);
+      AppNotification.showError(
+        context,
+        e.toString().replaceAll('Exception: ', ''),
+      );
+    }
+  }
+
+  Future<void> _submitPaymentRecord(int invoiceId, double balanceDue) async {
+    final amtText = _collectAmtCtrl.text.trim();
+    final double? amt = double.tryParse(amtText);
+    if (amt == null || amt <= 0) {
+      AppNotification.showError(context, 'Please enter a valid payment amount greater than zero');
+      return;
+    }
+    final double disc = double.tryParse(_discountCtrl.text.trim()) ?? 0.0;
+
+    setState(() => _isSubmittingPayment = true);
+    try {
+      await BillingController().recordPayment(
+        invoiceId: invoiceId,
+        amount: amt,
+        paymentMode: _payMode,
+        transactionReference: _collectRefCtrl.text.trim(),
+        discount: disc > 0 ? disc : null,
+      );
+
+      // Reload fresh invoice details
+      final refreshed = await HomeVisitService().getInvoiceForVisit(widget.visit.id);
+      if (!mounted) return;
+      setState(() {
+        _invoiceData = Map<String, dynamic>.from(refreshed);
+        _showPaymentForm = false;
+        _isSubmittingPayment = false;
+        _collectAmtCtrl.clear();
+        _collectRefCtrl.clear();
+        _discountCtrl.text = '0';
+      });
+
+      try {
+        final ctrl = Provider.of<HomeVisitController>(context, listen: false);
+        ctrl.fetchVisitDetails(widget.visit.id);
+        ctrl.fetchVisits();
+      } catch (_) {}
+
+      AppNotification.showSuccess(
+        context,
+        'Payment recorded and invoice updated successfully!',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSubmittingPayment = false);
+      AppNotification.showError(
+        context,
+        e.toString().replaceAll('Exception: ', ''),
+      );
+    }
+  }
+
+  void _showPrintReceiptSheet(
+    BuildContext context,
+    Map<String, dynamic> invoice,
+    List<dynamic> items,
+    double netAmount,
+    double paidAmount,
+    double balanceDue,
+  ) {
+    final dateStr = invoice['created_at'] != null
+        ? DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.parse(invoice['created_at']).toLocal())
+        : DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.now());
+
+    showDialog(
+      context: context,
+      builder: (pCtx) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          titlePadding: const EdgeInsets.fromLTRB(20, 16, 16, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.print, color: AppTheme.primaryColor),
+                  SizedBox(width: 8),
+                  Text('Print Bill & Official Receipt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
+                ],
+              ),
+              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(pCtx)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Container(
+              width: 520,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(10),
+                color: Colors.white,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Hospital Header with Logo
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Image.asset(
+                          'assets/image/full_logo.png',
+                          height: 48,
+                          width: 80,
+                          fit: BoxFit.contain,
+                          errorBuilder: (ctx, err, stack) => Image.asset(
+                            'assets/image/sriPonniLogo.png',
+                            height: 48,
+                            width: 48,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'SRI PONNI MEDICAL CENTRE',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5, color: AppTheme.primaryColor),
+                            ),
+                            SizedBox(height: 2),
+                            Text('Home Health Care & Nursing Division', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.black87)),
+                            SizedBox(height: 2),
+                            Text('Trichy Main Road, Namakkal, Tamil Nadu - 637001', style: TextStyle(fontSize: 10, color: Colors.black54)),
+                            Text('Phone: +91 98427 34567 | GSTIN: 33AAAAA0000A1Z5', style: TextStyle(fontSize: 10, color: Colors.black54)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 20, thickness: 1.2),
+                  // Bill Metadata
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Invoice: ${invoice['invoice_number'] ?? 'INV-HV'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                      Text('Date: $dateStr', style: TextStyle(color: Colors.grey.shade600, fontSize: 11.5)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Patient: ${widget.visit.patientName ?? "N/A"} (${widget.visit.patientDisplayId ?? "ID"})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5)),
+                  const SizedBox(height: 2),
+                  Text('Address: ${widget.visit.visitAddress ?? "Patient Residence"}', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700)),
+                  const SizedBox(height: 2),
+                  Text('Attender: ${widget.visit.attenderName ?? "Attender"} (${widget.visit.attenderRelation ?? "Family"})', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700)),
+                  const Divider(height: 18),
+
+                  // Items Table
+                  const Row(
+                    children: [
+                      Expanded(flex: 5, child: Text('Service / Item', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                      Expanded(flex: 2, child: Text('Qty', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                      Expanded(flex: 3, child: Text('Rate (₹)', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                      Expanded(flex: 3, child: Text('Subtotal (₹)', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Divider(height: 1, thickness: 1),
+                  const SizedBox(height: 6),
+                  ...items.map((it) {
+                    final qty = it['quantity'] as int? ?? 1;
+                    final price = double.tryParse((it['unit_price'] ?? 0).toString()) ?? 0.0;
+                    final sub = it['subtotal'] != null
+                        ? double.tryParse(it['subtotal'].toString()) ?? (qty * price)
+                        : (qty * price);
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3.0),
+                      child: Row(
+                        children: [
+                          Expanded(flex: 5, child: Text(_cleanEnglishItemName(it['item_name'] ?? ''), style: const TextStyle(fontSize: 11.5))),
+                          Expanded(flex: 2, child: Text('$qty', textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5))),
+                          Expanded(flex: 3, child: Text(price.toStringAsFixed(2), textAlign: TextAlign.right, style: const TextStyle(fontSize: 11.5))),
+                          Expanded(flex: 3, child: Text(sub.toStringAsFixed(2), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5))),
+                        ],
+                      ),
+                    );
+                  }),
+                  const Divider(height: 20),
+
+                  // Summary Totals
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Bill Amount:', style: TextStyle(fontSize: 12.5)),
+                      Text('₹${(double.tryParse((invoice['total_amount'] ?? 0).toString()) ?? netAmount).toStringAsFixed(2)}', style: const TextStyle(fontSize: 12.5)),
+                    ],
+                  ),
+                  if ((double.tryParse((invoice['discount'] ?? 0).toString()) ?? 0.0) > 0) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Discount:', style: TextStyle(fontSize: 12.5, color: Colors.red)),
+                        Text('- ₹${double.parse((invoice['discount'] ?? 0).toString()).toStringAsFixed(2)}', style: const TextStyle(fontSize: 12.5, color: Colors.red)),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Net Amount Due:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                      Text('₹${netAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryColor)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Amount Paid:', style: TextStyle(fontSize: 12.5, color: Colors.green)),
+                      Text('₹${paidAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.green)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Balance Due:', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                      Text('₹${balanceDue.toStringAsFixed(2)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: balanceDue > 0 ? Colors.red : Colors.green)),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Payment Status: ${invoice['payment_status'] ?? 'Unpaid'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      Text('Authorized Signatory', style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.pop(pCtx),
+              style: AppTheme.cancelButton,
+              child: const Text('Back'),
+            ),
+            ElevatedButton.icon(
+              style: AppTheme.primaryButton,
+              icon: const Icon(Icons.print, size: 16),
+              label: const Text('Send to Printer'),
+              onPressed: () {
+                Navigator.pop(pCtx);
+                printHospitalReceipt(
+                  context: context,
+                  invoice: {
+                    ...invoice,
+                    'patient_name': widget.visit.patientName,
+                    'patient_display_id': widget.visit.patientDisplayId,
+                    'patient_phone': widget.visit.patientPhone,
+                    'admission_type': 'Home Visit (${widget.visit.visitNumber ?? 'HV'})',
+                    'nurse_name': widget.visit.nurseName,
+                    'home_visit_number': widget.visit.visitNumber,
+                  },
+                  items: items,
+                  payments: const [],
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isTamil = Localizations.localeOf(context).languageCode == 'ta';
     final Map<String, dynamic> invoice = (_invoiceData['invoice'] is Map)
         ? Map<String, dynamic>.from(_invoiceData['invoice'])
         : Map<String, dynamic>.from(_invoiceData);
     final List<dynamic> items = (invoice['items'] as List<dynamic>?) ??
         (_invoiceData['items'] as List<dynamic>?) ??
         [];
+    final int? invoiceId = invoice['id'] as int?;
     final String invoiceNumber = invoice['invoice_number'] ?? 'INV-HV-0000';
+
     final double totalAmount = (invoice['total_amount'] != null)
         ? double.tryParse(invoice['total_amount'].toString()) ?? 0.0
         : items.fold<double>(0.0, (acc, item) {
             final st = item['subtotal'] ?? ((item['quantity'] ?? 1) * (item['unit_price'] ?? 0.0));
             return acc + (double.tryParse(st.toString()) ?? 0.0);
           });
-    final String status = invoice['payment_status'] ?? 'Unpaid';
+    final double discount = double.tryParse((invoice['discount'] ?? 0).toString()) ?? 0.0;
+    final double netAmount = (invoice['net_amount'] != null)
+        ? double.tryParse(invoice['net_amount'].toString()) ?? (totalAmount - discount)
+        : (totalAmount - discount);
+    final double paidAmount = double.tryParse((invoice['paid_amount'] ?? 0).toString()) ?? 0.0;
+    final double balanceDue = (netAmount - paidAmount) > 0 ? (netAmount - paidAmount) : 0.0;
+    final String status = invoice['payment_status'] ?? (paidAmount >= netAmount && netAmount > 0 ? 'Paid' : 'Unpaid');
+    final bool isFullyPaid = status == 'Paid' || status == 'Settled' || balanceDue <= 0;
 
-    final patientDisplayName = TamilTransliterationHelper.formatName(
-      widget.visit.patientName ?? 'N/A',
-      isTamil: isTamil,
-    );
-    final attenderDisplayName = TamilTransliterationHelper.formatName(
-      widget.visit.attenderName ?? 'Attender',
-      isTamil: isTamil,
-    );
-    final nurseDisplayName = TamilTransliterationHelper.formatName(
-      widget.visit.nurseName ?? 'Nurse',
-      isTamil: isTamil,
-    );
+    final patientDisplayName = widget.visit.patientName ?? 'N/A';
+    final attenderDisplayName = widget.visit.attenderName ?? 'Attender';
+    final nurseDisplayName = widget.visit.nurseName ?? 'Nurse';
 
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
-      insetPadding: EdgeInsets.all(isMobile ? 12.0 : 24.0),
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: 650,
-          maxHeight: MediaQuery.of(context).size.height * 0.88,
-        ),
-        padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.receipt_long, color: AppTheme.primaryColor, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        context.tr('home_visit_billing_invoice', fallback: 'Home Visit Billing Invoice'),
-                        style: TextStyle(
-                          fontSize: isMobile ? 15 : 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
-                          fontFamily: 'Inter',
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${context.tr('invoice_num_label', fallback: 'Invoice #:')} $invoiceNumber',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                          fontFamily: 'Inter',
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    _getTranslatedStatus(context, status),
-                    style: const TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF92400E),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Divider(height: isMobile ? 24 : 32),
-
-            // Patient & Attender Summary Card
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Column(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.0)),
+        insetPadding: EdgeInsets.all(isMobile ? 12.0 : 20.0),
+        child: Container(
+          constraints: BoxConstraints(
+            maxWidth: 680,
+            maxHeight: MediaQuery.of(context).size.height * 0.90,
+          ),
+          padding: EdgeInsets.all(isMobile ? 14.0 : 20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(child: _infoColumn(context.tr('patient_name_label', fallback: 'Patient Name'), patientDisplayName)),
-                      Expanded(child: _infoColumn(context.tr('patient_id_label', fallback: 'Patient ID'), widget.visit.patientDisplayId ?? 'N/A')),
-                      Expanded(child: _infoColumn(context.tr('scheduled_date_label', fallback: 'Scheduled Date'), widget.visit.scheduledDate)),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.receipt_long, color: AppTheme.primaryColor, size: 24),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(child: _infoColumn(context.tr('verified_attender_label', fallback: 'Verified Attender'), attenderDisplayName)),
-                      Expanded(child: _infoColumn(context.tr('attender_relation_label', fallback: 'Attender Relation'), widget.visit.attenderRelation ?? 'Attender')),
-                      Expanded(child: _infoColumn(context.tr('assigned_nurse_label', fallback: 'Assigned Nurse'), nurseDisplayName)),
-                    ],
-                  ),
-                  if ((widget.visit.feedback != null && widget.visit.feedback!.trim().isNotEmpty) ||
-                      (_invoiceData['visit'] is Map && _invoiceData['visit']['feedback'] != null && _invoiceData['visit']['feedback'].toString().trim().isNotEmpty)) ...[
-                    const SizedBox(height: 12),
-                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                    const SizedBox(height: 10),
-                    Row(
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.record_voice_over_outlined, size: 16, color: AppTheme.primaryColor),
-                        const SizedBox(width: 8),
+                        Text(
+                          'Home Visit Billing & Invoice',
+                          style: TextStyle(
+                            fontSize: isMobile ? 15 : 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                            fontFamily: 'Inter',
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Invoice #: $invoiceNumber',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                            fontFamily: 'Inter',
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Sync Button
+                  Tooltip(
+                    message: 'Synchronize bill with latest care entries',
+                    child: IconButton(
+                      icon: _isSyncing
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.sync, color: AppTheme.primaryColor, size: 22),
+                      onPressed: _isSyncing ? null : _syncBillItems,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Payment Status Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: isFullyPaid
+                          ? const Color(0xFFDCFCE7)
+                          : (paidAmount > 0 ? const Color(0xFFFEF3C7) : const Color(0xFFFEE2E2)),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      _getStatusText(status),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: isFullyPaid
+                            ? const Color(0xFF166534)
+                            : (paidAmount > 0 ? const Color(0xFF92400E) : const Color(0xFF991B1B)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Divider(height: isMobile ? 18 : 24),
+
+              // Patient & Attender Summary Card
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: _infoColumn('Patient Name', patientDisplayName)),
+                        Expanded(child: _infoColumn('Patient ID', widget.visit.patientDisplayId ?? 'N/A')),
+                        Expanded(child: _infoColumn('Scheduled Date', widget.visit.scheduledDate)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(child: _infoColumn('Verified Attender', attenderDisplayName)),
+                        Expanded(child: _infoColumn('Attender Relation', widget.visit.attenderRelation ?? 'Attender')),
+                        Expanded(child: _infoColumn('Assigned Nurse', nurseDisplayName)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Itemized Bill Section
+              const Text(
+                'Itemized Service Charges:',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              const SizedBox(height: 6),
+
+              // Items List
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Column(
+                    children: [
+                      // Table Header
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(9),
+                            topRight: Radius.circular(9),
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: Text(
+                                'Item / Service',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'Qty',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                'Unit Price',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                'Subtotal',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
+
+                      // Items rows
+                      Expanded(
+                        child: items.isEmpty
+                            ? const Center(child: Text('No items recorded', style: TextStyle(color: Colors.grey)))
+                            : ListView.separated(
+                                padding: EdgeInsets.zero,
+                                itemCount: items.length,
+                                separatorBuilder: (ctx, i) => const Divider(height: 1, thickness: 0.5, color: Color(0xFFF1F5F9)),
+                                itemBuilder: (ctx, i) {
+                                  final item = items[i];
+                                  final String itemName = item['item_name'] ?? 'Item';
+                                  final int qty = item['quantity'] != null ? int.tryParse(item['quantity'].toString()) ?? 1 : 1;
+                                  final double unitPrice = item['unit_price'] != null ? double.tryParse(item['unit_price'].toString()) ?? 0.0 : 0.0;
+                                  final double subtotal = item['subtotal'] != null ? double.tryParse(item['subtotal'].toString()) ?? 0.0 : (qty * unitPrice);
+                                  final isFeeItem = _isConsultationFeeItem(itemName);
+
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    color: isFeeItem ? AppTheme.primaryColor.withValues(alpha: 0.03) : null,
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          flex: 5,
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  _cleanEnglishItemName(itemName),
+                                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                                ),
+                                              ),
+                                              if (isFeeItem)
+                                                Tooltip(
+                                                  message: 'Edit Fee',
+                                                  child: InkWell(
+                                                    onTap: () => _showEditFeeDialog(context, unitPrice),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    child: Container(
+                                                      margin: const EdgeInsets.only(left: 6),
+                                                      padding: const EdgeInsets.all(4),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: const Icon(
+                                                        Icons.edit_outlined,
+                                                        size: 13,
+                                                        color: AppTheme.primaryColor,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          '$qty',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          '₹${unitPrice.toStringAsFixed(2)}',
+                                          textAlign: TextAlign.right,
+                                          style: const TextStyle(fontSize: 11.5),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          '₹${subtotal.toStringAsFixed(2)}',
+                                          textAlign: TextAlign.right,
+                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            // Financial Summary Row (Net, Paid, Balance)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F7FB),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.borderColor),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Net Bill Amount', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text('₹${netAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Paid Amount', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text('₹${paidAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.green)),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Balance Due', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(
+                          '₹${balanceDue.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: balanceDue > 0 ? Colors.redAccent : Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Expandable Collect Payment Form
+            if (_showPaymentForm && !isFullyPaid) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.secondaryColor.withValues(alpha: 0.5)),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 4, offset: const Offset(0, 2)),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Record Patient Payment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor)),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () => setState(() => _showPaymentForm = false),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                context.tr('visit_attender_feedback', fallback: 'Visit & Attender Feedback'),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryColor,
-                                ),
+                              _buildFormLabel('Amount to Collect (₹) *'),
+                              TextFormField(
+                                controller: _collectAmtCtrl,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                (widget.visit.feedback != null && widget.visit.feedback!.trim().isNotEmpty)
-                                    ? widget.visit.feedback!
-                                    : _invoiceData['visit']['feedback'].toString(),
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  color: Color(0xFF334155),
-                                  fontStyle: FontStyle.italic,
-                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildFormLabel('Discount (₹)'),
+                              TextFormField(
+                                controller: _discountCtrl,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                                onChanged: (val) {
+                                  final d = double.tryParse(val) ?? 0.0;
+                                  final rem = Math.max(0.0, balanceDue - d);
+                                  _collectAmtCtrl.text = rem.toStringAsFixed(0);
+                                },
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    _buildFormLabel('Payment Mode'),
+                    Row(
+                      children: ['Cash', 'Card', 'UPI', 'Insurance'].map((mode) {
+                        final sel = _payMode == mode;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6.0),
+                          child: ChoiceChip(
+                            label: Text(mode, style: const TextStyle(fontSize: 11)),
+                            selected: sel,
+                            selectedColor: AppTheme.primaryColor,
+                            labelStyle: TextStyle(color: sel ? Colors.white : Colors.black, fontWeight: FontWeight.bold),
+                            backgroundColor: Colors.grey.shade100,
+                            onSelected: (val) {
+                              if (val) setState(() => _payMode = mode);
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _collectRefCtrl,
+                            decoration: const InputDecoration(
+                              hintText: 'Txn Ref / Cheque # (Optional)',
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          style: AppTheme.secondaryButton.copyWith(
+                            padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+                          ),
+                          onPressed: _isSubmittingPayment
+                              ? null
+                              : () => _submitPaymentRecord(invoiceId ?? widget.visit.id, balanceDue),
+                          child: _isSubmittingPayment
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Text('Confirm Payment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        ),
+                      ],
+                    ),
                   ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Itemized Charges Header with Edit Fee Action Button
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  context.tr('itemized_service_care_charges', fallback: 'Itemized Service & Care Charges:'),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: AppTheme.primaryColor,
-                  ),
                 ),
-                TextButton.icon(
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.primaryColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  icon: const Icon(Icons.edit_outlined, size: 15),
-                  label: Text(
-                    context.tr('edit_consultation_fee', fallback: 'Edit Fee'),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+            ],
+            const SizedBox(height: 12),
+
+            // Bottom Actions Bar
+            Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                // Close Button
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF64748B),
+                    side: const BorderSide(color: Color(0xFFCBD5E1), width: 1.2),
+                    fixedSize: const Size.fromHeight(42),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   onPressed: () {
-                    double currentFee = 500.0;
-                    for (final it in items) {
-                      final itName = it['item_name']?.toString() ?? '';
-                      if (_isConsultationFeeItem(itName)) {
-                        currentFee = (it['unit_price'] != null)
-                            ? double.tryParse(it['unit_price'].toString()) ?? 500.0
-                            : 500.0;
-                        break;
-                      }
+                    ModalHistoryHelper.skipNextHistoryBack();
+                    Navigator.of(context).pop();
+                    if (widget.onCloseAndComplete != null) {
+                      widget.onCloseAndComplete!();
                     }
-                    _showEditFeeDialog(context, currentFee);
                   },
+                  child: const Text('Close'),
+                ),
+
+                // Collect Payment Trigger (if not paid)
+                if (!isFullyPaid && !_showPaymentForm)
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.secondaryColor,
+                      foregroundColor: Colors.white,
+                      fixedSize: const Size.fromHeight(42),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.payment, size: 17),
+                    label: const Text('Collect Payment'),
+                    onPressed: () {
+                      _collectAmtCtrl.text = balanceDue.toStringAsFixed(0);
+                      setState(() => _showPaymentForm = true);
+                    },
+                  ),
+
+                // Print Receipt Button (With primary background color on the right side)
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    fixedSize: const Size.fromHeight(42),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    elevation: 0,
+                  ),
+                  icon: const Icon(Icons.print, size: 17),
+                  label: const Text('Print Receipt'),
+                  onPressed: () => _showPrintReceiptSheet(context, invoice, items, netAmount, paidAmount, balanceDue),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-
-            // Itemized Items Table
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEDF2F7),
-                        borderRadius: BorderRadius.vertical(top: Radius.circular(9)),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(flex: 5, child: Text(context.tr('service_item_description', fallback: 'Service / Item Description'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                          Expanded(flex: 2, child: Text(context.tr('qty_label', fallback: 'Qty'), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                          Expanded(flex: 3, child: Text(context.tr('unit_price', fallback: 'Unit Price'), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                          Expanded(flex: 3, child: Text(context.tr('subtotal_header', fallback: 'Subtotal'), textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: items.length,
-                        separatorBuilder: (context, index) => const Divider(height: 1),
-                        itemBuilder: (context, idx) {
-                          final item = items[idx];
-                          final itemName = item['item_name']?.toString() ?? 'Item';
-                          final isFeeItem = _isConsultationFeeItem(itemName);
-                          final qty = item['quantity'] ?? 1;
-                          final unitPrice = (item['unit_price'] != null)
-                              ? double.tryParse(item['unit_price'].toString()) ?? 0.0
-                              : 0.0;
-                          final subtotal = (item['subtotal'] != null)
-                              ? double.tryParse(item['subtotal'].toString()) ?? 0.0
-                              : (qty * unitPrice);
-
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  flex: 5,
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          _translateItemName(context, itemName),
-                                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500),
-                                        ),
-                                      ),
-                                      if (isFeeItem)
-                                        Tooltip(
-                                          message: context.tr('edit_consultation_fee', fallback: 'Edit Fee'),
-                                          child: InkWell(
-                                            onTap: () => _showEditFeeDialog(context, unitPrice),
-                                            borderRadius: BorderRadius.circular(4),
-                                            child: Container(
-                                              margin: const EdgeInsets.only(left: 6),
-                                              padding: const EdgeInsets.all(4),
-                                              decoration: BoxDecoration(
-                                                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: const Icon(
-                                                Icons.edit_outlined,
-                                                size: 14,
-                                                color: AppTheme.primaryColor,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Text(
-                                    '$qty',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    '₹${unitPrice.toStringAsFixed(2)}',
-                                    textAlign: TextAlign.right,
-                                    style: const TextStyle(fontSize: 11.5),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Text(
-                                    '₹${subtotal.toStringAsFixed(2)}',
-                                    textAlign: TextAlign.right,
-                                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Total Amount Banner
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      context.tr('net_total_bill_amount', fallback: 'Net Total Bill Amount:'),
-                      style: TextStyle(
-                        fontSize: isMobile ? 14 : 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '₹${totalAmount.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: isMobile ? 18 : 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Dialog Close Button (52px high per Style Guide)
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                style: AppTheme.dangerButton,
-                onPressed: () {
-                  ModalHistoryHelper.skipNextHistoryBack();
-                  Navigator.of(context).pop();
-                  if (widget.onCloseAndComplete != null) {
-                    widget.onCloseAndComplete!();
-                  }
-                },
-                child: Text(context.tr('close_and_complete', fallback: 'Close & Complete'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFormLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4.0),
+      child: Text(label, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black87)),
     );
   }
 
@@ -685,9 +1091,14 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.black87),
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
   }
+}
+
+class Math {
+  static double max(double a, double b) => a > b ? a : b;
 }

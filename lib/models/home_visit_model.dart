@@ -441,6 +441,8 @@ class HomeVisitModel {
     );
   }
 
+  String? get phone => patientPhone;
+
   String get formattedScheduledDate {
     if (scheduledDate.isEmpty) return '';
     try {
@@ -494,7 +496,7 @@ class HomeVisitModel {
       patientId: json['patient_id'],
       patientName: json['patient_name'],
       patientDisplayId: json['patient_display_id'],
-      patientPhone: json['patient_phone'],
+      patientPhone: json['patient_phone']?.toString() ?? json['phone']?.toString(),
       patientAge: json['patient_age'],
       patientGender: json['patient_gender'],
       nurseId: json['nurse_id'],
@@ -551,10 +553,14 @@ class HomeVisitModel {
           ? json['invoice'] as Map<String, dynamic>
           : (json['invoice_number'] != null
               ? {
+                  'id': json['invoice_id'],
                   'invoice_number': json['invoice_number'],
                   'total_amount': json['invoice_total_amount'],
+                  'discount': json['invoice_discount'] ?? 0.0,
                   'net_amount': json['invoice_net_amount'],
+                  'paid_amount': json['invoice_paid_amount'] ?? 0.0,
                   'payment_status': json['invoice_payment_status'],
+                  'billing_status': json['invoice_billing_status'] ?? 'Open',
                 }
               : null),
       sessionStartTimes: json['session_start_times'] is Map<String, dynamic>

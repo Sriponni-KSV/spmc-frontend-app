@@ -545,12 +545,16 @@ class OtController {
       final List list = json['audit_logs'] is String 
           ? jsonDecode(json['audit_logs']) 
           : json['audit_logs'];
-      otCase.auditLogs = list.map((l) => AuditLog(
-        actorName: l['actorName'] ?? 'Unknown',
-        role: l['role'] ?? 'Staff',
-        timestamp: DateTime.parse(l['timestamp']).toLocal(),
-        action: l['action'] ?? '',
-      )).toList();
+      otCase.auditLogs = list.map((l) {
+        final rawTime = l['timestamp']?.toString();
+        final dt = rawTime != null ? DateTime.tryParse(rawTime) : null;
+        return AuditLog(
+          actorName: l['actorName'] ?? l['actor_name'] ?? l['userName'] ?? l['user'] ?? l['recorded_by'] ?? 'Staff',
+          role: l['role'] ?? 'Staff',
+          timestamp: (dt ?? DateTime.now()).toLocal(),
+          action: l['action'] ?? '',
+        );
+      }).toList();
     } else {
       otCase.auditLogs = [];
     }

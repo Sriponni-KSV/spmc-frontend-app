@@ -63,7 +63,7 @@ class AdminNavConfig {
   // -------------------------------------------------------------------------
 
   /// Access Control / RBAC (Visible)
-  static const bool showAccessControl = false;
+  static const bool showAccessControl = true;
 
   /// Appointments (Visible)
   static const bool showAppointments = true;
@@ -84,7 +84,7 @@ class AdminNavConfig {
   static const bool showIcuEmergency = false;
 
   /// Billing & Invoices (Visible)
-  static const bool showBillingInvoices = false;
+  static const bool showBillingInvoices = true;
 
   // =========================================================================
   // CATALOG SUB-ITEM VISIBILITY TOGGLES

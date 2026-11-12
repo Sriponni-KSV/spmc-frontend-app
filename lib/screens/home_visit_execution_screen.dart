@@ -12960,13 +12960,13 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
 
                               if (result != null && mounted) {
                                 _clearSignatureForm();
-                                final _ivLocale = Provider.of<LanguageProvider>(context, listen: false).locale;
+                                final ivLocale = Provider.of<LanguageProvider>(context, listen: false).locale;
                                 showDialog(
                                     context: context,
                                     barrierDismissible: false,
                                     builder: (dlgCtx) => Localizations.override(
                                       context: dlgCtx,
-                                      locale: _ivLocale,
+                                      locale: ivLocale,
                                       child: HomeVisitInvoiceDialog(
                                         invoiceData: result,
                                         visit: visit,
@@ -13305,12 +13305,12 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                     if (result != null && context.mounted) {
                                       ModalHistoryHelper.skipNextHistoryBack();
                                       Navigator.of(dialogCtx).pop();
-                                      final _ivLocale2 = Provider.of<LanguageProvider>(context, listen: false).locale;
+                                      final ivLocale2 = Provider.of<LanguageProvider>(context, listen: false).locale;
                                       showDialog(
                                         context: context,
                                         builder: (dlgCtx2) => Localizations.override(
                                           context: dlgCtx2,
-                                          locale: _ivLocale2,
+                                          locale: ivLocale2,
                                           child: HomeVisitInvoiceDialog(
                                             invoiceData: result,
                                             visit: visit,
@@ -15581,6 +15581,46 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     }
   }
 
+  Future<void> _generateAndShowInvoice(HomeVisitModel visit) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final res = await HomeVisitService().generateInvoice(visit.id);
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      if (res != null && mounted) {
+        final ivLocale3 = Provider.of<LanguageProvider>(context, listen: false).locale;
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dlgCtx) => Localizations.override(
+            context: dlgCtx,
+            locale: ivLocale3,
+            child: HomeVisitInvoiceDialog(
+              invoiceData: res,
+              visit: visit,
+              onCloseAndComplete: () {
+                _loadData();
+              },
+            ),
+          ),
+        );
+        if (mounted) {
+          _loadData();
+        }
+      } else if (mounted) {
+        AppNotification.showError(context, 'Failed to generate invoice. Please try again.');
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        AppNotification.showError(context, 'Error generating invoice: $e');
+      }
+    }
+  }
+
   // Overall Read-Only Summary View for Verified/Completed Home Visits (Step 2)
   Widget _buildCompletedVisitSummaryView(
     HomeVisitModel visit,
@@ -15614,10 +15654,10 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     final String rawPayStatus = invoice['payment_status'] ?? 'Unpaid';
     final isTamil = Provider.of<LanguageProvider>(context).isTamil;
     final String payStatus = rawPayStatus.toLowerCase() == 'paid'
-        ? context.tr('paid', fallback: 'Paid')
+        ? 'Paid'
         : (rawPayStatus.toLowerCase() == 'pending'
-            ? context.tr('pending', fallback: 'Pending')
-            : context.tr('unpaid', fallback: 'Unpaid'));
+            ? 'Pending'
+            : (rawPayStatus.toLowerCase() == 'partially paid' ? 'Partially Paid' : 'Unpaid'));
 
     final patientNameFormatted = TamilTransliterationHelper.formatName(
       visit.patientName ?? (isTamil ? 'நோயாளி' : 'Patient'),
@@ -15829,7 +15869,7 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        '${context.tr('invoice_num_label', fallback: 'Invoice #:')} $invoiceNum',
+                                        'Invoice #: $invoiceNum',
                                         style: const TextStyle(
                                           fontSize: 14,
                                           fontWeight: FontWeight.bold,
@@ -15867,17 +15907,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                   ),
                                 ),
                                 onPressed: () {
-                                  final _locale3 = Provider.of<LanguageProvider>(context, listen: false).locale;
+                                  final ivLocale4 = Provider.of<LanguageProvider>(context, listen: false).locale;
                                   showDialog(
                                     context: context,
                                     builder: (dlgCtx3) => Localizations.override(
                                       context: dlgCtx3,
-                                      locale: _locale3,
+                                      locale: ivLocale4,
                                       child: HomeVisitInvoiceDialog(
                                         invoiceData: {'invoice': visit.invoice},
                                         visit: visit,
                                         onCloseAndComplete: () {
-                                          _handleLeave();
+                                          _loadData();
                                         },
                                       ),
                                     ),
@@ -15945,22 +15985,153 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                                 ),
                               ),
                               onPressed: () {
-                                final _locale4 = Provider.of<LanguageProvider>(context, listen: false).locale;
+                                final ivLocale5 = Provider.of<LanguageProvider>(context, listen: false).locale;
                                 showDialog(
                                   context: context,
                                   builder: (dlgCtx4) => Localizations.override(
                                     context: dlgCtx4,
-                                    locale: _locale4,
+                                    locale: ivLocale5,
                                     child: HomeVisitInvoiceDialog(
                                       invoiceData: {'invoice': visit.invoice},
                                       visit: visit,
                                       onCloseAndComplete: () {
-                                        _handleLeave();
+                                        _loadData();
                                       },
                                     ),
                                   ),
                                 );
                               },
+                            ),
+                          ],
+                        ),
+                ),
+                const SizedBox(height: 20),
+              ] else if (visit.status == 'Completed' ||
+                  visit.status == 'Verified') ...[
+                Container(
+                  padding: EdgeInsets.all(isMobile ? 14 : 20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                    boxShadow: AppTheme.cardShadow,
+                  ),
+                  child: isMobile
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(
+                                    Icons.receipt_long,
+                                    color: Color(0xFFB45309),
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        context.tr('billing_pending', fallback: 'Billing & Invoice: Not Generated'),
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF92400E),
+                                        ),
+                                      ),
+                                      Text(
+                                        context.tr('billing_pending_desc', fallback: 'Generate official invoice for base visit, care procedures, and supplies.'),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: Color(0xFF78350F),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                style: AppTheme.primaryButton,
+                                icon: const Icon(Icons.receipt, size: 16, color: Colors.white),
+                                label: Text(
+                                  context.tr('generate_bill_invoice', fallback: 'Generate Bill & Invoice'),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                                onPressed: () => _generateAndShowInvoice(visit),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(
+                                    Icons.receipt_long,
+                                    color: Color(0xFFB45309),
+                                    size: 26,
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      context.tr('billing_pending', fallback: 'Billing & Invoice: Not Generated Yet'),
+                                      style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF92400E),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      context.tr('billing_pending_desc', fallback: 'Click below to compile all nursing care, procedures, and items into an official invoice.'),
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: Color(0xFF78350F),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            ElevatedButton.icon(
+                              style: AppTheme.primaryButton,
+                              icon: const Icon(Icons.receipt, size: 18, color: Colors.white),
+                              label: Text(
+                                context.tr('generate_bill_invoice', fallback: 'Generate Bill & Invoice'),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              onPressed: () => _generateAndShowInvoice(visit),
                             ),
                           ],
                         ),

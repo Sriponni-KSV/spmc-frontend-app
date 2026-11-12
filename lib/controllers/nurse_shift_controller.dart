@@ -213,6 +213,25 @@ class NurseShiftController {
     }
   }
 
+  Future<Map<String, dynamic>> autoAllocateRosters(String weekStartDate) async {
+    try {
+      final response = await ApiService.post(
+        '$baseUrl/ipd/admin/rosters/auto-allocate',
+        {'week_start_date': weekStartDate},
+      );
+      final body = ApiService.decodeJsonResponse(
+        response,
+        fallbackMessage: 'Failed to auto-allocate rosters',
+      );
+      if (response.statusCode == 200 && body['success'] == true) {
+        return Map<String, dynamic>.from(body);
+      }
+      throw Exception(body['message'] ?? 'Failed to auto-allocate rosters');
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
   Future<void> deleteRosterEntry(int id) async {
     try {
       final response = await ApiService.delete(
