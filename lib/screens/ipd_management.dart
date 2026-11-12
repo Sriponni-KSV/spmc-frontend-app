@@ -1216,15 +1216,12 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       return _buildEmptyState('No discharged records.', Icons.history);
     }
     return ListView.builder(
-<<<<<<< HEAD
-=======
       padding: EdgeInsets.fromLTRB(
         widget.isMobile ? 16 : 24,
         widget.isMobile ? 16 : 24,
         widget.isMobile ? 16 : 24,
         widget.isMobile ? 84 : 24,
       ),
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
       itemCount: discharged.length,
       itemBuilder: (context, index) {
         final adm = discharged[index];

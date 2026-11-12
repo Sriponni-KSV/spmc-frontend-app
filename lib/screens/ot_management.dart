@@ -2764,17 +2764,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         children: [
           // Header
           Container(
-<<<<<<< HEAD
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-=======
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             decoration: BoxDecoration(
               color: isOccupied ? color.withOpacity(0.04) : Colors.grey.shade50,
               borderRadius: const BorderRadius.only(topLeft: Radius.circular(15), topRight: Radius.circular(15)),
               border: Border(bottom: BorderSide(color: isOccupied ? color.withOpacity(0.12) : Colors.grey.shade100)),
             ),
-<<<<<<< HEAD
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -2826,71 +2821,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   ),
                 ),
               ],
-=======
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return Row(
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Icon(Icons.meeting_room_outlined, size: 15, color: isOccupied ? color : AppTheme.textSecondaryColor),
-                          const SizedBox(width: 5),
-                          Expanded(
-                            child: Text(
-                              roomName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(fontWeight: FontWeight.bold, color: isOccupied ? color : AppTheme.textPrimaryColor, fontSize: 13),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.56),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isOccupied ? color.withOpacity(0.1) : Colors.green.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: BoxDecoration(
-                                  color: isOccupied ? color : Colors.green,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: isOccupied ? color : Colors.green,
-                                      blurRadius: 4,
-                                      spreadRadius: 1,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                isOccupied ? activeInRoom.status.toUpperCase() : 'AVAILABLE',
-                                style: TextStyle(color: isOccupied ? color : Colors.green, fontSize: 9, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             ),
           ),
           // Content
@@ -2898,7 +2828,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: isOccupied
-<<<<<<< HEAD
                   ? SingleChildScrollView(
                       physics: const NeverScrollableScrollPhysics(),
                       child: Column(
@@ -2920,96 +2849,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           ),
                           const SizedBox(height: 6),
                           Row(
-=======
-                  ? Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              activeInRoom.patientName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.textPrimaryColor),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${activeInRoom.age} yrs • ${activeInRoom.gender} • Blood: ${activeInRoom.bloodGroup}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Icon(Icons.healing, size: 12, color: AppTheme.textSecondaryColor),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                activeInRoom.surgeryType ?? '',
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(Icons.person, size: 12, color: AppTheme.textSecondaryColor),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'Surgeon: ${activeInRoom.surgeon ?? 'TBD'}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 11.5, color: AppTheme.textPrimaryColor),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        // Progress Bar representing case completion
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text('Surgery Progress', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
-                                Text(
-                                  '${(_getCaseProgress(activeInRoom.status) * 100).toInt()}%',
-                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: _getCaseProgress(activeInRoom.status),
-                                color: color,
-                                backgroundColor: color.withOpacity(0.1),
-                                minHeight: 6,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        InkWell(
-                          onTap: () {
-                            _selectOtCase(activeInRoom);
-                            setState(() {
-                              _activeTab = 1; // Go to active patients registry
-                            });
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                             children: [
                               const Icon(Icons.healing, size: 12, color: AppTheme.textSecondaryColor),
                               const SizedBox(width: 6),
@@ -3125,19 +2964,28 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-<<<<<<< HEAD
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.hub_outlined, color: AppTheme.primaryColor, size: 22),
-                  SizedBox(width: 8),
-                  Text(
-                    'ERP Modular Integration Hub',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
-                  ),
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.hub_outlined, color: AppTheme.primaryColor, size: 22),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'ERP Modular Integration Hub',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: widget.isMobile ? 14 : 16,
+                          color: AppTheme.textPrimaryColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppTheme.primaryColor,
@@ -3163,26 +3011,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             'Bi-directional real-time data sync linking OT with Inpatient Admissions, ICU Critical Care, Surgical Pharmacy, Diagnostics, Financial Billing, and Nursing Station. Click any integration to view live sync details or open the module.',
             style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
           ),
-          const SizedBox(height: 16),
-=======
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.hub_outlined, color: AppTheme.primaryColor, size: 22),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'ERP Modular Integration Hub (Simulated)',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: widget.isMobile ? 14 : 15,
-                    color: AppTheme.textPrimaryColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
           SizedBox(height: widget.isMobile ? 12 : 16),
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
           Wrap(
             spacing: widget.isMobile ? 8 : 12,
             runSpacing: widget.isMobile ? 8 : 12,
@@ -3226,7 +3055,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   Widget _buildIntegrationTag(String title, String description, IconData icon) {
     return Tooltip(
-<<<<<<< HEAD
       message: 'Click to open $title live status and ERP details\n$description',
       child: Material(
         color: Colors.transparent,
@@ -3234,7 +3062,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           borderRadius: BorderRadius.circular(10),
           onTap: () => _showIntegrationDetailsModal(title),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 10 : 14, vertical: widget.isMobile ? 8 : 10),
             decoration: BoxDecoration(
               color: const Color(0xFFF0FDF4),
               borderRadius: BorderRadius.circular(10),
@@ -3261,41 +3089,19 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF14532D),
+                Flexible(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF14532D),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
                 const Icon(Icons.arrow_forward_ios, size: 10, color: Color(0xFF16A34A)),
               ],
-=======
-      message: description,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 10 : 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.green.shade50,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.green.withOpacity(0.3)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                title,
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade900),
-              ),
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             ),
           ),
         ),
@@ -6233,27 +6039,16 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-<<<<<<< HEAD
           Icon(icon, size: 11, color: color ?? AppTheme.textSecondaryColor),
           const SizedBox(width: 3),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: color ?? AppTheme.textPrimaryColor,
-=======
-          Icon(icon, size: 13, color: color ?? AppTheme.textSecondaryColor),
-          const SizedBox(width: 4),
           Flexible(
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.w500,
                 color: color ?? AppTheme.textPrimaryColor,
               ),
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
             ),
           ),
         ],

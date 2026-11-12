@@ -2233,10 +2233,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
-<<<<<<< HEAD
-                        overflow: TextOverflow.ellipsis,
-=======
->>>>>>> 8173141 (resolve frontend pixel overflow and UI layout issues)
                       ),
                     ),
                     if (hasLowSpo2 || hasAbnormalBP || hasFever) ...[
