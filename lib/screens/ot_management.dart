@@ -4301,16 +4301,16 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                             final user = Provider.of<AuthProvider>(context, listen: false).user;
                             showDialog(
                               context: context,
-                              builder: (_) => Dialog(
+                              builder: (dialogCtx) => Dialog(
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 insetPadding: EdgeInsets.symmetric(
                                   horizontal: 12,
-                                  vertical: MediaQuery.of(context).size.height * 0.05,
+                                  vertical: MediaQuery.of(dialogCtx).size.height * 0.05,
                                 ),
                                 child: ConstrainedBox(
                                   constraints: BoxConstraints(
                                     maxWidth: 820,
-                                    maxHeight: MediaQuery.of(context).size.height * 0.88,
+                                    maxHeight: MediaQuery.of(dialogCtx).size.height * 0.88,
                                   ),
                                   child: WhoSurgicalSafetyChecklistWidget(
                                     otCase: otCase,
@@ -7701,16 +7701,16 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                         final user = Provider.of<AuthProvider>(context, listen: false).user;
                         showDialog(
                           context: context,
-                          builder: (_) => Dialog(
+                          builder: (dialogCtx) => Dialog(
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             insetPadding: EdgeInsets.symmetric(
                               horizontal: widget.isMobile ? 12 : 24,
-                              vertical: widget.isMobile ? MediaQuery.of(context).size.height * 0.05 : 24,
+                              vertical: widget.isMobile ? MediaQuery.of(dialogCtx).size.height * 0.05 : 24,
                             ),
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
                                 maxWidth: 850,
-                                maxHeight: MediaQuery.of(context).size.height * (widget.isMobile ? 0.88 : 0.85),
+                                maxHeight: MediaQuery.of(dialogCtx).size.height * (widget.isMobile ? 0.88 : 0.85),
                               ),
                               child: WhoSurgicalSafetyChecklistWidget(
                                 otCase: otCase,

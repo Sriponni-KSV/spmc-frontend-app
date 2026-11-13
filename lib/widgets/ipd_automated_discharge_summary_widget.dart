@@ -480,7 +480,7 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Container(
             width: 800,
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.90),
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(modalCtx).size.height * 0.90),
             padding: const EdgeInsets.all(28),
             child: Column(
               children: [

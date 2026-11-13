@@ -79,9 +79,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width > 540
+              width: MediaQuery.of(ctx).size.width > 540
                   ? 540
-                  : MediaQuery.of(context).size.width * 0.9,
+                  : MediaQuery.of(ctx).size.width * 0.9,
               child: SingleChildScrollView(
                 child: Form(
                   key: formKey,
@@ -316,9 +316,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width > 520
+              width: MediaQuery.of(ctx).size.width > 520
                   ? 520
-                  : MediaQuery.of(context).size.width * 0.9,
+                  : MediaQuery.of(ctx).size.width * 0.9,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -567,9 +567,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width > 450
+              width: MediaQuery.of(ctx).size.width > 450
                   ? 450
-                  : MediaQuery.of(context).size.width * 0.9,
+                  : MediaQuery.of(ctx).size.width * 0.9,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,

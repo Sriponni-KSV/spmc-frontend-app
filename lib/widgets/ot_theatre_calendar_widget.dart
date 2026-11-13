@@ -2045,6 +2045,7 @@ class _OtTheatreCalendarWidgetState extends State<OtTheatreCalendarWidget> {
   // CASE ACTIONS MODAL
   // ─────────────────────────────────────────────────────────────────────────────
   void _showCaseActionModal(OtCase c, bool hasConflict, List<String> conflictMsgs) {
+    final isMobile = widget.isMobile;
     showDialog(
       context: context,
       builder: (ctx) {
@@ -2093,13 +2094,13 @@ class _OtTheatreCalendarWidgetState extends State<OtTheatreCalendarWidget> {
           backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           insetPadding: EdgeInsets.symmetric(
-            horizontal: widget.isMobile ? 16 : 24,
+            horizontal: isMobile ? 16 : 24,
             vertical: 24,
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: 580,
-              maxHeight: MediaQuery.of(context).size.height * 0.85,
+              maxHeight: MediaQuery.of(ctx).size.height * 0.85,
             ),
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -2237,10 +2238,11 @@ class _OtTheatreCalendarWidgetState extends State<OtTheatreCalendarWidget> {
   }
 
   void _showPacDialog(OtCase c) {
+    if (!mounted) return;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => PacAssessmentDialog(
+      builder: (dialogCtx) => PacAssessmentDialog(
         otCase: c,
         isMobile: widget.isMobile,
         currentUser: widget.currentUser,
@@ -2252,19 +2254,21 @@ class _OtTheatreCalendarWidgetState extends State<OtTheatreCalendarWidget> {
   }
 
   void _showWhoChecklistModal(OtCase c) {
+    if (!mounted) return;
+    final isMobile = widget.isMobile;
     showDialog(
       context: context,
-      builder: (_) => Dialog(
+      builder: (dialogCtx) => Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        insetPadding: EdgeInsets.all(widget.isMobile ? 12 : 24),
+        insetPadding: EdgeInsets.all(isMobile ? 12 : 24),
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: 820,
-            maxHeight: MediaQuery.of(context).size.height * (widget.isMobile ? 0.88 : 0.85),
+            maxHeight: MediaQuery.of(dialogCtx).size.height * (isMobile ? 0.88 : 0.85),
           ),
           child: WhoSurgicalSafetyChecklistWidget(
             otCase: c,
-            isMobile: widget.isMobile,
+            isMobile: isMobile,
             isPopup: true,
             currentUser: widget.currentUser,
             onChecklistUpdated: (updatedCase) {
