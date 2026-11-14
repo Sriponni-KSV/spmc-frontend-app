@@ -525,8 +525,11 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       const Text('Quick Bill Form (OP Services)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryColor)),
                       if (role != 'Pharmacy' && role != 'Lab')
@@ -805,6 +808,8 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
         bool isSaving = false;
         return StatefulBuilder(
           builder: (dialogContext, setDlgState) {
+            final bool isMobileDialog = MediaQuery.of(dialogContext).size.width < 620;
+
             double calcTotal() {
               double t = double.tryParse(theatreCtrl.text.trim()) ?? 0;
               t += double.tryParse(surgeonCtrl.text.trim()) ?? 0;
@@ -815,6 +820,10 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
 
             return AlertDialog(
               backgroundColor: Colors.white,
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isMobileDialog ? 12.0 : 40.0,
+                vertical: 24.0,
+              ),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               title: Row(
                 children: [
@@ -835,21 +844,29 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                   ),
                 ],
               ),
-              content: SingleChildScrollView(
-                child: SizedBox(
-                  width: 480,
+              content: SizedBox(
+                width: isMobileDialog ? double.maxFinite : 500,
+                child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(10),
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         margin: const EdgeInsets.only(bottom: 14),
-                        decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE2E8F0))),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('Estimated Surgical Bill Total:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF334155))),
+                            const Expanded(
+                              child: Text('Estimated Surgical Bill Total:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF334155))),
+                            ),
+                            const SizedBox(width: 8),
                             Text('₹${calcTotal().toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.secondaryColor)),
                           ],
                         ),
@@ -893,98 +910,211 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                   ),
                 ),
               ),
-              actions: [
-                OutlinedButton(
-                  onPressed: isSaving ? null : () => Navigator.pop(dCtx),
-                  style: AppTheme.cancelButton,
-                  child: const Text('Cancel'),
-                ),
-                OutlinedButton.icon(
-                  icon: isSaving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined, size: 16),
-                  label: const Text('Save Fees'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.primaryColor,
-                    side: const BorderSide(color: AppTheme.primaryColor),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: isSaving ? null : () async {
-                    final tf = double.tryParse(theatreCtrl.text.trim()) ?? 0;
-                    final sf = double.tryParse(surgeonCtrl.text.trim()) ?? 0;
-                    final asf = hasAsst ? (double.tryParse(asstCtrl.text.trim()) ?? 0) : 0.0;
-                    final anf = hasAnaesth ? (double.tryParse(anaesthCtrl.text.trim()) ?? 0) : 0.0;
-
-                    setDlgState(() => isSaving = true);
-                    final messenger = ScaffoldMessenger.of(context);
-                    final navigator = Navigator.of(dCtx);
-
-                    try {
-                      final res = await _billingCtrl.updateOtCaseFees(
-                        caseId: int.parse(caseId.toString()),
-                        theatreFee: tf,
-                        surgeonFee: sf,
-                        assistantSurgeonFee: asf,
-                        anaesthesiaFee: anf,
-                      );
-                      if (dCtx.mounted) navigator.pop();
-                      if (mounted) {
-                        _loadUnbilledOtCases();
-                        onUpdated?.call();
-                        messenger.showSnackBar(
-                          SnackBar(
-                            content: Text('OT Case ${otc['case_number'] ?? ''} fees updated successfully! Total: ₹${res['charges']?['subtotal'] ?? calcTotal()}'),
-                            backgroundColor: Colors.green,
+              actions: isMobileDialog
+                  ? [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: isSaving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.receipt_long, size: 16),
+                          label: const Text('Save & Bill in Quick Bill'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                        );
-                      }
-                    } catch (e) {
-                      if (dialogContext.mounted) setDlgState(() => isSaving = false);
-                      messenger.showSnackBar(SnackBar(content: Text('Error updating fees: $e'), backgroundColor: Colors.red));
-                    }
-                  },
-                ),
-                ElevatedButton.icon(
-                  icon: isSaving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.receipt_long, size: 16),
-                  label: const Text('Save & Bill in Quick Bill'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: isSaving ? null : () async {
-                    final tf = double.tryParse(theatreCtrl.text.trim()) ?? 0;
-                    final sf = double.tryParse(surgeonCtrl.text.trim()) ?? 0;
-                    final asf = hasAsst ? (double.tryParse(asstCtrl.text.trim()) ?? 0) : 0.0;
-                    final anf = hasAnaesth ? (double.tryParse(anaesthCtrl.text.trim()) ?? 0) : 0.0;
+                          onPressed: isSaving ? null : () async {
+                            final tf = double.tryParse(theatreCtrl.text.trim()) ?? 0;
+                            final sf = double.tryParse(surgeonCtrl.text.trim()) ?? 0;
+                            final asf = hasAsst ? (double.tryParse(asstCtrl.text.trim()) ?? 0) : 0.0;
+                            final anf = hasAnaesth ? (double.tryParse(anaesthCtrl.text.trim()) ?? 0) : 0.0;
 
-                    setDlgState(() => isSaving = true);
-                    final messenger = ScaffoldMessenger.of(context);
-                    final navigator = Navigator.of(dCtx);
+                            setDlgState(() => isSaving = true);
+                            final messenger = ScaffoldMessenger.of(context);
+                            final navigator = Navigator.of(dCtx);
 
-                    try {
-                      final res = await _billingCtrl.updateOtCaseFees(
-                        caseId: int.parse(caseId.toString()),
-                        theatreFee: tf,
-                        surgeonFee: sf,
-                        assistantSurgeonFee: asf,
-                        anaesthesiaFee: anf,
-                      );
-                      if (dCtx.mounted) navigator.pop();
-                      if (mounted) {
-                        _loadUnbilledOtCases();
-                        final updatedCharges = Map<String, dynamic>.from(res['charges'] ?? {});
-                        updatedCharges['patient_id'] = otc['patient_id'];
-                        _loadOtCaseIntoQuickBill(updatedCharges);
-                      }
-                    } catch (e) {
-                      if (dialogContext.mounted) setDlgState(() => isSaving = false);
-                      messenger.showSnackBar(SnackBar(content: Text('Error updating fees: $e'), backgroundColor: Colors.red));
-                    }
-                  },
-                ),
-              ],
+                            try {
+                              final res = await _billingCtrl.updateOtCaseFees(
+                                caseId: int.parse(caseId.toString()),
+                                theatreFee: tf,
+                                surgeonFee: sf,
+                                assistantSurgeonFee: asf,
+                                anaesthesiaFee: anf,
+                              );
+                              if (dCtx.mounted) navigator.pop();
+                              if (mounted) {
+                                _loadUnbilledOtCases();
+                                final updatedCharges = Map<String, dynamic>.from(res['charges'] ?? {});
+                                updatedCharges['patient_id'] = otc['patient_id'];
+                                _loadOtCaseIntoQuickBill(updatedCharges);
+                              }
+                            } catch (e) {
+                              if (dialogContext.mounted) setDlgState(() => isSaving = false);
+                              messenger.showSnackBar(SnackBar(content: Text('Error updating fees: $e'), backgroundColor: Colors.red));
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: isSaving ? null : () => Navigator.pop(dCtx),
+                              style: AppTheme.cancelButton,
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              icon: isSaving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined, size: 16),
+                              label: const Text('Save Fees'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryColor,
+                                side: const BorderSide(color: AppTheme.primaryColor),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: isSaving ? null : () async {
+                                final tf = double.tryParse(theatreCtrl.text.trim()) ?? 0;
+                                final sf = double.tryParse(surgeonCtrl.text.trim()) ?? 0;
+                                final asf = hasAsst ? (double.tryParse(asstCtrl.text.trim()) ?? 0) : 0.0;
+                                final anf = hasAnaesth ? (double.tryParse(anaesthCtrl.text.trim()) ?? 0) : 0.0;
+
+                                setDlgState(() => isSaving = true);
+                                final messenger = ScaffoldMessenger.of(context);
+                                final navigator = Navigator.of(dCtx);
+
+                                try {
+                                  final res = await _billingCtrl.updateOtCaseFees(
+                                    caseId: int.parse(caseId.toString()),
+                                    theatreFee: tf,
+                                    surgeonFee: sf,
+                                    assistantSurgeonFee: asf,
+                                    anaesthesiaFee: anf,
+                                  );
+                                  if (dCtx.mounted) navigator.pop();
+                                  if (mounted) {
+                                    _loadUnbilledOtCases();
+                                    onUpdated?.call();
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text('OT Case ${otc['case_number'] ?? ''} fees updated successfully! Total: ₹${res['charges']?['subtotal'] ?? calcTotal()}'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  if (dialogContext.mounted) setDlgState(() => isSaving = false);
+                                  messenger.showSnackBar(SnackBar(content: Text('Error updating fees: $e'), backgroundColor: Colors.red));
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ]
+                  : [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            onPressed: isSaving ? null : () => Navigator.pop(dCtx),
+                            style: AppTheme.cancelButton,
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            icon: isSaving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined, size: 16),
+                            label: const Text('Save Fees'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(color: AppTheme.primaryColor),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: isSaving ? null : () async {
+                              final tf = double.tryParse(theatreCtrl.text.trim()) ?? 0;
+                              final sf = double.tryParse(surgeonCtrl.text.trim()) ?? 0;
+                              final asf = hasAsst ? (double.tryParse(asstCtrl.text.trim()) ?? 0) : 0.0;
+                              final anf = hasAnaesth ? (double.tryParse(anaesthCtrl.text.trim()) ?? 0) : 0.0;
+
+                              setDlgState(() => isSaving = true);
+                              final messenger = ScaffoldMessenger.of(context);
+                              final navigator = Navigator.of(dCtx);
+
+                              try {
+                                final res = await _billingCtrl.updateOtCaseFees(
+                                  caseId: int.parse(caseId.toString()),
+                                  theatreFee: tf,
+                                  surgeonFee: sf,
+                                  assistantSurgeonFee: asf,
+                                  anaesthesiaFee: anf,
+                                );
+                                if (dCtx.mounted) navigator.pop();
+                                if (mounted) {
+                                  _loadUnbilledOtCases();
+                                  onUpdated?.call();
+                                  messenger.showSnackBar(
+                                    SnackBar(
+                                      content: Text('OT Case ${otc['case_number'] ?? ''} fees updated successfully! Total: ₹${res['charges']?['subtotal'] ?? calcTotal()}'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (dialogContext.mounted) setDlgState(() => isSaving = false);
+                                messenger.showSnackBar(SnackBar(content: Text('Error updating fees: $e'), backgroundColor: Colors.red));
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            icon: isSaving ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.receipt_long, size: 16),
+                            label: const Text('Save & Bill in Quick Bill'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: isSaving ? null : () async {
+                              final tf = double.tryParse(theatreCtrl.text.trim()) ?? 0;
+                              final sf = double.tryParse(surgeonCtrl.text.trim()) ?? 0;
+                              final asf = hasAsst ? (double.tryParse(asstCtrl.text.trim()) ?? 0) : 0.0;
+                              final anf = hasAnaesth ? (double.tryParse(anaesthCtrl.text.trim()) ?? 0) : 0.0;
+
+                              setDlgState(() => isSaving = true);
+                              final messenger = ScaffoldMessenger.of(context);
+                              final navigator = Navigator.of(dCtx);
+
+                              try {
+                                final res = await _billingCtrl.updateOtCaseFees(
+                                  caseId: int.parse(caseId.toString()),
+                                  theatreFee: tf,
+                                  surgeonFee: sf,
+                                  assistantSurgeonFee: asf,
+                                  anaesthesiaFee: anf,
+                                );
+                                if (dCtx.mounted) navigator.pop();
+                                if (mounted) {
+                                  _loadUnbilledOtCases();
+                                  final updatedCharges = Map<String, dynamic>.from(res['charges'] ?? {});
+                                  updatedCharges['patient_id'] = otc['patient_id'];
+                                  _loadOtCaseIntoQuickBill(updatedCharges);
+                                }
+                              } catch (e) {
+                                if (dialogContext.mounted) setDlgState(() => isSaving = false);
+                                messenger.showSnackBar(SnackBar(content: Text('Error updating fees: $e'), backgroundColor: Colors.red));
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
             );
           },
         );
@@ -1033,30 +1163,56 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     showDialog(
       context: context,
       builder: (ctx) {
+        final bool isMobileDialog = MediaQuery.of(ctx).size.width < 620;
+
         return AlertDialog(
           backgroundColor: Colors.white,
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isMobileDialog ? 12.0 : 40.0,
+            vertical: 24.0,
+          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              const Icon(Icons.medical_services_outlined, color: Color(0xFF0284C7)),
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.medical_services_outlined, color: Color(0xFF0284C7), size: 20),
+              ),
               const SizedBox(width: 10),
-              const Text('Unbilled Operation Theatre Cases', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+              const Expanded(
+                child: Text(
+                  'Unbilled Operation Theatre Cases',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
-          content: SizedBox(
-            width: 650,
+          content: Container(
+            width: isMobileDialog ? double.maxFinite : 600,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+            ),
             child: _unbilledOtCases.isEmpty
                 ? const Padding(
                     padding: EdgeInsets.all(32.0),
-                    child: Center(child: Text('No pending unbilled OT cases found.', style: TextStyle(color: Colors.grey))),
+                    child: Center(
+                      child: Text('No pending unbilled OT cases found.', style: TextStyle(color: Colors.grey)),
+                    ),
                   )
                 : ListView.separated(
                     shrinkWrap: true,
                     itemCount: _unbilledOtCases.length,
-                    separatorBuilder: (c, i) => const Divider(height: 16),
+                    separatorBuilder: (c, i) => const SizedBox(height: 12),
                     itemBuilder: (c, i) {
                       final otc = _unbilledOtCases[i];
                       final items = List<Map<String, dynamic>>.from(otc['items'] ?? []);
                       final double subtotal = double.tryParse((otc['subtotal'] ?? 0).toString()) ?? 0.0;
+
                       return Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -1067,97 +1223,98 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Header: Case Number, Patient Name & Amount
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '${otc['case_number'] ?? 'OT Case'} • ${otc['patient_name']} (${otc['patient_display_id'] ?? ''})',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Procedure: ${otc['surgery_type']} • Theatre: ${otc['theatre_name'] ?? otc['ot_room'] ?? 'OT'}',
-                                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
-                                      ),
-                                      Text(
-                                        'Lead Surgeon: Dr. ${otc['lead_surgeon'] ?? '-'} • Anaesthetist: Dr. ${otc['anaesthetist'] ?? '-'}',
-                                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    '${otc['case_number'] ?? 'OT Case'} • ${otc['patient_name'] ?? 'Patient'} (${otc['patient_display_id'] ?? ''})',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.primaryColor),
                                   ),
                                 ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      '₹${subtotal.toStringAsFixed(2)}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.secondaryColor),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        OutlinedButton.icon(
-                                          icon: const Icon(Icons.edit_note, size: 15),
-                                          label: const Text('Edit Fees'),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: AppTheme.primaryColor,
-                                            side: const BorderSide(color: AppTheme.primaryColor),
-                                            elevation: 0,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          ),
-                                          onPressed: () {
-                                            Navigator.of(ctx).pop();
-                                            _showEditOtCaseFeesDialog(otc, onUpdated: () {
-                                              _loadUnbilledOtCases();
-                                              _showUnbilledOtCasesDialog();
-                                            });
-                                          },
-                                        ),
-                                        const SizedBox(width: 6),
-                                        ElevatedButton.icon(
-                                          icon: const Icon(Icons.receipt_long, size: 16),
-                                          label: const Text('Bill OT Case'),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppTheme.primaryColor,
-                                            foregroundColor: Colors.white,
-                                            elevation: 0,
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          ),
-                                          onPressed: () {
-                                            if (ctx.mounted) Navigator.of(ctx).pop();
-                                            if (mounted) {
-                                              _loadOtCaseIntoQuickBill(otc);
-                                            }
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                const SizedBox(width: 8),
+                                Text(
+                                  '₹${subtotal.toStringAsFixed(2)}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.secondaryColor),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: items.map((it) {
-                                return Chip(
-                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  visualDensity: VisualDensity.compact,
-                                  backgroundColor: Colors.white,
-                                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                                  label: Text(
-                                    '${it['item_name']}: ₹${it['unit_price']}',
-                                    style: const TextStyle(fontSize: 10.5, color: Color(0xFF475569)),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Procedure: ${otc['surgery_type'] ?? '-'} • Theatre: ${otc['theatre_name'] ?? otc['ot_room'] ?? 'OT'}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Lead Surgeon: Dr. ${otc['lead_surgeon'] ?? '-'} • Anaesthetist: Dr. ${otc['anaesthetist'] ?? '-'}',
+                              style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryColor),
+                            ),
+                            if (items.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: items.map((it) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                    ),
+                                    child: Text(
+                                      '${it['item_name'] ?? 'Item'}: ₹${it['unit_price'] ?? 0}',
+                                      style: const TextStyle(fontSize: 11, color: Color(0xFF475569), fontWeight: FontWeight.w500),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    icon: const Icon(Icons.edit_note, size: 15),
+                                    label: const Text('Edit Fees'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.primaryColor,
+                                      side: const BorderSide(color: AppTheme.primaryColor),
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    onPressed: () {
+                                      Navigator.of(ctx).pop();
+                                      _showEditOtCaseFeesDialog(otc, onUpdated: () {
+                                        _loadUnbilledOtCases();
+                                        _showUnbilledOtCasesDialog();
+                                      });
+                                    },
                                   ),
-                                );
-                              }).toList(),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: ElevatedButton.icon(
+                                    icon: const Icon(Icons.receipt_long, size: 16),
+                                    label: const Text('Bill OT Case'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryColor,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 9),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    onPressed: () {
+                                      if (ctx.mounted) Navigator.of(ctx).pop();
+                                      if (mounted) {
+                                        _loadOtCaseIntoQuickBill(otc);
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1166,8 +1323,9 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                   ),
           ),
           actions: [
-            TextButton(
+            OutlinedButton(
               onPressed: () => Navigator.pop(ctx),
+              style: AppTheme.cancelButton,
               child: const Text('Close'),
             ),
           ],
@@ -1250,45 +1408,53 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Compact Header & Quick Stats Row
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              const Text(
-                'Pharmacy Prescriptions',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                children: [
+                  const Text(
+                    'Pharmacy Prescriptions',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor),
+                  ),
+                  if (!isMobile) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: Text('$pendingCount Pending', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: Text('$dispensedCount Dispensed', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+                      ),
+                      child: Text('Sales: ₹${pharmacyRev.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(width: 12),
-              if (!isMobile) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
-                  ),
-                  child: Text('$pendingCount Pending', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFF86EFAC)),
-                  ),
-                  child: Text('$dispensedCount Dispensed', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
-                  ),
-                  child: Text('Sales: ₹${pharmacyRev.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                ),
-              ],
-              const Spacer(),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
@@ -1298,7 +1464,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                   elevation: 0,
                 ),
                 icon: const Icon(Icons.add_shopping_cart_rounded, size: 16),
-                label: const Text('Walk-in Medicine Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                label: Text(isMobile ? 'Walk-in Bill' : 'Walk-in Medicine Bill', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                 onPressed: () => _showWalkInPharmacyBillDialog(),
               ),
             ],
@@ -1419,27 +1585,34 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Row(
+                                            Wrap(
+                                              alignment: WrapAlignment.spaceBetween,
+                                              crossAxisAlignment: WrapCrossAlignment.center,
+                                              spacing: 8,
+                                              runSpacing: 4,
                                               children: [
-                                                Text(
-                                                  pres['patient_name'] ?? 'Patient',
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                                                Wrap(
+                                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                                  spacing: 6,
+                                                  children: [
+                                                    Text(
+                                                      pres['patient_name'] ?? 'Patient',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                                                    ),
+                                                    if (pres['patient_display_id'] != null)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFFF1F5F9),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          pres['patient_display_id'].toString(),
+                                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                                        ),
+                                                      ),
+                                                  ],
                                                 ),
-                                                if (pres['patient_display_id'] != null) ...[
-                                                  const SizedBox(width: 8),
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: const Color(0xFFF1F5F9),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                    ),
-                                                    child: Text(
-                                                      pres['patient_display_id'].toString(),
-                                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                                                    ),
-                                                  ),
-                                                ],
-                                                const Spacer(),
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                   decoration: BoxDecoration(
@@ -1459,18 +1632,30 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                               ],
                                             ),
                                             const SizedBox(height: 4),
-                                            Row(
+                                            Wrap(
+                                              crossAxisAlignment: WrapCrossAlignment.center,
+                                              spacing: 12,
+                                              runSpacing: 4,
                                               children: [
-                                                const Icon(Icons.person, size: 14, color: Colors.grey),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'Prescribed by Dr. ${pres['doctor_name'] ?? 'Doctor'}',
-                                                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(Icons.person, size: 14, color: Colors.grey),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Prescribed by Dr. ${pres['doctor_name'] ?? 'Doctor'}',
+                                                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
+                                                    ),
+                                                  ],
                                                 ),
-                                                const SizedBox(width: 14),
-                                                const Icon(Icons.access_time_rounded, size: 13, color: Colors.grey),
-                                                const SizedBox(width: 4),
-                                                Text(dateStr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(Icons.access_time_rounded, size: 13, color: Colors.grey),
+                                                    const SizedBox(width: 4),
+                                                    Text(dateStr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                                  ],
+                                                ),
                                               ],
                                             ),
                                           ],
@@ -1511,23 +1696,26 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                                 borderRadius: BorderRadius.circular(6),
                                                 border: Border.all(color: const Color(0xFFCBD5E1)),
                                               ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
+                                              child: Wrap(
+                                                crossAxisAlignment: WrapCrossAlignment.center,
+                                                spacing: 4,
+                                                runSpacing: 2,
                                                 children: [
-                                                  const Icon(Icons.medication, size: 14, color: Color(0xFF7C3AED)),
-                                                  const SizedBox(width: 6),
-                                                  Text(
-                                                    mName,
-                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)),
+                                                  Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(Icons.medication, size: 14, color: Color(0xFF7C3AED)),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        mName,
+                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)),
+                                                      ),
+                                                    ],
                                                   ),
-                                                  if (dosage.toString().isNotEmpty) ...[
-                                                    const SizedBox(width: 4),
+                                                  if (dosage.toString().isNotEmpty)
                                                     Text('($dosage)', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                                  ],
-                                                  if (freq.toString().isNotEmpty || dur.toString().isNotEmpty) ...[
-                                                    const SizedBox(width: 4),
+                                                  if (freq.toString().isNotEmpty || dur.toString().isNotEmpty)
                                                     Text('• $freq • $dur', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                                                  ],
                                                 ],
                                               ),
                                             );
@@ -1539,36 +1727,63 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                   const SizedBox(height: 12),
 
                                   // Actions
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      if (!isDone) ...[
-                                        ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppTheme.primaryColor,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  if (isMobile)
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: !isDone
+                                          ? ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: AppTheme.primaryColor,
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                              icon: const Icon(Icons.receipt_long, size: 16),
+                                              label: const Text('Generate Pharmacy Bill & Dispense', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                              onPressed: () => _showGeneratePharmacyBillDialog(pres),
+                                            )
+                                          : OutlinedButton.icon(
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: const Color(0xFF16A34A),
+                                                side: const BorderSide(color: Color(0xFF86EFAC)),
+                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                              icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
+                                              label: const Text('Dispensed & Billed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                              onPressed: () => _tabController?.animateTo(1),
+                                            ),
+                                    )
+                                  else
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        if (!isDone)
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppTheme.primaryColor,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            icon: const Icon(Icons.receipt_long, size: 16),
+                                            label: const Text('Generate Pharmacy Bill & Dispense', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                            onPressed: () => _showGeneratePharmacyBillDialog(pres),
+                                          )
+                                        else
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: const Color(0xFF16A34A),
+                                              side: const BorderSide(color: Color(0xFF86EFAC)),
+                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
+                                            label: const Text('Dispensed & Billed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                            onPressed: () => _tabController?.animateTo(1),
                                           ),
-                                          icon: const Icon(Icons.receipt_long, size: 16),
-                                          label: const Text('Generate Pharmacy Bill & Dispense', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                          onPressed: () => _showGeneratePharmacyBillDialog(pres),
-                                        ),
-                                      ] else ...[
-                                        OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: const Color(0xFF16A34A),
-                                            side: const BorderSide(color: Color(0xFF86EFAC)),
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          ),
-                                          icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
-                                          label: const Text('Dispensed & Billed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                          onPressed: () => _tabController?.animateTo(1),
-                                        ),
                                       ],
-                                    ],
-                                  ),
+                                    ),
                                 ],
                               ),
                             ),
@@ -1646,8 +1861,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               paidCtrl.text = net.toStringAsFixed(0);
             }
 
+            final bool isMobileDialog = MediaQuery.of(ctx).size.width < 620;
             return AlertDialog(
               backgroundColor: Colors.white,
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isMobileDialog ? 12.0 : 40.0,
+                vertical: 24.0,
+              ),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
@@ -1675,7 +1895,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                 ],
               ),
               content: SizedBox(
-                width: 650,
+                width: isMobileDialog ? double.maxFinite : 560,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1687,57 +1907,95 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: billItems.length,
-                        separatorBuilder: (c, i) => const Divider(height: 12),
+                        separatorBuilder: (c, i) => const SizedBox(height: 8),
                         itemBuilder: (c, idx) {
                           final item = billItems[idx];
                           final int q = item['quantity'] as int;
                           final double pr = item['unit_price'] as double;
                           final double rowTotal = q * pr;
 
-                          return Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: Text(item['item_name'], style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-                              ),
-                              Row(
-                                children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle_outline, size: 18),
-                                    onPressed: () {
-                                      setDlgState(() {
-                                        if (q > 1) {
-                                          item['quantity'] = q - 1;
-                                        } else {
-                                          billItems.removeAt(idx);
-                                        }
-                                        paidCtrl.text = '';
-                                      });
-                                    },
-                                  ),
-                                  Text('$q', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  IconButton(
-                                    icon: const Icon(Icons.add_circle_outline, size: 18),
-                                    onPressed: () {
-                                      setDlgState(() {
-                                        item['quantity'] = q + 1;
-                                        paidCtrl.text = '';
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 80,
-                                child: Text('₹${pr.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-                              ),
-                              const SizedBox(width: 12),
-                              SizedBox(
-                                width: 90,
-                                child: Text('₹${rowTotal.toStringAsFixed(2)}', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF7C3AED))),
-                              ),
-                            ],
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        item['item_name'],
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF0F172A)),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      '₹${rowTotal.toStringAsFixed(2)}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF7C3AED)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Rate: ₹${pr.toStringAsFixed(2)}',
+                                      style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                    ),
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFFCBD5E1)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          InkWell(
+                                            onTap: () {
+                                              setDlgState(() {
+                                                if (q > 1) {
+                                                  item['quantity'] = q - 1;
+                                                } else {
+                                                  billItems.removeAt(idx);
+                                                }
+                                                paidCtrl.text = '';
+                                              });
+                                            },
+                                            child: const Padding(
+                                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              child: Icon(Icons.remove, size: 16, color: Color(0xFF475569)),
+                                            ),
+                                          ),
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                                            child: Text('$q', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                          ),
+                                          InkWell(
+                                            onTap: () {
+                                              setDlgState(() {
+                                                item['quantity'] = q + 1;
+                                                paidCtrl.text = '';
+                                              });
+                                            },
+                                            child: const Padding(
+                                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              child: Icon(Icons.add, size: 16, color: Color(0xFF475569)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           );
                         },
                       ),
@@ -1833,61 +2091,130 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                   ),
                 ),
               ),
-              actions: [
-                OutlinedButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
-                  style: AppTheme.cancelButton,
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  icon: isSubmitting
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.receipt_long, size: 18),
-                  label: const Text('Confirm & Print Pharmacy Bill', style: TextStyle(fontWeight: FontWeight.bold)),
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          setDlgState(() => isSubmitting = true);
-                          final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
-                          try {
-                            final res = await _billingCtrl.createInvoice(
-                              patientId: patientId,
-                              admissionType: 'Pharmacy',
-                              consultationId: int.tryParse(pres['id']?.toString() ?? ''),
-                              doctorName: pres['doctor_name']?.toString(),
-                              items: billItems,
-                              discount: discount,
-                              initialPayment: collected > 0 ? {
-                                'amount': collected,
-                                'payment_mode': payMode,
-                              } : null,
-                            );
+              actions: isMobileDialog
+                  ? [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: isSubmitting
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Icon(Icons.receipt_long, size: 18),
+                          label: const Text('Confirm & Print Pharmacy Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: isSubmitting
+                              ? null
+                              : () async {
+                                  setDlgState(() => isSubmitting = true);
+                                  final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
+                                  try {
+                                    final res = await _billingCtrl.createInvoice(
+                                      patientId: patientId,
+                                      admissionType: 'Pharmacy',
+                                      consultationId: int.tryParse(pres['id']?.toString() ?? ''),
+                                      doctorName: pres['doctor_name']?.toString(),
+                                      items: billItems,
+                                      discount: discount,
+                                      initialPayment: collected > 0 ? {
+                                        'amount': collected,
+                                        'payment_mode': payMode,
+                                      } : null,
+                                    );
 
-                            if (dlgCtx.mounted) Navigator.pop(dlgCtx);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Pharmacy bill created & dispensed successfully!'), backgroundColor: Colors.green),
-                              );
-                              _loadInvoices();
-                              _loadPrescriptions();
-                              _loadMedicineInventory();
-                              _showInvoiceReceiptDialog(res['id']);
-                            }
-                          } catch (e) {
-                            if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                            }
-                          }
-                        },
-                ),
-              ],
+                                    if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Pharmacy bill created & dispensed successfully!'), backgroundColor: Colors.green),
+                                      );
+                                      _loadInvoices();
+                                      _loadPrescriptions();
+                                      _loadMedicineInventory();
+                                      _showInvoiceReceiptDialog(res['id']);
+                                    }
+                                  } catch (e) {
+                                    if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                                    }
+                                  }
+                                },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                          style: AppTheme.cancelButton,
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                    ]
+                  : [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                            style: AppTheme.cancelButton,
+                            child: const Text('Cancel'),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: isSubmitting
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Icon(Icons.receipt_long, size: 18),
+                            label: const Text('Confirm & Print Pharmacy Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                            onPressed: isSubmitting
+                                ? null
+                                : () async {
+                                    setDlgState(() => isSubmitting = true);
+                                    final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
+                                    try {
+                                      final res = await _billingCtrl.createInvoice(
+                                        patientId: patientId,
+                                        admissionType: 'Pharmacy',
+                                        consultationId: int.tryParse(pres['id']?.toString() ?? ''),
+                                        doctorName: pres['doctor_name']?.toString(),
+                                        items: billItems,
+                                        discount: discount,
+                                        initialPayment: collected > 0 ? {
+                                          'amount': collected,
+                                          'payment_mode': payMode,
+                                        } : null,
+                                      );
+
+                                      if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Pharmacy bill created & dispensed successfully!'), backgroundColor: Colors.green),
+                                        );
+                                        _loadInvoices();
+                                        _loadPrescriptions();
+                                        _loadMedicineInventory();
+                                        _showInvoiceReceiptDialog(res['id']);
+                                      }
+                                    } catch (e) {
+                                      if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                                      }
+                                    }
+                                  },
+                          ),
+                        ],
+                      ),
+                    ],
             );
           },
         );
@@ -1929,45 +2256,53 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Compact Header & Quick Stats Row
-          Row(
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              const Text(
-                'Lab Investigation Orders',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                children: [
+                  const Text(
+                    'Lab Investigation Orders',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.primaryColor),
+                  ),
+                  if (!isMobile) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: Text('$pendingCount Pending', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFDCFCE7),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF86EFAC)),
+                      ),
+                      child: Text('$billedCount Billed', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
+                      ),
+                      child: Text('Revenue: ₹${labRev.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(width: 12),
-              if (!isMobile) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
-                  ),
-                  child: Text('$pendingCount Pending', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFFB45309))),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: const Color(0xFF86EFAC)),
-                  ),
-                  child: Text('$billedCount Billed', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF15803D))),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.25)),
-                  ),
-                  child: Text('Revenue: ₹${labRev.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                ),
-              ],
-              const Spacer(),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
@@ -1977,7 +2312,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                   elevation: 0,
                 ),
                 icon: const Icon(Icons.biotech_rounded, size: 16),
-                label: const Text('Walk-in Lab Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                label: Text(isMobile ? 'Walk-in Bill' : 'Walk-in Lab Bill', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                 onPressed: () => _showWalkInLabBillDialog(),
               ),
             ],
@@ -2107,27 +2442,34 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Row(
+                                            Wrap(
+                                              alignment: WrapAlignment.spaceBetween,
+                                              crossAxisAlignment: WrapCrossAlignment.center,
+                                              spacing: 8,
+                                              runSpacing: 4,
                                               children: [
-                                                Text(
-                                                  req['patient_name'] ?? 'Patient',
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                                                Wrap(
+                                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                                  spacing: 6,
+                                                  children: [
+                                                    Text(
+                                                      req['patient_name'] ?? 'Patient',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.black87),
+                                                    ),
+                                                    if (req['patient_display_id'] != null)
+                                                      Container(
+                                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                        decoration: BoxDecoration(
+                                                          color: const Color(0xFFF1F5F9),
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                        child: Text(
+                                                          req['patient_display_id'].toString(),
+                                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                                        ),
+                                                      ),
+                                                  ],
                                                 ),
-                                                if (req['patient_display_id'] != null) ...[
-                                                  const SizedBox(width: 8),
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                    decoration: BoxDecoration(
-                                                      color: const Color(0xFFF1F5F9),
-                                                      borderRadius: BorderRadius.circular(4),
-                                                    ),
-                                                    child: Text(
-                                                      req['patient_display_id'].toString(),
-                                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
-                                                    ),
-                                                  ),
-                                                ],
-                                                const Spacer(),
                                                 Container(
                                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                   decoration: BoxDecoration(
@@ -2147,18 +2489,30 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                               ],
                                             ),
                                             const SizedBox(height: 4),
-                                            Row(
+                                            Wrap(
+                                              crossAxisAlignment: WrapCrossAlignment.center,
+                                              spacing: 12,
+                                              runSpacing: 4,
                                               children: [
-                                                const Icon(Icons.person, size: 14, color: Colors.grey),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  'Ordered by Dr. ${req['doctor_name'] ?? 'Doctor'}',
-                                                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(Icons.person, size: 14, color: Colors.grey),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Ordered by Dr. ${req['doctor_name'] ?? 'Doctor'}',
+                                                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w500, color: Color(0xFF475569)),
+                                                    ),
+                                                  ],
                                                 ),
-                                                const SizedBox(width: 14),
-                                                const Icon(Icons.access_time_rounded, size: 13, color: Colors.grey),
-                                                const SizedBox(width: 4),
-                                                Text(dateStr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(Icons.access_time_rounded, size: 13, color: Colors.grey),
+                                                    const SizedBox(width: 4),
+                                                    Text(dateStr, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                                  ],
+                                                ),
                                               ],
                                             ),
                                           ],
@@ -2176,21 +2530,23 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(color: const Color(0xFFE2E8F0)),
                                     ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    child: Wrap(
+                                      alignment: WrapAlignment.spaceBetween,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      spacing: 8,
+                                      runSpacing: 6,
                                       children: [
-                                        Row(
+                                        Wrap(
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          spacing: 6,
                                           children: [
                                             const Icon(Icons.science, size: 16, color: Color(0xFF4F46E5)),
-                                            const SizedBox(width: 8),
                                             Text(
                                               tName,
                                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF1E293B)),
                                             ),
-                                            if (req['status'] != null) ...[
-                                              const SizedBox(width: 8),
+                                            if (req['status'] != null)
                                               Text('• Status: ${req['status']}', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                                            ],
                                           ],
                                         ),
                                         Text(
@@ -2203,40 +2559,71 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                   const SizedBox(height: 12),
 
                                   // Actions
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    children: [
-                                      if (!isBilled) ...[
-                                        ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppTheme.primaryColor,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  if (isMobile)
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: !isBilled
+                                          ? ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: AppTheme.primaryColor,
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                              icon: const Icon(Icons.receipt_long, size: 16),
+                                              label: const Text('Generate Lab Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                              onPressed: () => _showGenerateLabBillDialog(req),
+                                            )
+                                          : OutlinedButton.icon(
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor: const Color(0xFF16A34A),
+                                                side: const BorderSide(color: Color(0xFF86EFAC)),
+                                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              ),
+                                              icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
+                                              label: const Text('Billed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                              onPressed: () {
+                                                if (req['invoice_id'] != null) {
+                                                  _showInvoiceReceiptDialog(req['invoice_id']);
+                                                }
+                                              },
+                                            ),
+                                    )
+                                  else
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        if (!isBilled)
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppTheme.primaryColor,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            icon: const Icon(Icons.receipt_long, size: 16),
+                                            label: const Text('Generate Lab Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                            onPressed: () => _showGenerateLabBillDialog(req),
+                                          )
+                                        else
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: const Color(0xFF16A34A),
+                                              side: const BorderSide(color: Color(0xFF86EFAC)),
+                                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
+                                            label: const Text('Billed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                            onPressed: () {
+                                              if (req['invoice_id'] != null) {
+                                                _showInvoiceReceiptDialog(req['invoice_id']);
+                                              }
+                                            },
                                           ),
-                                          icon: const Icon(Icons.receipt_long, size: 16),
-                                          label: const Text('Generate Lab Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                          onPressed: () => _showGenerateLabBillDialog(req),
-                                        ),
-                                      ] else ...[
-                                        OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor: const Color(0xFF16A34A),
-                                            side: const BorderSide(color: Color(0xFF86EFAC)),
-                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                          ),
-                                          icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
-                                          label: const Text('Billed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                          onPressed: () {
-                                            if (req['invoice_id'] != null) {
-                                              _showInvoiceReceiptDialog(req['invoice_id']);
-                                            }
-                                          },
-                                        ),
                                       ],
-                                    ],
-                                  ),
+                                    ),
                                 ],
                               ),
                             ),
@@ -2294,8 +2681,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               paidCtrl.text = net.toStringAsFixed(0);
             }
 
+            final bool isMobileDialog = MediaQuery.of(ctx).size.width < 620;
             return AlertDialog(
               backgroundColor: Colors.white,
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isMobileDialog ? 12.0 : 40.0,
+                vertical: 24.0,
+              ),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
@@ -2323,7 +2715,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                 ],
               ),
               content: SizedBox(
-                width: 620,
+                width: isMobileDialog ? double.maxFinite : 620,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -2491,60 +2883,122 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                   ),
                 ),
               ),
-              actions: [
-                OutlinedButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
-                  style: AppTheme.cancelButton,
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  icon: isSubmitting
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.receipt_long, size: 18),
-                  label: const Text('Confirm & Print Lab Bill', style: TextStyle(fontWeight: FontWeight.bold)),
-                  onPressed: isSubmitting
-                      ? null
-                      : () async {
-                          setDlgState(() => isSubmitting = true);
-                          final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
-                          try {
-                            final res = await _billingCtrl.createInvoice(
-                              patientId: patientId,
-                              admissionType: 'Lab',
-                              labRequestIds: [int.tryParse(req['id']?.toString() ?? '') ?? 0],
-                              doctorName: req['doctor_name']?.toString(),
-                              items: billItems,
-                              discount: discount,
-                              initialPayment: collected > 0 ? {
-                                'amount': collected,
-                                'payment_mode': payMode,
-                              } : null,
-                            );
+              actions: isMobileDialog
+                  ? [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: isSubmitting
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Icon(Icons.receipt_long, size: 18),
+                          label: const Text('Confirm & Print Lab Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: isSubmitting
+                              ? null
+                              : () async {
+                                  setDlgState(() => isSubmitting = true);
+                                  final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
+                                  try {
+                                    final res = await _billingCtrl.createInvoice(
+                                      patientId: patientId,
+                                      admissionType: 'Lab',
+                                      labRequestIds: [int.tryParse(req['id']?.toString() ?? '') ?? 0],
+                                      doctorName: req['doctor_name']?.toString(),
+                                      items: billItems,
+                                      discount: discount,
+                                      initialPayment: collected > 0 ? {
+                                        'amount': collected,
+                                        'payment_mode': payMode,
+                                      } : null,
+                                    );
 
-                            if (dlgCtx.mounted) Navigator.pop(dlgCtx);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Lab diagnostics bill created successfully!'), backgroundColor: Colors.green),
-                              );
-                              _loadInvoices();
-                              _loadLabRequests();
-                              _showInvoiceReceiptDialog(res['id']);
-                            }
-                          } catch (e) {
-                            if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                            }
-                          }
-                        },
-                ),
-              ],
+                                    if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Lab diagnostics bill created successfully!'), backgroundColor: Colors.green),
+                                      );
+                                      _loadInvoices();
+                                      _loadLabRequests();
+                                      _showInvoiceReceiptDialog(res['id']);
+                                    }
+                                  } catch (e) {
+                                    if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                                    }
+                                  }
+                                },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                          style: AppTheme.cancelButton,
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                    ]
+                  : [
+                      OutlinedButton(
+                        onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                        style: AppTheme.cancelButton,
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        icon: isSubmitting
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.receipt_long, size: 18),
+                        label: const Text('Confirm & Print Lab Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: isSubmitting
+                            ? null
+                            : () async {
+                                setDlgState(() => isSubmitting = true);
+                                final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
+                                try {
+                                  final res = await _billingCtrl.createInvoice(
+                                    patientId: patientId,
+                                    admissionType: 'Lab',
+                                    labRequestIds: [int.tryParse(req['id']?.toString() ?? '') ?? 0],
+                                    doctorName: req['doctor_name']?.toString(),
+                                    items: billItems,
+                                    discount: discount,
+                                    initialPayment: collected > 0 ? {
+                                      'amount': collected,
+                                      'payment_mode': payMode,
+                                    } : null,
+                                  );
+
+                                  if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Lab diagnostics bill created successfully!'), backgroundColor: Colors.green),
+                                    );
+                                    _loadInvoices();
+                                    _loadLabRequests();
+                                    _showInvoiceReceiptDialog(res['id']);
+                                  }
+                                } catch (e) {
+                                  if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                                  }
+                                }
+                              },
+                      ),
+                    ],
             );
           },
         );
@@ -2585,8 +3039,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
             final net = (subtotal - discount).clamp(0.0, double.infinity);
             if (paidCtrl.text.isEmpty) paidCtrl.text = net.toStringAsFixed(0);
 
+            final bool isMobileDialog = MediaQuery.of(ctx).size.width < 620;
             return AlertDialog(
               backgroundColor: Colors.white,
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isMobileDialog ? 12.0 : 40.0,
+                vertical: 24.0,
+              ),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
@@ -2600,7 +3059,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                 ],
               ),
               content: SizedBox(
-                width: 620,
+                width: isMobileDialog ? double.maxFinite : 620,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -2812,26 +3271,88 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                   ),
                 ),
               ),
-              actions: [
-                OutlinedButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
-                  style: AppTheme.cancelButton,
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: isSubmitting
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.receipt_long, size: 16),
-                  label: const Text('Create Pharmacy Bill', style: TextStyle(fontWeight: FontWeight.bold)),
-                  onPressed: (isSubmitting || selectedPatient == null || items.isEmpty)
-                      ? null
-                      : () async {
+              actions: isMobileDialog
+                  ? [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: isSubmitting
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Icon(Icons.receipt_long, size: 16),
+                          label: const Text('Create Pharmacy Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: (isSubmitting || selectedPatient == null || items.isEmpty)
+                              ? null
+                              : () async {
+                                  setDlgState(() => isSubmitting = true);
+                                  final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
+                                  try {
+                                    final res = await _billingCtrl.createInvoice(
+                                      patientId: selectedPatient!.id!,
+                                      admissionType: 'Pharmacy',
+                                      items: items,
+                                      discount: discount,
+                                      initialPayment: collected > 0 ? {
+                                        'amount': collected,
+                                        'payment_mode': payMode,
+                                      } : null,
+                                    );
+
+                                    if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Walk-in Pharmacy Bill created successfully!'), backgroundColor: Colors.green),
+                                      );
+                                      _loadInvoices();
+                                      _loadMedicineInventory();
+                                      if (res['id'] != null) {
+                                        _showInvoiceReceiptDialog(res['id']);
+                                      }
+                                    }
+                                  } catch (e) {
+                                    if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                                    }
+                                  }
+                                },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                          style: AppTheme.cancelButton,
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                    ]
+                  : [
+                      OutlinedButton(
+                        onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                        style: AppTheme.cancelButton,
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: isSubmitting
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.receipt_long, size: 16),
+                        label: const Text('Create Pharmacy Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: (isSubmitting || selectedPatient == null || items.isEmpty)
+                            ? null
+                            : () async {
                           setDlgState(() => isSubmitting = true);
                           final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
                           try {
@@ -2894,8 +3415,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
             final net = (subtotal - discount).clamp(0.0, double.infinity);
             if (paidCtrl.text.isEmpty) paidCtrl.text = net.toStringAsFixed(0);
 
+            final bool isMobileDialog = MediaQuery.of(ctx).size.width < 620;
             return AlertDialog(
               backgroundColor: Colors.white,
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isMobileDialog ? 12.0 : 40.0,
+                vertical: 24.0,
+              ),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
@@ -2909,7 +3435,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                 ],
               ),
               content: SizedBox(
-                width: 620,
+                width: isMobileDialog ? double.maxFinite : 620,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -3040,26 +3566,88 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                   ),
                 ),
               ),
-              actions: [
-                OutlinedButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
-                  style: AppTheme.cancelButton,
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  icon: isSubmitting
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.receipt_long, size: 16),
-                  label: const Text('Create Lab Bill', style: TextStyle(fontWeight: FontWeight.bold)),
-                  onPressed: (isSubmitting || selectedPatient == null || items.isEmpty)
-                      ? null
-                      : () async {
+              actions: isMobileDialog
+                  ? [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: isSubmitting
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Icon(Icons.receipt_long, size: 16),
+                          label: const Text('Create Lab Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: (isSubmitting || selectedPatient == null || items.isEmpty)
+                              ? null
+                              : () async {
+                                  setDlgState(() => isSubmitting = true);
+                                  final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
+                                  try {
+                                    final res = await _billingCtrl.createInvoice(
+                                      patientId: selectedPatient!.id!,
+                                      admissionType: 'Lab',
+                                      items: items,
+                                      discount: discount,
+                                      initialPayment: collected > 0 ? {
+                                        'amount': collected,
+                                        'payment_mode': payMode,
+                                      } : null,
+                                    );
+
+                                    if (dlgCtx.mounted) Navigator.pop(dlgCtx);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('Walk-in Lab Bill created successfully!'), backgroundColor: Colors.green),
+                                      );
+                                      _loadInvoices();
+                                      _loadLabRequests();
+                                      if (res['id'] != null) {
+                                        _showInvoiceReceiptDialog(res['id']);
+                                      }
+                                    }
+                                  } catch (e) {
+                                    if (dlgCtx.mounted) setDlgState(() => isSubmitting = false);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                                    }
+                                  }
+                                },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                          style: AppTheme.cancelButton,
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                    ]
+                  : [
+                      OutlinedButton(
+                        onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                        style: AppTheme.cancelButton,
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: isSubmitting
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.receipt_long, size: 16),
+                        label: const Text('Create Lab Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: (isSubmitting || selectedPatient == null || items.isEmpty)
+                            ? null
+                            : () async {
                           setDlgState(() => isSubmitting = true);
                           final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
                           try {
@@ -4232,11 +4820,16 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
 
         return StatefulBuilder(
           builder: (dialogContext, setDlgState) {
+            final bool isMobileDialog = MediaQuery.of(dialogContext).size.width < 600;
             final double disc = double.tryParse(discountCtrl.text.trim()) ?? 0.0;
             final double netPayable = (gross - disc) > 0 ? (gross - disc) : 0.0;
 
             return AlertDialog(
               backgroundColor: Colors.white,
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isMobileDialog ? 12.0 : 40.0,
+                vertical: 24.0,
+              ),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Row(
                 children: [
@@ -4261,7 +4854,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                 ],
               ),
               content: SizedBox(
-                width: 520,
+                width: isMobileDialog ? double.maxFinite : 520,
                 child: SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -4302,16 +4895,22 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         ),
                         child: Column(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 4,
                               children: [
                                 const Text('Total Surgical Gross:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF334155))),
                                 Text('₹${gross.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF0F172A))),
                               ],
                             ),
                             const Divider(height: 14),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 4,
                               children: [
                                 const Text('Net Amount Payable:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
                                 Text('₹${netPayable.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.secondaryColor)),
@@ -4347,64 +4946,149 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                       const SizedBox(height: 14),
 
                       // Payment Mode & Reference
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel('Payment Mode'),
-                                DropdownButtonFormField<String>(
-                                  value: paymentMode,
-                                  decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12)),
-                                  items: ['Cash', 'UPI', 'Card', 'Net Banking']
-                                      .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                                      .toList(),
-                                  onChanged: (v) {
-                                    if (v != null) setDlgState(() => paymentMode = v);
-                                  },
-                                ),
-                              ],
+                      if (isMobileDialog) ...[
+                        _buildLabel('Payment Mode'),
+                        DropdownButtonFormField<String>(
+                          value: paymentMode,
+                          isExpanded: true,
+                          decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12)),
+                          items: ['Cash', 'UPI', 'Card', 'Net Banking']
+                              .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) setDlgState(() => paymentMode = v);
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        _buildLabel('Txn / Reference ID'),
+                        TextFormField(
+                          controller: refCtrl,
+                          decoration: const InputDecoration(hintText: 'Optional'),
+                        ),
+                      ] else ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Payment Mode'),
+                                  DropdownButtonFormField<String>(
+                                    value: paymentMode,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12)),
+                                    items: ['Cash', 'UPI', 'Card', 'Net Banking']
+                                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) setDlgState(() => paymentMode = v);
+                                    },
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel('Txn / Reference ID'),
-                                TextFormField(
-                                  controller: refCtrl,
-                                  decoration: const InputDecoration(hintText: 'Optional'),
-                                ),
-                              ],
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Txn / Reference ID'),
+                                  TextFormField(
+                                    controller: refCtrl,
+                                    decoration: const InputDecoration(hintText: 'Optional'),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
-              actions: [
-                OutlinedButton(
-                  onPressed: isSubmitting ? null : () => Navigator.pop(dCtx),
-                  style: AppTheme.cancelButton,
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton.icon(
-                  icon: isSubmitting
-                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.check, size: 16),
-                  label: const Text('Confirm & Generate Bill'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: isSubmitting ? null : () async {
+              actions: isMobileDialog
+                  ? [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: isSubmitting
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : const Icon(Icons.check, size: 16),
+                          label: const Text('Confirm & Generate Bill'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: isSubmitting ? null : () async {
+                            setDlgState(() => isSubmitting = true);
+                            final messenger = ScaffoldMessenger.of(context);
+                            final navigator = Navigator.of(dCtx);
+
+                            final collected = double.tryParse(paymentAmtCtrl.text.trim()) ?? 0.0;
+                            final d = double.tryParse(discountCtrl.text.trim()) ?? 0.0;
+
+                            try {
+                              final res = await _billingCtrl.createOtCaseInvoice(
+                                caseId: caseId,
+                                discount: d,
+                                initialPayment: collected > 0 ? {
+                                  'amount': collected,
+                                  'payment_mode': paymentMode,
+                                  'transaction_reference': refCtrl.text.trim(),
+                                } : null,
+                              );
+
+                              if (dCtx.mounted) navigator.pop();
+                              if (mounted) {
+                                _loadOtBillingCases();
+                                _loadInvoices();
+                                messenger.showSnackBar(
+                                  const SnackBar(content: Text('OT Case Bill generated successfully!'), backgroundColor: Colors.green),
+                                );
+                                if (res['id'] != null) {
+                                  _showInvoiceReceiptDialog(res['id']);
+                                }
+                              }
+                            } catch (e) {
+                              if (dialogContext.mounted) setDlgState(() => isSubmitting = false);
+                              messenger.showSnackBar(SnackBar(content: Text('Error generating bill: $e'), backgroundColor: Colors.red));
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: isSubmitting ? null : () => Navigator.pop(dCtx),
+                          style: AppTheme.cancelButton,
+                          child: const Text('Cancel'),
+                        ),
+                      ),
+                    ]
+                  : [
+                      OutlinedButton(
+                        onPressed: isSubmitting ? null : () => Navigator.pop(dCtx),
+                        style: AppTheme.cancelButton,
+                        child: const Text('Cancel'),
+                      ),
+                      ElevatedButton.icon(
+                        icon: isSubmitting
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Icon(Icons.check, size: 16),
+                        label: const Text('Confirm & Generate Bill'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        onPressed: isSubmitting ? null : () async {
                     setDlgState(() => isSubmitting = true);
                     final messenger = ScaffoldMessenger.of(context);
                     final navigator = Navigator.of(dCtx);
@@ -5085,61 +5769,122 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                         borderRadius: BorderRadius.circular(6),
                                         border: Border.all(color: const Color(0xFFBAE6FD)),
                                       ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.emergency_outlined, size: 16, color: Color(0xFF0284C7)),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Column(
+                                      child: isMobileDialog
+                                          ? Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                Text(
-                                                  '${c['case_number'] ?? 'OT Case'}: ${c['surgery_type'] ?? 'Surgery'}',
-                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0369A1)),
+                                                Row(
+                                                  children: [
+                                                    const Icon(Icons.emergency_outlined, size: 16, color: Color(0xFF0284C7)),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        '${c['case_number'] ?? 'OT Case'}: ${c['surgery_type'] ?? 'Surgery'}',
+                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0369A1)),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: c['is_billed'] == true ? Colors.grey.shade200 : const Color(0xFFDCFCE7),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: Text(
+                                                        c['is_billed'] == true ? 'Already Billed' : 'Ready for Folio',
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: c['is_billed'] == true ? Colors.grey.shade700 : const Color(0xFF15803D),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
+                                                const SizedBox(height: 4),
                                                 Text(
                                                   'Theatre: ${c['theatre_name'] ?? '-'} • Lead Surgeon: Dr. ${c['lead_surgeon'] ?? '-'}${c['anaesthetist'] != null ? ' • Anaesthetist: Dr. ' + c['anaesthetist'] : ''}',
                                                   style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
                                                 ),
+                                                if (c['is_billed'] != true) ...[
+                                                  const SizedBox(height: 6),
+                                                  Align(
+                                                    alignment: Alignment.centerRight,
+                                                    child: OutlinedButton.icon(
+                                                      icon: const Icon(Icons.edit_note, size: 14),
+                                                      label: const Text('Edit Fees', style: TextStyle(fontSize: 11)),
+                                                      style: OutlinedButton.styleFrom(
+                                                        foregroundColor: const Color(0xFF0284C7),
+                                                        side: const BorderSide(color: Color(0xFF0284C7)),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        minimumSize: Size.zero,
+                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                      ),
+                                                      onPressed: () {
+                                                        _showEditOtCaseFeesDialog(c, onUpdated: () {
+                                                          fetchSummary();
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            )
+                                          : Row(
+                                              children: [
+                                                const Icon(Icons.emergency_outlined, size: 16, color: Color(0xFF0284C7)),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        '${c['case_number'] ?? 'OT Case'}: ${c['surgery_type'] ?? 'Surgery'}',
+                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0369A1)),
+                                                      ),
+                                                      Text(
+                                                        'Theatre: ${c['theatre_name'] ?? '-'} • Lead Surgeon: Dr. ${c['lead_surgeon'] ?? '-'}${c['anaesthetist'] != null ? ' • Anaesthetist: Dr. ' + c['anaesthetist'] : ''}',
+                                                        style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: c['is_billed'] == true ? Colors.grey.shade200 : const Color(0xFFDCFCE7),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    c['is_billed'] == true ? 'Already Billed' : 'Ready for Folio',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: c['is_billed'] == true ? Colors.grey.shade700 : const Color(0xFF15803D),
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (c['is_billed'] != true) ...[
+                                                  const SizedBox(width: 8),
+                                                  OutlinedButton.icon(
+                                                    icon: const Icon(Icons.edit_note, size: 14),
+                                                    label: const Text('Edit Fees', style: TextStyle(fontSize: 11)),
+                                                    style: OutlinedButton.styleFrom(
+                                                      foregroundColor: const Color(0xFF0284C7),
+                                                      side: const BorderSide(color: Color(0xFF0284C7)),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                      minimumSize: Size.zero,
+                                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                    ),
+                                                    onPressed: () {
+                                                      _showEditOtCaseFeesDialog(c, onUpdated: () {
+                                                        fetchSummary();
+                                                      });
+                                                    },
+                                                  ),
+                                                ],
                                               ],
                                             ),
-                                          ),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: c['is_billed'] == true ? Colors.grey.shade200 : const Color(0xFFDCFCE7),
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Text(
-                                              c['is_billed'] == true ? 'Already Billed' : 'Ready for Folio',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                color: c['is_billed'] == true ? Colors.grey.shade700 : const Color(0xFF15803D),
-                                              ),
-                                            ),
-                                          ),
-                                          if (c['is_billed'] != true) ...[
-                                            const SizedBox(width: 8),
-                                            OutlinedButton.icon(
-                                              icon: const Icon(Icons.edit_note, size: 14),
-                                              label: const Text('Edit Fees', style: TextStyle(fontSize: 11)),
-                                              style: OutlinedButton.styleFrom(
-                                                foregroundColor: const Color(0xFF0284C7),
-                                                side: const BorderSide(color: Color(0xFF0284C7)),
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                minimumSize: Size.zero,
-                                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                              ),
-                                              onPressed: () {
-                                                _showEditOtCaseFeesDialog(c, onUpdated: () {
-                                                  fetchSummary();
-                                                });
-                                              },
-                                            ),
-                                          ],
-                                        ],
-                                      ),
                                     ),
                                   if (otItemsList.isEmpty)
                                     const Padding(
@@ -5443,7 +6188,10 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('Remaining Balance Due:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B))),
+                                  const Expanded(
+                                    child: Text('Remaining Balance Due:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B))),
+                                  ),
+                                  const SizedBox(width: 8),
                                   Text(
                                     '₹${remainingBalance.toStringAsFixed(2)}',
                                     style: TextStyle(
@@ -5588,21 +6336,29 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         ),
                         const SizedBox(height: 8),
                         isMobileDialog
-                            ? LayoutBuilder(
-                                builder: (c, constraints) {
-                                  final double halfW = (constraints.maxWidth - 8) / 2;
-                                  return Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
+                            ? Column(
+                                children: [
+                                  Row(
                                     children: [
-                                      SizedBox(width: halfW, child: card1),
-                                      SizedBox(width: halfW, child: card2),
-                                      SizedBox(width: halfW, child: card3),
-                                      SizedBox(width: halfW, child: card4),
-                                      SizedBox(width: constraints.maxWidth, child: card5),
+                                      Expanded(child: card1),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: card2),
                                     ],
-                                  );
-                                },
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(child: card3),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: card4),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: card5,
+                                  ),
+                                ],
                               )
                             : Row(
                                 children: [
@@ -5778,7 +6534,75 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     required double subtotal,
     String? badge,
     Color? badgeColor,
+    bool? isMobile,
   }) {
+    final bool mobile = isMobile ?? (MediaQuery.of(context).size.width < 800);
+
+    if (mobile) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      Text(
+                        name,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: Color(0xFF1E293B)),
+                      ),
+                      if (badge != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (badgeColor ?? Colors.blue).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            badge,
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: badgeColor ?? Colors.blue),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '₹${subtotal.toStringAsFixed(2)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF1E293B)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    details.isNotEmpty ? details : '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$qty x ₹${price.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -5789,22 +6613,21 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
-                    Expanded(
-                      child: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: Color(0xFF1E293B))),
-                    ),
-                    if (badge != null) ...[
-                      const SizedBox(width: 6),
+                    Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: Color(0xFF1E293B))),
+                    if (badge != null)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: (badgeColor ?? Colors.blue).withOpacity(0.12),
+                          color: (badgeColor ?? Colors.blue).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(badge, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: badgeColor ?? Colors.blue)),
                       ),
-                    ]
                   ],
                 ),
                 if (details.isNotEmpty)
@@ -5990,13 +6813,24 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                       const SizedBox(height: 18),
 
                       // ─── CLINICAL DISCHARGE SUMMARY SECTION ──────────────────
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
                         children: [
                           const Text('Clinical Discharge Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
                           TextButton.icon(
                             icon: const Icon(Icons.auto_awesome, size: 16, color: Color(0xFF0284C7)),
-                            label: const Text('Auto-Fill from Verified Records', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0284C7))),
+                            label: Text(
+                              isMobileDischarge ? 'Auto-Fill Records' : 'Auto-Fill from Verified Records',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0284C7)),
+                            ),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
                             onPressed: autoFillFromClinicalData,
                           ),
                         ],
@@ -6039,46 +6873,68 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                       const SizedBox(height: 12),
 
                       // Discharge Instructions & Follow-up Date Row
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel('Discharge Care Instructions'),
-                                TextFormField(
-                                  controller: instructionsCtrl,
-                                  maxLines: 2,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Activity restrictions, diet, wound dressing, red-flag symptoms...',
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  ),
-                                ),
-                              ],
-                            ),
+                      if (isMobileDischarge) ...[
+                        _buildLabel('Discharge Care Instructions'),
+                        TextFormField(
+                          controller: instructionsCtrl,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            hintText: 'Activity restrictions, diet, wound dressing, red-flag symptoms...',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildLabel('Follow-up Date'),
-                                TextFormField(
-                                  controller: followUpCtrl,
-                                  decoration: const InputDecoration(
-                                    hintText: 'YYYY-MM-DD',
-                                    prefixIcon: Icon(Icons.calendar_today, size: 16),
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildLabel('Follow-up Date'),
+                        TextFormField(
+                          controller: followUpCtrl,
+                          decoration: const InputDecoration(
+                            hintText: 'YYYY-MM-DD',
+                            prefixIcon: Icon(Icons.calendar_today, size: 16),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                           ),
-                        ],
-                      ),
+                        ),
+                      ] else ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Discharge Care Instructions'),
+                                  TextFormField(
+                                    controller: instructionsCtrl,
+                                    maxLines: 2,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Activity restrictions, diet, wound dressing, red-flag symptoms...',
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLabel('Follow-up Date'),
+                                  TextFormField(
+                                    controller: followUpCtrl,
+                                    decoration: const InputDecoration(
+                                      hintText: 'YYYY-MM-DD',
+                                      prefixIcon: Icon(Icons.calendar_today, size: 16),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const Divider(height: 28),
 
                       // ─── FINAL BILLING SETTLEMENT SECTION ────────────────────
@@ -6148,25 +7004,138 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                   ),
                 ),
               ),
-              actions: [
-                Wrap(
-                  alignment: WrapAlignment.end,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 10,
-                  runSpacing: 8,
-                  children: [
-                    OutlinedButton(onPressed: () => Navigator.pop(ctx), style: AppTheme.cancelButton, child: const Text('Back to Worksheet')),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.done_all, size: 18),
-                      label: const Text('Confirm Discharge & Final Settle', style: TextStyle(fontWeight: FontWeight.bold)),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.logoRed,
-                        foregroundColor: Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              actions: isMobileDischarge
+                  ? [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.done_all, size: 18),
+                          label: const Text('Confirm Discharge & Final Settle', style: TextStyle(fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.logoRed,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: () async {
+                        if (finalDiagCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Final Diagnosis is mandatory for certified discharge.'), backgroundColor: Colors.red));
+                          return;
+                        }
+                        if (treatmentSumCtrl.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Treatment Summary is required for discharge report.'), backgroundColor: Colors.red));
+                          return;
+                        }
+
+                        final messenger = ScaffoldMessenger.of(context);
+                        final navigator = Navigator.of(ctx);
+
+                        try {
+                          final discTotal = double.tryParse(discCtrl.text) ?? 0.0;
+
+                          // Flatten all unified folio items across all departments so the complete bill is saved
+                          final List<Map<String, dynamic>> consolidatedItems = [];
+                          for (var cat in ['room_charges', 'nursing_services', 'doctor_rounds', 'pharmacy_items', 'lab_investigations', 'ot_charges', 'other_charges']) {
+                            final catObj = (unifiedFolio[cat] as Map<String, dynamic>?) ?? {};
+                            final itemsArr = List<Map<String, dynamic>>.from(catObj['items'] ?? []);
+                            for (var it in itemsArr) {
+                              consolidatedItems.add({
+                                'service_id': it['service_id'],
+                                'item_name': it['item_name'],
+                                'quantity': it['quantity'] ?? 1,
+                                'unit_price': double.tryParse((it['unit_price'] ?? 0).toString()) ?? 0.0,
+                                'subtotal': double.tryParse((it['subtotal'] ?? 0).toString()) ?? 0.0,
+                              });
+                            }
+                          }
+
+                          final res = await _billingCtrl.dischargeAndSettleIP(
+                            admissionId: admissionId,
+                            dischargeSummary: treatmentSumCtrl.text.trim(),
+                            finalDiagnosis: finalDiagCtrl.text.trim(),
+                            treatmentSummary: treatmentSumCtrl.text.trim(),
+                            medicationPlan: medsPlanCtrl.text.trim(),
+                            dischargeInstructions: instructionsCtrl.text.trim(),
+                            followUpDate: followUpCtrl.text.trim(),
+                            clearanceStatuses: clearances,
+                            structuredDischargeData: {
+                              'clearances': clearances,
+                              'clinical_summary': {
+                                'final_diagnosis': finalDiagCtrl.text.trim(),
+                                'treatment_summary': treatmentSumCtrl.text.trim(),
+                                'medication_plan': medsPlanCtrl.text.trim(),
+                                'discharge_instructions': instructionsCtrl.text.trim(),
+                                'follow_up_date': followUpCtrl.text.trim(),
+                              },
+                              'folio_totals': unifiedFolio['totals']
+                            },
+                            items: otherItems.map((x) => {
+                              'service_id': x['service_id'],
+                              'item_name': x['item_name'],
+                              'quantity': x['quantity'] ?? 1,
+                              'unit_price': double.parse(x['unit_price'].toString())
+                            }).toList(),
+                            folioItems: consolidatedItems,
+                            discount: discTotal,
+                            finalPaymentMode: payMode,
+                            transactionReference: finalRefCtrl.text.trim()
+                          );
+
+                          if (ctx.mounted) navigator.pop();
+                          if (mounted) {
+                            _loadIpAdmissions();
+                            _loadInvoices();
+
+                            messenger.showSnackBar(
+                              const SnackBar(
+                                content: Text('Patient successfully discharged! Bed transitioned to Cleaning status. Inpatient folio settled.'),
+                                backgroundColor: Color(0xFF059669),
+                                duration: Duration(seconds: 3),
+                              ),
+                            );
+
+                            // Open final invoice receipt dialog with print capability
+                            if (res['invoice'] != null && res['invoice']['id'] != null) {
+                              _showInvoiceReceiptDialog(res['invoice']['id']);
+                            }
+                          }
+                        } catch (e) {
+                          messenger.showSnackBar(SnackBar(content: Text('Error settling discharge: $e'), backgroundColor: Colors.red));
+                        }},
+                        ),
                       ),
-                      onPressed: () async {
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: AppTheme.cancelButton,
+                          child: const Text('Back to Worksheet'),
+                        ),
+                      ),
+                    ]
+                  : [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            style: AppTheme.cancelButton,
+                            child: const Text('Back to Worksheet'),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.done_all, size: 18),
+                            label: const Text('Confirm Discharge & Final Settle', style: TextStyle(fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.logoRed,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () async {
                         if (finalDiagCtrl.text.trim().isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Final Diagnosis is mandatory for certified discharge.'), backgroundColor: Colors.red));
                           return;

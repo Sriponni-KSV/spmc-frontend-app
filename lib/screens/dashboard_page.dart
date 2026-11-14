@@ -1480,49 +1480,104 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // Pagination Controls
             if (sortedPatients.isNotEmpty)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      context.showingEntries(start: startIndex + 1, end: endIndex, total: totalPatients),
-                      style: const TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 13,
-                      ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final bool useStacked = isMobile || constraints.maxWidth < 460;
+                  return Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: useStacked ? 12 : 16,
+                      vertical: useStacked ? 8 : 12,
                     ),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left),
-                          onPressed: _consultationsCurrentPage > 0
-                              ? () => setState(() => _consultationsCurrentPage--)
-                              : null,
-                        ),
-                        Text(
-                          context.pageOfTotal(_consultationsCurrentPage + 1, totalPages),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: useStacked
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                context.showingEntries(start: startIndex + 1, end: endIndex, total: totalPatients),
+                                style: const TextStyle(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 12,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_left),
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(),
+                                    splashRadius: 20,
+                                    onPressed: _consultationsCurrentPage > 0
+                                        ? () => setState(() => _consultationsCurrentPage--)
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    context.pageOfTotal(_consultationsCurrentPage + 1, totalPages),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_right),
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(),
+                                    splashRadius: 20,
+                                    onPressed: _consultationsCurrentPage < totalPages - 1
+                                        ? () => setState(() => _consultationsCurrentPage++)
+                                        : null,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                context.showingEntries(start: startIndex + 1, end: endIndex, total: totalPatients),
+                                style: const TextStyle(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_left),
+                                    onPressed: _consultationsCurrentPage > 0
+                                        ? () => setState(() => _consultationsCurrentPage--)
+                                        : null,
+                                  ),
+                                  Text(
+                                    context.pageOfTotal(_consultationsCurrentPage + 1, totalPages),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_right),
+                                    onPressed: _consultationsCurrentPage < totalPages - 1
+                                        ? () => setState(() => _consultationsCurrentPage++)
+                                        : null,
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: _consultationsCurrentPage < totalPages - 1
-                              ? () => setState(() => _consultationsCurrentPage++)
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
           ],
         ],
@@ -5678,40 +5733,93 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (totalPages > 1)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                context.showingEntries(start: startIndex + 1, end: endIndex, total: totalItems),
-                                style: const TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              Row(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final bool useStacked = constraints.maxWidth < 460;
+                              if (useStacked) {
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      context.showingEntries(start: startIndex + 1, end: endIndex, total: totalItems),
+                                      style: const TextStyle(
+                                        color: AppTheme.textSecondaryColor,
+                                        fontSize: 12,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.chevron_left),
+                                          padding: const EdgeInsets.all(4),
+                                          constraints: const BoxConstraints(),
+                                          splashRadius: 20,
+                                          onPressed: _appointmentsCurrentPage > 0
+                                              ? () => setState(() => _appointmentsCurrentPage--)
+                                              : null,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          context.pageOfTotal(_appointmentsCurrentPage + 1, totalPages),
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        IconButton(
+                                          icon: const Icon(Icons.chevron_right),
+                                          padding: const EdgeInsets.all(4),
+                                          constraints: const BoxConstraints(),
+                                          splashRadius: 20,
+                                          onPressed: _appointmentsCurrentPage < totalPages - 1
+                                              ? () => setState(() => _appointmentsCurrentPage++)
+                                              : null,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              }
+                              return Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.chevron_left),
-                                    onPressed: _appointmentsCurrentPage > 0
-                                        ? () => setState(() => _appointmentsCurrentPage--)
-                                        : null,
-                                  ),
                                   Text(
-                                    context.pageOfTotal(_appointmentsCurrentPage + 1, totalPages),
+                                    context.showingEntries(start: startIndex + 1, end: endIndex, total: totalItems),
                                     style: const TextStyle(
+                                      color: AppTheme.textSecondaryColor,
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.chevron_right),
-                                    onPressed: _appointmentsCurrentPage < totalPages - 1
-                                        ? () => setState(() => _appointmentsCurrentPage++)
-                                        : null,
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.chevron_left),
+                                        onPressed: _appointmentsCurrentPage > 0
+                                            ? () => setState(() => _appointmentsCurrentPage--)
+                                            : null,
+                                      ),
+                                      Text(
+                                        context.pageOfTotal(_appointmentsCurrentPage + 1, totalPages),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.chevron_right),
+                                        onPressed: _appointmentsCurrentPage < totalPages - 1
+                                            ? () => setState(() => _appointmentsCurrentPage++)
+                                            : null,
+                                      ),
+                                    ],
                                   ),
                                 ],
-                              ),
-                            ],
+                              );
+                            },
                           ),
                         ),
                     ],

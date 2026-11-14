@@ -1145,26 +1145,33 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
+            width: widget.isMobile ? double.infinity : null,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: widget.isMobile ? MainAxisSize.max : MainAxisSize.min,
               children: [
                 _buildSubTabButton(
-                  title: 'Active Inpatients (${activeInpatients.length})',
+                  title: widget.isMobile
+                      ? 'Active (${activeInpatients.length})'
+                      : 'Active Inpatients (${activeInpatients.length})',
                   isSelected: _dischargeSummarySubTab == 0,
                   onTap: () => setState(() => _dischargeSummarySubTab = 0),
                   icon: Icons.personal_injury_outlined,
+                  expand: widget.isMobile,
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: widget.isMobile ? 4 : 6),
                 _buildSubTabButton(
-                  title: 'Discharged History (${discharged.length})',
+                  title: widget.isMobile
+                      ? 'History (${discharged.length})'
+                      : 'Discharged History (${discharged.length})',
                   isSelected: _dischargeSummarySubTab == 1,
                   onTap: () => setState(() => _dischargeSummarySubTab = 1),
                   icon: Icons.history,
+                  expand: widget.isMobile,
                 ),
               ],
             ),
@@ -1192,6 +1199,39 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
             ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(adm['admission_date']).toLocal())
             : '--';
 
+        final Widget generateBtn = ElevatedButton.icon(
+          onPressed: () => _showDoctorDischargeDialog(adm),
+          icon: const Icon(Icons.description_outlined, size: 16, color: Colors.white),
+          label: const Text('Generate Discharge Summary', style: TextStyle(color: Colors.white, fontSize: 12)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0F5A8E),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+
+        final Widget patientDetails = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              adm['patient_name'] ?? 'Unknown Patient',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Ward: ${adm['ward_type'] ?? 'General'} • Bed: ${adm['bed_number'] ?? '--'} • Admitted: $admitDateStr',
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+            ),
+            if (adm['doctor_name'] != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                'Treating Doctor: ${adm['doctor_name']}',
+                style: const TextStyle(fontSize: 12, color: Colors.black87),
+              ),
+            ],
+          ],
+        );
+
         return Card(
           elevation: 0,
           margin: const EdgeInsets.only(bottom: 12),
@@ -1201,47 +1241,40 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                  child: const Icon(Icons.person, color: AppTheme.primaryColor),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
+            child: widget.isMobile
+                ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        adm['patient_name'] ?? 'Unknown Patient',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                            child: const Icon(Icons.person, color: AppTheme.primaryColor),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(child: patientDetails),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Ward: ${adm['ward_type'] ?? 'General'} • Bed: ${adm['bed_number'] ?? '--'} • Admitted: $admitDateStr',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: generateBtn,
                       ),
-                      if (adm['doctor_name'] != null)
-                        Text(
-                          'Treating Doctor: ${adm['doctor_name']}',
-                          style: const TextStyle(fontSize: 12, color: Colors.black87),
-                        ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                        child: const Icon(Icons.person, color: AppTheme.primaryColor),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(child: patientDetails),
+                      const SizedBox(width: 12),
+                      generateBtn,
                     ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () => _showDoctorDischargeDialog(adm),
-                  icon: const Icon(Icons.description_outlined, size: 16, color: Colors.white),
-                  label: const Text('Generate Discharge Summary', style: TextStyle(color: Colors.white, fontSize: 12)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F5A8E),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ],
-            ),
           ),
         );
       },
@@ -1301,12 +1334,16 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
     required bool isSelected,
     required VoidCallback onTap,
     required IconData icon,
+    bool expand = false,
   }) {
-    return InkWell(
+    final button = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: widget.isMobile ? 8 : 14,
+          vertical: 8,
+        ),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -1321,26 +1358,36 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
               : null,
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 15,
+              size: widget.isMobile ? 14 : 15,
               color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
             ),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+            SizedBox(width: widget.isMobile ? 4 : 6),
+            Flexible(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: widget.isMobile ? 11.5 : 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+
+    if (expand) {
+      return Expanded(child: button);
+    }
+    return button;
   }
 
   // ─── ICU Dashboard (Doctor-only) ─────────────────────────────────────────
