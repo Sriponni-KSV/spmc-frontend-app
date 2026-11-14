@@ -33,6 +33,7 @@ class AppRoutes {
   static const String adminHomeVisitConsumables = '/admin/home-visit-consumables';
   static const String adminCarriedKitItems = '/admin/carried-kit-items';
   static const String adminIpdBeds = '/admin/ipd-beds';
+  static const String adminDepartments = '/admin/departments';
 
 
   // Nurse Routes

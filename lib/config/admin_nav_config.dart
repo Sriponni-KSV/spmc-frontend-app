@@ -95,6 +95,7 @@ class AdminNavConfig {
   static const bool showHomeVisitConsumables = true;
   static const bool showCarriedKitItems = true;
   static const bool showIpdBeds = true;
+  static const bool showDepartments = true;
 
   // =========================================================================
   // HELPER METHODS TO FILTER AND RETURN ACTIVE MENU ITEMS
@@ -218,6 +219,12 @@ class AdminNavConfig {
         icon: Icons.hotel_outlined,
         label: 'IPD Beds',
         isVisible: showIpdBeds,
+      ),
+      const AdminCatalogSubItem(
+        index: 17,
+        icon: Icons.apartment_rounded,
+        label: 'Department Master',
+        isVisible: showDepartments,
       ),
     ];
 

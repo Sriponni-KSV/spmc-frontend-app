@@ -1701,16 +1701,10 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                                 spacing: 4,
                                                 runSpacing: 2,
                                                 children: [
-                                                  Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: [
-                                                      const Icon(Icons.medication, size: 14, color: Color(0xFF7C3AED)),
-                                                      const SizedBox(width: 6),
-                                                      Text(
-                                                        mName,
-                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)),
-                                                      ),
-                                                    ],
+                                                  const Icon(Icons.medication, size: 14, color: Color(0xFF7C3AED)),
+                                                  Text(
+                                                    mName,
+                                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0F172A)),
                                                   ),
                                                   if (dosage.toString().isNotEmpty)
                                                     Text('($dosage)', style: const TextStyle(fontSize: 11, color: Colors.grey)),
@@ -5650,6 +5644,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                               children: [
                                 for (var item in roomItems)
                                   _buildFolioItemRow(
+                                    isMobile: isMobileDialog,
                                     name: item['item_name'] ?? 'Bed Charge',
                                     details: item['details'] ?? '',
                                     qty: item['quantity'] ?? bedDays,
@@ -5669,6 +5664,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                               children: [
                                 for (var item in nursingItems)
                                   _buildFolioItemRow(
+                                    isMobile: isMobileDialog,
                                     name: item['item_name'] ?? 'Nursing Care',
                                     details: item['details'] ?? '',
                                     qty: item['quantity'] ?? bedDays,
@@ -5688,6 +5684,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                               children: [
                                 for (var item in doctorItems)
                                   _buildFolioItemRow(
+                                    isMobile: isMobileDialog,
                                     name: item['item_name'] ?? 'Doctor Round',
                                     details: item['details'] ?? '',
                                     qty: item['quantity'] ?? 1,
@@ -5713,6 +5710,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                 else
                                   for (var item in pharmacyItemsList)
                                     _buildFolioItemRow(
+                                      isMobile: isMobileDialog,
                                       name: item['item_name'] ?? 'Medicine',
                                       details: item['details'] ?? '',
                                       qty: item['quantity'] ?? 1,
@@ -5740,6 +5738,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                 else
                                   for (var item in labItemsList)
                                     _buildFolioItemRow(
+                                      isMobile: isMobileDialog,
                                       name: item['item_name'] ?? 'Investigation',
                                       details: item['details'] ?? '',
                                       qty: item['quantity'] ?? 1,
@@ -5894,6 +5893,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                   else
                                     for (var item in otItemsList)
                                       _buildFolioItemRow(
+                                        isMobile: isMobileDialog,
                                         name: item['item_name'] ?? 'OT Charge',
                                         details: item['details'] ?? '',
                                         qty: item['quantity'] ?? 1,
@@ -6536,7 +6536,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
     Color? badgeColor,
     bool? isMobile,
   }) {
-    final bool mobile = isMobile ?? (MediaQuery.of(context).size.width < 800);
+    final bool mobile = isMobile ?? (MediaQuery.of(context).size.width < 960);
 
     if (mobile) {
       return Padding(

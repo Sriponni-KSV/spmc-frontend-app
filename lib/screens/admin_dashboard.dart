@@ -1,3 +1,7 @@
+import 'department_management_view.dart';
+import '../widgets/department_dropdown.dart';
+import '../models/department_model.dart';
+import '../controllers/department_controller.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1073,6 +1077,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             user?.role == 'Super Admin' ||
             user?.role == 'Supervisor') {
           return IpdBedsCatalogView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 17:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return DepartmentManagementView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
 
@@ -2743,6 +2752,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           case 16:
             context.go(AppRoutes.adminIpdBeds);
             break;
+          case 17:
+            context.go(AppRoutes.adminDepartments);
+            break;
 
           default:
             context.go(AppRoutes.adminDashboard);
@@ -3464,6 +3476,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return 'Master Catalog / Carried Kit Items';
       case 16:
         return 'Master Catalog / IPD Beds';
+      case 17:
+        return 'Master Catalog / Department Master';
       default:
         return 'Admin Dashboard';
     }
