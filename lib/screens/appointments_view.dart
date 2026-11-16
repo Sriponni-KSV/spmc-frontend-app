@@ -3622,26 +3622,20 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            decoration: BoxDecoration(
-              color: AppTheme.isDark(context) ? AppTheme.darkSurfaceColor : const Color(0xFFEDF2F7),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            decoration: AppTheme.tableHeaderDecoration(context),
             child: Row(
               children: [
-                _buildTableHeader('S.No', flex: 1),
-                _buildTableHeader('Time', flex: 2),
-                _buildTableHeader('Date', flex: 2),
-                _buildTableHeader('Patient', flex: 4),
-                _buildTableHeader('Department', flex: 2),
-                _buildTableHeader('Doctor', flex: 3),
-                _buildTableHeader('Type', flex: 2),
-                _buildTableHeader('Reason', flex: 2),
-                _buildTableHeader('Status', flex: 2),
-                _buildTableHeader('Actions', flex: 3, leftPadding: 8),
+                _buildTableHeader('S.No', icon: Icons.tag, flex: 1),
+                _buildTableHeader('Time', icon: Icons.access_time, flex: 2),
+                _buildTableHeader('Date', icon: Icons.calendar_today_outlined, flex: 2),
+                _buildTableHeader('Patient', icon: Icons.person_outline, flex: 4),
+                _buildTableHeader('Department', icon: Icons.business_outlined, flex: 2),
+                _buildTableHeader('Doctor', icon: Icons.medical_services_outlined, flex: 3),
+                _buildTableHeader('Type', icon: Icons.category_outlined, flex: 2),
+                _buildTableHeader('Reason', icon: Icons.info_outline, flex: 2),
+                _buildTableHeader('Status', icon: Icons.verified_outlined, flex: 2),
+                _buildTableHeader('Actions', icon: Icons.bolt_outlined, flex: 3, leftPadding: 8),
               ],
             ),
           ),
@@ -4189,6 +4183,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
 
   Widget _buildTableHeader(
     String label, {
+    IconData? icon,
     int flex = 1,
     double leftPadding = 0,
   }) {
@@ -4213,20 +4208,31 @@ class _AppointmentsViewState extends State<AppointmentsView> {
       translated = context.tr('actions', fallback: label);
     }
 
+    final textWidget = Text(
+      translated,
+      style: AppTheme.tableHeadingTextStyle(context),
+      overflow: TextOverflow.ellipsis,
+    );
+
+    Widget content;
+    if (icon != null) {
+      content = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: AppTheme.tableHeadingIconSize, color: AppTheme.getTableHeadingIconColor(context)),
+          const SizedBox(width: 6),
+          Flexible(child: textWidget),
+        ],
+      );
+    } else {
+      content = textWidget;
+    }
+
     return Expanded(
       flex: flex,
       child: Padding(
         padding: EdgeInsets.only(left: leftPadding),
-        child: Text(
-          translated,
-          style: TextStyle(
-            color: AppTheme.isDark(context)
-                ? AppTheme.darkTextSecondaryColor
-                : const Color(0xFF64748B),
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        child: content,
       ),
     );
   }

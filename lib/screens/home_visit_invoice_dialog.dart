@@ -702,44 +702,69 @@ class _HomeVisitInvoiceDialogState extends State<HomeVisitInvoiceDialog> {
                       // Table Header
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(9),
-                            topRight: Radius.circular(9),
-                          ),
-                        ),
-                        child: const Row(
+                        decoration: AppTheme.tableHeaderDecoration(context, borderRadius: 9),
+                        child: Row(
                           children: [
                             Expanded(
                               flex: 5,
-                              child: Text(
-                                'Item / Service',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.medical_services_outlined, size: 13, color: AppTheme.getTableHeadingIconColor(context)),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Item / Service',
+                                    style: AppTheme.tableHeadingTextStyle(context, fontSize: 11.5),
+                                  ),
+                                ],
                               ),
                             ),
                             Expanded(
                               flex: 2,
-                              child: Text(
-                                'Qty',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.format_list_numbered, size: 12, color: AppTheme.getTableHeadingIconColor(context)),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Qty',
+                                    textAlign: TextAlign.center,
+                                    style: AppTheme.tableHeadingTextStyle(context, fontSize: 11.5, textAlign: TextAlign.center),
+                                  ),
+                                ],
                               ),
                             ),
                             Expanded(
                               flex: 3,
-                              child: Text(
-                                'Unit Price',
-                                textAlign: TextAlign.right,
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Icon(Icons.currency_rupee, size: 12, color: AppTheme.getTableHeadingIconColor(context)),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    'Unit Price',
+                                    textAlign: TextAlign.right,
+                                    style: AppTheme.tableHeadingTextStyle(context, fontSize: 11.5, textAlign: TextAlign.right),
+                                  ),
+                                ],
                               ),
                             ),
                             Expanded(
                               flex: 3,
-                              child: Text(
-                                'Subtotal',
-                                textAlign: TextAlign.right,
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  Icon(Icons.payments_outlined, size: 12, color: AppTheme.getTableHeadingIconColor(context)),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    'Subtotal',
+                                    textAlign: TextAlign.right,
+                                    style: AppTheme.tableHeadingTextStyle(context, fontSize: 11.5, textAlign: TextAlign.right),
+                                  ),
+                                ],
                               ),
                             ),
                           ],

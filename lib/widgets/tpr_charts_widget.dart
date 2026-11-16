@@ -664,15 +664,18 @@ class _TprChartsWidgetState extends State<TprChartsWidget> {
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-            columns: const [
-              DataColumn(label: Text('Date & Time', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('Temp (°F)', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('Pulse (bpm)', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('Resp (/min)', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('BP (mmHg)', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('SpO2 (%)', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+            headingRowColor: WidgetStateProperty.resolveWith(
+              (states) => AppTheme.getTableHeadingRowColor(context),
+            ),
+            headingTextStyle: AppTheme.tableHeadingTextStyle(context),
+            columns: [
+              AppTheme.dataColumnHeader(context: context, label: 'Date & Time', icon: Icons.access_time),
+              AppTheme.dataColumnHeader(context: context, label: 'Temp (°F)', icon: Icons.thermostat_outlined),
+              AppTheme.dataColumnHeader(context: context, label: 'Pulse (bpm)', icon: Icons.favorite_outline),
+              AppTheme.dataColumnHeader(context: context, label: 'Resp (/min)', icon: Icons.air_outlined),
+              AppTheme.dataColumnHeader(context: context, label: 'BP (mmHg)', icon: Icons.monitor_heart_outlined),
+              AppTheme.dataColumnHeader(context: context, label: 'SpO2 (%)', icon: Icons.bloodtype_outlined),
+              AppTheme.dataColumnHeader(context: context, label: 'Status', icon: Icons.verified_outlined),
             ],
             rows: reversed.map((v) {
               final temp = double.tryParse(v['temperature']?.toString() ?? '');

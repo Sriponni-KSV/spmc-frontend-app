@@ -1416,23 +1416,21 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minWidth: constraints.maxWidth),
                     child: DataTable(
-                      headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-                      headingTextStyle: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12.5,
-                        color: AppTheme.textPrimaryColor,
+                      headingRowColor: WidgetStateProperty.resolveWith(
+                        (states) => AppTheme.getTableHeadingRowColor(context),
                       ),
-                      dataTextStyle: const TextStyle(
+                      headingTextStyle: AppTheme.tableHeadingTextStyle(context),
+                      dataTextStyle: TextStyle(
                         fontSize: 13,
-                        color: AppTheme.textPrimaryColor,
+                        color: AppTheme.getTextPrimaryColor(context),
                       ),
-                      columns: const [
-                        DataColumn(label: Text('S.No')),
-                        DataColumn(label: Text('Bed Number')),
-                        DataColumn(label: Text('Ward Category')),
-                        DataColumn(label: Text('Status')),
-                        DataColumn(label: Text('Last Updated')),
-                        DataColumn(label: Text('Actions')),
+                      columns: [
+                        AppTheme.dataColumnHeader(context: context, label: 'S.No', icon: Icons.tag),
+                        AppTheme.dataColumnHeader(context: context, label: 'Bed Number', icon: Icons.single_bed_outlined),
+                        AppTheme.dataColumnHeader(context: context, label: 'Ward Category', icon: Icons.meeting_room_outlined),
+                        AppTheme.dataColumnHeader(context: context, label: 'Status', icon: Icons.verified_outlined),
+                        AppTheme.dataColumnHeader(context: context, label: 'Last Updated', icon: Icons.update_outlined),
+                        AppTheme.dataColumnHeader(context: context, label: 'Actions', icon: Icons.settings_outlined),
                       ],
                       rows: List.generate(paginatedItems.length, (index) {
                         final bed = paginatedItems[index];

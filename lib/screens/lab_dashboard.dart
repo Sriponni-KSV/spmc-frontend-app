@@ -12,6 +12,7 @@ import '../controllers/lab_controller.dart';
 import '../utils/logout_helper.dart';
 import '../widgets/user_profile_dialog.dart';
 import 'billing_management_view.dart';
+import '../widgets/access_denied_widget.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 
@@ -510,19 +511,32 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
   }
 
   Widget _buildMainContent(bool isMobile) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
     switch (_selectedIndex) {
       case 0:
         return _buildDashboardView(isMobile);
       case 1:
-        return _buildRequestsView(isMobile, showPendingOnly: true);
+        if (user?.hasPermission('lab_test_processing') ?? false) {
+          return _buildRequestsView(isMobile, showPendingOnly: true);
+        }
+        return const AccessDeniedWidget();
       case 2:
-        return _buildRequestsView(isMobile, showPendingOnly: false);
+        if (user?.hasPermission('lab_test_processing') ?? false) {
+          return _buildRequestsView(isMobile, showPendingOnly: false);
+        }
+        return const AccessDeniedWidget();
       case 3:
         return _buildProfileView(isMobile);
       case 4:
-        return _buildResourcesView(isMobile);
+        if (user?.hasPermission('lab_test_processing') ?? false) {
+          return _buildResourcesView(isMobile);
+        }
+        return const AccessDeniedWidget();
       case 5:
-        return const BillingManagementView();
+        if (user?.hasPermission('lab_billing') ?? false) {
+          return const BillingManagementView();
+        }
+        return const AccessDeniedWidget();
       default:
         return _buildDashboardView(isMobile);
     }
@@ -1965,26 +1979,31 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   },
                   children: [
                     TableRow(
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF8FAFC),
-                        border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
+                      decoration: BoxDecoration(
+                        color: AppTheme.getTableHeadingRowColor(context),
+                        border: Border(bottom: BorderSide(color: AppTheme.getBorderColor(context))),
                       ),
                       children: [
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
-                          child: Text('Parameter', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
+                        AppTheme.tableRowHeaderCell(
+                          context: context,
+                          label: 'Parameter',
+                          icon: Icons.science_outlined,
                         ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
-                          child: Text('Observed Value', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
+                        AppTheme.tableRowHeaderCell(
+                          context: context,
+                          label: 'Observed Value',
+                          icon: Icons.biotech_outlined,
                         ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
-                          child: Text('Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
+                        AppTheme.tableRowHeaderCell(
+                          context: context,
+                          label: 'Unit',
+                          icon: Icons.straighten_outlined,
+                          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
-                          child: Text('Reference Range', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.textPrimaryColor)),
+                        AppTheme.tableRowHeaderCell(
+                          context: context,
+                          label: 'Reference Range',
+                          icon: Icons.rule_outlined,
                         ),
                       ],
                     ),

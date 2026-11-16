@@ -1781,18 +1781,20 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
-                  headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-                  headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor, fontSize: 12),
+                  headingRowColor: WidgetStateProperty.resolveWith(
+                    (states) => AppTheme.getTableHeadingRowColor(context),
+                  ),
+                  headingTextStyle: AppTheme.tableHeadingTextStyle(context),
                   dataRowMinHeight: 52,
                   dataRowMaxHeight: 52,
-                  columns: const [
-                    DataColumn(label: Text('S.No')),
-                    DataColumn(label: Text('Item Name')),
-                    DataColumn(label: Text('Category')),
-                    DataColumn(label: Text('Stock')),
-                    DataColumn(label: Text('Unit')),
-                    DataColumn(label: Text('Expiry Date')),
-                    DataColumn(label: Text('Status')),
+                  columns: [
+                    AppTheme.dataColumnHeader(context: context, label: 'S.No', icon: Icons.tag),
+                    AppTheme.dataColumnHeader(context: context, label: 'Item Name', icon: Icons.medication_outlined),
+                    AppTheme.dataColumnHeader(context: context, label: 'Category', icon: Icons.category_outlined),
+                    AppTheme.dataColumnHeader(context: context, label: 'Stock', icon: Icons.inventory_2_outlined),
+                    AppTheme.dataColumnHeader(context: context, label: 'Unit', icon: Icons.straighten_outlined),
+                    AppTheme.dataColumnHeader(context: context, label: 'Expiry Date', icon: Icons.event_busy_outlined),
+                    AppTheme.dataColumnHeader(context: context, label: 'Status', icon: Icons.verified_outlined),
                   ],
                   rows: paginated.asMap().entries.map((entry) {
                     final index = entry.key;

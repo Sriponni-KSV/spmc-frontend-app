@@ -472,7 +472,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
       case 0:
         return _buildDashboardView(isMobile);
       case 1:
-        if (user?.role == 'Front Desk' || user?.role == 'Receptionist' || (user?.hasPermission('view_patients') ?? false)) {
+        if (user?.hasPermission('view_patients') ?? false) {
           return PatientsView(
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
@@ -496,7 +496,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 2:
-        if (user?.role == 'Front Desk' || user?.role == 'Receptionist' || (user?.hasPermission('book_appointment') ?? false)) {
+        if (user?.hasPermission('book_appointment') ?? false) {
           return AppointmentsView(
             key: const ValueKey('front_desk_appointments_tab_view'),
             startWithBookingForm: _forceBookingForm || widget.forceBooking,
@@ -513,11 +513,17 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           },
         );
       case 4:
-        return const FrontDeskAdmissionCounterView();
+        if (user?.hasPermission('ipd_admission_counter') ?? false) {
+          return const FrontDeskAdmissionCounterView();
+        }
+        return const AccessDeniedWidget();
       case 5:
         return FrontDeskProfileView(isEditing: widget.isEditingProfile);
       case 6:
-        return const BillingManagementView();
+        if (user?.hasPermission('op_billing') ?? false) {
+          return const BillingManagementView();
+        }
+        return const AccessDeniedWidget();
       default:
         return _buildDashboardView(isMobile);
     }
@@ -630,31 +636,35 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
                         Icons.dashboard_outlined,
                         context.tr('dashboard', fallback: 'Dashboard'),
                       ),
-                      _buildSidebarItem(
-                        1,
-                        Icons.people_outline,
-                        context.tr('patients', fallback: 'Patients'),
-                      ),
-                      _buildSidebarItem(
-                        2,
-                        Icons.calendar_today_outlined,
-                        context.tr('appointments', fallback: 'Appointments'),
-                      ),
+                      if (user?.hasPermission('view_patients') ?? false)
+                        _buildSidebarItem(
+                          1,
+                          Icons.people_outline,
+                          context.tr('patients', fallback: 'Patients'),
+                        ),
+                      if (user?.hasPermission('book_appointment') ?? false)
+                        _buildSidebarItem(
+                          2,
+                          Icons.calendar_today_outlined,
+                          context.tr('appointments', fallback: 'Appointments'),
+                        ),
                       _buildSidebarItem(
                         3,
                         Icons.medical_services_outlined,
                         context.tr('doctors', fallback: 'Doctors'),
                       ),
-                      _buildSidebarItem(
-                        4,
-                        Icons.assignment_turned_in_outlined,
-                        context.tr('admission_counter', fallback: 'Admission Counter'),
-                      ),
-                      _buildSidebarItem(
-                        6,
-                        Icons.receipt_long_outlined,
-                        context.tr('billing', fallback: 'Billing & Invoices'),
-                      ),
+                      if (user?.hasPermission('ipd_admission_counter') ?? false)
+                        _buildSidebarItem(
+                          4,
+                          Icons.assignment_turned_in_outlined,
+                          context.tr('admission_counter', fallback: 'Admission Counter'),
+                        ),
+                      if (user?.hasPermission('op_billing') ?? false)
+                        _buildSidebarItem(
+                          6,
+                          Icons.receipt_long_outlined,
+                          context.tr('billing', fallback: 'Billing & Invoices'),
+                        ),
                       _buildSidebarItem(
                         5,
                         Icons.person_outline,
