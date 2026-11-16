@@ -211,27 +211,6 @@ class AppRouter {
               !currentUser.hasPermission('book_appointment')) {
             return AppRoutes.nurseDashboard;
           }
-          if (path == AppRoutes.nurseOpd &&
-              !currentUser.hasPermission('opd_assistance') &&
-              !isNurse) {
-            return AppRoutes.nurseDashboard;
-          }
-          if ((path == AppRoutes.nurseIpd || path == AppRoutes.nurseIpdMonitoring) &&
-              !currentUser.hasPermission('ipd_nursing_care') &&
-              !isNurse) {
-            return AppRoutes.nurseDashboard;
-          }
-          if (path == AppRoutes.nurseOt &&
-              !currentUser.hasPermission('ot_nursing_consumables') &&
-              !currentUser.hasPermission('ot_who_checklist') &&
-              !isNurse) {
-            return AppRoutes.nurseDashboard;
-          }
-          if (path == AppRoutes.nurseHomeVisits &&
-              !currentUser.hasPermission('home_visit_care') &&
-              !isNurse) {
-            return AppRoutes.nurseDashboard;
-          }
           if (path == AppRoutes.nurseIpdMonitoring) {
             if (state.extra != null && state.extra is Map) {
               _lastKnownNurseIpdAdmission = Map<String, dynamic>.from(state.extra as Map);

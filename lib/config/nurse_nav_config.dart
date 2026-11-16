@@ -89,28 +89,24 @@ class NurseNavConfig {
         index: 5,
         icon: Icons.local_hospital_outlined,
         label: 'OPD Assistance',
-        permissionRequired: 'opd_assistance',
         isVisible: showOpdAssistance,
       ),
       const NurseNavItem(
         index: 6,
         icon: Icons.bedroom_child_outlined,
         label: 'IPD Management',
-        permissionRequired: 'ipd_nursing_care',
         isVisible: showIpdManagement,
       ),
       const NurseNavItem(
         index: 7,
         icon: Icons.healing_outlined,
         label: 'OT Management',
-        permissionRequired: 'ot_nursing_consumables',
         isVisible: showOtManagement,
       ),
       const NurseNavItem(
         index: 9,
         icon: Icons.home_work_outlined,
         label: 'Home Visit Care',
-        permissionRequired: 'home_visit_care',
         isVisible: showHomeVisitCare,
       ),
       const NurseNavItem(
