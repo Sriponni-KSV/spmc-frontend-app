@@ -169,13 +169,13 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
   Future<void> _loadAllData({bool isSilent = false}) async {
     if (!isSilent || (_prescriptions.isEmpty && _vitalsHistory.isEmpty && _fluidRecords.isEmpty)) {
-      setState(() => _isLoading = true);
+      if (mounted) setState(() => _isLoading = true);
     }
-    final admissionId = widget.admission['id'];
+    final admissionIdRaw = widget.admission['id'];
+    final int? admissionId = admissionIdRaw is int ? admissionIdRaw : int.tryParse(admissionIdRaw?.toString() ?? '');
     if (admissionId == null) {
       if (mounted) {
         setState(() => _isLoading = false);
-        _goBack();
       }
       return;
     }
@@ -246,15 +246,15 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
       if (mounted) {
         setState(() {
-          _prescriptions = futures[0] as List<Map<String, dynamic>>;
-          _medicationLogs = futures[1] as List<Map<String, dynamic>>;
-          _vitalsHistory = futures[2] as List<Map<String, dynamic>>;
-          _icuAlerts = futures[3] as List<Map<String, dynamic>>;
-          _progressNotes = futures[4] as List<Map<String, dynamic>>;
-          _labOrders = futures[5] as List<Map<String, dynamic>>;
-          final fluidData = futures[6] as Map<String, dynamic>;
-          _fluidRecords = List<Map<String, dynamic>>.from(fluidData['records'] ?? []);
-          _fluidSummary = Map<String, dynamic>.from(fluidData['summary'] ?? {});
+          _prescriptions = (futures[0] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _medicationLogs = (futures[1] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _vitalsHistory = (futures[2] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _icuAlerts = (futures[3] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _progressNotes = (futures[4] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _labOrders = (futures[5] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          final fluidData = futures[6] is Map ? Map<String, dynamic>.from(futures[6] as Map) : <String, dynamic>{};
+          _fluidRecords = List<Map<String, dynamic>>.from((fluidData['records'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)));
+          _fluidSummary = Map<String, dynamic>.from(fluidData['summary'] as Map? ?? {});
           _isLoading = false;
         });
       }
@@ -1457,6 +1457,102 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   @override
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
+
+    final admissionIdRaw = widget.admission['id'];
+    if (admissionIdRaw == null) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        drawer: isMobile ? Drawer(child: _buildRoleSidebar()) : null,
+        body: SafeArea(
+          bottom: false,
+          child: Row(
+            children: [
+              if (!isMobile) _buildRoleSidebar(),
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildTopNavbar(isMobile),
+                    Expanded(
+                      child: Center(
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 480),
+                          margin: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(32),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppTheme.borderColor),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.hotel_class_outlined,
+                                  color: AppTheme.primaryColor,
+                                  size: 32,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'No Inpatient Admission Selected',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Please open the Nursing Station by selecting an admitted patient card from the IPD Management dashboard.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondaryColor,
+                                  height: 1.5,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                onPressed: _goBack,
+                                icon: const Icon(Icons.arrow_back, size: 16),
+                                label: const Text('Back to IPD Management'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     final doctorTabs = [
       const Tab(text: 'Overview'),
