@@ -212,20 +212,24 @@ class AppRouter {
             return AppRoutes.nurseDashboard;
           }
           if (path == AppRoutes.nurseOpd &&
-              !currentUser.hasPermission('opd_assistance')) {
+              !currentUser.hasPermission('opd_assistance') &&
+              !isNurse) {
             return AppRoutes.nurseDashboard;
           }
           if ((path == AppRoutes.nurseIpd || path == AppRoutes.nurseIpdMonitoring) &&
-              !currentUser.hasPermission('ipd_nursing_care')) {
+              !currentUser.hasPermission('ipd_nursing_care') &&
+              !isNurse) {
             return AppRoutes.nurseDashboard;
           }
           if (path == AppRoutes.nurseOt &&
               !currentUser.hasPermission('ot_nursing_consumables') &&
-              !currentUser.hasPermission('ot_who_checklist')) {
+              !currentUser.hasPermission('ot_who_checklist') &&
+              !isNurse) {
             return AppRoutes.nurseDashboard;
           }
           if (path == AppRoutes.nurseHomeVisits &&
-              !currentUser.hasPermission('home_visit_care')) {
+              !currentUser.hasPermission('home_visit_care') &&
+              !isNurse) {
             return AppRoutes.nurseDashboard;
           }
           if (path == AppRoutes.nurseIpdMonitoring) {
@@ -246,11 +250,13 @@ class AppRouter {
             return AppRoutes.dashboard;
           }
           if ((path == AppRoutes.doctorConsultation || path == AppRoutes.doctorDashboardConsultation) &&
-              !currentUser.hasPermission('conduct_consultations')) {
+              !currentUser.hasPermission('conduct_consultations') &&
+              !isDoctor) {
             return AppRoutes.doctorDashboard;
           }
           if (path == AppRoutes.doctorLabReports &&
-              !currentUser.hasPermission('view_lab_reports')) {
+              !currentUser.hasPermission('view_lab_reports') &&
+              !isDoctor) {
             return AppRoutes.doctorDashboard;
           }
           if (path == AppRoutes.doctorPatientRegistry &&
@@ -262,13 +268,15 @@ class AppRouter {
             return AppRoutes.doctorDashboard;
           }
           if ((path == AppRoutes.doctorIpd || path == AppRoutes.doctorIpdMonitoring) &&
-              !currentUser.hasPermission('ipd_doctor_rounds')) {
+              !currentUser.hasPermission('ipd_doctor_rounds') &&
+              !isDoctor) {
             return AppRoutes.doctorDashboard;
           }
           if (path == AppRoutes.doctorOt &&
               !currentUser.hasPermission('ot_surgeries') &&
               !currentUser.hasPermission('ot_anaesthesia_pac') &&
-              !currentUser.hasPermission('ot_who_checklist')) {
+              !currentUser.hasPermission('ot_who_checklist') &&
+              !isDoctor) {
             return AppRoutes.doctorDashboard;
           }
           if ((path == AppRoutes.doctorDictation ||

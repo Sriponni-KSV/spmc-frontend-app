@@ -108,6 +108,16 @@ class DoctorNavConfig {
       return anaesthetistItems.where((item) {
         if (!item.isVisible) return false;
         if (item.permissionRequired != null) {
+          final isDoctor = user?.role == 'Doctor' || user?.role == 'Anaesthetist';
+          if (isDoctor) {
+            if (item.permissionRequired == 'conduct_consultations' ||
+                item.permissionRequired == 'ipd_doctor_rounds' ||
+                item.permissionRequired == 'ot_surgeries' ||
+                item.permissionRequired == 'ot_anaesthesia_pac' ||
+                item.permissionRequired == 'view_lab_reports') {
+              return true;
+            }
+          }
           if (item.permissionRequired == 'ot_anaesthesia_pac') {
             return (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
                    (user?.hasPermission('ot_who_checklist') ?? false) ||
@@ -186,6 +196,16 @@ class DoctorNavConfig {
     return allItems.where((item) {
       if (!item.isVisible) return false;
       if (item.permissionRequired != null) {
+        final isDoctor = user?.role == 'Doctor' || user?.role == 'Anaesthetist';
+        if (isDoctor) {
+          if (item.permissionRequired == 'conduct_consultations' ||
+              item.permissionRequired == 'ipd_doctor_rounds' ||
+              item.permissionRequired == 'ot_surgeries' ||
+              item.permissionRequired == 'ot_anaesthesia_pac' ||
+              item.permissionRequired == 'view_lab_reports') {
+            return true;
+          }
+        }
         if (item.permissionRequired == 'ot_surgeries') {
           return (user?.hasPermission('ot_surgeries') ?? false) ||
                  (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||

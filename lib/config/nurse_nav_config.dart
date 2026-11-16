@@ -124,6 +124,16 @@ class NurseNavConfig {
     return allItems.where((item) {
       if (!item.isVisible) return false;
       if (item.permissionRequired != null) {
+        final isNurseRole = user?.role == 'Nurse' || user?.role == 'Head Nurse';
+        if (isNurseRole) {
+          // Standard clinical modules are available by default for Nurses
+          if (item.permissionRequired == 'ipd_nursing_care' ||
+              item.permissionRequired == 'opd_assistance' ||
+              item.permissionRequired == 'ot_nursing_consumables' ||
+              item.permissionRequired == 'home_visit_care') {
+            return true;
+          }
+        }
         if (item.permissionRequired == 'ot_nursing_consumables') {
           return (user?.hasPermission('ot_nursing_consumables') ?? false) ||
                  (user?.hasPermission('ot_who_checklist') ?? false);
