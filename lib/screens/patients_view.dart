@@ -919,30 +919,24 @@ class _PatientsViewState extends State<PatientsView> {
           children: [
             // Table Header
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: const BoxDecoration(
-                color: Color(0xFFEDF2F7),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                ),
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              decoration: AppTheme.tableHeaderDecoration(context),
               child: Row(
                 children: [
-                  Expanded(child: _buildTableHeaderText('S.No')),
-                  Expanded(flex: 3, child: _buildTableHeaderText('Patient')),
-                  Expanded(child: _buildTableHeaderText('Age')),
+                  Expanded(child: _buildTableHeaderText('S.No', icon: Icons.tag)),
+                  Expanded(flex: 3, child: _buildTableHeaderText('Patient', icon: Icons.person_outline)),
+                  Expanded(child: _buildTableHeaderText('Age', icon: Icons.cake_outlined)),
                   if (!isMobile)
-                    Expanded(child: _buildTableHeaderText('Gender')),
+                    Expanded(child: _buildTableHeaderText('Gender', icon: Icons.wc_outlined)),
                   if (!isMobile)
                     Expanded(
                       flex: 2,
-                      child: _buildTableHeaderText('Mobile No'),
+                      child: _buildTableHeaderText('Mobile No', icon: Icons.phone_outlined),
                     ),
                   if (!isMobile)
-                    Expanded(flex: 2, child: _buildTableHeaderText('Email')),
-                  Expanded(child: _buildTableHeaderText('Status')),
-                  Expanded(flex: 2, child: _buildTableHeaderText('Actions')),
+                    Expanded(flex: 2, child: _buildTableHeaderText('Email', icon: Icons.email_outlined)),
+                  Expanded(child: _buildTableHeaderText('Status', icon: Icons.verified_outlined)),
+                  Expanded(flex: 2, child: _buildTableHeaderText('Actions', icon: Icons.settings_outlined)),
                 ],
               ),
             ),
@@ -1310,7 +1304,7 @@ class _PatientsViewState extends State<PatientsView> {
     );
   }
 
-  Widget _buildTableHeaderText(String text) {
+  Widget _buildTableHeaderText(String text, {IconData? icon}) {
     String translated = text;
     if (text == 'S.No') {
       translated = 'S.No';
@@ -1329,15 +1323,24 @@ class _PatientsViewState extends State<PatientsView> {
     } else if (text == 'Actions') {
       translated = context.tr('actions', fallback: text);
     }
-    return Text(
+
+    final textWidget = Text(
       translated,
-      style: TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 12,
-        color: AppTheme.getTextSecondaryColor(context),
-        letterSpacing: 0.5,
-      ),
+      style: AppTheme.tableHeadingTextStyle(context),
+      overflow: TextOverflow.ellipsis,
     );
+
+    if (icon != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: AppTheme.tableHeadingIconSize, color: AppTheme.getTableHeadingIconColor(context)),
+          const SizedBox(width: 6),
+          Flexible(child: textWidget),
+        ],
+      );
+    }
+    return textWidget;
   }
 
   String _formatGender(BuildContext context, String gender) {

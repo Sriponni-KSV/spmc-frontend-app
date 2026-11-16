@@ -3203,17 +3203,28 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
   }
 
-  Widget _buildTableHeader(String title) {
+  Widget _buildTableHeader(String title, {IconData? icon}) {
+    final textWidget = Text(
+      title,
+      style: AppTheme.tableHeadingTextStyle(context, fontSize: 11),
+      overflow: TextOverflow.ellipsis,
+    );
+    if (icon != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: AppTheme.tableHeadingIconSize, color: AppTheme.getTableHeadingIconColor(context)),
+            const SizedBox(width: 4),
+            Flexible(child: textWidget),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-          color: AppTheme.primaryColor,
-        ),
-      ),
+      child: textWidget,
     );
   }
 
@@ -4030,15 +4041,15 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               },
                               children: [
                                 TableRow(
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFF8FAFC),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.getTableHeadingRowColor(context),
                                   ),
                                   children: [
-                                    _buildTableHeader(context.tr('consumable_item', fallback: 'Consumable Item')),
-                                    _buildTableHeader(context.tr('qty_per_proc', fallback: 'Qty / Proc')),
-                                    _buildTableHeader(context.tr('unit_price', fallback: 'Unit Price')),
-                                    _buildTableHeader(context.tr('required_qty', fallback: 'Required Qty')),
-                                    _buildTableHeader('${context.tr('total', fallback: 'Total')} (₹)'),
+                                    _buildTableHeader(context.tr('consumable_item', fallback: 'Consumable Item'), icon: Icons.inventory_2_outlined),
+                                    _buildTableHeader(context.tr('qty_per_proc', fallback: 'Qty / Proc'), icon: Icons.format_list_numbered),
+                                    _buildTableHeader(context.tr('unit_price', fallback: 'Unit Price'), icon: Icons.currency_rupee),
+                                    _buildTableHeader(context.tr('required_qty', fallback: 'Required Qty'), icon: Icons.shopping_basket_outlined),
+                                    _buildTableHeader('${context.tr('total', fallback: 'Total')} (₹)', icon: Icons.payments_outlined),
                                     _buildTableHeader(''),
                                   ],
                                 ),
@@ -8169,152 +8180,72 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                           TableCellVerticalAlignment.middle,
                       children: [
                         TableRow(
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFF8FAFC),
+                          decoration: BoxDecoration(
+                            color: AppTheme.getTableHeadingRowColor(context),
                             border: Border(
-                              bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                              bottom: BorderSide(color: AppTheme.getBorderColor(context)),
                             ),
                           ),
                           children: [
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              child: Text(
-                                context.tr('vitals_date_time', fallback: 'Date & Time Recorded'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
+                            AppTheme.tableRowHeaderCell(
+                              context: context,
+                              label: context.tr('vitals_date_time', fallback: 'Date & Time Recorded'),
+                              icon: Icons.access_time,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              child: Text(
-                                context.tr('vitals_time_gap', fallback: 'Time Gap / Duration'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
+                            AppTheme.tableRowHeaderCell(
+                              context: context,
+                              label: context.tr('vitals_time_gap', fallback: 'Time Gap / Duration'),
+                              icon: Icons.timelapse_outlined,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              child: Text(
-                                context.tr('vitals_bp', fallback: 'BP (mmHg)'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
+                            AppTheme.tableRowHeaderCell(
+                              context: context,
+                              label: context.tr('vitals_bp', fallback: 'BP (mmHg)'),
+                              icon: Icons.favorite_outline,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              child: Text(
-                                context.tr('vitals_pulse', fallback: 'Pulse (bpm)'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
+                            AppTheme.tableRowHeaderCell(
+                              context: context,
+                              label: context.tr('vitals_pulse', fallback: 'Pulse (bpm)'),
+                              icon: Icons.monitor_heart_outlined,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              child: Text(
-                                context.tr('vitals_temp', fallback: 'Temp (°F)'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
+                            AppTheme.tableRowHeaderCell(
+                              context: context,
+                              label: context.tr('vitals_temp', fallback: 'Temp (°F)'),
+                              icon: Icons.thermostat_outlined,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              child: Text(
-                                context.tr('vitals_spo2', fallback: 'SpO₂ (%)'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
+                            AppTheme.tableRowHeaderCell(
+                              context: context,
+                              label: context.tr('vitals_spo2', fallback: 'SpO₂ (%)'),
+                              icon: Icons.water_drop_outlined,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              child: Text(
-                                context.tr('vitals_sugar', fallback: 'Sugar (mg/dL)'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
+                            AppTheme.tableRowHeaderCell(
+                              context: context,
+                              label: context.tr('vitals_sugar', fallback: 'Sugar (mg/dL)'),
+                              icon: Icons.bloodtype_outlined,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              child: Text(
-                                context.tr('vitals_weight', fallback: 'Weight (kg)'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
+                            AppTheme.tableRowHeaderCell(
+                              context: context,
+                              label: context.tr('vitals_weight', fallback: 'Weight (kg)'),
+                              icon: Icons.scale_outlined,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              child: Text(
-                                context.tr('vitals_height', fallback: 'Height (cm)'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
+                            AppTheme.tableRowHeaderCell(
+                              context: context,
+                              label: context.tr('vitals_height', fallback: 'Height (cm)'),
+                              icon: Icons.height_outlined,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 14,
-                              ),
-                              child: Text(
-                                context.tr('actions', fallback: 'Actions'),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: Color(0xFF1E293B),
-                                ),
-                              ),
+                            AppTheme.tableRowHeaderCell(
+                              context: context,
+                              label: context.tr('actions', fallback: 'Actions'),
+                              icon: Icons.settings_outlined,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                             ),
                           ],
                         ),
@@ -9324,56 +9255,19 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: DataTable(
-            headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-            columns: const [
-              DataColumn(
-                label: Text(
-                  'Date & Time Recorded',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  'Time Gap / Duration',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  'BP (mmHg)',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  'Pulse (bpm)',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  'Temp (°F)',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  'SpO₂ (%)',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  'Sugar (mg/dL)',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              DataColumn(
-                label: Text(
-                  'Weight / Height',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
+            headingRowColor: WidgetStateProperty.resolveWith(
+              (states) => AppTheme.getTableHeadingRowColor(context),
+            ),
+            headingTextStyle: AppTheme.tableHeadingTextStyle(context),
+            columns: [
+              AppTheme.dataColumnHeader(context: context, label: 'Date & Time Recorded', icon: Icons.access_time),
+              AppTheme.dataColumnHeader(context: context, label: 'Time Gap / Duration', icon: Icons.timelapse_outlined),
+              AppTheme.dataColumnHeader(context: context, label: 'BP (mmHg)', icon: Icons.monitor_heart_outlined),
+              AppTheme.dataColumnHeader(context: context, label: 'Pulse (bpm)', icon: Icons.favorite_outline),
+              AppTheme.dataColumnHeader(context: context, label: 'Temp (°F)', icon: Icons.thermostat_outlined),
+              AppTheme.dataColumnHeader(context: context, label: 'SpO₂ (%)', icon: Icons.bloodtype_outlined),
+              AppTheme.dataColumnHeader(context: context, label: 'Sugar (mg/dL)', icon: Icons.water_drop_outlined),
+              AppTheme.dataColumnHeader(context: context, label: 'Weight / Height', icon: Icons.fitness_center_outlined),
             ],
             rows: history.map((v) {
               String timeStr = 'N/A';
@@ -9847,42 +9741,26 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                     defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                     children: [
                       TableRow(
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFEDF2F7),
+                        decoration: BoxDecoration(
+                          color: AppTheme.getTableHeadingRowColor(context),
                           border: Border(
-                            bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                            bottom: BorderSide(color: AppTheme.getBorderColor(context)),
                           ),
                         ),
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            child: Center(
-                              child: Text(
-                                context.tr('vitals_date_time', fallback: 'Date & Time Recorded'),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                  color: AppTheme.primaryColor,
-                                ),
-                              ),
-                            ),
+                          AppTheme.tableRowHeaderCell(
+                            context: context,
+                            label: context.tr('vitals_date_time', fallback: 'Date & Time Recorded'),
+                            icon: Icons.access_time,
+                            textAlign: TextAlign.center,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            child: Text(
-                              context.tr('care_activities_logged', fallback: 'Care Activities & Observations Logged'),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
+                          AppTheme.tableRowHeaderCell(
+                            context: context,
+                            label: context.tr('care_activities_logged', fallback: 'Care Activities & Observations Logged'),
+                            icon: Icons.assignment_outlined,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           ),
                         ],
                       ),
@@ -13970,25 +13848,31 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               ),
                               children: [
                                 TableRow(
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFF1F5F9),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.getTableHeadingRowColor(context),
+                                    border: Border(bottom: BorderSide(color: AppTheme.getBorderColor(context))),
                                   ),
                                   children: [
-                                    _tableHeader(context.tr('recorded_at')),
+                                    _tableHeader(context.tr('recorded_at'), icon: Icons.access_time),
                                     _tableHeader(
                                       context.tr('bp_unit', fallback: 'BP (mmHg)'),
+                                      icon: Icons.favorite_outline,
                                     ),
                                     _tableHeader(
                                       context.tr('pulse_unit', fallback: 'Pulse (bpm)'),
+                                      icon: Icons.monitor_heart_outlined,
                                     ),
                                     _tableHeader(
                                       context.tr('spo2_unit', fallback: 'SpO2 (%)'),
+                                      icon: Icons.water_drop_outlined,
                                     ),
                                     _tableHeader(
                                       context.tr('temp_unit', fallback: 'Temp (°F)'),
+                                      icon: Icons.thermostat_outlined,
                                     ),
                                     _tableHeader(
                                       context.tr('sugar_unit', fallback: 'Sugar (mg/dL)'),
+                                      icon: Icons.bloodtype_outlined,
                                     ),
                                   ],
                                 ),
@@ -16337,16 +16221,17 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
                               ),
                               children: [
                                 TableRow(
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFF1F5F9),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.getTableHeadingRowColor(context),
+                                    border: Border(bottom: BorderSide(color: AppTheme.getBorderColor(context))),
                                   ),
                                   children: [
-                                    _tableHeader(context.tr('date_time', fallback: 'Date & Time')),
-                                    _tableHeader(context.tr('bp_unit', fallback: 'BP (mmHg)')),
-                                    _tableHeader(context.tr('pulse_unit', fallback: 'Pulse (bpm)')),
-                                    _tableHeader(context.tr('spo2_unit', fallback: 'SpO2 (%)')),
-                                    _tableHeader(context.tr('temp_unit', fallback: 'Temp (°F)')),
-                                    _tableHeader(context.tr('sugar_unit', fallback: 'Sugar (mg/dL)')),
+                                    _tableHeader(context.tr('date_time', fallback: 'Date & Time'), icon: Icons.access_time),
+                                    _tableHeader(context.tr('bp_unit', fallback: 'BP (mmHg)'), icon: Icons.favorite_outline),
+                                    _tableHeader(context.tr('pulse_unit', fallback: 'Pulse (bpm)'), icon: Icons.monitor_heart_outlined),
+                                    _tableHeader(context.tr('spo2_unit', fallback: 'SpO2 (%)'), icon: Icons.water_drop_outlined),
+                                    _tableHeader(context.tr('temp_unit', fallback: 'Temp (°F)'), icon: Icons.thermostat_outlined),
+                                    _tableHeader(context.tr('sugar_unit', fallback: 'Sugar (mg/dL)'), icon: Icons.bloodtype_outlined),
                                   ],
                                 ),
                                 for (final v in sessionVitals)
@@ -16766,18 +16651,14 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
     );
   }
 
-  Widget _tableHeader(String text) {
-    return Padding(
-      padding: const EdgeInsets.all(10.0),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-          color: AppTheme.secondaryColor,
-        ),
-      ),
+  Widget _tableHeader(String text, {IconData? icon}) {
+    return AppTheme.tableRowHeaderCell(
+      context: context,
+      label: text,
+      icon: icon,
+      textAlign: TextAlign.center,
+      mainAxisAlignment: MainAxisAlignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 10.0),
     );
   }
 
