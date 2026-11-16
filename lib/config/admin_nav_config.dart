@@ -193,11 +193,16 @@ class AdminNavConfig {
       ),
     ];
 
+    final bool isAdmin = user?.role == 'Admin' ||
+        user?.role == 'Super Admin' ||
+        user?.role == 'Supervisor';
+
     return allItems.where((item) {
       if (!item.isVisible) return false;
       if (item.requiredRole != null && user?.role != item.requiredRole) {
         return false;
       }
+      if (isAdmin) return true;
       if (item.permissionRequired != null) {
         if (item.permissionRequired == 'opd_assistance') {
           return (user?.hasPermission('opd_assistance') ?? false) ||
