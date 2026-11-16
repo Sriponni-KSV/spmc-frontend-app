@@ -951,6 +951,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final isAnaesthetist = user?.role == 'Anaesthetist';
+    final isDoctor = user?.role == 'Doctor' || isAnaesthetist;
 
     switch (_selectedIndex) {
       case 0:
@@ -958,21 +959,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ? _buildAnaesthetistDashboardView(isMobile)
             : _buildDashboardView(isMobile);
       case 1:
-        if (user?.hasPermission('conduct_consultations') ?? false) {
+        if ((user?.hasPermission('conduct_consultations') ?? false) || isDoctor) {
           return _buildConsultationsView(isMobile);
         }
         return const AccessDeniedWidget();
       case 2:
         return _buildProfileView(isMobile);
       case 3:
-        if (user?.hasPermission('ipd_doctor_rounds') ?? false) {
+        if ((user?.hasPermission('ipd_doctor_rounds') ?? false) || isDoctor) {
           return DoctorIPDManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 4:
         if ((user?.hasPermission('ot_surgeries') ?? false) ||
             (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
-            (user?.hasPermission('ot_who_checklist') ?? false)) {
+            (user?.hasPermission('ot_who_checklist') ?? false) ||
+            isDoctor) {
           return OTManagementScreen(
             isMobile: isMobile,
             initialSelectedCase: _otInitialSelectedCase,
@@ -982,7 +984,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const AccessDeniedWidget();
       case 5:
         if ((user?.hasPermission('ot_surgeries') ?? false) ||
-            (user?.hasPermission('ot_anaesthesia_pac') ?? false)) {
+            (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
+            isDoctor) {
           return OTManagementScreen(
             isMobile: isMobile,
             initialSelectedCase: _otInitialSelectedCase,
@@ -991,12 +994,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 6:
-        if (user?.hasPermission('view_lab_reports') ?? false) {
+        if ((user?.hasPermission('view_lab_reports') ?? false) || isDoctor) {
           return _buildLabReportsView(isMobile);
         }
         return const AccessDeniedWidget();
       case 7:
-        if (user?.hasPermission('view_patients') ?? false) {
+        if ((user?.hasPermission('view_patients') ?? false) || isDoctor) {
           return PatientsView(
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
@@ -1009,7 +1012,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 8:
-        if (user?.hasPermission('book_appointment') ?? false) {
+        if ((user?.hasPermission('book_appointment') ?? false) || isDoctor) {
           return const AppointmentsView();
         }
         return const AccessDeniedWidget();
@@ -4804,6 +4807,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSidebar(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final isAnaesthetist = user?.role == 'Anaesthetist';
+    final isDoctor = user?.role == 'Doctor' || isAnaesthetist;
     final isDark = AppTheme.isDark(context);
 
     return Container(

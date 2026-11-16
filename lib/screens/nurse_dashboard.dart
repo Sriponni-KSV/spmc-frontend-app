@@ -906,18 +906,19 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 4:
         return NurseProfileView(isEditing: widget.isEditingProfile);
       case 5:
-        if (user?.hasPermission('opd_assistance') ?? false) {
+        if ((user?.hasPermission('opd_assistance') ?? false) || user?.role == 'Nurse' || user?.role == 'Head Nurse') {
           return OPDManagementScreen(isMobile: isMobile, title: 'OPD Assistance');
         }
         return const AccessDeniedWidget();
       case 6:
-        if (user?.hasPermission('ipd_nursing_care') ?? false) {
+        if ((user?.hasPermission('ipd_nursing_care') ?? false) || user?.role == 'Nurse' || user?.role == 'Head Nurse') {
           return IPDManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 7:
         if ((user?.hasPermission('ot_nursing_consumables') ?? false) ||
-            (user?.hasPermission('ot_who_checklist') ?? false)) {
+            (user?.hasPermission('ot_who_checklist') ?? false) ||
+            user?.role == 'Nurse' || user?.role == 'Head Nurse') {
           return OTManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
