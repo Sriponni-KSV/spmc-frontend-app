@@ -157,11 +157,28 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     super.dispose();
   }
 
+  String _safeFormatDate(dynamic dateVal, {String pattern = 'dd/MM/yyyy hh:mm a', String fallback = '--'}) {
+    if (dateVal == null) return fallback;
+    try {
+      final dt = dateVal is DateTime ? dateVal : DateTime.parse(dateVal.toString());
+      return DateFormat(pattern).format(dt.toLocal());
+    } catch (_) {
+      return dateVal.toString();
+    }
+  }
+
   Future<void> _loadAllData({bool isSilent = false}) async {
     if (!isSilent || (_prescriptions.isEmpty && _vitalsHistory.isEmpty && _fluidRecords.isEmpty)) {
       setState(() => _isLoading = true);
     }
     final admissionId = widget.admission['id'];
+    if (admissionId == null) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _goBack();
+      }
+      return;
+    }
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final user = auth.user;
 
@@ -196,19 +213,18 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         final isAssignedToMe = assignedNurse != null && 
             assignedNurse == user.fullname.trim().toLowerCase();
 
-        if (!assignedWards.contains(widget.admission['ward_type']) && !isAssignedToMe) {
+        // Only restrict if shifts are active and nurse is assigned to a different ward
+        if (assignedWards.isNotEmpty && !assignedWards.contains(widget.admission['ward_type']) && !isAssignedToMe) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  assignedWards.isEmpty 
-                      ? 'Access Denied: You are not assigned to an active shift today. (Active Shift is applicable only for IPD)'
-                      : 'Access Denied: You are assigned to ${assignedWards.join(", ")}, but this patient is in ${widget.admission['ward_type']}. (Active Shift is applicable only for IPD)'
+                  'Access Denied: You are assigned to ${assignedWards.join(", ")}, but this patient is in ${widget.admission['ward_type']}. (Active Shift is applicable only for IPD)'
                 ),
                 backgroundColor: Colors.red,
               ),
             );
-            Navigator.pop(context);
+            _goBack();
           }
           return;
         }
@@ -796,15 +812,21 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   void _goBack() {
     try {
       final path = GoRouterState.of(context).matchedLocation;
-      if (path == '/nurse/ipd-management/nursing-station') {
+      if (path == '/nurse/ipd-management/nursing-station' || path.startsWith('/nurse/ipd-management')) {
         context.go('/nurse/ipd-management');
-      } else if (path == '/doctor/ipd-management/monitoring') {
+      } else if (path == '/doctor/ipd-management/monitoring' || path.startsWith('/doctor/ipd-management')) {
         context.go('/doctor/ipd-management');
-      } else {
+      } else if (Navigator.of(context).canPop()) {
         Navigator.pop(context, true);
+      } else {
+        context.go('/nurse/ipd-management');
       }
     } catch (_) {
-      Navigator.pop(context, true);
+      if (Navigator.of(context).canPop()) {
+        Navigator.pop(context, true);
+      } else {
+        context.go('/nurse/ipd-management');
+      }
     }
   }
 
@@ -1547,9 +1569,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     final adm = widget.admission;
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
-    final dateStr = DateFormat(
-      'dd/MM/yyyy hh:mm a',
-    ).format(DateTime.parse(adm['admission_date']).toLocal());
+    final dateStr = _safeFormatDate(adm['admission_date']);
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
@@ -2190,9 +2210,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
       itemCount: _vitalsHistory.length,
       itemBuilder: (context, index) {
         final v = _vitalsHistory[index];
-        final recordedAt = DateFormat(
-          'dd/MM/yyyy hh:mm a',
-        ).format(DateTime.parse(v['created_at']).toLocal());
+        final recordedAt = _safeFormatDate(v['created_at']);
 
         final hasLowSpo2 =
             v['spo2'] != null && _isVitalAbnormal('SPO2', v['spo2']);
@@ -4281,7 +4299,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Last Streamed: ${DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.parse(latestVitals['created_at']).toLocal())}',
+                          'Last Streamed: ${_safeFormatDate(latestVitals['created_at'])}',
                           style: TextStyle(
                             color: Colors.grey.shade500,
                             fontSize: 11,
@@ -4298,7 +4316,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Last Streamed: ${DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.parse(latestVitals['created_at']).toLocal())}',
+                          'Last Streamed: ${_safeFormatDate(latestVitals['created_at'])}',
                           style: TextStyle(
                             color: Colors.grey.shade500,
                             fontSize: 11,
@@ -4648,9 +4666,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildAlertCard(Map<String, dynamic> a, bool isActive) {
-    final date = DateFormat(
-      'dd/MM/yyyy HH:mm',
-    ).format(DateTime.parse(a['created_at']).toLocal());
+    final date = _safeFormatDate(a['created_at'], pattern: 'dd/MM/yyyy HH:mm');
     return Card(
       elevation: 0,
       color: isActive ? Colors.red.shade50 : Colors.grey.shade50,
@@ -6457,9 +6473,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               itemCount: activeAlerts.length,
               itemBuilder: (context, index) {
                 final a = activeAlerts[index];
-                final date = DateFormat(
-                  'dd/MM/yyyy HH:mm',
-                ).format(DateTime.parse(a['created_at']).toLocal());
+                final date = _safeFormatDate(a['created_at'], pattern: 'dd/MM/yyyy HH:mm');
 
                 return Card(
                   elevation: 0,
