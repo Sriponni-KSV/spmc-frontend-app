@@ -2485,7 +2485,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                   ),
                   if (AdminNavConfig.showMasterCatalog &&
-                      (user?.hasPermission('manage_catalogs') ?? false))
+                      ((user?.hasPermission('manage_catalogs') ?? false) ||
+                          user?.role == 'Admin' ||
+                          user?.role == 'Super Admin' ||
+                          user?.role == 'Supervisor'))
                     _buildCatalogParentMenu(),
                 ],
               ),
