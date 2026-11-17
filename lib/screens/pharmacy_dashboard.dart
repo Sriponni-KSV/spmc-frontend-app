@@ -10,6 +10,7 @@ import '../widgets/user_profile_dialog.dart';
 import 'pharmacy_management_view.dart';
 import 'inventory_management_view.dart';
 import 'billing_management_view.dart';
+import '../widgets/access_denied_widget.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 
@@ -374,15 +375,25 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
   }
 
   Widget _buildMainContent(bool isMobile) {
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
     switch (_selectedIndex) {
       case 0:
-        return PharmacyManagementView(isMobile: isMobile);
+        if (user?.hasPermission('pharmacy_dispensing') ?? false) {
+          return PharmacyManagementView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
       case 1:
-        return InventoryManagementView(isMobile: isMobile);
+        if (user?.hasPermission('pharmacy_inventory') ?? false) {
+          return InventoryManagementView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
       case 2:
         return _buildProfileView(isMobile);
       case 3:
-        return const BillingManagementView();
+        if (user?.hasPermission('pharmacy_billing') ?? false) {
+          return const BillingManagementView();
+        }
+        return const AccessDeniedWidget();
       default:
         return PharmacyManagementView(isMobile: isMobile);
     }

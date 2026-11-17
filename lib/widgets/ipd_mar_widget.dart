@@ -521,23 +521,24 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+                headingRowColor: WidgetStateProperty.resolveWith(
+                  (states) => AppTheme.getTableHeadingRowColor(context),
+                ),
+                headingTextStyle: AppTheme.tableHeadingTextStyle(context),
                 dataRowMinHeight: 70,
                 dataRowMaxHeight: 85,
                 columnSpacing: 20,
                 columns: [
-                  const DataColumn(
-                    label: Text(
-                      'Medication & Orders',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
+                  AppTheme.dataColumnHeader(
+                    context: context,
+                    label: 'Medication & Orders',
+                    icon: Icons.medication_outlined,
                   ),
                   ..._timeSlots.map((slot) {
-                    return DataColumn(
-                      label: Text(
-                        slot['label']!,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
+                    return AppTheme.dataColumnHeader(
+                      context: context,
+                      label: slot['label']!,
+                      icon: Icons.access_time,
                     );
                   }),
                 ],

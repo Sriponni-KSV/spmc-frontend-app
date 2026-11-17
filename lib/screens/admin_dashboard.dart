@@ -41,6 +41,10 @@ import '../services/api_service.dart';
 import '../config/api_config.dart';
 import '../config/admin_nav_config.dart';
 import 'ipd_beds_catalog_view.dart';
+import '../widgets/admin_billing_services_catalog_view.dart';
+import '../widgets/admin_lab_tests_catalog_view.dart';
+import '../widgets/admin_specializations_catalog_view.dart';
+import '../widgets/admin_db_initialization_view.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 import '../providers/language_provider.dart';
@@ -1089,6 +1093,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return const AccessDeniedWidget();
       case 17:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return AdminBillingServicesCatalogView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 18:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return AdminLabTestsCatalogView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 19:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return AdminSpecializationsCatalogView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 20:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return AdminDbInitializationView(isMobile: isMobile);
           return DepartmentManagementView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
@@ -1868,23 +1888,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       headingRowHeight: 56,
                       dataRowMinHeight: 60,
                       dataRowMaxHeight: 68,
-                      headingRowColor: WidgetStateProperty.all(
-                        const Color(0xFFEDF2F7),
+                      headingRowColor: WidgetStateProperty.resolveWith(
+                        (states) => AppTheme.getTableHeadingRowColor(context),
                       ),
-                      headingTextStyle: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF64748B),
-                        fontSize: 13,
-                      ),
+                      headingTextStyle: AppTheme.tableHeadingTextStyle(context),
                       columns: [
-                        const DataColumn(label: Text('S.No')),
-                        const DataColumn(label: Text('Staff ID')),
-                        const DataColumn(label: Text('Name')),
-                        const DataColumn(label: Text('Role')),
+                        AppTheme.dataColumnHeader(context: context, label: 'S.No', icon: Icons.tag),
+                        AppTheme.dataColumnHeader(context: context, label: 'Staff ID', icon: Icons.badge_outlined),
+                        AppTheme.dataColumnHeader(context: context, label: 'Name', icon: Icons.person_outline),
+                        AppTheme.dataColumnHeader(context: context, label: 'Role', icon: Icons.work_outline),
                         if (_selectedRoleFilter == 'Doctor')
-                          const DataColumn(label: Text('Specialization')),
-                        const DataColumn(label: Text('Status')),
-                        const DataColumn(label: Text('Actions')),
+                          AppTheme.dataColumnHeader(context: context, label: 'Specialization', icon: Icons.medical_services_outlined),
+                        AppTheme.dataColumnHeader(context: context, label: 'Status', icon: Icons.verified_outlined),
+                        AppTheme.dataColumnHeader(context: context, label: 'Actions', icon: Icons.settings_outlined),
                       ],
                       rows: staff.asMap().entries.map((entry) {
                         final index = entry.key;
@@ -2481,7 +2497,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       item.label,
                     ),
                   ),
-                  if (AdminNavConfig.showMasterCatalog)
+                  if (AdminNavConfig.showMasterCatalog &&
+                      (user?.hasPermission('manage_catalogs') ?? false))
                     _buildCatalogParentMenu(),
                 ],
               ),
@@ -2776,6 +2793,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             context.go(AppRoutes.adminIpdBeds);
             break;
           case 17:
+            context.go(AppRoutes.adminBillingServices);
+            break;
+          case 18:
+            context.go(AppRoutes.adminLabTestsMaster);
+            break;
+          case 19:
+            context.go(AppRoutes.adminSpecializations);
+            break;
+          case 20:
+            context.go(AppRoutes.adminDbInitialization);
             context.go(AppRoutes.adminDepartments);
             break;
 
@@ -3500,6 +3527,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 16:
         return 'Master Catalog / IPD Beds';
       case 17:
+        return 'Master Catalog / Billing & Services';
+      case 18:
+        return 'Master Catalog / Lab Tests Catalog';
+      case 19:
+        return 'Master Catalog / Specializations Master';
+      case 20:
+        return 'Master Catalog / Database Initialization';
         return 'Master Catalog / Department Master';
       default:
         return 'Admin Dashboard';
@@ -7990,22 +8024,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               headingRowHeight: 52,
                               dataRowMinHeight: 58,
                               dataRowMaxHeight: 72,
-                              headingRowColor: WidgetStateProperty.all(
-                                const Color(0xFFEDF2F7),
+                              headingRowColor: WidgetStateProperty.resolveWith(
+                                (states) => AppTheme.getTableHeadingRowColor(context),
                               ),
-                              headingTextStyle: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF64748B),
-                                fontSize: 13,
-                              ),
-                              columns: const [
-                                DataColumn(label: Text('Date')),
-                                DataColumn(label: Text('Nurse')),
-                                DataColumn(label: Text('Ward')),
-                                DataColumn(label: Text('Shift')),
-                                DataColumn(label: Text('Timings')),
-                                DataColumn(label: Text('Status')),
-                                DataColumn(label: Text('Actions')),
+                              headingTextStyle: AppTheme.tableHeadingTextStyle(context),
+                              columns: [
+                                AppTheme.dataColumnHeader(context: context, label: 'Date', icon: Icons.calendar_today_outlined),
+                                AppTheme.dataColumnHeader(context: context, label: 'Nurse', icon: Icons.person_outline),
+                                AppTheme.dataColumnHeader(context: context, label: 'Ward', icon: Icons.meeting_room_outlined),
+                                AppTheme.dataColumnHeader(context: context, label: 'Shift', icon: Icons.schedule_outlined),
+                                AppTheme.dataColumnHeader(context: context, label: 'Timings', icon: Icons.access_time),
+                                AppTheme.dataColumnHeader(context: context, label: 'Status', icon: Icons.verified_outlined),
+                                AppTheme.dataColumnHeader(context: context, label: 'Actions', icon: Icons.settings_outlined),
                               ],
                               rows: filteredList.map((alloc) {
                                 final dateStr = alloc['allocation_date'] != null
@@ -10807,66 +10837,42 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             // Table Header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8FAFC),
-                border: Border(bottom: BorderSide(color: AppTheme.borderColor)),
-              ),
+              decoration: AppTheme.tableHeaderDecoration(context),
               child: Row(
                 children: [
-                  Expanded(
+                  AppTheme.tableHeaderCell(
+                    context: context,
+                    label: '#  ${context.tr('medicine_name', fallback: 'Medication Name')}',
+                    icon: Icons.medication_outlined,
                     flex: 4,
-                    child: Text(
-                      '#  ${context.tr('medicine_name', fallback: 'Medication Name')}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
                   ),
-                  Expanded(
+                  AppTheme.tableHeaderCell(
+                    context: context,
+                    label: context.tr('med_category', fallback: 'Category'),
+                    icon: Icons.category_outlined,
                     flex: 2,
-                    child: Text(
-                      context.tr('med_category', fallback: 'Category'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
                   ),
-                  Expanded(
+                  AppTheme.tableHeaderCell(
+                    context: context,
+                    label: context.tr('med_unit', fallback: 'Unit'),
+                    icon: Icons.straighten_outlined,
                     flex: 2,
-                    child: Text(
-                      context.tr('med_unit', fallback: 'Unit'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
                   ),
-                  Expanded(
+                  AppTheme.tableHeaderCell(
+                    context: context,
+                    label: context.tr('med_stock_avail', fallback: 'Stock Availability'),
+                    icon: Icons.inventory_2_outlined,
                     flex: 2,
-                    child: Text(
-                      context.tr('med_stock_avail', fallback: 'Stock Availability'),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
-                    ),
                   ),
                   SizedBox(
                     width: 88,
-                    child: Text(
-                      context.tr('med_actions', fallback: 'Actions'),
+                    child: AppTheme.tableHeaderCell(
+                      context: context,
+                      label: context.tr('med_actions', fallback: 'Actions'),
+                      icon: Icons.settings_outlined,
+                      flex: 0,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textSecondaryColor,
-                      ),
+                      mainAxisAlignment: MainAxisAlignment.center,
                     ),
                   ),
                 ],

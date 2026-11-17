@@ -155,11 +155,28 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     super.dispose();
   }
 
+  String _safeFormatDate(dynamic dateVal, {String pattern = 'dd/MM/yyyy hh:mm a', String fallback = '--'}) {
+    if (dateVal == null) return fallback;
+    try {
+      final dt = dateVal is DateTime ? dateVal : DateTime.parse(dateVal.toString());
+      return DateFormat(pattern).format(dt.toLocal());
+    } catch (_) {
+      return dateVal.toString();
+    }
+  }
+
   Future<void> _loadAllData({bool isSilent = false}) async {
     if (!isSilent || (_prescriptions.isEmpty && _vitalsHistory.isEmpty && _fluidRecords.isEmpty)) {
-      setState(() => _isLoading = true);
+      if (mounted) setState(() => _isLoading = true);
     }
-    final admissionId = widget.admission['id'];
+    final admissionIdRaw = widget.admission['id'];
+    final int? admissionId = admissionIdRaw is int ? admissionIdRaw : int.tryParse(admissionIdRaw?.toString() ?? '');
+    if (admissionId == null) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final user = auth.user;
 
@@ -194,19 +211,18 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         final isAssignedToMe = assignedNurse != null && 
             assignedNurse == user.fullname.trim().toLowerCase();
 
-        if (!assignedWards.contains(widget.admission['ward_type']) && !isAssignedToMe) {
+        // Only restrict if shifts are active and nurse is assigned to a different ward
+        if (assignedWards.isNotEmpty && !assignedWards.contains(widget.admission['ward_type']) && !isAssignedToMe) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  assignedWards.isEmpty 
-                      ? 'Access Denied: You are not assigned to an active shift today. (Active Shift is applicable only for IPD)'
-                      : 'Access Denied: You are assigned to ${assignedWards.join(", ")}, but this patient is in ${widget.admission['ward_type']}. (Active Shift is applicable only for IPD)'
+                  'Access Denied: You are assigned to ${assignedWards.join(", ")}, but this patient is in ${widget.admission['ward_type']}. (Active Shift is applicable only for IPD)'
                 ),
                 backgroundColor: Colors.red,
               ),
             );
-            Navigator.pop(context);
+            _goBack();
           }
           return;
         }
@@ -228,15 +244,15 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
       if (mounted) {
         setState(() {
-          _prescriptions = futures[0] as List<Map<String, dynamic>>;
-          _medicationLogs = futures[1] as List<Map<String, dynamic>>;
-          _vitalsHistory = futures[2] as List<Map<String, dynamic>>;
-          _icuAlerts = futures[3] as List<Map<String, dynamic>>;
-          _progressNotes = futures[4] as List<Map<String, dynamic>>;
-          _labOrders = futures[5] as List<Map<String, dynamic>>;
-          final fluidData = futures[6] as Map<String, dynamic>;
-          _fluidRecords = List<Map<String, dynamic>>.from(fluidData['records'] ?? []);
-          _fluidSummary = Map<String, dynamic>.from(fluidData['summary'] ?? {});
+          _prescriptions = (futures[0] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _medicationLogs = (futures[1] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _vitalsHistory = (futures[2] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _icuAlerts = (futures[3] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _progressNotes = (futures[4] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          _labOrders = (futures[5] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          final fluidData = futures[6] is Map ? Map<String, dynamic>.from(futures[6] as Map) : <String, dynamic>{};
+          _fluidRecords = List<Map<String, dynamic>>.from((fluidData['records'] as List? ?? []).map((e) => Map<String, dynamic>.from(e as Map)));
+          _fluidSummary = Map<String, dynamic>.from(fluidData['summary'] as Map? ?? {});
           _isLoading = false;
         });
       }
@@ -803,15 +819,21 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   void _goBack() {
     try {
       final path = GoRouterState.of(context).matchedLocation;
-      if (path == '/nurse/ipd-management/nursing-station') {
+      if (path == '/nurse/ipd-management/nursing-station' || path.startsWith('/nurse/ipd-management')) {
         context.go('/nurse/ipd-management');
-      } else if (path == '/doctor/ipd-management/monitoring') {
+      } else if (path == '/doctor/ipd-management/monitoring' || path.startsWith('/doctor/ipd-management')) {
         context.go('/doctor/ipd-management');
-      } else {
+      } else if (Navigator.of(context).canPop()) {
         Navigator.pop(context, true);
+      } else {
+        context.go('/nurse/ipd-management');
       }
     } catch (_) {
-      Navigator.pop(context, true);
+      if (Navigator.of(context).canPop()) {
+        Navigator.pop(context, true);
+      } else {
+        context.go('/nurse/ipd-management');
+      }
     }
   }
 
@@ -1443,6 +1465,102 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
+    final admissionIdRaw = widget.admission['id'];
+    if (admissionIdRaw == null) {
+      return Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        drawer: isMobile ? Drawer(child: _buildRoleSidebar()) : null,
+        body: SafeArea(
+          bottom: false,
+          child: Row(
+            children: [
+              if (!isMobile) _buildRoleSidebar(),
+              Expanded(
+                child: Column(
+                  children: [
+                    _buildTopNavbar(isMobile),
+                    Expanded(
+                      child: Center(
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 480),
+                          margin: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(32),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppTheme.borderColor),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryColor.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.hotel_class_outlined,
+                                  color: AppTheme.primaryColor,
+                                  size: 32,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              const Text(
+                                'No Inpatient Admission Selected',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              const Text(
+                                'Please open the Nursing Station by selecting an admitted patient card from the IPD Management dashboard.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppTheme.textSecondaryColor,
+                                  height: 1.5,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              ElevatedButton.icon(
+                                onPressed: _goBack,
+                                icon: const Icon(Icons.arrow_back, size: 16),
+                                label: const Text('Back to IPD Management'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     final doctorTabs = [
       const Tab(text: 'Overview'),
       const Tab(text: 'Vitals & TPR'),
@@ -1554,9 +1672,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     final adm = widget.admission;
     final bool isMobile = MediaQuery.of(context).size.width < 900;
 
-    final dateStr = DateFormat(
-      'dd/MM/yyyy hh:mm a',
-    ).format(DateTime.parse(adm['admission_date']).toLocal());
+    final dateStr = _safeFormatDate(adm['admission_date']);
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
@@ -2197,9 +2313,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
       itemCount: _vitalsHistory.length,
       itemBuilder: (context, index) {
         final v = _vitalsHistory[index];
-        final recordedAt = DateFormat(
-          'dd/MM/yyyy hh:mm a',
-        ).format(DateTime.parse(v['created_at']).toLocal());
+        final recordedAt = _safeFormatDate(v['created_at']);
 
         final hasLowSpo2 =
             v['spo2'] != null && _isVitalAbnormal('SPO2', v['spo2']);
@@ -4304,7 +4418,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Last Streamed: ${DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.parse(latestVitals['created_at']).toLocal())}',
+                          'Last Streamed: ${_safeFormatDate(latestVitals['created_at'])}',
                           style: TextStyle(
                             color: Colors.grey.shade500,
                             fontSize: 11,
@@ -4321,7 +4435,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Last Streamed: ${DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.parse(latestVitals['created_at']).toLocal())}',
+                          'Last Streamed: ${_safeFormatDate(latestVitals['created_at'])}',
                           style: TextStyle(
                             color: Colors.grey.shade500,
                             fontSize: 11,
@@ -4671,9 +4785,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildAlertCard(Map<String, dynamic> a, bool isActive) {
-    final date = DateFormat(
-      'dd/MM/yyyy HH:mm',
-    ).format(DateTime.parse(a['created_at']).toLocal());
+    final date = _safeFormatDate(a['created_at'], pattern: 'dd/MM/yyyy HH:mm');
     return Card(
       elevation: 0,
       color: isActive ? Colors.red.shade50 : Colors.grey.shade50,
@@ -6490,9 +6602,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               itemCount: activeAlerts.length,
               itemBuilder: (context, index) {
                 final a = activeAlerts[index];
-                final date = DateFormat(
-                  'dd/MM/yyyy HH:mm',
-                ).format(DateTime.parse(a['created_at']).toLocal());
+                final date = _safeFormatDate(a['created_at'], pattern: 'dd/MM/yyyy HH:mm');
 
                 return Card(
                   elevation: 0,

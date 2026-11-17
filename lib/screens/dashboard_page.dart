@@ -19,6 +19,7 @@ import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
 import '../utils/logout_helper.dart';
 import '../widgets/user_profile_dialog.dart';
+import '../widgets/access_denied_widget.dart';
 import 'doctor_ipd_management.dart';
 import 'ot_management.dart';
 import 'ot_dictation_dashboard.dart';
@@ -32,6 +33,10 @@ import '../widgets/consultation_documents_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/unsaved_changes_helper.dart';
 import '../utils/modal_history_helper.dart';
+import 'patients_view.dart';
+import 'appointments_view.dart';
+import '../controllers/patient_controller.dart';
+import '../models/patient_model.dart';
 import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
@@ -88,6 +93,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<OtCase> _anaesthetistOtCases = [];
   OtCase? _otInitialSelectedCase;
   int? _otInitialTab;
+
+  final PatientController _patientController = PatientController();
+  List<PatientModel> _dbPatients = [];
+  bool _isLoadingPatients = false;
+  String? _patientError;
+
+  Future<void> _fetchPatients() async {
+    setState(() {
+      _isLoadingPatients = true;
+      _patientError = null;
+    });
+    try {
+      final patients = await _patientController.fetchPatients();
+      if (mounted) {
+        setState(() {
+          _dbPatients = patients;
+          _isLoadingPatients = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoadingPatients = false;
+          _patientError = e.toString();
+        });
+      }
+    }
+  }
 
   final GlobalKey<FormState> _profileFormKey = GlobalKey<FormState>();
   AutovalidateMode _profileAutovalidateMode = AutovalidateMode.disabled;
@@ -221,6 +254,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _initControllers();
     _fetchDoctorData();
     _fetchLabReports();
+    if (user?.hasPermission('view_patients') ?? false) {
+      _fetchPatients();
+    }
     _fetchNotifications();
     _notificationsTimer = Timer.periodic(const Duration(seconds: 6), (timer) {
       _fetchNotifications();
@@ -915,6 +951,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final isAnaesthetist = user?.role == 'Anaesthetist';
+    final isDoctor = user?.role == 'Doctor' || isAnaesthetist;
 
     switch (_selectedIndex) {
       case 0:
@@ -922,25 +959,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ? _buildAnaesthetistDashboardView(isMobile)
             : _buildDashboardView(isMobile);
       case 1:
-        return _buildConsultationsView(isMobile);
+        if ((user?.hasPermission('conduct_consultations') ?? false) || isDoctor) {
+          return _buildConsultationsView(isMobile);
+        }
+        return const AccessDeniedWidget();
       case 2:
         return _buildProfileView(isMobile);
       case 3:
-        return DoctorIPDManagementScreen(isMobile: isMobile);
+        if ((user?.hasPermission('ipd_doctor_rounds') ?? false) || isDoctor) {
+          return DoctorIPDManagementScreen(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
       case 4:
-        return OTManagementScreen(
-          isMobile: isMobile,
-          initialSelectedCase: _otInitialSelectedCase,
-          initialTab: _otInitialTab,
-        );
+        if ((user?.hasPermission('ot_surgeries') ?? false) ||
+            (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
+            (user?.hasPermission('ot_who_checklist') ?? false) ||
+            isDoctor) {
+          return OTManagementScreen(
+            isMobile: isMobile,
+            initialSelectedCase: _otInitialSelectedCase,
+            initialTab: _otInitialTab,
+          );
+        }
+        return const AccessDeniedWidget();
       case 5:
-        return OTManagementScreen(
-          isMobile: isMobile,
-          initialSelectedCase: _otInitialSelectedCase,
-          initialTab: 4,
-        );
+        if ((user?.hasPermission('ot_surgeries') ?? false) ||
+            (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
+            isDoctor) {
+          return OTManagementScreen(
+            isMobile: isMobile,
+            initialSelectedCase: _otInitialSelectedCase,
+            initialTab: 4,
+          );
+        }
+        return const AccessDeniedWidget();
       case 6:
-        return _buildLabReportsView(isMobile);
+        if ((user?.hasPermission('view_lab_reports') ?? false) || isDoctor) {
+          return _buildLabReportsView(isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 7:
+        if ((user?.hasPermission('view_patients') ?? false) || isDoctor) {
+          return PatientsView(
+            patients: _dbPatients,
+            isLoading: _isLoadingPatients,
+            error: _patientError,
+            onRefresh: _fetchPatients,
+            onRegisterPatient: ([p]) {},
+            onCompleteProfile: (p) {},
+            onBookAppointment: (p) {},
+          );
+        }
+        return const AccessDeniedWidget();
+      case 8:
+        if ((user?.hasPermission('book_appointment') ?? false) || isDoctor) {
+          return const AppointmentsView();
+        }
+        return const AccessDeniedWidget();
       default:
         return isAnaesthetist
             ? _buildAnaesthetistDashboardView(isMobile)
@@ -4773,6 +4848,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSidebar(bool isMobile) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final isAnaesthetist = user?.role == 'Anaesthetist';
+    final isDoctor = user?.role == 'Doctor' || isAnaesthetist;
     final isDark = AppTheme.isDark(context);
 
     return Container(
@@ -5029,6 +5105,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           context.go(AppRoutes.doctorDictation);
         } else if (index == 6) {
           context.go(AppRoutes.doctorLabReports);
+        } else if (index == 7) {
+          context.go(AppRoutes.doctorPatientRegistry);
+        } else if (index == 8) {
+          context.go(AppRoutes.doctorAppointments);
         } else {
           context.go(AppRoutes.doctorDashboard);
         }
@@ -5650,21 +5730,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       // Table Rows Header
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                        color: const Color(0xFFF7FAFC),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                        decoration: AppTheme.tableHeaderDecoration(context),
                         child: Row(
                           children: [
-                            Expanded(flex: 2, child: _buildTableHeaderText('TIME')),
-                            Expanded(flex: 2, child: _buildTableHeaderText('DATE')),
-                            Expanded(flex: 3, child: _buildTableHeaderText('PATIENT')),
-                            Expanded(flex: 2, child: _buildTableHeaderText('TYPE')),
-                            Expanded(flex: 3, child: _buildTableHeaderText('REASON')),
-                            Expanded(flex: 2, child: _buildTableHeaderText('STATUS')),
+                            Expanded(flex: 2, child: _buildTableHeaderText('TIME', icon: Icons.access_time)),
+                            Expanded(flex: 2, child: _buildTableHeaderText('DATE', icon: Icons.calendar_today_outlined)),
+                            Expanded(flex: 3, child: _buildTableHeaderText('PATIENT', icon: Icons.person_outline)),
+                            Expanded(flex: 2, child: _buildTableHeaderText('TYPE', icon: Icons.category_outlined)),
+                            Expanded(flex: 3, child: _buildTableHeaderText('REASON', icon: Icons.info_outline)),
+                            Expanded(flex: 2, child: _buildTableHeaderText('STATUS', icon: Icons.verified_outlined)),
                             Expanded(
                               flex: 3,
                               child: Align(
                                 alignment: Alignment.center,
-                                child: _buildTableHeaderText('ACTION'),
+                                child: _buildTableHeaderText('ACTION', icon: Icons.bolt_outlined, textAlign: TextAlign.center),
                               ),
                             ),
                           ],
@@ -5832,16 +5912,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildTableHeaderText(String title) {
-    return Text(
+  Widget _buildTableHeaderText(String title, {IconData? icon, TextAlign textAlign = TextAlign.start}) {
+    final textWidget = Text(
       title,
-      style: const TextStyle(
-        color: AppTheme.textSecondaryColor,
-        fontWeight: FontWeight.bold,
-        fontSize: 11,
-        letterSpacing: 0.5,
-      ),
+      textAlign: textAlign,
+      style: AppTheme.tableHeadingTextStyle(context, textAlign: textAlign),
+      overflow: TextOverflow.ellipsis,
     );
+    if (icon != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: textAlign == TextAlign.center ? MainAxisAlignment.center : MainAxisAlignment.start,
+        children: [
+          Icon(icon, size: AppTheme.tableHeadingIconSize, color: AppTheme.getTableHeadingIconColor(context)),
+          const SizedBox(width: 6),
+          Flexible(child: textWidget),
+        ],
+      );
+    }
+    return textWidget;
   }
 
   Widget _buildPatientTableRow(AppointmentModel appt) {
@@ -6337,14 +6426,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: DataTable(
         columnSpacing: 28,
         horizontalMargin: 24,
-        columns: const [
-          DataColumn(label: Text('Patient ID & Name', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Surgery Type', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Room / Slot', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Surgeon', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Priority', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold))),
+        headingRowColor: WidgetStateProperty.resolveWith(
+          (states) => AppTheme.getTableHeadingRowColor(context),
+        ),
+        headingTextStyle: AppTheme.tableHeadingTextStyle(context),
+        columns: [
+          AppTheme.dataColumnHeader(context: context, label: 'Patient ID & Name', icon: Icons.person_outline),
+          AppTheme.dataColumnHeader(context: context, label: 'Surgery Type', icon: Icons.healing_outlined),
+          AppTheme.dataColumnHeader(context: context, label: 'Room / Slot', icon: Icons.meeting_room_outlined),
+          AppTheme.dataColumnHeader(context: context, label: 'Surgeon', icon: Icons.medical_services_outlined),
+          AppTheme.dataColumnHeader(context: context, label: 'Priority', icon: Icons.priority_high_outlined),
+          AppTheme.dataColumnHeader(context: context, label: 'Status', icon: Icons.verified_outlined),
+          AppTheme.dataColumnHeader(context: context, label: 'Actions', icon: Icons.settings_outlined),
         ],
         rows: cases.map((c) {
           final bool needsPac = c.status == 'OT Scheduled' || c.status == 'Pre-Op Completed';
@@ -7788,13 +7881,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 3: FlexColumnWidth(1.5),
                               },
                               children: [
-                                const TableRow(
-                                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.borderColor))),
+                                TableRow(
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.getTableHeadingRowColor(context),
+                                    border: Border(bottom: BorderSide(color: AppTheme.getBorderColor(context))),
+                                  ),
                                   children: [
-                                    Padding(padding: EdgeInsets.all(8.0), child: Text('Parameter', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: EdgeInsets.all(8.0), child: Text('Observed Value', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: EdgeInsets.all(8.0), child: Text('Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                    Padding(padding: EdgeInsets.all(8.0), child: Text('Reference Range', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    AppTheme.tableRowHeaderCell(
+                                      context: context,
+                                      label: 'Parameter',
+                                      icon: Icons.science_outlined,
+                                      padding: const EdgeInsets.all(8.0),
+                                    ),
+                                    AppTheme.tableRowHeaderCell(
+                                      context: context,
+                                      label: 'Observed Value',
+                                      icon: Icons.biotech_outlined,
+                                      padding: const EdgeInsets.all(8.0),
+                                    ),
+                                    AppTheme.tableRowHeaderCell(
+                                      context: context,
+                                      label: 'Unit',
+                                      icon: Icons.straighten_outlined,
+                                      padding: const EdgeInsets.all(8.0),
+                                    ),
+                                    AppTheme.tableRowHeaderCell(
+                                      context: context,
+                                      label: 'Reference Range',
+                                      icon: Icons.rule_outlined,
+                                      padding: const EdgeInsets.all(8.0),
+                                    ),
                                   ],
                                 ),
                                 ...resultsList.map((res) {

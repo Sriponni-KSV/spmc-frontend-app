@@ -550,17 +550,88 @@ class _BillingReceiptDialogState extends State<BillingReceiptDialog> {
                   // Table Header
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
-                    ),
-                    child: const Row(
+                    decoration: AppTheme.tableHeaderDecoration(context, borderRadius: 7.0),
+                    child: Row(
                       children: [
-                        SizedBox(width: 30, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569)))),
-                        Expanded(flex: 5, child: Text('Particulars / Service', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569)))),
-                        Expanded(flex: 1, child: Text('Qty', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569)))),
-                        Expanded(flex: 2, child: Text('Rate (₹)', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569)))),
-                        Expanded(flex: 2, child: Text('Subtotal (₹)', textAlign: TextAlign.right, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF475569)))),
+                        SizedBox(
+                          width: 30,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.tag, size: 12, color: AppTheme.getTableHeadingIconColor(context)),
+                              const SizedBox(width: 2),
+                              Text(
+                                '#',
+                                style: AppTheme.tableHeadingTextStyle(context, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 5,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.receipt_long_outlined, size: 13, color: AppTheme.getTableHeadingIconColor(context)),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  'Particulars / Service',
+                                  style: AppTheme.tableHeadingTextStyle(context, fontSize: 11),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.format_list_numbered, size: 12, color: AppTheme.getTableHeadingIconColor(context)),
+                              const SizedBox(width: 3),
+                              Text(
+                                'Qty',
+                                textAlign: TextAlign.center,
+                                style: AppTheme.tableHeadingTextStyle(context, fontSize: 11, textAlign: TextAlign.center),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Icon(Icons.currency_rupee, size: 12, color: AppTheme.getTableHeadingIconColor(context)),
+                              const SizedBox(width: 2),
+                              Text(
+                                'Rate',
+                                textAlign: TextAlign.right,
+                                style: AppTheme.tableHeadingTextStyle(context, fontSize: 11, textAlign: TextAlign.right),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Icon(Icons.payments_outlined, size: 12, color: AppTheme.getTableHeadingIconColor(context)),
+                              const SizedBox(width: 3),
+                              Text(
+                                'Subtotal',
+                                textAlign: TextAlign.right,
+                                style: AppTheme.tableHeadingTextStyle(context, fontSize: 11, textAlign: TextAlign.right),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),

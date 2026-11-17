@@ -751,7 +751,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 0:
         return _buildDashboardView(isMobile);
       case 1:
-        if (user?.role == 'Nurse' || (user?.hasPermission('view_patients') ?? false)) {
+        if (user?.hasPermission('view_patients') ?? false) {
           return PatientsView(
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
@@ -788,7 +788,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 2:
-        if (user?.role == 'Nurse' || (user?.hasPermission('book_appointment') ?? false)) {
+        if (user?.hasPermission('book_appointment') ?? false) {
           return AppointmentsView(
             key: const ValueKey('nurse_appointments_tab_view'),
             startWithBookingForm: _forceBookingForm || widget.forceBooking,
@@ -809,11 +809,22 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 4:
         return NurseProfileView(isEditing: widget.isEditingProfile);
       case 5:
-        return OPDManagementScreen(isMobile: isMobile, title: 'OPD Assistance');
+        if ((user?.hasPermission('opd_assistance') ?? false) || user?.role == 'Nurse' || user?.role == 'Head Nurse') {
+          return OPDManagementScreen(isMobile: isMobile, title: 'OPD Assistance');
+        }
+        return const AccessDeniedWidget();
       case 6:
-        return IPDManagementScreen(isMobile: isMobile);
+        if ((user?.hasPermission('ipd_nursing_care') ?? false) || user?.role == 'Nurse' || user?.role == 'Head Nurse') {
+          return IPDManagementScreen(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
       case 7:
-        return OTManagementScreen(isMobile: isMobile);
+        if ((user?.hasPermission('ot_nursing_consumables') ?? false) ||
+            (user?.hasPermission('ot_who_checklist') ?? false) ||
+            user?.role == 'Nurse' || user?.role == 'Head Nurse') {
+          return OTManagementScreen(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
       case 8:
         return const AppointmentsView(initialViewMode: 'Doctor');
       default:

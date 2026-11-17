@@ -2104,24 +2104,20 @@ class _AdminAppointmentManagementState
                           headingRowHeight: 52,
                           dataRowMinHeight: 58,
                           dataRowMaxHeight: 72,
-                          headingRowColor: WidgetStateProperty.all(
-                            const Color(0xFFEDF2F7),
+                          headingRowColor: WidgetStateProperty.resolveWith(
+                            (states) => AppTheme.getTableHeadingRowColor(context),
                           ),
-                          headingTextStyle: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF64748B),
-                            fontSize: 13,
-                          ),
-                          columns: const [
-                            DataColumn(label: Text('S.No')),
-                            DataColumn(label: Text('Patient')),
-                            DataColumn(label: Text('Doctor')),
-                            DataColumn(label: Text('Doctor Department')),
-                            DataColumn(label: Text('Date & Time')),
-                            DataColumn(label: Text('Type')),
-                            DataColumn(label: Text('Status')),
-                            DataColumn(label: Text('Override')),
-                            DataColumn(label: Text('Actions')),
+                          headingTextStyle: AppTheme.tableHeadingTextStyle(context),
+                          columns: [
+                            AppTheme.dataColumnHeader(context: context, label: 'S.No', icon: Icons.tag),
+                            AppTheme.dataColumnHeader(context: context, label: 'Patient', icon: Icons.person_outline),
+                            AppTheme.dataColumnHeader(context: context, label: 'Doctor', icon: Icons.medical_services_outlined),
+                            AppTheme.dataColumnHeader(context: context, label: 'Doctor Department', icon: Icons.business_outlined),
+                            AppTheme.dataColumnHeader(context: context, label: 'Date & Time', icon: Icons.access_time),
+                            AppTheme.dataColumnHeader(context: context, label: 'Type', icon: Icons.category_outlined),
+                            AppTheme.dataColumnHeader(context: context, label: 'Status', icon: Icons.verified_outlined),
+                            AppTheme.dataColumnHeader(context: context, label: 'Override', icon: Icons.rule_outlined),
+                            AppTheme.dataColumnHeader(context: context, label: 'Actions', icon: Icons.bolt_outlined),
                           ],
                           rows: apps.asMap().entries.map((entry) {
                             final index = entry.key;

@@ -33,6 +33,10 @@ class AppRoutes {
   static const String adminHomeVisitConsumables = '/admin/home-visit-consumables';
   static const String adminCarriedKitItems = '/admin/carried-kit-items';
   static const String adminIpdBeds = '/admin/ipd-beds';
+  static const String adminBillingServices = '/admin/billing-services';
+  static const String adminLabTestsMaster = '/admin/lab-tests-master';
+  static const String adminSpecializations = '/admin/specializations-master';
+  static const String adminDbInitialization = '/admin/db-initialization';
   static const String adminDepartments = '/admin/departments';
 
 
@@ -73,6 +77,8 @@ class AppRoutes {
   static const String doctorOt = '/doctor/ot-management';
   static const String doctorDictation = '/doctor/ai-dictation';
   static const String doctorLabReports = '/doctor/lab-reports';
+  static const String doctorPatientRegistry = '/doctor/patient-registry';
+  static const String doctorAppointments = '/doctor/appointments';
 
   // Reception & Front Desk Routes
   static const String receptionDashboard = '/reception/dashboard';

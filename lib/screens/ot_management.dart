@@ -1295,11 +1295,13 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   static final RegExp _disallowedVitalsSymbolRegex =
       RegExp(r'[!@#\$^&*_=\[\]{};"<>?~\\|]');
-  static final RegExp _strayPercentRegex = RegExp(r'(?:^|[^0-9])%');
   static final RegExp _disallowedNotesSymbolRegex =
       RegExp(r'[!@#\$^*_=\[\]{};"<>?~\\|]');
   static final RegExp _invalidAmpersandRegex =
       RegExp(r'&{2,}|[^a-zA-Z0-9\s]&|&[^a-zA-Z0-9\s]');
+  static final RegExp _consonantMashingRegex =
+      RegExp(r'[bcdfghjklmnpqrstvwxyz]{6,}', caseSensitive: false);
+  static final RegExp _repeatedCharRegex = RegExp(r'(.)\1{4,}');
 
   String? _validateVitalsSummary(String? val, {bool required = true}) {
     final trimmed = val?.trim() ?? '';
@@ -1308,9 +1310,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           ? 'Please enter recovery vitals (e.g. BP: 118/76, PR: 70, Temp: 98.2, SpO2: 99%)'
           : null;
     }
-    if (_disallowedVitalsSymbolRegex.hasMatch(trimmed) ||
-        _strayPercentRegex.hasMatch(trimmed)) {
+    if (_disallowedVitalsSymbolRegex.hasMatch(trimmed)) {
       return 'Vitals entry cannot contain invalid special characters (@, #, \$, %, ^, &, *)';
+    }
+    if (trimmed.contains('%') && !RegExp(r'\d\s*%').hasMatch(trimmed)) {
+      return 'Percent symbol (%) in vitals must follow a numerical reading (e.g. SpO2: 99%)';
+    }
+    if (_consonantMashingRegex.hasMatch(trimmed) || _repeatedCharRegex.hasMatch(trimmed)) {
+      return 'Vitals entry contains invalid random text. Please enter valid clinical readings.';
     }
     if (trimmed.length < 3) {
       return 'Please enter complete vital readings';
@@ -1320,6 +1327,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     }
     if (RegExp(r'\b\d{4,}\b').hasMatch(trimmed)) {
       return 'Vital readings contain unrealistic multi-digit numbers';
+    }
+    final hasVitalKeyword = RegExp(
+      r'\b(bp|pr|pulse|hr|temp|temperature|spo2|rr|spo|resp)\b',
+      caseSensitive: false,
+    ).hasMatch(trimmed);
+    final hasBloodPressureFormat = RegExp(r'\b\d{2,3}/\d{2,3}\b').hasMatch(trimmed);
+    if (!hasVitalKeyword && !hasBloodPressureFormat) {
+      return 'Please enter vitals in standard format (e.g. BP: 120/80, PR: 72, Temp: 98.4, SpO2: 99%)';
     }
     return null;
   }
@@ -1334,17 +1349,21 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     if (trimmed.isEmpty) {
       return required ? 'Please enter $fieldLabel ($example)' : null;
     }
-    if (_disallowedVitalsSymbolRegex.hasMatch(trimmed) ||
-        _strayPercentRegex.hasMatch(trimmed)) {
+    if (_disallowedVitalsSymbolRegex.hasMatch(trimmed)) {
       return '$fieldLabel cannot contain invalid special characters (@, #, \$, %, ^, &, *)';
     }
-    final hasWord = RegExp(r'[a-zA-Z]{2,}').hasMatch(trimmed) ||
-        (RegExp(r'\d').hasMatch(trimmed) && RegExp(r'[a-zA-Z]').hasMatch(trimmed));
-    if (!hasWord) {
-      return '$fieldLabel must contain valid clinical names ($example)';
+    if (trimmed.contains('%') && !RegExp(r'\d\s*%').hasMatch(trimmed)) {
+      return 'Percent symbol (%) in $fieldLabel must follow a numerical concentration (e.g. 5%)';
     }
-    if (trimmed.length < 2) {
-      return '$fieldLabel must be at least 2 characters';
+    if (_consonantMashingRegex.hasMatch(trimmed) || _repeatedCharRegex.hasMatch(trimmed)) {
+      return '$fieldLabel contains invalid random characters ($example)';
+    }
+    final hasWord = RegExp(r'[a-zA-Z]{3,}').hasMatch(trimmed);
+    if (!hasWord) {
+      return '$fieldLabel must contain a valid clinical drug or substance name ($example)';
+    }
+    if (trimmed.length < 3) {
+      return '$fieldLabel must be at least 3 characters';
     }
     return null;
   }
@@ -1360,9 +1379,11 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       return required ? 'Please enter $fieldLabel' : null;
     }
     if (_disallowedNotesSymbolRegex.hasMatch(trimmed) ||
-        _strayPercentRegex.hasMatch(trimmed) ||
         _invalidAmpersandRegex.hasMatch(trimmed)) {
       return '$fieldLabel cannot contain invalid special characters (@, #, \$, %, ^, &, *)';
+    }
+    if (_consonantMashingRegex.hasMatch(trimmed) || _repeatedCharRegex.hasMatch(trimmed)) {
+      return '$fieldLabel contains invalid random text. Please enter valid clinical notes.';
     }
     if (!RegExp(r'[a-zA-Z]{2,}').hasMatch(trimmed)) {
       return '$fieldLabel must contain valid clinical text and cannot consist only of numbers or symbols';
@@ -1857,7 +1878,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   void _addNurseCareLog(OtCase otCase) {
-    final formValid = _postOpNurseCareFormKey.currentState?.validate() ?? true;
+    final formValid = _postOpNurseCareFormKey.currentState?.validate() ?? false;
     final vitalsError = _validateVitalsSummary(_careVitalsController.text);
     final medsError = _validateMedicationOrSubstanceText(
       _careMedsController.text,
@@ -1900,7 +1921,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   void _addDoctorProgressNote(OtCase otCase) {
-    final formValid = _postOpDoctorNoteFormKey.currentState?.validate() ?? true;
+    final formValid = _postOpDoctorNoteFormKey.currentState?.validate() ?? false;
     final noteError = _validateClinicalNotesText(
       _doctorProgressController.text,
       'Doctor progress note',
@@ -2468,12 +2489,80 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   // ── VIEW 1: DASHBOARD & ROOM BOARD ──────────────────────────────────
 
   bool _matchesRoom(OtCase c, String targetCode, String targetName) {
-    final norm = (String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final norm = (String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '').replaceAll('room', '');
     final cRoom = norm(c.otRoom ?? '');
     final tCode = norm(targetCode);
     final tName = norm(targetName);
     if (cRoom.isEmpty) return false;
     return cRoom == tCode || cRoom == tName || cRoom.contains(tCode) || tCode.contains(cRoom);
+  }
+
+  Set<String> _getOccupiedRoomsForSlot({
+    required DateTime date,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+    int? excludeDbId,
+    String? excludeCaseId,
+  }) {
+    const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+    final proposedStart = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      startTime.hour,
+      startTime.minute,
+    );
+    final rawProposedEnd = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      endTime.hour,
+      endTime.minute,
+    );
+    final proposedEnd = rawProposedEnd.isAfter(proposedStart)
+        ? rawProposedEnd
+        : proposedStart.add(const Duration(minutes: 90));
+
+    final now = DateTime.now();
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+
+    return allRooms.where((room) {
+      return _otCases.any((c) {
+        if (excludeDbId != null && c.dbId == excludeDbId) return false;
+        if (excludeCaseId != null && c.id == excludeCaseId) return false;
+        if (!_matchesRoom(c, room, room)) return false;
+
+        // Skip non-active, cancelled, or completed cases
+        if (c.status == 'OT Case Closed' ||
+            c.status == 'Surgery Completed' ||
+            c.status == 'Post-Op Monitoring' ||
+            c.status == 'Cancelled' ||
+            c.status == 'Rejected' ||
+            c.status == 'OT Requested') {
+          return false;
+        }
+
+        // Live active surgery occupying theatre room right now (if scheduling for today)
+        if (isToday && (c.status == 'Patient In OT' || c.status == 'Surgery In Progress')) {
+          return true;
+        }
+
+        // Time overlap check for cases scheduled on the same date
+        final cStart = c.scheduledStartTime ?? c.surgeryDateTime;
+        if (cStart == null) return false;
+
+        final isSameDate = cStart.year == date.year &&
+                           cStart.month == date.month &&
+                           cStart.day == date.day;
+        if (!isSameDate) return false;
+
+        final cEnd = c.scheduledEndTime ??
+            cStart.add(Duration(minutes: c.estimatedDurationMinutes > 0 ? c.estimatedDurationMinutes : 90));
+
+        // Overlap: (cStart < proposedEnd) && (cEnd > proposedStart)
+        return cStart.isBefore(proposedEnd) && cEnd.isAfter(proposedStart);
+      });
+    }).toSet();
   }
 
   double _calculateCaseProgress(OtCase c) {
@@ -5538,6 +5627,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               autovalidateMode: AutovalidateMode.onUserInteraction,
               maxLines: 3,
               maxLength: 100,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                LengthLimitingTextInputFormatter(100),
+              ],
               enabled: canEdit,
               validator: _validatePacNotesText,
               decoration: AppTheme.standardInputDecoration(
@@ -6259,18 +6352,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   // ── SCHEDULING FORM: OT Room Dropdown + Time Pickers + Nurse Multi-Select ──
   Widget _buildSchedulingForm(OtCase otCase) {
-    // Determine which rooms are already occupied by ANOTHER active case
     const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
-    final occupiedRooms = _otCases
-        .where((c) =>
-            c.dbId != otCase.dbId &&
-            c.otRoom != null &&
-            c.status != 'OT Case Closed' &&
-            c.status != 'OT Requested')
-        .map((c) => c.otRoom!)
-        .toSet();
-
-    final availableRooms = allRooms.where((r) => !occupiedRooms.contains(r)).toList();
+    final caseDate = otCase.surgeryDateTime ?? DateTime.now();
+    final occupiedRooms = _getOccupiedRoomsForSlot(
+      date: caseDate,
+      startTime: _slotStartTime,
+      endTime: _slotEndTime,
+      excludeDbId: otCase.dbId,
+      excludeCaseId: otCase.id,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -6290,26 +6380,25 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         CustomDropdownSearch(
           label: 'OT Room',
           requiredMark: true,
-          hint: 'Select available OT Room',
-          value: (_selectedOtRoom != null && availableRooms.contains(_selectedOtRoom))
+          hint: 'Select OT Room',
+          value: (_selectedOtRoom != null && allRooms.contains(_selectedOtRoom))
               ? _selectedOtRoom
               : null,
-          dropdownMap: availableRooms.isEmpty
-              ? { '': 'No rooms available' }
-              : { for (var room in availableRooms) room: '$room (Available)' },
+          dropdownMap: {
+            for (var room in allRooms)
+              room: occupiedRooms.contains(room) ? '$room (Occupied)' : '$room (Available)'
+          },
           validator: (val) {
             if (val == null || val.trim().isEmpty) {
               return 'Please select an OT Room';
             }
             return null;
           },
-          onChanged: availableRooms.isEmpty
-              ? null
-              : (val) {
-                  if (val != null) {
-                    setState(() => _selectedOtRoom = val);
-                  }
-                },
+          onChanged: (val) {
+            if (val != null) {
+              setState(() => _selectedOtRoom = val);
+            }
+          },
         ),
         if (occupiedRooms.isNotEmpty)
           Padding(
@@ -6319,7 +6408,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 Icon(Icons.info_outline, size: 12, color: Colors.orange.shade700),
                 const SizedBox(width: 4),
                 Text(
-                  'Occupied: ${occupiedRooms.join(', ')}',
+                  'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
                   style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
                 ),
               ],
@@ -7449,6 +7538,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               autovalidateMode: AutovalidateMode.onUserInteraction,
               maxLines: 2,
               maxLength: 100,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                LengthLimitingTextInputFormatter(100),
+              ],
               validator: _validatePacNotesText,
               decoration: AppTheme.standardInputDecoration(
                 label: 'PAC Assessment Notes & Warnings',
@@ -7615,6 +7708,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             autovalidateMode: AutovalidateMode.onUserInteraction,
             maxLines: 2,
             maxLength: 250,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+              LengthLimitingTextInputFormatter(250),
+            ],
             decoration: AppTheme.standardInputDecoration(
               label: 'OT Handover Remarks',
               hintText: 'Note any checklist variances or prep details...',
@@ -7975,6 +8072,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           keyboardType: TextInputType.text,
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           maxLength: 7,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9/]')),
+                            LengthLimitingTextInputFormatter(7),
+                          ],
                           validator: (val) {
                             final trimmed = val?.trim() ?? '';
                             if (trimmed.isEmpty) return 'Please enter BP';
@@ -8001,6 +8102,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           keyboardType: TextInputType.number,
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           maxLength: 3,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(3),
+                          ],
                           validator: (val) {
                             final trimmed = val?.trim() ?? '';
                             if (trimmed.isEmpty) return 'Please enter HR';
@@ -8020,6 +8125,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           maxLength: 5,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                            LengthLimitingTextInputFormatter(5),
+                          ],
                           validator: (val) {
                             final trimmed = val?.trim() ?? '';
                             if (trimmed.isEmpty) return 'Please enter Temp';
@@ -8039,6 +8148,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           keyboardType: TextInputType.number,
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           maxLength: 3,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(3),
+                          ],
                           validator: (val) {
                             final trimmed = val?.trim() ?? '';
                             if (trimmed.isEmpty) return 'Please enter SpO2';
@@ -8057,6 +8170,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           controller: _intraOpMedsController,
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           maxLength: 100,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%]')),
+                            LengthLimitingTextInputFormatter(100),
+                          ],
                           validator: (val) => _validateMedicationOrSubstanceText(
                             val,
                             'Drugs Administered',
@@ -8072,6 +8189,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           controller: _intraOpFluidsController,
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           maxLength: 100,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%]')),
+                            LengthLimitingTextInputFormatter(100),
+                          ],
                           validator: (val) => _validateMedicationOrSubstanceText(
                             val,
                             'Dosage / Rate',
@@ -8561,6 +8682,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                 autovalidateMode: AutovalidateMode.onUserInteraction,
                                 maxLength: 10,
                                 inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(10),
                                 ],
                                 validator: (val) {
@@ -8620,6 +8742,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLines: 2,
                     maxLength: 100,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                      LengthLimitingTextInputFormatter(100),
+                    ],
                     validator: (val) => _validateClinicalNotesText(val, 'procedure details done'),
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Procedure Details Done',
@@ -8633,6 +8759,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLines: 2,
                     maxLength: 100,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                      LengthLimitingTextInputFormatter(100),
+                    ],
                     validator: (val) => _validateClinicalNotesText(val, 'surgical findings'),
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Surgical Findings',
@@ -8645,6 +8775,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     controller: _complicationsController,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLength: 100,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                      LengthLimitingTextInputFormatter(100),
+                    ],
                     validator: (val) => _validateClinicalNotesText(
                       val,
                       'complications',
@@ -8818,6 +8952,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLines: 2,
                     maxLength: 100,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                      LengthLimitingTextInputFormatter(100),
+                    ],
                     validator: (val) => _validateClinicalNotesText(val, 'Operation summary'),
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Operation Summary',
@@ -8829,6 +8967,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     controller: _procPerformedController,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLength: 100,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                      LengthLimitingTextInputFormatter(100),
+                    ],
                     validator: (val) => _validateClinicalNotesText(val, 'Procedure performed'),
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Procedure Performed',
@@ -8840,6 +8982,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     controller: _outcomeController,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLength: 100,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                      LengthLimitingTextInputFormatter(100),
+                    ],
                     validator: (val) => _validateClinicalNotesText(val, 'Surgical outcome'),
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Surgical Outcome',
@@ -8852,6 +8998,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLines: 2,
                     maxLength: 100,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                      LengthLimitingTextInputFormatter(100),
+                    ],
                     validator: (val) => _validateClinicalNotesText(val, 'Post-operative instructions'),
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Post-Operative Instructions',
@@ -8863,6 +9013,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     controller: _followUpController,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLength: 100,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                      LengthLimitingTextInputFormatter(100),
+                    ],
                     validator: (val) => _validateClinicalNotesText(val, 'Follow-up recommendations'),
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Follow-Up Recommendations',
@@ -8949,6 +9103,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLines: 2,
                     maxLength: 100,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                      LengthLimitingTextInputFormatter(100),
+                    ],
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Nursing Handover Notes',
                       prefixIcon: Icons.note_alt_outlined,
@@ -9085,6 +9243,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           maxLines: 2,
                           maxLength: 100,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s:.,/%()\-°]')),
+                            LengthLimitingTextInputFormatter(100),
+                          ],
                           validator: (val) => _validateVitalsSummary(val, required: false),
                           decoration: AppTheme.standardInputDecoration(
                             label: 'PACU Recovery Vitals / Observations',
@@ -9098,6 +9260,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           maxLines: 2,
                           maxLength: 100,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                            LengthLimitingTextInputFormatter(100),
+                          ],
                           validator: _validatePacNotesText,
                           decoration: AppTheme.standardInputDecoration(
                             label: 'Post-Anesthesia Instructions',
@@ -9166,6 +9332,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLength: 150,
                     inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s:.,/%()\-°]')),
                       LengthLimitingTextInputFormatter(150),
                     ],
                     validator: (val) => _validateVitalsSummary(val),
@@ -9175,12 +9342,67 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       hintText: 'BP: 118/76, PR: 70, Temp: 98.2, SpO2: 99%',
                     ).copyWith(counterText: ''),
                   ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text('Quick Vitals:', style: TextStyle(fontSize: 11, color: AppTheme.textMutedColor, fontWeight: FontWeight.w600)),
+                      ActionChip(
+                        avatar: const Icon(Icons.flash_on, size: 13, color: AppTheme.primaryColor),
+                        label: const Text('Normal (120/80, 72, 98.4°F, 99%)', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            _careVitalsController.text = 'BP: 120/80, PR: 72, Temp: 98.4, SpO2: 99%';
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        label: const Text('BP: 120/80', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            final cur = _careVitalsController.text.trim();
+                            _careVitalsController.text = cur.isEmpty ? 'BP: 120/80' : '$cur, BP: 120/80';
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        label: const Text('PR: 72', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            final cur = _careVitalsController.text.trim();
+                            _careVitalsController.text = cur.isEmpty ? 'PR: 72' : '$cur, PR: 72';
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        label: const Text('Temp: 98.4°F', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            final cur = _careVitalsController.text.trim();
+                            _careVitalsController.text = cur.isEmpty ? 'Temp: 98.4' : '$cur, Temp: 98.4';
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        label: const Text('SpO2: 99%', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            final cur = _careVitalsController.text.trim();
+                            _careVitalsController.text = cur.isEmpty ? 'SpO2: 99%' : '$cur, SpO2: 99%';
+                          });
+                        },
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _careMedsController,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLength: 150,
                     inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%]')),
                       LengthLimitingTextInputFormatter(150),
                     ],
                     validator: (val) => _validateMedicationOrSubstanceText(
@@ -9193,6 +9415,55 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       prefixIcon: Icons.vaccines_outlined,
                       hintText: 'Paracetamol 1g IV',
                     ).copyWith(counterText: ''),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text('Quick Meds:', style: TextStyle(fontSize: 11, color: AppTheme.textMutedColor, fontWeight: FontWeight.w600)),
+                      ActionChip(
+                        label: const Text('Paracetamol 1g IV', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            _careMedsController.text = 'Paracetamol 1g IV';
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        label: const Text('Ondansetron 4mg IV', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            _careMedsController.text = 'Ondansetron 4mg IV';
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        label: const Text('Tramadol 50mg IV', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            _careMedsController.text = 'Tramadol 50mg IV';
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        label: const Text('Normal Saline 500ml', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            _careMedsController.text = 'Normal Saline (0.9% NaCl) 500ml IV';
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        label: const Text('Cefazolin 1g IV', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            _careMedsController.text = 'Cefazolin 1g IV';
+                          });
+                        },
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
@@ -9229,13 +9500,50 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     controller: _doctorProgressController,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     maxLines: 2,
-                    maxLength: 100,
+                    maxLength: 250,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
+                      LengthLimitingTextInputFormatter(250),
+                    ],
                     validator: (val) => _validateClinicalNotesText(val, 'Doctor progress note'),
                     decoration: AppTheme.standardInputDecoration(
                       label: 'Doctor Daily Progress Note & Treatment Plan',
                       prefixIcon: Icons.note_add_outlined,
                       hintText: 'Patient recovering well. Continue monitoring.',
                     ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text('Quick Notes:', style: TextStyle(fontSize: 11, color: AppTheme.textMutedColor, fontWeight: FontWeight.w600)),
+                      ActionChip(
+                        label: const Text('Patient stable & oriented', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            _doctorProgressController.text = 'Patient conscious, oriented, and vitals stable.';
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        label: const Text('Vitals within normal limits', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            _doctorProgressController.text = 'Vitals within normal limits. Wound dressing clean & dry.';
+                          });
+                        },
+                      ),
+                      ActionChip(
+                        label: const Text('Pain well controlled', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            _doctorProgressController.text = 'Pain well controlled. Continue current IV analgesics.';
+                          });
+                        },
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
@@ -10097,6 +10405,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         controller: _diagnosisController,
         autovalidateMode: AutovalidateMode.onUserInteraction,
         inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
           LengthLimitingTextInputFormatter(250),
         ],
         decoration: _noLabelDecoration(hintText: 'enter diagnosis'),
@@ -10107,15 +10416,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   List<Widget> _buildSchedulingParametersChildren() {
-    final allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
-    final occupiedRooms = _otCases
-        .where((c) =>
-            c.otRoom != null &&
-            c.status != 'OT Case Closed' &&
-            c.status != 'OT Requested')
-        .map((c) => c.otRoom!)
-        .toSet();
-
+    const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+    final occupiedRooms = _getOccupiedRoomsForSlot(
+      date: _selectedDate,
+      startTime: _slotStartTime,
+      endTime: _slotEndTime,
+    );
 
     return [
       const SizedBox(height: 24),
@@ -10146,6 +10452,20 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           }
         },
       ),
+      if (occupiedRooms.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 12, color: Colors.orange.shade700),
+              const SizedBox(width: 4),
+              Text(
+                'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
+                style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+              ),
+            ],
+          ),
+        ),
       const SizedBox(height: 16),
 
       // Time Slot
@@ -10812,6 +11132,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         maxLines: 2,
         maxLength: 100,
         inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,/()\-+%:;!?]')),
           LengthLimitingTextInputFormatter(100),
         ],
         validator: (val) => _validateClinicalNotesText(

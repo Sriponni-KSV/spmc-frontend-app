@@ -8,6 +8,7 @@ class AdminNavItem {
   final IconData icon;
   final String label;
   final String? requiredRole;
+  final String? permissionRequired;
   final bool isVisible;
 
   const AdminNavItem({
@@ -15,6 +16,7 @@ class AdminNavItem {
     required this.icon,
     required this.label,
     this.requiredRole,
+    this.permissionRequired,
     this.isVisible = true,
   });
 }
@@ -95,6 +97,10 @@ class AdminNavConfig {
   static const bool showHomeVisitConsumables = true;
   static const bool showCarriedKitItems = true;
   static const bool showIpdBeds = true;
+  static const bool showBillingServices = true;
+  static const bool showLabTestsMaster = true;
+  static const bool showSpecializationsMaster = true;
+  static const bool showDbInitialization = true;
   static const bool showDepartments = true;
 
   // =========================================================================
@@ -114,48 +120,56 @@ class AdminNavConfig {
         index: 1,
         icon: Icons.people_outline,
         label: 'Staff Management',
+        permissionRequired: 'manage_users',
         isVisible: showStaffManagement,
       ),
       const AdminNavItem(
         index: 2,
         icon: Icons.sick_outlined,
         label: 'Patients',
+        permissionRequired: 'view_patients',
         isVisible: showPatients,
       ),
       const AdminNavItem(
         index: 3,
         icon: Icons.security_outlined,
         label: 'Access Control (RBAC)',
+        permissionRequired: 'manage_rbac',
         isVisible: showAccessControl,
       ),
       const AdminNavItem(
         index: 4,
         icon: Icons.calendar_month_outlined,
         label: 'Appointments',
+        permissionRequired: 'book_appointment',
         isVisible: showAppointments,
       ),
       const AdminNavItem(
         index: 5,
         icon: Icons.monitor_heart_outlined,
         label: 'OPD Management',
+        permissionRequired: 'opd_assistance',
         isVisible: showOpdManagement,
       ),
       const AdminNavItem(
         index: 6,
         icon: Icons.hotel_outlined,
         label: 'IPD Management',
+        permissionRequired: 'ipd_doctor_rounds',
         isVisible: showIpdManagement,
       ),
       const AdminNavItem(
         index: 7,
         icon: Icons.healing_outlined,
         label: 'OT Management',
+        permissionRequired: 'ot_surgeries',
         isVisible: showOtManagement,
       ),
       const AdminNavItem(
         index: 8,
         icon: Icons.schedule_outlined,
         label: 'Shift Allocation',
+        permissionRequired: 'manage_shifts',
         isVisible: showShiftAllocation,
       ),
       const AdminNavItem(
@@ -168,12 +182,14 @@ class AdminNavConfig {
         index: 10,
         icon: Icons.receipt_long_outlined,
         label: 'Billing & Invoices',
+        permissionRequired: 'op_billing',
         isVisible: showBillingInvoices,
       ),
       const AdminNavItem(
         index: 12,
         icon: Icons.home_work_outlined,
         label: 'Home Visit Care',
+        permissionRequired: 'home_visit_care',
         isVisible: showHomeVisitCare,
       ),
     ];
@@ -182,6 +198,28 @@ class AdminNavConfig {
       if (!item.isVisible) return false;
       if (item.requiredRole != null && user?.role != item.requiredRole) {
         return false;
+      }
+      if (item.permissionRequired != null) {
+        if (item.permissionRequired == 'opd_assistance') {
+          return (user?.hasPermission('opd_assistance') ?? false) ||
+                 (user?.hasPermission('conduct_consultations') ?? false);
+        }
+        if (item.permissionRequired == 'ipd_doctor_rounds') {
+          return (user?.hasPermission('ipd_doctor_rounds') ?? false) ||
+                 (user?.hasPermission('ipd_nursing_care') ?? false) ||
+                 (user?.hasPermission('ipd_admission_counter') ?? false);
+        }
+        if (item.permissionRequired == 'ot_surgeries') {
+          return (user?.hasPermission('ot_surgeries') ?? false) ||
+                 (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
+                 (user?.hasPermission('ot_who_checklist') ?? false) ||
+                 (user?.hasPermission('ot_nursing_consumables') ?? false);
+        }
+        if (item.permissionRequired == 'op_billing') {
+          return (user?.hasPermission('op_billing') ?? false) ||
+                 (user?.hasPermission('ipd_billing_settlement') ?? false);
+        }
+        return user?.hasPermission(item.permissionRequired!) ?? false;
       }
       return true;
     }).toList();
@@ -222,6 +260,27 @@ class AdminNavConfig {
       ),
       const AdminCatalogSubItem(
         index: 17,
+        icon: Icons.payments_outlined,
+        label: 'Billing & Services',
+        isVisible: showBillingServices,
+      ),
+      const AdminCatalogSubItem(
+        index: 18,
+        icon: Icons.biotech_outlined,
+        label: 'Lab Tests Catalog',
+        isVisible: showLabTestsMaster,
+      ),
+      const AdminCatalogSubItem(
+        index: 19,
+        icon: Icons.medical_services_outlined,
+        label: 'Specializations Master',
+        isVisible: showSpecializationsMaster,
+      ),
+      const AdminCatalogSubItem(
+        index: 20,
+        icon: Icons.storage_outlined,
+        label: 'Database Initialization',
+        isVisible: showDbInitialization,
         icon: Icons.apartment_rounded,
         label: 'Department Master',
         isVisible: showDepartments,
