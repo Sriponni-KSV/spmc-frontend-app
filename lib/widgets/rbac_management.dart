@@ -346,10 +346,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width > 680
-                  ? 680
-                  : MediaQuery.of(context).size.width * 0.95,
-              width: isMobile ? double.maxFinite : 540,
+              width: isMobile ? double.maxFinite : 680,
               child: SingleChildScrollView(
                 child: Form(
                   key: formKey,
@@ -464,42 +461,6 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                         permissions: permissions,
                         selectedPermissions: selectedPermissions,
                         setDialogState: setDialogState,
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: permissions.map((p) {
-                          final isSelected = selectedPermissions.contains(
-                            p['id'],
-                          );
-                          return FilterChip(
-                            label: Text(
-                              p['display_name'] ?? p['permission_name'],
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                color: isSelected
-                                    ? AppTheme.primaryColor
-                                    : Colors.black87,
-                              ),
-                            ),
-                            selected: isSelected,
-                            selectedColor: AppTheme.primaryColor.withValues(
-                              alpha: 0.15,
-                            ),
-                            checkmarkColor: AppTheme.primaryColor,
-                            onSelected: (selected) {
-                              setDialogState(() {
-                                if (selected) {
-                                  selectedPermissions.add(p['id']);
-                                } else {
-                                  selectedPermissions.remove(p['id']);
-                                }
-                              });
-                            },
-                          );
-                        }).toList(),
                       ),
                     ],
                   ),
@@ -624,10 +585,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width > 680
-                  ? 680
-                  : MediaQuery.of(context).size.width * 0.95,
-              width: isMobile ? double.maxFinite : 520,
+              width: isMobile ? double.maxFinite : 680,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -653,42 +611,6 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                       permissions: permissions,
                       selectedPermissions: selectedPermissions,
                       setDialogState: setDialogState,
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: permissions.map((p) {
-                        final isSelected = selectedPermissions.contains(
-                          p['id'],
-                        );
-                        return FilterChip(
-                          label: Text(
-                            p['display_name'] ?? p['permission_name'],
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                              color: isSelected
-                                  ? AppTheme.primaryColor
-                                  : Colors.black87,
-                            ),
-                          ),
-                          selected: isSelected,
-                          selectedColor: AppTheme.primaryColor.withValues(
-                            alpha: 0.15,
-                          ),
-                          checkmarkColor: AppTheme.primaryColor,
-                          onSelected: (selected) {
-                            setDialogState(() {
-                              if (selected) {
-                                selectedPermissions.add(p['id']);
-                              } else {
-                                selectedPermissions.remove(p['id']);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
                     ),
                   ],
                 ),
@@ -1424,9 +1346,6 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
           final canEdit = currentUserRole == 'Super Admin'
               ? !isSuperAdminRole
               : (!isSuperAdminRole && role['role_name'] != 'Admin');
-          final isSystemRole =
-              role['role_name'] == 'Super Admin' ||
-              role['role_name'] == 'Admin';
 
           return Padding(
             padding: const EdgeInsets.all(16.0),
@@ -1454,44 +1373,13 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                               color: AppTheme.primaryColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
-                    Expanded(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            role['role_name'],
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: AppTheme.primaryColor,
                             ),
-                          ),
-                          if (isSystemRole)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppTheme.primaryColor.withValues(
-                                  alpha: 0.1,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: AppTheme.primaryColor.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                ),
-                              ),
-                              child: const Text(
-                                'Protected System Role',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryColor,
-                                ),
+                            child: const Text(
+                              'Protected System Role',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
                               ),
                             ),
                           )
@@ -1517,13 +1405,6 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                     Row(
                       children: [
                         if (canEdit)
-                        ],
-                      ),
-                    ),
-                    if (isSuperAdmin && !isSystemRole)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
                           IconButton(
                             icon: const Icon(
                               Icons.edit_outlined,
@@ -1704,45 +1585,6 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                                 color: Colors.grey.shade100,
                                 borderRadius: BorderRadius.circular(4),
                                 border: Border.all(color: Colors.grey.shade300),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: rolePerms.isEmpty
-                      ? <Widget>[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'No permissions assigned (Restricted access)',
-                              style: TextStyle(
-                                color: Colors.redAccent,
-                                fontSize: 11,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ),
-                        ]
-                      : rolePerms.map<Widget>((p) {
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryColor.withValues(
-                                alpha: 0.08,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: AppTheme.primaryColor.withValues(
-                                  alpha: 0.25,
-                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,

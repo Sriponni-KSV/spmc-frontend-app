@@ -1109,6 +1109,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 20:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return AdminDbInitializationView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 21:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return DepartmentManagementView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
@@ -2803,6 +2807,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             break;
           case 20:
             context.go(AppRoutes.adminDbInitialization);
+            break;
+          case 21:
             context.go(AppRoutes.adminDepartments);
             break;
 

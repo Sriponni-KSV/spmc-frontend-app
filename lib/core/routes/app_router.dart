@@ -577,7 +577,6 @@ class AppRouter {
         ),
         GoRoute(
           path: AppRoutes.adminBillingServices,
-          path: AppRoutes.adminDepartments,
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('admin_dashboard'),
             child: AdminDashboardScreen(initialIndex: 17),
@@ -602,6 +601,13 @@ class AppRouter {
           pageBuilder: (context, state) => const NoTransitionPage(
             key: ValueKey('admin_dashboard'),
             child: AdminDashboardScreen(initialIndex: 20),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminDepartments,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 21),
           ),
         ),
 
