@@ -37,6 +37,7 @@ class AppRoutes {
   static const String adminLabTestsMaster = '/admin/lab-tests-master';
   static const String adminSpecializations = '/admin/specializations-master';
   static const String adminDbInitialization = '/admin/db-initialization';
+  static const String adminDepartments = '/admin/departments';
 
 
   // Nurse Routes

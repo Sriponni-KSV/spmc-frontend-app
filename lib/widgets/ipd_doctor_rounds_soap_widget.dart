@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import '../utils/app_theme.dart';
 import '../utils/app_localizations.dart';
+import '../utils/discard_dialog_helper.dart';
 
 /// Clinical Daily Doctor Rounds with Structured SOAP Notes
 class IpdDoctorRoundsSoapWidget extends StatefulWidget {
@@ -451,7 +452,8 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
     }
     objectivePresets.add('General: Alert, conscious, oriented to time/place/person. S1 S2 heard, B/L air entry clear. Abdomen soft.');
 
-    objCtrl.text = objectivePresets.join('\n');
+    final initialObj = objectivePresets.join('\n');
+    objCtrl.text = initialObj;
 
     showDialog(
       context: context,
@@ -465,6 +467,15 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
               'Attending: Dr. ${widget.currentDoctorName}',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             );
+            bool isDirty() {
+              return subjCtrl.text.trim().isNotEmpty ||
+                  objCtrl.text.trim() != initialObj.trim() ||
+                  assessCtrl.text.trim().isNotEmpty ||
+                  planCtrl.text.trim().isNotEmpty ||
+                  roundType != 'Morning Round' ||
+                  painScore != 2;
+            }
+
             Widget buildDropdown({required bool expand}) {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -495,7 +506,13 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                 ),
               );
             }
-            return Dialog(
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty());
+              },
+              child: Dialog(
               insetPadding: EdgeInsets.symmetric(
                 horizontal: isMobile ? 14 : 40,
                 vertical: 20,
@@ -539,7 +556,7 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                             ),
                             IconButton(
                               icon: const Icon(Icons.close, size: 20),
-                              onPressed: () => Navigator.of(modalCtx).pop(),
+                              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty()),
                             ),
                           ],
                         ),
@@ -678,7 +695,7 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                         Builder(
                           builder: (context) {
                             final cancelBtn = OutlinedButton(
-                              onPressed: () => Navigator.of(modalCtx).pop(),
+                              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty()),
                               style: AppTheme.cancelButton,
                               child: const Text('Cancel'),
                             );
@@ -693,7 +710,7 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               onPressed: () async {
-                                if (!formKey.currentState!.validate()) return;
+                                if (!formKey.validateAndScroll()) return;
                                 Navigator.of(modalCtx).pop();
 
                                 Map<String, dynamic>? vitalsSnap;
@@ -746,6 +763,7 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                   ),
                 ),
               ),
+            ),
             );
           },
         );

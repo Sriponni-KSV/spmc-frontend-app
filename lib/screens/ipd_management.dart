@@ -18,6 +18,7 @@ import '../core/routes/route_constants.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/interactive_ward_bed_grid.dart';
 import '../services/api_service.dart';
+import '../utils/discard_dialog_helper.dart';
 
 class IPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -1102,26 +1103,33 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         children: [
           // Sub-navigation bar between Active Inpatients and Discharged History
           Container(
+            width: widget.isMobile ? double.infinity : null,
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: widget.isMobile ? MainAxisSize.max : MainAxisSize.min,
               children: [
                 _buildSubTabButton(
-                  title: 'Active Inpatients (${activeInpatients.length})',
+                  title: widget.isMobile
+                      ? 'Active (${activeInpatients.length})'
+                      : 'Active Inpatients (${activeInpatients.length})',
                   isSelected: _dischargeSummarySubTab == 0,
                   onTap: () => setState(() => _dischargeSummarySubTab = 0),
                   icon: Icons.personal_injury_outlined,
+                  expand: widget.isMobile,
                 ),
-                const SizedBox(width: 6),
+                SizedBox(width: widget.isMobile ? 4 : 6),
                 _buildSubTabButton(
-                  title: 'Discharged History (${discharged.length})',
+                  title: widget.isMobile
+                      ? 'History (${discharged.length})'
+                      : 'Discharged History (${discharged.length})',
                   isSelected: _dischargeSummarySubTab == 1,
                   onTap: () => setState(() => _dischargeSummarySubTab = 1),
                   icon: Icons.history,
+                  expand: widget.isMobile,
                 ),
               ],
             ),
@@ -1149,6 +1157,45 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
             ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(adm['admission_date']).toLocal())
             : '--';
 
+        final Widget generateBtn = ElevatedButton.icon(
+          onPressed: () {
+            if (_isDoctor) {
+              _showDoctorDischargeDialog(adm);
+            } else {
+              _showDischargeDialog(adm);
+            }
+          },
+          icon: const Icon(Icons.description_outlined, size: 16, color: Colors.white),
+          label: const Text('Generate Discharge Summary', style: TextStyle(color: Colors.white, fontSize: 12)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0F5A8E),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        );
+
+        final Widget patientDetails = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              adm['patient_name'] ?? 'Unknown Patient',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Ward: ${adm['ward_type'] ?? 'General'} • Bed: ${adm['bed_number'] ?? '--'} • Admitted: $admitDateStr',
+              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+            ),
+            if (adm['doctor_name'] != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                'Treating Doctor: ${adm['doctor_name']}',
+                style: const TextStyle(fontSize: 12, color: Colors.black87),
+              ),
+            ],
+          ],
+        );
+
         return Card(
           elevation: 0,
           margin: const EdgeInsets.only(bottom: 12),
@@ -1158,53 +1205,40 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                  child: const Icon(Icons.person, color: AppTheme.primaryColor),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
+            child: widget.isMobile
+                ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        adm['patient_name'] ?? 'Unknown Patient',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                            child: const Icon(Icons.person, color: AppTheme.primaryColor),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(child: patientDetails),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Ward: ${adm['ward_type'] ?? 'General'} • Bed: ${adm['bed_number'] ?? '--'} • Admitted: $admitDateStr',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: generateBtn,
                       ),
-                      if (adm['doctor_name'] != null)
-                        Text(
-                          'Treating Doctor: ${adm['doctor_name']}',
-                          style: const TextStyle(fontSize: 12, color: Colors.black87),
-                        ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                        child: const Icon(Icons.person, color: AppTheme.primaryColor),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(child: patientDetails),
+                      const SizedBox(width: 12),
+                      generateBtn,
                     ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    if (_isDoctor) {
-                      _showDoctorDischargeDialog(adm);
-                    } else {
-                      _showDischargeDialog(adm);
-                    }
-                  },
-                  icon: const Icon(Icons.description_outlined, size: 16, color: Colors.white),
-                  label: const Text('Generate Discharge Summary', style: TextStyle(color: Colors.white, fontSize: 12)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0F5A8E),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ],
-            ),
           ),
         );
       },
@@ -1313,12 +1347,16 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     required bool isSelected,
     required VoidCallback onTap,
     required IconData icon,
+    bool expand = false,
   }) {
-    return InkWell(
+    final button = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: widget.isMobile ? 8 : 14,
+          vertical: 8,
+        ),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
@@ -1333,26 +1371,36 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
               : null,
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 15,
+              size: widget.isMobile ? 14 : 15,
               color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
             ),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+            SizedBox(width: widget.isMobile ? 4 : 6),
+            Flexible(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: widget.isMobile ? 11.5 : 12,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+
+    if (expand) {
+      return Expanded(child: button);
+    }
+    return button;
   }
 
   // ─── ICU Dashboard (Doctor-only) ─────────────────────────────────────────
@@ -2442,26 +2490,40 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
               });
             }
 
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+            bool isDirty() {
+              return selectedPatientId != null ||
+                  reasonController.text.trim().isNotEmpty ||
+                  selectedNurseName != null ||
+                  selectedWardType != null ||
+                  selectedBedNumber != null;
+            }
+
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+              },
+              child: AlertDialog(
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.dangerColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.person_add_outlined,
+                        color: AppTheme.dangerColor,
+                        size: 20,
+                      ),
                     ),
-                    child: const Icon(
-                      Icons.person_add_outlined,
-                      color: AppTheme.dangerColor,
-                      size: 20,
-                    ),
-                  ),
                   const SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2924,7 +2986,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
               ),
               actions: [
                 OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                   style: AppTheme.cancelButton,
                   child: const Text('Cancel'),
                 ),
@@ -3019,11 +3081,12 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                   ),
                 ),
               ],
-            );
-          },
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    },
+  );
   }
 
   // ─── Admin/Nurse Full Admit Dialog ────────────────────────────────────────
@@ -3072,15 +3135,30 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
               });
             }
 
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-              ),
-              title: const Text(
-                'Admit Patient to IPD',
-                style: TextStyle(
+            bool isDirty() {
+              return selectedPatientId != null ||
+                  selectedDoctorName != null ||
+                  selectedWardType != null ||
+                  selectedBedNumber != null ||
+                  reasonController.text.trim().isNotEmpty ||
+                  selectedNurseName != null;
+            }
+
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty());
+              },
+              child: AlertDialog(
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                title: const Text(
+                  'Admit Patient to IPD',
+                  style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
                   fontWeight: FontWeight.bold,
                 ),
@@ -3385,7 +3463,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
               ),
               actions: [
                 OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty()),
                   style: AppTheme.cancelButton,
                   child: const Text('Cancel'),
                 ),
@@ -3433,11 +3511,12 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                   child: const Text('Confirm Admission'),
                 ),
               ],
-            );
-          },
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    },
+  );
   }
 
   void _showDischargeDialog(Map<String, dynamic> admission) {
@@ -3446,78 +3525,87 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text(
-            'Discharge Patient: ${admission['patient_name']}',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: SizedBox(
-            width: 450,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Bed Number: ${admission['bed_number']} (${admission['ward_type']})',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: summaryController,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Discharge Summary / Patient Advice',
-                    hintText:
-                        'Describe patient condition, prescribed medications on discharge, and review date...',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (summaryController.text.trim().isEmpty) {
-                  AppNotification.showError(
-                    context,
-                    'Discharge summary is required',
-                    atTop: true,
-                  );
-                  return;
-                }
+        bool isDirty() => summaryController.text.trim().isNotEmpty;
 
-                try {
-                  await _ipdController.dischargePatient(
-                    admission['id'],
-                    summaryController.text.trim(),
-                  );
-                  Navigator.pop(context);
-                  _loadData();
-                  AppNotification.showSuccess(
-                    context,
-                    'Patient Discharged Successfully!',
-                    atTop: true,
-                  );
-                } catch (e) {
-                  AppNotification.showError(
-                    context,
-                    'Error: $e',
-                    atTop: true,
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text(
-                'Confirm Discharge',
-                style: TextStyle(color: Colors.white),
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty());
+          },
+          child: AlertDialog(
+            title: Text(
+              'Discharge Patient: ${admission['patient_name']}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: SizedBox(
+              width: 450,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bed Number: ${admission['bed_number']} (${admission['ward_type']})',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: summaryController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Discharge Summary / Patient Advice',
+                      hintText:
+                          'Describe patient condition, prescribed medications on discharge, and review date...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+            actions: [
+              TextButton(
+                onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty()),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (summaryController.text.trim().isEmpty) {
+                    AppNotification.showError(
+                      context,
+                      'Discharge summary is required',
+                      atTop: true,
+                    );
+                    return;
+                  }
+
+                  try {
+                    await _ipdController.dischargePatient(
+                      admission['id'],
+                      summaryController.text.trim(),
+                    );
+                    Navigator.pop(context);
+                    _loadData();
+                    AppNotification.showSuccess(
+                      context,
+                      'Patient Discharged Successfully!',
+                      atTop: true,
+                    );
+                  } catch (e) {
+                    AppNotification.showError(
+                      context,
+                      'Error: $e',
+                      atTop: true,
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text(
+                  'Confirm Discharge',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -3646,13 +3734,25 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
+          bool isDirty() {
+            return finalDiagnosisController.text.trim().isNotEmpty ||
+                treatmentSummaryController.text.trim().isNotEmpty ||
+                medicationPlanController.text.trim().isNotEmpty;
+          }
+
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty());
+            },
+            child: AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
@@ -3817,7 +3917,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
             ),
             actions: [
               OutlinedButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty()),
                 style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
@@ -3868,10 +3968,11 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                 ),
               ),
             ],
-          );
-        },
-      ),
-    );
+          ),
+        );
+      },
+    ),
+  );
   }
 
   Widget _buildShiftHandoversTab() {

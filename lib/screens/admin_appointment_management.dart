@@ -11,8 +11,8 @@ import '../controllers/appointment_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/appointment_details_dialog.dart';
-import '../utils/unsaved_changes_helper.dart';
 import '../utils/app_localizations.dart';
+import '../utils/discard_dialog_helper.dart';
 
 class AdminAppointmentManagement extends StatefulWidget {
   const AdminAppointmentManagement({Key? key}) : super(key: key);
@@ -278,13 +278,11 @@ class _AdminAppointmentManagementState
   @override
   void initState() {
     super.initState();
-    UnsavedChangesHelper.setUnsavedChanges(true);
     _loadData();
   }
 
   @override
   void dispose() {
-    UnsavedChangesHelper.setUnsavedChanges(false);
     _vScroll.dispose();
     _hScroll.dispose();
     _searchController.dispose();
@@ -559,6 +557,22 @@ class _AdminAppointmentManagementState
       });
     }
 
+    final initialStatus = selectedStatus;
+    final initialDoctor = selectedDoctor;
+    final initialDate = newDate;
+    final initialTime = newTime;
+    final initialApptType = appointmentType;
+
+    bool isDirty() {
+      if (mode == 'view') return false;
+      return reasonCtrl.text.trim().isNotEmpty ||
+          selectedStatus != initialStatus ||
+          selectedDoctor != initialDoctor ||
+          newDate != initialDate ||
+          newTime != initialTime ||
+          appointmentType != initialApptType;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -589,7 +603,13 @@ class _AdminAppointmentManagementState
             ],
           );
 
-          return AlertDialog(
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (bool didPop, dynamic result) async {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+            },
+            child: AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -1228,7 +1248,7 @@ class _AdminAppointmentManagementState
             ),
             actions: [
               OutlinedButton(
-                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                 style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
@@ -1389,6 +1409,7 @@ class _AdminAppointmentManagementState
                         ),
                 ),
             ],
+          ),
           );
         },
       ),
@@ -1449,19 +1470,12 @@ class _AdminAppointmentManagementState
                   children: [
                     Text(
                       'Appointments',
-                      style: TextStyle(
-                        fontSize: isMobile ? 20 : 26,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textPrimaryColor,
-                      ),
+                      style: AppTheme.pageTitleStyle(context, isMobile: isMobile),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       'View, edit, cancel and reschedule appointments',
-                      style: TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 13,
-                      ),
+                      style: AppTheme.pageSubtitleStyle(context, isMobile: isMobile),
                     ),
                   ],
                 ),

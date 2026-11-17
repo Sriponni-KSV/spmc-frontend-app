@@ -2,6 +2,9 @@ class DoctorModel {
   final String? medicalLicense;
   final int? specializationId;
   final String? specialization;
+  final int? departmentId;
+  final String? departmentName;
+  final String? departmentCode;
   final String? experience;
   final int? numberPatientsAttended;
   final String? qualification;
@@ -27,6 +30,9 @@ class DoctorModel {
     this.medicalLicense,
     this.specializationId,
     this.specialization,
+    this.departmentId,
+    this.departmentName,
+    this.departmentCode,
     this.experience,
     this.numberPatientsAttended,
     this.qualification,
@@ -65,8 +71,13 @@ class DoctorModel {
   factory DoctorModel.fromJson(Map<String, dynamic> json) {
     return DoctorModel(
       medicalLicense: json['medical_license'] ?? json['medicalLicense'],
-      specializationId: json['specialization_id'] ?? json['specializationId'],
-      specialization: json['specialization'],
+      specializationId: json['specialization_id'] ?? json['specializationId'] ?? json['department_id'],
+      specialization: json['specialization'] ?? json['department_name'] ?? json['department'],
+      departmentId: json['department_id'] != null
+          ? int.tryParse(json['department_id'].toString())
+          : (json['specialization_id'] != null ? int.tryParse(json['specialization_id'].toString()) : null),
+      departmentName: json['department_name'] ?? json['specialization'] ?? json['department'],
+      departmentCode: json['department_code']?.toString(),
       experience: (json['experience'] ?? json['Experience'])?.toString(),
       numberPatientsAttended: (json['patients_attended'] ?? json['patientsAttended']) != null 
           ? int.tryParse((json['patients_attended'] ?? json['patientsAttended']).toString())

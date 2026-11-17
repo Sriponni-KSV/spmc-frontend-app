@@ -8,6 +8,7 @@ import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../models/patient_model.dart';
 import '../widgets/custom_dropdown_search.dart';
+import '../widgets/district_pincode_selector.dart';
 import '../utils/unsaved_changes_helper.dart';
 import '../utils/capitalize_formatter.dart';
 
@@ -169,11 +170,42 @@ class _NewPatientRegistrationViewState
   @override
   void initState() {
     super.initState();
-    UnsavedChangesHelper.setUnsavedChanges(true);
+    UnsavedChangesHelper.clear();
     if (widget.existingPatient != null) {
       _preFillForm();
+      _captureInitialFormState();
     }
     _phoneController.addListener(_onPhoneChanged);
+
+    for (final ctrl in [
+      _nameController,
+      _dobController,
+      _phoneController,
+      _emailController,
+      _addressController,
+      _addressLine2Controller,
+      _pincodeController,
+      _emergencyContactNameController,
+      _emergencyContactRelationController,
+      _emergencyContactPhoneController,
+      _bpSystolicController,
+      _bpDiastolicController,
+      _sugarController,
+      _tempController,
+      _heightController,
+      _weightController,
+      _bloodGroupController,
+      _allergiesController,
+      _chronicConditionsController,
+      _complaintsController,
+      _historyController,
+      _occupationController,
+      _hobbiesController,
+      _foodHabitsController,
+      _physicalActivityController,
+    ]) {
+      ctrl.addListener(_updateDirtyState);
+    }
   }
 
   void _onPhoneChanged() {
@@ -198,7 +230,8 @@ class _NewPatientRegistrationViewState
 
   Future<void> _checkExistingPatient(String phone) async {
     // If editing existing patient with same phone, skip check
-    if (widget.existingPatient != null && widget.existingPatient!.phone == phone) {
+    if (widget.existingPatient != null &&
+        widget.existingPatient!.phone == phone) {
       if (_phoneDuplicateError != null) {
         setState(() {
           _phoneDuplicateError = null;
@@ -213,13 +246,20 @@ class _NewPatientRegistrationViewState
 
     try {
       final patients = await _patientController.fetchPatientsByPhone(phone);
-      final duplicates = patients.where((p) => widget.existingPatient == null || p.id != widget.existingPatient!.id).toList();
+      final duplicates = patients
+          .where(
+            (p) =>
+                widget.existingPatient == null ||
+                p.id != widget.existingPatient!.id,
+          )
+          .toList();
 
       if (duplicates.isNotEmpty && mounted) {
         final existing = duplicates.first;
         setState(() {
           _matchedExistingPatient = existing;
-          _phoneDuplicateError = 'This mobile number is already registered to ${existing.name} (${existing.patientId ?? "ID: N/A"}). Only one patient is allowed per mobile number.';
+          _phoneDuplicateError =
+              'This mobile number is already registered to ${existing.name} (${existing.patientId ?? "ID: N/A"}). Only one patient is allowed per mobile number.';
         });
         _formKeyStep1.currentState?.validate();
         _showExistingPatientsDialog(duplicates);
@@ -316,10 +356,7 @@ class _NewPatientRegistrationViewState
                       _buildDialogDetailRow('DOB', patient.dob),
                       _buildDialogDetailRow('Mobile', patient.phone),
                       if (patient.fullAddress.isNotEmpty)
-                        _buildDialogDetailRow(
-                          'Address',
-                          patient.fullAddress,
-                        ),
+                        _buildDialogDetailRow('Address', patient.fullAddress),
                     ],
                   ),
                 ),
@@ -532,11 +569,78 @@ class _NewPatientRegistrationViewState
     super.dispose();
   }
 
+  Map<String, dynamic>? _initialValues;
+
+  void _captureInitialFormState() {
+    _initialValues = {
+      'name': _nameController.text.trim(),
+      'dob': _dobController.text.trim(),
+      'phone': _phoneController.text.trim(),
+      'email': _emailController.text.trim(),
+      'address': _addressController.text.trim(),
+      'addressLine2': _addressLine2Controller.text.trim(),
+      'district': _selectedDistrict ?? '',
+      'pincode': _pincodeController.text.trim(),
+      'gender': _selectedGender ?? '',
+      'emergencyContactName': _emergencyContactNameController.text.trim(),
+      'emergencyContactRelation': _emergencyContactRelationController.text.trim(),
+      'emergencyContactPhone': _emergencyContactPhoneController.text.trim(),
+      'bpSystolic': _bpSystolicController.text.trim(),
+      'bpDiastolic': _bpDiastolicController.text.trim(),
+      'sugar': _sugarController.text.trim(),
+      'temp': _tempController.text.trim(),
+      'height': _heightController.text.trim(),
+      'weight': _weightController.text.trim(),
+      'bloodGroup': (_selectedBloodGroup ?? _bloodGroupController.text).trim(),
+      'allergies': _allergiesController.text.trim(),
+      'chronicConditions': _chronicConditionsController.text.trim(),
+      'complaints': _complaintsController.text.trim(),
+      'history': _historyController.text.trim(),
+      'occupation': _occupationController.text.trim(),
+      'hobbies': _hobbiesController.text.trim(),
+      'foodHabits': _foodHabitsController.text.trim(),
+      'physicalActivity': _physicalActivityController.text.trim(),
+      'smokingStatus': _smokingStatus ?? 'Never',
+      'alcoholStatus': _alcoholStatus ?? 'Never',
+    };
+  }
+
   bool _hasFormChanges() {
+    if (widget.existingPatient != null && _initialValues != null) {
+      return _nameController.text.trim() != (_initialValues!['name'] ?? '') ||
+          _dobController.text.trim() != (_initialValues!['dob'] ?? '') ||
+          _phoneController.text.trim() != (_initialValues!['phone'] ?? '') ||
+          _emailController.text.trim() != (_initialValues!['email'] ?? '') ||
+          _addressController.text.trim() != (_initialValues!['address'] ?? '') ||
+          _addressLine2Controller.text.trim() != (_initialValues!['addressLine2'] ?? '') ||
+          (_selectedDistrict ?? '') != (_initialValues!['district'] ?? '') ||
+          _pincodeController.text.trim() != (_initialValues!['pincode'] ?? '') ||
+          (_selectedGender ?? '') != (_initialValues!['gender'] ?? '') ||
+          _emergencyContactNameController.text.trim() != (_initialValues!['emergencyContactName'] ?? '') ||
+          _emergencyContactRelationController.text.trim() != (_initialValues!['emergencyContactRelation'] ?? '') ||
+          _emergencyContactPhoneController.text.trim() != (_initialValues!['emergencyContactPhone'] ?? '') ||
+          _bpSystolicController.text.trim() != (_initialValues!['bpSystolic'] ?? '') ||
+          _bpDiastolicController.text.trim() != (_initialValues!['bpDiastolic'] ?? '') ||
+          _sugarController.text.trim() != (_initialValues!['sugar'] ?? '') ||
+          _tempController.text.trim() != (_initialValues!['temp'] ?? '') ||
+          _heightController.text.trim() != (_initialValues!['height'] ?? '') ||
+          _weightController.text.trim() != (_initialValues!['weight'] ?? '') ||
+          (_selectedBloodGroup ?? _bloodGroupController.text).trim() != (_initialValues!['bloodGroup'] ?? '') ||
+          _allergiesController.text.trim() != (_initialValues!['allergies'] ?? '') ||
+          _chronicConditionsController.text.trim() != (_initialValues!['chronicConditions'] ?? '') ||
+          _complaintsController.text.trim() != (_initialValues!['complaints'] ?? '') ||
+          _historyController.text.trim() != (_initialValues!['history'] ?? '') ||
+          _occupationController.text.trim() != (_initialValues!['occupation'] ?? '') ||
+          _hobbiesController.text.trim() != (_initialValues!['hobbies'] ?? '') ||
+          _foodHabitsController.text.trim() != (_initialValues!['foodHabits'] ?? '') ||
+          _physicalActivityController.text.trim() != (_initialValues!['physicalActivity'] ?? '') ||
+          (_smokingStatus ?? 'Never') != (_initialValues!['smokingStatus'] ?? 'Never') ||
+          (_alcoholStatus ?? 'Never') != (_initialValues!['alcoholStatus'] ?? 'Never');
+    }
+
     final bool anyFieldEntered =
         _nameController.text.trim().isNotEmpty ||
         _dobController.text.trim().isNotEmpty ||
-        _ageController.text.trim().isNotEmpty ||
         _phoneController.text.trim().isNotEmpty ||
         _emailController.text.trim().isNotEmpty ||
         _addressController.text.trim().isNotEmpty ||
@@ -565,168 +669,43 @@ class _NewPatientRegistrationViewState
         (_smokingStatus != null && _smokingStatus != 'Never') ||
         (_alcoholStatus != null && _alcoholStatus != 'Never');
 
-    if (widget.existingPatient != null) {
-      final p = widget.existingPatient!;
-      final bool basicInfoChanged =
-          _nameController.text.trim() != p.name ||
-          _dobController.text.trim() != p.dob ||
-          _ageController.text.trim() != (p.age > 0 ? p.age.toString() : '') ||
-          _phoneController.text.trim() != p.phone ||
-          _emailController.text.trim() != p.email ||
-          _addressController.text.trim() != p.address ||
-          _addressLine2Controller.text.trim() != p.addressLine2 ||
-          _selectedDistrict != (p.district.isNotEmpty ? p.district : null) ||
-          _pincodeController.text.trim() != p.pincode ||
-          _selectedGender != p.gender;
-
-      final bool emergencyContactChanged =
-          _emergencyContactNameController.text.trim() !=
-              p.emergencyContactName ||
-          _emergencyContactRelationController.text.trim() !=
-              p.emergencyContactRelation ||
-          _emergencyContactPhoneController.text.trim() !=
-              p.emergencyContactPhone;
-
-      final bool vitalsChanged =
-          _bpSystolicController.text.trim() !=
-              (p.bpSystolic > 0 ? p.bpSystolic.toString() : '') ||
-          _bpDiastolicController.text.trim() !=
-              (p.bpDiastolic > 0 ? p.bpDiastolic.toString() : '') ||
-          _sugarController.text.trim() !=
-              (p.sugar > 0 ? p.sugar.toString() : '') ||
-          _tempController.text.trim() !=
-              (p.temp > 0 ? p.temp.toString() : '') ||
-          _heightController.text.trim() !=
-              (p.height > 0 ? p.height.toString() : '') ||
-          _weightController.text.trim() !=
-              (p.weight > 0 ? p.weight.toString() : '') ||
-          _bloodGroupController.text.trim() != p.bloodGroup ||
-          _allergiesController.text.trim() != p.allergies ||
-          _chronicConditionsController.text.trim() != p.chronicConditions ||
-          _complaintsController.text.trim() != p.complaints ||
-          _historyController.text.trim() != p.history;
-
-      return basicInfoChanged ||
-          emergencyContactChanged ||
-          vitalsChanged ||
-          anyFieldEntered;
-    }
-
     return anyFieldEntered;
   }
 
-  void _showDiscardDialog() {
+  void _updateDirtyState() {
+    final dirty = _hasFormChanges();
+    UnsavedChangesHelper.setUnsavedChanges(dirty);
+  }
+
+  void _showDiscardDialog() async {
     if (!_hasFormChanges()) {
       UnsavedChangesHelper.clear();
       widget.onBack();
       return;
     }
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        backgroundColor: Colors.white,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: Container(
-          width: 420,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.dangerColor.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.warning_amber_rounded,
-                      color: AppTheme.dangerColor,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      ctx.tr('discard_unsaved_changes', fallback: 'Discard Unsaved Changes?'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: AppTheme.textPrimaryColor,
-                        fontFamily: 'Inter',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Text(
-                ctx.tr('discard_unsaved_body', fallback: 'You have unsaved form entries. Are you sure you want to discard changes and go back?'),
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  color: Color(0xFF64748B),
-                  height: 1.4,
-                  fontFamily: 'Inter',
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      style: AppTheme.cancelButton.copyWith(
-                        padding: WidgetStateProperty.all(
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                        ),
-                        minimumSize: WidgetStateProperty.all(
-                          const Size(0, 44),
-                        ),
-                      ),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      child: Text(
-                        ctx.tr('stay_on_form', fallback: 'Stay on Form'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: AppTheme.dangerButton.copyWith(
-                        padding: WidgetStateProperty.all(
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                        ),
-                        minimumSize: WidgetStateProperty.all(
-                          const Size(0, 44),
-                        ),
-                      ),
-                      onPressed: () {
-                        Navigator.of(ctx).pop();
-                        UnsavedChangesHelper.clear();
-                        Future.delayed(const Duration(milliseconds: 60), () {
-                          widget.onBack();
-                        });
-                      },
-                      child: Text(
-                        ctx.tr('discard_and_leave', fallback: 'Discard & Leave'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 13),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+    final shouldDiscard = await DiscardDialogHelper.showDiscardWarningDialog(
+      context,
+      title: context.tr(
+        'discard_unsaved_changes',
+        fallback: 'Discard Unsaved Changes?',
       ),
+      message: context.tr(
+        'discard_unsaved_body',
+        fallback:
+            'You have unsaved form entries. Are you sure you want to discard changes and go back?',
+      ),
+      confirmText: context.tr(
+        'discard_and_leave',
+        fallback: 'Discard & Leave',
+      ),
+      cancelText: context.tr('stay_on_form', fallback: 'Stay on Form'),
     );
+
+    if (shouldDiscard && mounted) {
+      UnsavedChangesHelper.clear();
+      widget.onBack();
+    }
   }
 
   @override
@@ -767,7 +746,10 @@ class _NewPatientRegistrationViewState
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        context.tr('back_to_patients', fallback: 'Back to Patients'),
+                        context.tr(
+                          'back_to_patients',
+                          fallback: 'Back to Patients',
+                        ),
                         style: const TextStyle(
                           color: AppTheme.primaryColor,
                           fontWeight: FontWeight.bold,
@@ -791,9 +773,18 @@ class _NewPatientRegistrationViewState
                                           _matchedExistingPatient
                                               ?.isQuickRegister ??
                                           false))
-                                      ? context.tr('complete_patient_profile', fallback: 'Complete Patient Profile')
-                                      : context.tr('edit_patient_profile', fallback: 'Edit Patient Profile'))
-                                : context.tr('new_patient_registration', fallback: 'New Patient Registration'),
+                                      ? context.tr(
+                                          'complete_patient_profile',
+                                          fallback: 'Complete Patient Profile',
+                                        )
+                                      : context.tr(
+                                          'edit_patient_profile',
+                                          fallback: 'Edit Patient Profile',
+                                        ))
+                                : context.tr(
+                                    'new_patient_registration',
+                                    fallback: 'New Patient Registration',
+                                  ),
                             style: TextStyle(
                               fontFamily: 'Inter',
                               fontSize: isMobile ? 20 : 28,
@@ -807,8 +798,16 @@ class _NewPatientRegistrationViewState
                             Text(
                               (widget.existingPatient != null ||
                                       _matchedExistingPatient != null)
-                                  ? context.tr('update_patient_info_history', fallback: 'Update patient information and medical history')
-                                  : context.tr('fill_patient_info_history', fallback: 'Fill in patient information and medical history'),
+                                  ? context.tr(
+                                      'update_patient_info_history',
+                                      fallback:
+                                          'Update patient information and medical history',
+                                    )
+                                  : context.tr(
+                                      'fill_patient_info_history',
+                                      fallback:
+                                          'Fill in patient information and medical history',
+                                    ),
                               style: TextStyle(
                                 fontFamily: 'Inter',
                                 color: AppTheme.getTextSecondaryColor(context),
@@ -926,7 +925,9 @@ class _NewPatientRegistrationViewState
             decoration: BoxDecoration(
               color: (isActive || isCompleted)
                   ? AppTheme.infoColor
-                  : (AppTheme.isDark(context) ? const Color(0xFF334155) : const Color(0xFFEDF2F7)),
+                  : (AppTheme.isDark(context)
+                        ? const Color(0xFF334155)
+                        : const Color(0xFFEDF2F7)),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -1016,9 +1017,7 @@ class _NewPatientRegistrationViewState
                 hint: 'Enter patient\'s full name',
                 textCapitalization: TextCapitalization.words,
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                    RegExp(r'[a-zA-Z\s.]'),
-                  ),
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s.]')),
                   const CapitalizeWordsInputFormatter(),
                   LengthLimitingTextInputFormatter(60),
                 ],
@@ -1039,9 +1038,7 @@ class _NewPatientRegistrationViewState
                 controller: _emailController,
                 hint: 'Enter Email Address',
                 keyboardType: TextInputType.emailAddress,
-                inputFormatters: [
-                  LengthLimitingTextInputFormatter(100),
-                ],
+                inputFormatters: [LengthLimitingTextInputFormatter(100)],
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
                     return 'Please enter Email Address';
@@ -1080,8 +1077,10 @@ class _NewPatientRegistrationViewState
                 value: _selectedGender,
                 hint: 'Select gender',
                 items: ['Male', 'Female', 'Other'],
-                onChanged: (val) =>
-                    setState(() => _selectedGender = val),
+                onChanged: (val) => setState(() {
+                  _selectedGender = val;
+                  _updateDirtyState();
+                }),
                 validator: (val) {
                   if (val == null ||
                       val.trim().isEmpty ||
@@ -1132,7 +1131,8 @@ class _NewPatientRegistrationViewState
                   return null;
                 },
               ),
-              if (_phoneDuplicateError != null && _matchedExistingPatient != null) ...[
+              if (_phoneDuplicateError != null &&
+                  _matchedExistingPatient != null) ...[
                 const SizedBox(height: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(
@@ -1176,9 +1176,7 @@ class _NewPatientRegistrationViewState
                 hint: 'Enter name',
                 textCapitalization: TextCapitalization.words,
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                    RegExp(r'[a-zA-Z\s.]'),
-                  ),
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s.]')),
                   const CapitalizeWordsInputFormatter(),
                   LengthLimitingTextInputFormatter(60),
                 ],
@@ -1200,9 +1198,7 @@ class _NewPatientRegistrationViewState
                 hint: 'Enter Relationship',
                 textCapitalization: TextCapitalization.words,
                 inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                    RegExp(r'[a-zA-Z\s]'),
-                  ),
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s]')),
                   const CapitalizeWordsInputFormatter(),
                   LengthLimitingTextInputFormatter(20),
                 ],
@@ -1294,49 +1290,21 @@ class _NewPatientRegistrationViewState
               ),
               const SizedBox(height: 16),
 
-              _buildLabel('District *'),
-              _buildDropdownField(
-                value: _selectedDistrict,
-                hint: 'Select district',
-                items: _tamilNaduDistricts,
-                onChanged: (val) =>
-                    setState(() => _selectedDistrict = val),
-                validator: (val) {
-                  if (val == null ||
-                      val.trim().isEmpty ||
-                      !_tamilNaduDistricts.contains(val.trim())) {
-                    return 'Please select a valid District';
-                  }
-                  return null;
+              DistrictPincodeSelector(
+                initialDistrict: _selectedDistrict,
+                initialPincode: _pincodeController.text,
+                pincodeController: _pincodeController,
+                onDistrictChanged: (dist) {
+                  setState(() {
+                    _selectedDistrict = dist;
+                    _updateDirtyState();
+                  });
                 },
-              ),
-              const SizedBox(height: 16),
-
-              _buildLabel('Pincode *'),
-              _buildTextField(
-                controller: _pincodeController,
-                hint: 'Enter Pincode',
-                keyboardType: TextInputType.number,
-                inputFormatters: [
-                  FilteringTextInputFormatter.digitsOnly,
-                  LengthLimitingTextInputFormatter(6),
-                ],
-                validator: (val) {
-                  if (val == null || val.trim().isEmpty) {
-                    return 'Please enter Pincode';
-                  }
-                  final clean = val.trim();
-                  if (clean.length != 6) {
-                    return 'Pincode must be exactly 6 digits';
-                  }
-                  if (!clean.startsWith('6')) {
-                    return 'Please enter a valid Tamil Nadu Pincode (starts with 6)';
-                  }
-                  if (!RegExp(r'^6[0-4]\d{4}$').hasMatch(clean)) {
-                    return 'Please enter a valid Tamil Nadu Pincode (starts with 60-64)';
-                  }
-                  return null;
+                onPincodeChanged: (pin) {
+                  setState(() {});
                 },
+                isDesktop: false,
+                labelBuilder: (label) => _buildLabel(label),
               ),
             ] else ...[
               // Desktop 2-column layout
@@ -1442,7 +1410,10 @@ class _NewPatientRegistrationViewState
                           hint: 'Select gender',
                           items: ['Male', 'Female', 'Other'],
                           onChanged: (val) =>
-                              setState(() => _selectedGender = val),
+                              setState(() {
+                                _selectedGender = val;
+                                _updateDirtyState();
+                              }),
                           validator: (val) {
                             if (val == null ||
                                 val.trim().isEmpty ||
@@ -1505,7 +1476,8 @@ class _NewPatientRegistrationViewState
                             return null;
                           },
                         ),
-                        if (_phoneDuplicateError != null && _matchedExistingPatient != null) ...[
+                        if (_phoneDuplicateError != null &&
+                            _matchedExistingPatient != null) ...[
                           const SizedBox(height: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -1513,10 +1485,14 @@ class _NewPatientRegistrationViewState
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.dangerColor.withValues(alpha: 0.08),
+                              color: AppTheme.dangerColor.withValues(
+                                alpha: 0.08,
+                              ),
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: AppTheme.dangerColor.withValues(alpha: 0.3),
+                                color: AppTheme.dangerColor.withValues(
+                                  alpha: 0.3,
+                                ),
                               ),
                             ),
                             child: Row(
@@ -1712,66 +1688,21 @@ class _NewPatientRegistrationViewState
                 ],
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabel('District *'),
-                        _buildDropdownField(
-                          value: _selectedDistrict,
-                          hint: 'Select district',
-                          items: _tamilNaduDistricts,
-                          onChanged: (val) =>
-                              setState(() => _selectedDistrict = val),
-                          validator: (val) {
-                            if (val == null ||
-                                val.trim().isEmpty ||
-                                !_tamilNaduDistricts.contains(val.trim())) {
-                              return 'Please select a valid District';
-                            }
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabel('Pincode *'),
-                        _buildTextField(
-                          controller: _pincodeController,
-                          hint: 'Enter Pincode',
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                            LengthLimitingTextInputFormatter(6),
-                          ],
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) {
-                              return 'Please enter Pincode';
-                            }
-                            final clean = val.trim();
-                            if (clean.length != 6) {
-                              return 'Pincode must be exactly 6 digits';
-                            }
-                            if (!clean.startsWith('6')) {
-                              return 'Please enter a valid Tamil Nadu Pincode (starts with 6)';
-                            }
-                            if (!RegExp(r'^6[0-4]\d{4}$').hasMatch(clean)) {
-                              return 'Please enter a valid Tamil Nadu Pincode (starts with 60-64)';
-                            }
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              DistrictPincodeSelector(
+                initialDistrict: _selectedDistrict,
+                initialPincode: _pincodeController.text,
+                pincodeController: _pincodeController,
+                onDistrictChanged: (dist) {
+                  setState(() {
+                    _selectedDistrict = dist;
+                    _updateDirtyState();
+                  });
+                },
+                onPincodeChanged: (pin) {
+                  setState(() {});
+                },
+                isDesktop: true,
+                labelBuilder: (label) => _buildLabel(label),
               ),
             ],
             const SizedBox(height: 48),
@@ -1782,7 +1713,7 @@ class _NewPatientRegistrationViewState
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    if (_formKeyStep1.currentState!.validate()) {
+                    if (_formKeyStep1.validateAndScroll()) {
                       setState(() => _currentStep = 2);
                     }
                   },
@@ -1808,7 +1739,7 @@ class _NewPatientRegistrationViewState
                 children: [
                   ElevatedButton(
                     onPressed: () {
-                      if (_formKeyStep1.currentState!.validate()) {
+                      if (_formKeyStep1.validateAndScroll()) {
                         setState(() => _currentStep = 2);
                       }
                     },
@@ -1956,9 +1887,11 @@ class _NewPatientRegistrationViewState
                         final text = val?.trim() ?? '';
                         if (text.isEmpty) return null;
                         final num = int.tryParse(text);
-                        if (num == null) return 'Systolic BP must be an integer';
+                        if (num == null)
+                          return 'Systolic BP must be an integer';
                         if (num == 0) return 'Systolic BP cannot be 0';
-                        if (num < 90 || num > 300) return 'Systolic BP must be between 90 and 300 mmHg';
+                        if (num < 90 || num > 300)
+                          return 'Systolic BP must be between 90 and 300 mmHg';
                         return null;
                       },
                     ),
@@ -1983,9 +1916,11 @@ class _NewPatientRegistrationViewState
                         final text = val?.trim() ?? '';
                         if (text.isEmpty) return null;
                         final num = int.tryParse(text);
-                        if (num == null) return 'Diastolic BP must be an integer';
+                        if (num == null)
+                          return 'Diastolic BP must be an integer';
                         if (num == 0) return 'Diastolic BP cannot be 0';
-                        if (num < 50 || num > 180) return 'Diastolic BP must be between 50 and 180 mmHg';
+                        if (num < 50 || num > 180)
+                          return 'Diastolic BP must be between 50 and 180 mmHg';
                         return null;
                       },
                     ),
@@ -2014,9 +1949,11 @@ class _NewPatientRegistrationViewState
                             final text = val?.trim() ?? '';
                             if (text.isEmpty) return null;
                             final num = double.tryParse(text);
-                            if (num == null) return 'Sugar Level must be a number';
+                            if (num == null)
+                              return 'Sugar Level must be a number';
                             if (num == 0) return 'Sugar Level cannot be 0';
-                            if (num < 30 || num > 600) return 'Sugar Level must be between 30 and 600 mg/dL';
+                            if (num < 30 || num > 600)
+                              return 'Sugar Level must be between 30 and 600 mg/dL';
                             return null;
                           },
                         ),
@@ -2043,9 +1980,11 @@ class _NewPatientRegistrationViewState
                             final text = val?.trim() ?? '';
                             if (text.isEmpty) return null;
                             final num = double.tryParse(text);
-                            if (num == null) return 'Temperature must be a number';
+                            if (num == null)
+                              return 'Temperature must be a number';
                             if (num == 0) return 'Temperature cannot be 0';
-                            if (num < 90 || num > 115) return 'Temperature must be between 90 and 115 °F';
+                            if (num < 90 || num > 115)
+                              return 'Temperature must be between 90 and 115 °F';
                             return null;
                           },
                         ),
@@ -2064,6 +2003,7 @@ class _NewPatientRegistrationViewState
                   setState(() {
                     _selectedBloodGroup = val;
                     _bloodGroupController.text = val ?? '';
+                    _updateDirtyState();
                   });
                 },
                 validator: (val) {
@@ -2155,8 +2095,10 @@ class _NewPatientRegistrationViewState
                                   final text = val?.trim() ?? '';
                                   if (text.isEmpty) return null;
                                   final num = double.tryParse(text);
-                                  if (num == null) return 'Height must be a valid number';
-                                  if (num <= 0) return 'Height must be greater than 0';
+                                  if (num == null)
+                                    return 'Height must be a valid number';
+                                  if (num <= 0)
+                                    return 'Height must be greater than 0';
                                   if (num < 30 || num > 300) {
                                     return 'Height must be between 30 and 300 cm';
                                   }
@@ -2183,8 +2125,10 @@ class _NewPatientRegistrationViewState
                                   final text = val?.trim() ?? '';
                                   if (text.isEmpty) return null;
                                   final num = double.tryParse(text);
-                                  if (num == null) return 'Weight must be a valid number';
-                                  if (num <= 0) return 'Weight must be greater than 0';
+                                  if (num == null)
+                                    return 'Weight must be a valid number';
+                                  if (num <= 0)
+                                    return 'Weight must be greater than 0';
                                   if (num < 0.5 || num > 500) {
                                     return 'Weight must be between 0.5 and 500 kg';
                                   }
@@ -2328,6 +2272,7 @@ class _NewPatientRegistrationViewState
                             setState(() {
                               _selectedBloodGroup = val;
                               _bloodGroupController.text = val ?? '';
+                              _updateDirtyState();
                             });
                           },
                           validator: (val) {
@@ -2494,7 +2439,7 @@ class _NewPatientRegistrationViewState
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () {
-                        if (_formKeyStep2.currentState!.validate()) {
+                        if (_formKeyStep2.validateAndScroll()) {
                           setState(() => _currentStep = 3);
                         }
                       },
@@ -2545,7 +2490,7 @@ class _NewPatientRegistrationViewState
                   const Spacer(),
                   ElevatedButton(
                     onPressed: () {
-                      if (_formKeyStep2.currentState!.validate()) {
+                      if (_formKeyStep2.validateAndScroll()) {
                         setState(() => _currentStep = 3);
                       }
                     },
@@ -2602,7 +2547,10 @@ class _NewPatientRegistrationViewState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              context.tr('lifestyle_data', fallback: 'Lifestyle & Behavioral Data'),
+              context.tr(
+                'lifestyle_data',
+                fallback: 'Lifestyle & Behavioral Data',
+              ),
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -2739,7 +2687,10 @@ class _NewPatientRegistrationViewState
                 value: _smokingStatus,
                 hint: 'Select status',
                 items: _smokingOptions,
-                onChanged: (val) => setState(() => _smokingStatus = val),
+                onChanged: (val) => setState(() {
+                  _smokingStatus = val;
+                  _updateDirtyState();
+                }),
                 validator: (val) {
                   if (val != null &&
                       val.trim().isNotEmpty &&
@@ -2755,7 +2706,10 @@ class _NewPatientRegistrationViewState
                 value: _alcoholStatus,
                 hint: 'Select frequency',
                 items: _alcoholOptions,
-                onChanged: (val) => setState(() => _alcoholStatus = val),
+                onChanged: (val) => setState(() {
+                  _alcoholStatus = val;
+                  _updateDirtyState();
+                }),
                 validator: (val) {
                   if (val != null &&
                       val.trim().isNotEmpty &&
@@ -2778,7 +2732,10 @@ class _NewPatientRegistrationViewState
                           hint: 'Select status',
                           items: _smokingOptions,
                           onChanged: (val) =>
-                              setState(() => _smokingStatus = val),
+                              setState(() {
+                                _smokingStatus = val;
+                                _updateDirtyState();
+                              }),
                           validator: (val) {
                             if (val != null &&
                                 val.trim().isNotEmpty &&
@@ -2802,7 +2759,10 @@ class _NewPatientRegistrationViewState
                           hint: 'Select frequency',
                           items: _alcoholOptions,
                           onChanged: (val) =>
-                              setState(() => _alcoholStatus = val),
+                              setState(() {
+                                _alcoholStatus = val;
+                                _updateDirtyState();
+                              }),
                           validator: (val) {
                             if (val != null &&
                                 val.trim().isNotEmpty &&
@@ -2869,7 +2829,7 @@ class _NewPatientRegistrationViewState
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () {
-                        if (_formKeyStep3.currentState!.validate()) {
+                        if (_formKeyStep3.validateAndScroll()) {
                           setState(() => _currentStep = 4);
                         }
                       },
@@ -2914,7 +2874,7 @@ class _NewPatientRegistrationViewState
                   const Spacer(),
                   ElevatedButton.icon(
                     onPressed: () {
-                      if (_formKeyStep3.currentState!.validate()) {
+                      if (_formKeyStep3.validateAndScroll()) {
                         setState(() => _currentStep = 4);
                       }
                     },
@@ -3374,7 +3334,10 @@ class _NewPatientRegistrationViewState
                             ),
                           )
                         : Text(
-                            context.tr('confirm', fallback: 'Confirm & Complete'),
+                            context.tr(
+                              'confirm',
+                              fallback: 'Confirm & Complete',
+                            ),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                   ),
@@ -3451,7 +3414,9 @@ class _NewPatientRegistrationViewState
         color: AppTheme.isDark(context) ? const Color(0xFF1E293B) : color,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: AppTheme.isDark(context) ? AppTheme.darkBorderColor : borderColor,
+          color: AppTheme.isDark(context)
+              ? AppTheme.darkBorderColor
+              : borderColor,
         ),
       ),
       child: Column(
@@ -3588,24 +3553,42 @@ class _NewPatientRegistrationViewState
 
   String _translateHint(String rawHint) {
     final lower = rawHint.toLowerCase().trim();
-    if (lower.contains('full name')) return context.tr('enter_patient_full_name', fallback: rawHint);
-    if (lower.contains('email')) return context.tr('enter_email_address', fallback: rawHint);
-    if (lower.contains('mobile')) return context.tr('enter_mobile_number', fallback: rawHint);
-    if (lower == 'enter name') return context.tr('enter_name', fallback: rawHint);
-    if (lower.contains('relation')) return context.tr('enter_relation', fallback: rawHint);
-    if (lower.contains('address line 1')) return context.tr('enter_address_line_1', fallback: rawHint);
-    if (lower.contains('address line 2')) return context.tr('enter_address_line_2', fallback: rawHint);
-    if (lower.contains('district')) return context.tr('select_district', fallback: rawHint);
-    if (lower.contains('pincode')) return context.tr('enter_pincode', fallback: rawHint);
-    if (lower.contains('gender')) return context.tr('select_gender', fallback: rawHint);
-    if (lower.contains('blood')) return context.tr('select_blood_group', fallback: rawHint);
-    if (lower.contains('height')) return context.tr('enter_height_cm', fallback: rawHint);
-    if (lower.contains('weight')) return context.tr('enter_weight_kg', fallback: rawHint);
-    if (lower.contains('systolic')) return context.tr('enter_systolic_hint', fallback: rawHint);
-    if (lower.contains('diastolic')) return context.tr('enter_diastolic_hint', fallback: rawHint);
-    if (lower.contains('sugar')) return context.tr('enter_sugar_level_hint', fallback: rawHint);
-    if (lower.contains('temp')) return context.tr('enter_temperature_hint', fallback: rawHint);
-    if (lower.contains('allerg')) return context.tr('enter_allergies', fallback: rawHint);
+    if (lower.contains('full name'))
+      return context.tr('enter_patient_full_name', fallback: rawHint);
+    if (lower.contains('email'))
+      return context.tr('enter_email_address', fallback: rawHint);
+    if (lower.contains('mobile'))
+      return context.tr('enter_mobile_number', fallback: rawHint);
+    if (lower == 'enter name')
+      return context.tr('enter_name', fallback: rawHint);
+    if (lower.contains('relation'))
+      return context.tr('enter_relation', fallback: rawHint);
+    if (lower.contains('address line 1'))
+      return context.tr('enter_address_line_1', fallback: rawHint);
+    if (lower.contains('address line 2'))
+      return context.tr('enter_address_line_2', fallback: rawHint);
+    if (lower.contains('district'))
+      return context.tr('select_district', fallback: rawHint);
+    if (lower.contains('pincode'))
+      return context.tr('enter_pincode', fallback: rawHint);
+    if (lower.contains('gender'))
+      return context.tr('select_gender', fallback: rawHint);
+    if (lower.contains('blood'))
+      return context.tr('select_blood_group', fallback: rawHint);
+    if (lower.contains('height'))
+      return context.tr('enter_height_cm', fallback: rawHint);
+    if (lower.contains('weight'))
+      return context.tr('enter_weight_kg', fallback: rawHint);
+    if (lower.contains('systolic'))
+      return context.tr('enter_systolic_hint', fallback: rawHint);
+    if (lower.contains('diastolic'))
+      return context.tr('enter_diastolic_hint', fallback: rawHint);
+    if (lower.contains('sugar'))
+      return context.tr('enter_sugar_level_hint', fallback: rawHint);
+    if (lower.contains('temp'))
+      return context.tr('enter_temperature_hint', fallback: rawHint);
+    if (lower.contains('allerg'))
+      return context.tr('enter_allergies', fallback: rawHint);
     if (lower.contains('pre-existing') || lower.contains('chronic')) {
       return context.tr('enter_pre_existing_conditions', fallback: rawHint);
     }
@@ -3617,8 +3600,10 @@ class _NewPatientRegistrationViewState
         lower.contains('medication')) {
       return context.tr('previous_medical_history_hint', fallback: rawHint);
     }
-    if (lower.contains('occupat')) return context.tr('enter_occupation', fallback: rawHint);
-    if (lower.contains('physical activit')) return context.tr('enter_physical_activities', fallback: rawHint);
+    if (lower.contains('occupat'))
+      return context.tr('enter_occupation', fallback: rawHint);
+    if (lower.contains('physical activit'))
+      return context.tr('enter_physical_activities', fallback: rawHint);
     if (lower.contains('dietary') || lower.contains('eating pattern')) {
       return context.tr('dietary_preferences_hint', fallback: rawHint);
     }
@@ -3629,9 +3614,13 @@ class _NewPatientRegistrationViewState
       return context.tr('select_frequency', fallback: rawHint);
     }
     if (lower.contains('describe daily')) {
-      return context.tr('describe_daily_physical_activities_hint', fallback: rawHint);
+      return context.tr(
+        'describe_daily_physical_activities_hint',
+        fallback: rawHint,
+      );
     }
-    if (lower.contains('dd/mm/yyyy')) return context.tr('dob_hint', fallback: rawHint);
+    if (lower.contains('dd/mm/yyyy'))
+      return context.tr('dob_hint', fallback: rawHint);
     return rawHint;
   }
 
@@ -3732,7 +3721,8 @@ class _NewPatientRegistrationViewState
     if (clean == 'Please enter a valid Tamil Nadu Pincode (starts with 6)') {
       return context.tr('pincode_valid_tamilnadu_6', fallback: clean);
     }
-    if (clean == 'Please enter a valid Tamil Nadu Pincode (starts with 60-64)') {
+    if (clean ==
+        'Please enter a valid Tamil Nadu Pincode (starts with 60-64)') {
       return context.tr('pincode_valid_tamilnadu_60_64', fallback: clean);
     }
 
@@ -3825,7 +3815,8 @@ class _NewPatientRegistrationViewState
 
   Widget _buildLabel(String label) {
     final String translatedText = _translateLabel(label);
-    final bool hasStar = translatedText.endsWith(' *') || translatedText.endsWith('*');
+    final bool hasStar =
+        translatedText.endsWith(' *') || translatedText.endsWith('*');
     final String baseText = hasStar
         ? translatedText.replaceAll('*', '').trim()
         : translatedText;
@@ -3915,7 +3906,11 @@ class _NewPatientRegistrationViewState
         suffixIcon:
             suffixIcon ??
             (icon != null
-                ? Icon(icon, color: AppTheme.getTextSecondaryColor(context), size: 18)
+                ? Icon(
+                    icon,
+                    color: AppTheme.getTextSecondaryColor(context),
+                    size: 18,
+                  )
                 : null),
         filled: true,
         fillColor: AppTheme.isDark(context)
@@ -3942,10 +3937,7 @@ class _NewPatientRegistrationViewState
           borderRadius: BorderRadius.all(Radius.circular(8)),
           borderSide: BorderSide(color: AppTheme.dangerColor, width: 1.5),
         ),
-        errorStyle: const TextStyle(
-          fontSize: 11,
-          color: AppTheme.dangerColor,
-        ),
+        errorStyle: const TextStyle(fontSize: 11, color: AppTheme.dangerColor),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
@@ -4095,16 +4087,22 @@ class _NewPatientRegistrationViewState
       } else {
         // Pre-check for duplicate patient records by phone and name/email
         if (patient.phone != null && patient.phone!.trim().isNotEmpty) {
-          final existingList = await _patientController.fetchPatientsByPhone(patient.phone!.trim());
+          final existingList = await _patientController.fetchPatientsByPhone(
+            patient.phone!.trim(),
+          );
           final duplicate = existingList.where((p) {
-            final sameName = p.name != null &&
+            final sameName =
+                p.name != null &&
                 patient.name != null &&
-                p.name!.trim().toLowerCase() == patient.name!.trim().toLowerCase();
-            final sameEmail = patient.email != null &&
+                p.name!.trim().toLowerCase() ==
+                    patient.name!.trim().toLowerCase();
+            final sameEmail =
+                patient.email != null &&
                 patient.email!.trim().isNotEmpty &&
                 p.email != null &&
                 p.email!.trim().isNotEmpty &&
-                p.email!.trim().toLowerCase() == patient.email!.trim().toLowerCase();
+                p.email!.trim().toLowerCase() ==
+                    patient.email!.trim().toLowerCase();
             return sameName || sameEmail;
           }).toList();
 
@@ -4212,6 +4210,7 @@ class _NewPatientRegistrationViewState
       }
 
       if (mounted) {
+        UnsavedChangesHelper.clear();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -4287,7 +4286,9 @@ class _NewPatientRegistrationViewState
     DateTime initial = DateTime.now().subtract(const Duration(days: 365 * 30));
     if (_dobController.text.trim().isNotEmpty) {
       try {
-        final parsed = DateFormat('dd/MM/yyyy').parseStrict(_dobController.text.trim());
+        final parsed = DateFormat(
+          'dd/MM/yyyy',
+        ).parseStrict(_dobController.text.trim());
         if (parsed.isAfter(DateTime(1900)) && parsed.isBefore(DateTime.now())) {
           initial = parsed;
         }

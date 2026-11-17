@@ -75,6 +75,21 @@ class _CheckInVitalsDialogState extends State<CheckInVitalsDialog> {
     return apptDay.isAfter(today);
   }
 
+  bool get _isDirty {
+    return _systolicCtrl.text.trim() != (widget.appointment.bloodPressureSystolic?.toString() ?? '') ||
+        _diastolicCtrl.text.trim() != (widget.appointment.bloodPressureDiastolic?.toString() ?? '') ||
+        _pulseCtrl.text.trim() != (widget.appointment.pulse?.toString() ?? '') ||
+        _spo2Ctrl.text.trim() != (widget.appointment.spo2?.toString() ?? '') ||
+        _tempCtrl.text.trim() != (widget.appointment.temperature?.toString() ?? '') ||
+        _sugarCtrl.text.trim() != (widget.appointment.sugarLevel?.toString() ?? '') ||
+        _heightCtrl.text.trim() != (widget.appointment.height?.toString() ?? '') ||
+        _weightCtrl.text.trim() != (widget.appointment.weight?.toString() ?? '') ||
+        _complaintsCtrl.text.trim() != (widget.appointment.reasonForVisit ?? '') ||
+        _triageNotesCtrl.text.trim() != (widget.appointment.triageNotes ?? '') ||
+        _painScore != (widget.appointment.painScore ?? 0) ||
+        _triageCategory != (widget.appointment.triageCategory ?? 'Non-Urgent');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -283,7 +298,7 @@ class _CheckInVitalsDialogState extends State<CheckInVitalsDialog> {
       _validateForWaiting = true;
     });
 
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.validateAndScroll()) return;
 
     final sysText = _systolicCtrl.text.trim();
     final tempText = _tempCtrl.text.trim();
@@ -347,95 +362,101 @@ class _CheckInVitalsDialogState extends State<CheckInVitalsDialog> {
     final token = widget.appointment.tokenNumber;
     final isAlreadyCheckedIn = widget.appointment.status == 'Checked In';
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 720, maxHeight: 850),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.06),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
-                border: const Border(
-                  bottom: BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.how_to_reg,
-                      color: AppTheme.primaryColor,
-                      size: 24,
-                    ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
+        DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty);
+      },
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720, maxHeight: 850),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withOpacity(0.06),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(
-                              isAlreadyCheckedIn ? 'Pre-Consultation Vitals' : 'Patient Check-In & Vitals',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimaryColor,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            if (token != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryColor,
-                                  borderRadius: BorderRadius.circular(20),
+                  border: const Border(
+                    bottom: BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.how_to_reg,
+                        color: AppTheme.primaryColor,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                isAlreadyCheckedIn ? 'Pre-Consultation Vitals' : 'Patient Check-In & Vitals',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimaryColor,
                                 ),
-                                child: Text(
-                                  'Token #$token',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 0.5,
+                              ),
+                              const SizedBox(width: 10),
+                              if (token != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    'Token #$token',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${widget.appointment.patientName} (${widget.appointment.patientDisplayId ?? "ID #${widget.appointment.patientId}"}) • Dr. ${widget.appointment.doctorName}',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppTheme.textSecondaryColor,
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 3),
+                          Text(
+                            '${widget.appointment.patientName} (${widget.appointment.patientDisplayId ?? "ID #${widget.appointment.patientId}"}) • Dr. ${widget.appointment.doctorName}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: AppTheme.textSecondaryColor),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
+                    IconButton(
+                      icon: const Icon(Icons.close, color: AppTheme.textSecondaryColor),
+                      onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
             // Patient & Appointment Info Strip
             Container(
@@ -672,7 +693,7 @@ class _CheckInVitalsDialogState extends State<CheckInVitalsDialog> {
                 children: [
                   // Cancel
                   OutlinedButton(
-                    onPressed: _isSubmitting ? null : () => Navigator.pop(context),
+                    onPressed: _isSubmitting ? null : () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.textSecondaryColor,
                       side: const BorderSide(color: AppTheme.borderColor),
@@ -724,7 +745,8 @@ class _CheckInVitalsDialogState extends State<CheckInVitalsDialog> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildMetaItem(IconData icon, String label, String value) {
