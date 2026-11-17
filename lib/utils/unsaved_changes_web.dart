@@ -5,6 +5,7 @@ import 'dart:js' as js;
 /// Web implementation for intercepting browser page reloads/closes and
 /// browser Back-button navigation when unsaved form data exists.
 class UnsavedChangesHelper {
+  static bool hasUnsavedChanges = false;
   static html.EventListener? _beforeUnloadListener;
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -14,6 +15,7 @@ class UnsavedChangesHelper {
   /// Sets the global flag to trigger browser confirmation dialog on
   /// refresh/reload if [hasUnsavedData] is true.
   static void setUnsavedChanges(bool hasUnsavedData) {
+    hasUnsavedChanges = hasUnsavedData;
     try {
       if (js.context.hasProperty('unsavedChanges')) {
         final unsavedObj = js.context['unsavedChanges'];
@@ -32,6 +34,7 @@ class UnsavedChangesHelper {
 
   /// Clears the unsaved-changes warning (e.g. after successful submission).
   static void clear() {
+    hasUnsavedChanges = false;
     setUnsavedChanges(false);
   }
 

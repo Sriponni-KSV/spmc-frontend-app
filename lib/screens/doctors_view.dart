@@ -11,6 +11,7 @@ import '../models/appointment_model.dart';
 import '../providers/auth_provider.dart';
 import '../utils/capitalize_formatter.dart';
 import '../utils/app_localizations.dart';
+import '../utils/discard_dialog_helper.dart';
 
 class DoctorsView extends StatefulWidget {
   final Function(UserModel)? onBookAppointment;
@@ -54,9 +55,12 @@ class _DoctorsViewState extends State<DoctorsView> {
   void _scrollListener() {
     if (_deptScrollController.hasClients) {
       final bool canScrollLeft = _deptScrollController.offset > 10;
-      final bool canScrollRight = _deptScrollController.offset < _deptScrollController.position.maxScrollExtent - 10;
-      
-      if (canScrollLeft != _showLeftArrow || canScrollRight != _showRightArrow) {
+      final bool canScrollRight =
+          _deptScrollController.offset <
+          _deptScrollController.position.maxScrollExtent - 10;
+
+      if (canScrollLeft != _showLeftArrow ||
+          canScrollRight != _showRightArrow) {
         setState(() {
           _showLeftArrow = canScrollLeft;
           _showRightArrow = canScrollRight;
@@ -64,7 +68,6 @@ class _DoctorsViewState extends State<DoctorsView> {
       }
     }
   }
-
 
   void _loadDoctors() async {
     if (mounted) {
@@ -93,25 +96,26 @@ class _DoctorsViewState extends State<DoctorsView> {
       children: [
         // Header Section
         Container(
-          padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, isMobile ? 16 : 24, isMobile ? 16 : 24, 0),
+          padding: EdgeInsets.fromLTRB(
+            isMobile ? 16 : 24,
+            isMobile ? 16 : 24,
+            isMobile ? 16 : 24,
+            0,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 context.tr('doctor_directory', fallback: 'Doctors'),
-                style: TextStyle(
-                  fontSize: isMobile ? 24 : 32,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.getTextPrimaryColor(context),
-                ),
+                style: AppTheme.pageTitleStyle(context, isMobile: isMobile),
               ),
               const SizedBox(height: 4),
               Text(
-                context.tr('doctor_directory_subtitle', fallback: 'Manage doctor profiles and schedules'),
-                style: TextStyle(
-                  color: AppTheme.getTextSecondaryColor(context),
-                  fontSize: 14,
+                context.tr(
+                  'doctor_directory_subtitle',
+                  fallback: 'Manage doctor profiles and schedules',
                 ),
+                style: AppTheme.pageSubtitleStyle(context, isMobile: isMobile),
               ),
             ],
           ),
@@ -146,7 +150,10 @@ class _DoctorsViewState extends State<DoctorsView> {
               ),
               onChanged: (val) => setState(() => _searchQuery = val),
               decoration: InputDecoration(
-                hintText: context.tr('search_doctors_hint', fallback: 'Search doctors by name or specialization...'),
+                hintText: context.tr(
+                  'search_doctors_hint',
+                  fallback: 'Search doctors by name or specialization...',
+                ),
                 hintStyle: TextStyle(
                   color: AppTheme.getTextSecondaryColor(context),
                   fontSize: 13,
@@ -187,10 +194,12 @@ class _DoctorsViewState extends State<DoctorsView> {
             future: _doctorsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: Padding(
-                  padding: EdgeInsets.all(40.0),
-                  child: CircularProgressIndicator(),
-                ));
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(40.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
               }
               if (snapshot.hasError) {
                 return Center(child: Text('Error: ${snapshot.error}'));
@@ -199,29 +208,50 @@ class _DoctorsViewState extends State<DoctorsView> {
               final doctors = (snapshot.data ?? [])
                   .where((d) => d.status.toLowerCase() == 'active')
                   .toList();
-              
+
               // Calculate dynamic departments from registered doctors
               final Map<String, int> deptCounts = {};
               for (var doc in doctors) {
                 final spec = doc.specialization ?? 'General Medicine';
                 deptCounts[spec] = (deptCounts[spec] ?? 0) + 1;
               }
-              
-              final List<Map<String, dynamic>> dynamicDepartments = deptCounts.entries.map<Map<String, dynamic>>((e) {
-                IconData icon;
-                switch (e.key.toLowerCase()) {
-                  case 'cardiology': icon = Icons.favorite_outline; break;
-                  case 'endocrinology': icon = Icons.monitor_heart_outlined; break;
-                  case 'orthopedics': icon = Icons.airline_seat_legroom_extra_outlined; break;
-                  case 'pediatrics': icon = Icons.child_care; break;
-                  case 'neurology': icon = Icons.psychology_outlined; break;
-                  default: icon = Icons.medical_services_outlined; break;
-                }
-                return <String, dynamic>{'name': e.key, 'icon': icon, 'count': e.value};
-              }).toList();
+
+              final List<Map<String, dynamic>> dynamicDepartments = deptCounts
+                  .entries
+                  .map<Map<String, dynamic>>((e) {
+                    IconData icon;
+                    switch (e.key.toLowerCase()) {
+                      case 'cardiology':
+                        icon = Icons.favorite_outline;
+                        break;
+                      case 'endocrinology':
+                        icon = Icons.monitor_heart_outlined;
+                        break;
+                      case 'orthopedics':
+                        icon = Icons.airline_seat_legroom_extra_outlined;
+                        break;
+                      case 'pediatrics':
+                        icon = Icons.child_care;
+                        break;
+                      case 'neurology':
+                        icon = Icons.psychology_outlined;
+                        break;
+                      default:
+                        icon = Icons.medical_services_outlined;
+                        break;
+                    }
+                    return <String, dynamic>{
+                      'name': e.key,
+                      'icon': icon,
+                      'count': e.value,
+                    };
+                  })
+                  .toList();
 
               // Sort departments alphabetically
-              dynamicDepartments.sort((a, b) => (a['name'] as String).compareTo(b['name'] as String));
+              dynamicDepartments.sort(
+                (a, b) => (a['name'] as String).compareTo(b['name'] as String),
+              );
 
               // Add "All" option to the beginning
               dynamicDepartments.insert(0, <String, dynamic>{
@@ -231,9 +261,16 @@ class _DoctorsViewState extends State<DoctorsView> {
               });
 
               final filteredDoctors = doctors.where((doc) {
-                final matchesSearch = doc.fullname.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-                    (doc.specialization ?? '').toLowerCase().contains(_searchQuery.toLowerCase());
-                final matchesDept = _selectedDepartment == 'All' || doc.specialization == _selectedDepartment;
+                final matchesSearch =
+                    doc.fullname.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ) ||
+                    (doc.specialization ?? '').toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    );
+                final matchesDept =
+                    _selectedDepartment == 'All' ||
+                    doc.specialization == _selectedDepartment;
                 return matchesSearch && matchesDept;
               }).toList();
 
@@ -262,7 +299,13 @@ class _DoctorsViewState extends State<DoctorsView> {
                       Center(
                         child: Padding(
                           padding: const EdgeInsets.all(40.0),
-                          child: Text(context.tr('no_doctors_found', fallback: 'No doctors found matching your criteria.')),
+                          child: Text(
+                            context.tr(
+                              'no_doctors_found',
+                              fallback:
+                                  'No doctors found matching your criteria.',
+                            ),
+                          ),
                         ),
                       )
                     else
@@ -298,7 +341,10 @@ class _DoctorsViewState extends State<DoctorsView> {
     );
   }
 
-  Widget _buildDepartmentList(bool isMobile, List<Map<String, dynamic>> dynamicDepartments) {
+  Widget _buildDepartmentList(
+    bool isMobile,
+    List<Map<String, dynamic>> dynamicDepartments,
+  ) {
     return Stack(
       children: [
         SingleChildScrollView(
@@ -321,10 +367,14 @@ class _DoctorsViewState extends State<DoctorsView> {
                     width: isMobile ? 180 : 260,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primaryColor.withOpacity(0.05) : Colors.white,
+                      color: isSelected
+                          ? AppTheme.primaryColor.withOpacity(0.05)
+                          : Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor.withOpacity(0.5),
+                        color: isSelected
+                            ? AppTheme.primaryColor
+                            : AppTheme.borderColor.withOpacity(0.5),
                         width: isSelected ? 2 : 1,
                       ),
                     ),
@@ -336,7 +386,11 @@ class _DoctorsViewState extends State<DoctorsView> {
                             color: AppTheme.primaryColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(dept['icon'] as IconData, color: AppTheme.primaryColor, size: 24),
+                          child: Icon(
+                            dept['icon'] as IconData,
+                            color: AppTheme.primaryColor,
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 16),
                         Expanded(
@@ -403,9 +457,9 @@ class _DoctorsViewState extends State<DoctorsView> {
       child: Center(
         child: InkWell(
           onTap: () {
-            final double offset = isLeft 
-              ? _deptScrollController.offset - 300 
-              : _deptScrollController.offset + 300;
+            final double offset = isLeft
+                ? _deptScrollController.offset - 300
+                : _deptScrollController.offset + 300;
             _deptScrollController.animateTo(
               offset.clamp(0, _deptScrollController.position.maxScrollExtent),
               duration: const Duration(milliseconds: 300),
@@ -438,30 +492,59 @@ class _DoctorsViewState extends State<DoctorsView> {
 
   Widget _buildDoctorCard(UserModel doctor, bool isMobile) {
     // Use real data from DB where available, fallback to '-' for missing fields
-    final String experience = (doctor.experience != null && doctor.experience!.isNotEmpty)
-        ? (doctor.experience!.toLowerCase().contains('year') ? doctor.experience! : '${doctor.experience} years')
-        : '-'; 
-    final String patients = (doctor.numberPatientsAttended != null && doctor.numberPatientsAttended! > 0) ? doctor.numberPatientsAttended.toString() : '-';
-    final String rating = '4.9'; // Mock: Rating system not yet implemented in DB
-    final List<String> weekDaysOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final List<String> availabilityList = List<String>.from(doctor.availableDays ?? [])
-      ..sort((a, b) => weekDaysOrder.indexOf(a).compareTo(weekDaysOrder.indexOf(b)));
-    final String availability = availabilityList.isNotEmpty ? availabilityList.join(', ') : '-';
-    final String nextAvailable = _getNextAvailable(doctor); 
+    final String experience =
+        (doctor.experience != null && doctor.experience!.isNotEmpty)
+        ? (doctor.experience!.toLowerCase().contains('year')
+              ? doctor.experience!
+              : '${doctor.experience} years')
+        : '-';
+    final String patients =
+        (doctor.numberPatientsAttended != null &&
+            doctor.numberPatientsAttended! > 0)
+        ? doctor.numberPatientsAttended.toString()
+        : '-';
+    final String rating =
+        '4.9'; // Mock: Rating system not yet implemented in DB
+    final List<String> weekDaysOrder = [
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ];
+    final List<String> availabilityList =
+        List<String>.from(doctor.availableDays ?? [])..sort(
+          (a, b) =>
+              weekDaysOrder.indexOf(a).compareTo(weekDaysOrder.indexOf(b)),
+        );
+    final String availability = availabilityList.isNotEmpty
+        ? availabilityList.join(', ')
+        : '-';
+    final String nextAvailable = _getNextAvailable(doctor);
     final List<String> shifts = [];
-    if (doctor.morningStartTime != null && doctor.morningStartTime!.isNotEmpty &&
-        doctor.morningEndTime != null && doctor.morningEndTime!.isNotEmpty) {
-      shifts.add('☀️ Morning: ${doctor.morningStartTime} - ${doctor.morningEndTime}');
+    if (doctor.morningStartTime != null &&
+        doctor.morningStartTime!.isNotEmpty &&
+        doctor.morningEndTime != null &&
+        doctor.morningEndTime!.isNotEmpty) {
+      shifts.add(
+        '☀️ Morning: ${doctor.morningStartTime} - ${doctor.morningEndTime}',
+      );
     }
-    if (doctor.eveningStartTime != null && doctor.eveningStartTime!.isNotEmpty &&
-        doctor.eveningEndTime != null && doctor.eveningEndTime!.isNotEmpty) {
-      shifts.add('🌙 Evening: ${doctor.eveningStartTime} - ${doctor.eveningEndTime}');
+    if (doctor.eveningStartTime != null &&
+        doctor.eveningStartTime!.isNotEmpty &&
+        doctor.eveningEndTime != null &&
+        doctor.eveningEndTime!.isNotEmpty) {
+      shifts.add(
+        '🌙 Evening: ${doctor.eveningStartTime} - ${doctor.eveningEndTime}',
+      );
     }
     final String shiftTime = shifts.isNotEmpty
         ? shifts.join('\n')
         : (doctor.slotStartTime != null && doctor.slotEndTime != null)
-            ? '${doctor.slotStartTime} - ${doctor.slotEndTime}'
-            : '-';
+        ? '${doctor.slotStartTime} - ${doctor.slotEndTime}'
+        : '-';
 
     return Container(
       margin: isMobile ? const EdgeInsets.only(bottom: 24) : EdgeInsets.zero,
@@ -666,10 +749,7 @@ class _DoctorsViewState extends State<DoctorsView> {
               children: [
                 Text(
                   context.tr('availability', fallback: 'Availability'),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Colors.redAccent,
-                  ),
+                  style: const TextStyle(fontSize: 11, color: Colors.redAccent),
                 ),
                 Text(
                   availability,
@@ -723,7 +803,11 @@ class _DoctorsViewState extends State<DoctorsView> {
             children: [
               const Padding(
                 padding: EdgeInsets.only(top: 1),
-                child: Icon(Icons.calendar_today, size: 14, color: AppTheme.primaryColor),
+                child: Icon(
+                  Icons.calendar_today,
+                  size: 14,
+                  color: AppTheme.primaryColor,
+                ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -755,21 +839,46 @@ class _DoctorsViewState extends State<DoctorsView> {
                     backgroundColor: Colors.redAccent,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     elevation: 0,
                   ),
-                  child: Text(context.tr('book_appointment', fallback: 'Book Appointment'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  child: Text(
+                    context.tr(
+                      'book_appointment',
+                      fallback: 'Book Appointment',
+                    ),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               OutlinedButton(
                 onPressed: () => _showEditDoctorDialog(doctor),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  side: BorderSide(color: AppTheme.borderColor.withOpacity(0.5)),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  side: BorderSide(
+                    color: AppTheme.borderColor.withOpacity(0.5),
+                  ),
                 ),
-                child: Text(context.tr('profile', fallback: 'Profile'), style: const TextStyle(color: AppTheme.textPrimaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                child: Text(
+                  context.tr('profile', fallback: 'Profile'),
+                  style: const TextStyle(
+                    color: AppTheme.textPrimaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
               ),
             ],
           ),
@@ -777,518 +886,868 @@ class _DoctorsViewState extends State<DoctorsView> {
       ),
     );
   }
+
   void _showEditDoctorDialog(UserModel doctor) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final String userRole = authProvider.user?.role ?? '';
-    final bool canEdit = userRole == 'Admin' || userRole == 'Super Admin' || userRole == 'Supervisor';
+    final bool canEdit =
+        userRole == 'Admin' ||
+        userRole == 'Super Admin' ||
+        userRole == 'Supervisor';
 
-    final List<Map<String, dynamic>> specializations = await _adminController.fetchSpecializations();
-    
+    final List<Map<String, dynamic>> specializations = await _adminController
+        .fetchSpecializations();
+
     final fullnameController = TextEditingController(text: doctor.rawFullname);
     final emailController = TextEditingController(text: doctor.email);
     final mobileController = TextEditingController(text: doctor.mobile ?? '');
-    final experienceController = TextEditingController(text: doctor.experience ?? '');
-    final patientsController = TextEditingController(text: doctor.numberPatientsAttended?.toString() ?? '0');
+    final experienceController = TextEditingController(
+      text: doctor.experience ?? '',
+    );
+    final patientsController = TextEditingController(
+      text: doctor.numberPatientsAttended?.toString() ?? '0',
+    );
     final bioController = TextEditingController(text: doctor.bio ?? '');
-    final licenseController = TextEditingController(text: doctor.medicalLicense ?? '');
-    final qualificationController = TextEditingController(text: doctor.qualification ?? '');
-    final clinicNameController = TextEditingController(text: doctor.clinicName ?? '');
-    final clinicLocationController = TextEditingController(text: doctor.clinicLocation ?? '');
-    final feeController = TextEditingController(text: doctor.consultationFee ?? '');
-    final expertiseController = TextEditingController(text: doctor.areasOfExpertise ?? '');
-    final morningStartTimeController = TextEditingController(text: doctor.morningStartTime ?? '');
-    final morningEndTimeController = TextEditingController(text: doctor.morningEndTime ?? '');
-    final eveningStartTimeController = TextEditingController(text: doctor.eveningStartTime ?? '');
-    final eveningEndTimeController = TextEditingController(text: doctor.eveningEndTime ?? '');
-    final startTimeController = TextEditingController(text: doctor.slotStartTime ?? '');
-    final endTimeController = TextEditingController(text: doctor.slotEndTime ?? '');
-    
+    final licenseController = TextEditingController(
+      text: doctor.medicalLicense ?? '',
+    );
+    final qualificationController = TextEditingController(
+      text: doctor.qualification ?? '',
+    );
+    final clinicNameController = TextEditingController(
+      text: doctor.clinicName ?? '',
+    );
+    final clinicLocationController = TextEditingController(
+      text: doctor.clinicLocation ?? '',
+    );
+    final feeController = TextEditingController(
+      text: doctor.consultationFee ?? '',
+    );
+    final expertiseController = TextEditingController(
+      text: doctor.areasOfExpertise ?? '',
+    );
+    final morningStartTimeController = TextEditingController(
+      text: doctor.morningStartTime ?? '',
+    );
+    final morningEndTimeController = TextEditingController(
+      text: doctor.morningEndTime ?? '',
+    );
+    final eveningStartTimeController = TextEditingController(
+      text: doctor.eveningStartTime ?? '',
+    );
+    final eveningEndTimeController = TextEditingController(
+      text: doctor.eveningEndTime ?? '',
+    );
+    final startTimeController = TextEditingController(
+      text: doctor.slotStartTime ?? '',
+    );
+    final endTimeController = TextEditingController(
+      text: doctor.slotEndTime ?? '',
+    );
+
     int? selectedSpecId = doctor.specializationId;
     List<String> selectedDays = List<String>.from(doctor.availableDays ?? []);
-    final List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final List<String> weekDays = [
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ];
 
     if (!mounted) return;
 
+    bool areDaysEqual(List<String> a, List<String> b) {
+      if (a.length != b.length) return false;
+      final setA = a.toSet();
+      final setB = b.toSet();
+      return setA.containsAll(setB) && setB.containsAll(setA);
+    }
+
+    bool isDirty() {
+      if (!canEdit) return false;
+      final parsedFee = double.tryParse(doctor.consultationFee ?? '');
+      final initialFee =
+          parsedFee != null && parsedFee > 0
+              ? parsedFee.toStringAsFixed(0)
+              : '';
+      return fullnameController.text.trim() != doctor.fullname.trim() ||
+          emailController.text.trim() != doctor.email.trim() ||
+          mobileController.text.trim() != (doctor.mobile ?? '').trim() ||
+          licenseController.text.trim() !=
+              (doctor.medicalLicense ?? '').trim() ||
+          selectedSpecId != doctor.specializationId ||
+          qualificationController.text.trim() !=
+              (doctor.qualification ?? '').trim() ||
+          experienceController.text.trim() !=
+              (doctor.experience ?? '').trim() ||
+          bioController.text.trim() != (doctor.bio ?? '').trim() ||
+          clinicNameController.text.trim() !=
+              (doctor.clinicName ?? '').trim() ||
+          clinicLocationController.text.trim() !=
+              (doctor.clinicLocation ?? '').trim() ||
+          feeController.text.replaceAll(RegExp(r'[^0-9.]'), '').trim() !=
+              initialFee ||
+          morningStartTimeController.text.trim() !=
+              (doctor.morningStartTime ?? '').trim() ||
+          morningEndTimeController.text.trim() !=
+              (doctor.morningEndTime ?? '').trim() ||
+          eveningStartTimeController.text.trim() !=
+              (doctor.eveningStartTime ?? '').trim() ||
+          eveningEndTimeController.text.trim() !=
+              (doctor.eveningEndTime ?? '').trim() ||
+          !areDaysEqual(selectedDays, doctor.availableDays ?? []);
+    }
+
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
           final isMobile = MediaQuery.of(context).size.width < 600;
-          return Dialog(
-            insetPadding: EdgeInsets.symmetric(
-              horizontal: isMobile ? 16 : 40,
-              vertical: 24,
-            ),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-            elevation: 0,
-            backgroundColor: Colors.transparent,
-            child: Container(
-              width: double.infinity,
-              constraints: BoxConstraints(
-                maxWidth: 700,
-                maxHeight: MediaQuery.of(context).size.height * 0.9,
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (bool didPop, dynamic result) async {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(
+                context,
+                isDirty: isDirty(),
+              );
+            },
+            child: Dialog(
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 16 : 40,
+                vertical: 24,
               ),
-              decoration: BoxDecoration(
-                color: Colors.white,
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 20,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header section
-                  Container(
-                    padding: EdgeInsets.all(isMobile ? 16 : 24),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.05),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(24),
-                        topRight: Radius.circular(24),
-                      ),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              child: Container(
+                width: double.infinity,
+                constraints: BoxConstraints(
+                  maxWidth: 700,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                canEdit ? 'Edit Doctor Profile' : 'Doctor Professional Profile',
-                                style: TextStyle(
-                                  fontSize: isMobile ? 17 : 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimaryColor,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.close),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                padding: const EdgeInsets.all(8),
-                              ),
-                            ),
-                          ],
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header section
+                    Container(
+                      padding: EdgeInsets.all(isMobile ? 16 : 24),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.05),
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(24),
+                          topRight: Radius.circular(24),
                         ),
-                        SizedBox(height: isMobile ? 12 : 16),
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: isMobile ? 24 : 32,
-                              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                              child: Text(
-                                doctor.fullname.substring(0, 1).toUpperCase(),
-                                style: TextStyle(
-                                  color: AppTheme.primaryColor,
-                                  fontSize: isMobile ? 20 : 24,
-                                  fontWeight: FontWeight.bold,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  canEdit
+                                      ? 'Edit Doctor Profile'
+                                      : 'Doctor Professional Profile',
+                                  style: TextStyle(
+                                    fontSize: isMobile ? 17 : 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.textPrimaryColor,
+                                  ),
                                 ),
                               ),
-                            ),
-                            SizedBox(width: isMobile ? 14 : 20),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Dr. ${doctor.fullname}',
-                                    style: TextStyle(
-                                      fontSize: isMobile ? 18 : 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppTheme.textPrimaryColor,
+                              const SizedBox(width: 8),
+                              IconButton(
+                                onPressed: () =>
+                                    DiscardDialogHelper.handleCancelOrDismiss(
+                                      context,
+                                      isDirty: isDirty(),
                                     ),
+                                icon: const Icon(Icons.close),
+                                style: IconButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  padding: const EdgeInsets.all(8),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: isMobile ? 12 : 16),
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: isMobile ? 24 : 32,
+                                backgroundColor: AppTheme.primaryColor
+                                    .withOpacity(0.1),
+                                child: Text(
+                                  doctor.fullname.substring(0, 1).toUpperCase(),
+                                  style: TextStyle(
+                                    color: AppTheme.primaryColor,
+                                    fontSize: isMobile ? 20 : 24,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  if (doctor.staffUniqueId != null && doctor.staffUniqueId!.isNotEmpty) ...[
+                                ),
+                              ),
+                              SizedBox(width: isMobile ? 14 : 20),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Dr. ${doctor.fullname}',
+                                      style: TextStyle(
+                                        fontSize: isMobile ? 18 : 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.textPrimaryColor,
+                                      ),
+                                    ),
+                                    if (doctor.staffUniqueId != null &&
+                                        doctor.staffUniqueId!.isNotEmpty) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        doctor.staffUniqueId!,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          color: AppTheme.textSecondaryColor,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                     const SizedBox(height: 2),
                                     Text(
-                                      doctor.staffUniqueId!,
-                                      style: const TextStyle(
-                                        fontSize: 14,
+                                      doctor.specialization ??
+                                          'General Medicine',
+                                      style: TextStyle(
+                                        fontSize: isMobile ? 14 : 16,
                                         color: AppTheme.textSecondaryColor,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ],
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    doctor.specialization ?? 'General Medicine',
-                                    style: TextStyle(
-                                      fontSize: isMobile ? 14 : 16,
-                                      color: AppTheme.textSecondaryColor,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Form content
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.all(isMobile ? 16 : 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Section: Basic Info
-                          _buildProfileSection(
-                            title: 'Basic Information',
-                            icon: Icons.person_outline,
-                            children: [
-                              _buildDialogResponsivePair(
-                                isMobile,
-                                canEdit
-                                    ? _buildModernField('Full Name', fullnameController,
-                                        maxLength: 60,
-                                        textCapitalization: TextCapitalization.words,
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s.]')),
-                                          const CapitalizeWordsInputFormatter(),
-                                        ],
-                                      )
-                                    : _buildDetailItem('Full Name', fullnameController.text),
-                                canEdit
-                                    ? _buildModernField('Email', emailController,
-                                        maxLength: 50,
-                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9@._\-]'))],
-                                      )
-                                    : _buildDetailItem('Email', emailController.text),
-                              ),
-                              SizedBox(height: isMobile ? 12 : 16),
-                              _buildDialogResponsivePair(
-                                isMobile,
-                                canEdit
-                                    ? _buildModernField('Mobile Number', mobileController,
-                                        isNumeric: true,
-                                        maxLength: 10,
-                                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                      )
-                                    : _buildDetailItem('Mobile Number', mobileController.text),
-                                canEdit
-                                    ? _buildModernField('Medical License', licenseController,
-                                        maxLength: 20,
-                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]'))],
-                                      )
-                                    : _buildDetailItem('Medical License', licenseController.text),
-                              ),
-                              SizedBox(height: isMobile ? 12 : 16),
-                              _buildDialogResponsivePair(
-                                isMobile,
-                                canEdit
-                                    ? _buildModernDropdown(
-                                        label: 'Specialization',
-                                        value: selectedSpecId,
-                                        items: specializations,
-                                        onChanged: (val) => setDialogState(() => selectedSpecId = val),
-                                      )
-                                    : _buildDetailItem(
-                                        'Specialization',
-                                        selectedSpecId != null
-                                            ? specializations.firstWhere((s) => s['id'] == selectedSpecId)['name']
-                                            : 'N/A',
-                                      ),
-                                null,
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Section: Professional Details
-                          _buildProfileSection(
-                            title: 'Professional Details',
-                            icon: Icons.work_outline,
-                            children: [
-                              _buildDialogResponsivePair(
-                                isMobile,
-                                canEdit
-                                    ? _buildModernField('Experience (years)', experienceController,
-                                        isNumeric: true,
-                                        maxLength: 2,
-                                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                      )
-                                    : _buildDetailItem('Experience', '${experienceController.text} years'),
-                                canEdit
-                                    ? _buildModernField('Patients Attended', patientsController,
-                                        isNumeric: true,
-                                        maxLength: 6,
-                                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                      )
-                                    : _buildDetailItem('Patients Attended', patientsController.text),
-                              ),
-                              const SizedBox(height: 16),
-                              canEdit
-                                ? _buildModernField('Qualification', qualificationController,
-                                    maxLength: 100,
-                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .,()]'))],
-                                  )
-                                : _buildDetailItem('Qualification', qualificationController.text),
-                              const SizedBox(height: 16),
-                              canEdit
-                                ? _buildModernField('Areas of Expertise', expertiseController,
-                                    hint: 'Comma separated',
-                                    maxLength: 100,
-                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ,]'))],
-                                  )
-                                : _buildDetailItem('Areas of Expertise', expertiseController.text),
-                              const SizedBox(height: 16),
-                              canEdit
-                                ? _buildModernField('Bio', bioController, maxLines: 3, maxLength: 500)
-                                : _buildDetailItem('Bio', bioController.text),
-                            ],
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Section: Clinic & Availability
-                          _buildProfileSection(
-                            title: 'Clinic & Availability',
-                            icon: Icons.access_time,
-                            children: [
-                              _buildDialogResponsivePair(
-                                isMobile,
-                                canEdit
-                                    ? _buildModernField('Clinic Name', clinicNameController,
-                                        maxLength: 60,
-                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z .]'))],
-                                      )
-                                    : _buildDetailItem('Clinic Name', clinicNameController.text),
-                                canEdit
-                                    ? _buildModernField('Clinic Location', clinicLocationController,
-                                        maxLength: 80,
-                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9 ,.-]'))],
-                                      )
-                                    : _buildDetailItem('Clinic Location', clinicLocationController.text),
-                              ),
-                              SizedBox(height: isMobile ? 12 : 16),
-                              _buildDialogResponsivePair(
-                                isMobile,
-                                canEdit
-                                    ? _buildModernField('Consultation Fee', feeController,
-                                        isNumeric: true,
-                                        maxLength: 8,
-                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
-                                      )
-                                    : _buildDetailItem('Consultation Fee', feeController.text),
-                                canEdit
-                                    ? _buildModernField('Morning Start Time', morningStartTimeController,
-                                        hint: 'e.g. 09:00 AM',
-                                        maxLength: 10,
-                                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
-                                      )
-                                    : _buildDetailItem(
-                                        'Morning Shift',
-                                        morningStartTimeController.text.isNotEmpty && morningEndTimeController.text.isNotEmpty
-                                            ? '${morningStartTimeController.text} to ${morningEndTimeController.text}'
-                                            : morningStartTimeController.text.isNotEmpty
-                                                ? 'Starts at ${morningStartTimeController.text}'
-                                                : 'Not Configured',
-                                      ),
-                              ),
-                              if (canEdit) ...[
-                                SizedBox(height: isMobile ? 12 : 16),
-                                _buildDialogResponsivePair(
-                                  isMobile,
-                                  _buildModernField('Morning End Time', morningEndTimeController,
-                                    hint: 'e.g. 01:00 PM',
-                                    maxLength: 10,
-                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
-                                  ),
-                                  _buildModernField('Evening Start Time', eveningStartTimeController,
-                                    hint: 'e.g. 04:00 PM',
-                                    maxLength: 10,
-                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
-                                  ),
                                 ),
-                                SizedBox(height: isMobile ? 12 : 16),
-                                _buildDialogResponsivePair(
-                                  isMobile,
-                                  _buildModernField('Evening End Time', eveningEndTimeController,
-                                    hint: 'e.g. 08:00 PM',
-                                    maxLength: 10,
-                                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9: AaPpMm]'))],
-                                  ),
-                                  null,
-                                ),
-                              ] else ...[
-                                const SizedBox(height: 16),
-                                _buildDetailItem(
-                                  'Evening Shift',
-                                  eveningStartTimeController.text.isNotEmpty && eveningEndTimeController.text.isNotEmpty
-                                      ? '${eveningStartTimeController.text} to ${eveningEndTimeController.text}'
-                                      : eveningStartTimeController.text.isNotEmpty
-                                          ? 'Starts at ${eveningStartTimeController.text}'
-                                          : 'Not Configured',
-                                ),
-                              ],
-                              const SizedBox(height: 20),
-                              if (!canEdit)
-                                _buildDetailItem('Available Days', selectedDays.isNotEmpty ? selectedDays.join(', ') : 'Not Provided')
-                              else ...[
-                                const Text(
-                                  'Available Days',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppTheme.textPrimaryColor,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: weekDays.map((day) {
-                                    final isSelected = selectedDays.contains(day);
-                                    return InkWell(
-                                      onTap: () {
-                                        setDialogState(() {
-                                          if (isSelected) selectedDays.remove(day);
-                                          else selectedDays.add(day);
-                                        });
-                                      },
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: isSelected ? AppTheme.primaryColor : Colors.white,
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          day,
-                                          style: TextStyle(
-                                            color: isSelected ? Colors.white : AppTheme.textSecondaryColor,
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ],
+                              ),
                             ],
                           ),
                         ],
                       ),
                     ),
-                  ),
 
-                  // Actions
-                  Container(
-                    padding: EdgeInsets.all(isMobile ? 16 : 24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(24),
-                        bottomRight: Radius.circular(24),
-                      ),
-                      border: Border(top: BorderSide(color: AppTheme.borderColor.withOpacity(0.5))),
-                    ),
-                    child: Builder(
-                      builder: (context) {
-                        final cancelBtn = OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: AppTheme.cancelButton.copyWith(
-                            minimumSize: MaterialStateProperty.all(Size(isMobile ? 0 : 120, 48)),
-                          ),
-                          child: Text(canEdit ? 'Cancel' : 'Close'),
-                        );
-                        final saveBtn = canEdit
-                            ? ElevatedButton(
-                                onPressed: () async {
-                                  try {
-                                    await _adminController.updateStaff(
-                                      id: doctor.id,
-                                      fullname: fullnameController.text,
-                                      email: emailController.text,
-                                      mobile: mobileController.text,
-                                      role: 'Doctor',
-                                      medicalLicense: licenseController.text,
-                                      specializationId: selectedSpecId,
-                                      qualification: qualificationController.text,
-                                      experience: experienceController.text,
-                                      patientsAttended: int.tryParse(patientsController.text) ?? 0,
-                                      bio: bioController.text,
-                                      availableDays: selectedDays,
-                                      morningStartTime: morningStartTimeController.text.trim().isNotEmpty ? morningStartTimeController.text.trim() : null,
-                                      morningEndTime: morningEndTimeController.text.trim().isNotEmpty ? morningEndTimeController.text.trim() : null,
-                                      eveningStartTime: eveningStartTimeController.text.trim().isNotEmpty ? eveningStartTimeController.text.trim() : null,
-                                      eveningEndTime: eveningEndTimeController.text.trim().isNotEmpty ? eveningEndTimeController.text.trim() : null,
-                                      slotStartTime: morningStartTimeController.text.trim().isNotEmpty ? morningStartTimeController.text.trim() : startTimeController.text,
-                                      slotEndTime: eveningEndTimeController.text.trim().isNotEmpty ? eveningEndTimeController.text.trim() : endTimeController.text,
-                                      clinicName: clinicNameController.text,
-                                      clinicLocation: clinicLocationController.text,
-                                      consultationFee: double.tryParse(feeController.text.replaceAll(RegExp(r'[^0-9.]'), '')),
-                                      areasOfExpertise: expertiseController.text,
-                                    );
-                                    if (context.mounted) {
-                                      Navigator.pop(context);
-                                      _loadDoctors();
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Profile updated successfully'), backgroundColor: Colors.green),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                                      );
-                                    }
-                                  }
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primaryColor,
-                                  foregroundColor: Colors.white,
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: isMobile ? 16 : 32,
-                                    vertical: isMobile ? 14 : 16,
-                                  ),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                  elevation: 0,
+                    // Form content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.all(isMobile ? 16 : 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Section: Basic Info
+                            _buildProfileSection(
+                              title: 'Basic Information',
+                              icon: Icons.person_outline,
+                              children: [
+                                _buildDialogResponsivePair(
+                                  isMobile,
+                                  canEdit
+                                      ? _buildModernField(
+                                          'Full Name',
+                                          fullnameController,
+                                          maxLength: 60,
+                                          textCapitalization:
+                                              TextCapitalization.words,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'[a-zA-Z\s.]'),
+                                            ),
+                                            const CapitalizeWordsInputFormatter(),
+                                          ],
+                                        )
+                                      : _buildDetailItem(
+                                          'Full Name',
+                                          fullnameController.text,
+                                        ),
+                                  canEdit
+                                      ? _buildModernField(
+                                          'Email',
+                                          emailController,
+                                          maxLength: 50,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'[a-zA-Z0-9@._\-]'),
+                                            ),
+                                          ],
+                                        )
+                                      : _buildDetailItem(
+                                          'Email',
+                                          emailController.text,
+                                        ),
                                 ),
-                                child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
-                              )
-                            : null;
+                                SizedBox(height: isMobile ? 12 : 16),
+                                _buildDialogResponsivePair(
+                                  isMobile,
+                                  canEdit
+                                      ? _buildModernField(
+                                          'Mobile Number',
+                                          mobileController,
+                                          isNumeric: true,
+                                          maxLength: 10,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
+                                        )
+                                      : _buildDetailItem(
+                                          'Mobile Number',
+                                          mobileController.text,
+                                        ),
+                                  canEdit
+                                      ? _buildModernField(
+                                          'Medical License',
+                                          licenseController,
+                                          maxLength: 20,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'[a-zA-Z0-9/\-]'),
+                                            ),
+                                          ],
+                                        )
+                                      : _buildDetailItem(
+                                          'Medical License',
+                                          licenseController.text,
+                                        ),
+                                ),
+                                SizedBox(height: isMobile ? 12 : 16),
+                                _buildDialogResponsivePair(
+                                  isMobile,
+                                  canEdit
+                                      ? _buildModernDropdown(
+                                          label: 'Specialization',
+                                          value: selectedSpecId,
+                                          items: specializations,
+                                          onChanged: (val) => setDialogState(
+                                            () => selectedSpecId = val,
+                                          ),
+                                        )
+                                      : _buildDetailItem(
+                                          'Specialization',
+                                          selectedSpecId != null
+                                              ? specializations.firstWhere(
+                                                  (s) =>
+                                                      s['id'] == selectedSpecId,
+                                                )['name']
+                                              : 'N/A',
+                                        ),
+                                  null,
+                                ),
+                              ],
+                            ),
 
-                        if (isMobile && saveBtn != null) {
+                            const SizedBox(height: 24),
+
+                            // Section: Professional Details
+                            _buildProfileSection(
+                              title: 'Professional Details',
+                              icon: Icons.work_outline,
+                              children: [
+                                _buildDialogResponsivePair(
+                                  isMobile,
+                                  canEdit
+                                      ? _buildModernField(
+                                          'Experience (years)',
+                                          experienceController,
+                                          isNumeric: true,
+                                          maxLength: 2,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
+                                        )
+                                      : _buildDetailItem(
+                                          'Experience',
+                                          '${experienceController.text} years',
+                                        ),
+                                  canEdit
+                                      ? _buildModernField(
+                                          'Patients Attended',
+                                          patientsController,
+                                          isNumeric: true,
+                                          maxLength: 6,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
+                                        )
+                                      : _buildDetailItem(
+                                          'Patients Attended',
+                                          patientsController.text,
+                                        ),
+                                ),
+                                const SizedBox(height: 16),
+                                canEdit
+                                    ? _buildModernField(
+                                        'Qualification',
+                                        qualificationController,
+                                        maxLength: 100,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'[a-zA-Z .,()]'),
+                                          ),
+                                        ],
+                                      )
+                                    : _buildDetailItem(
+                                        'Qualification',
+                                        qualificationController.text,
+                                      ),
+                                const SizedBox(height: 16),
+                                canEdit
+                                    ? _buildModernField(
+                                        'Areas of Expertise',
+                                        expertiseController,
+                                        hint: 'Comma separated',
+                                        maxLength: 100,
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(
+                                            RegExp(r'[a-zA-Z ,]'),
+                                          ),
+                                        ],
+                                      )
+                                    : _buildDetailItem(
+                                        'Areas of Expertise',
+                                        expertiseController.text,
+                                      ),
+                                const SizedBox(height: 16),
+                                canEdit
+                                    ? _buildModernField(
+                                        'Bio',
+                                        bioController,
+                                        maxLines: 3,
+                                        maxLength: 500,
+                                      )
+                                    : _buildDetailItem(
+                                        'Bio',
+                                        bioController.text,
+                                      ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 24),
+
+                            // Section: Clinic & Availability
+                            _buildProfileSection(
+                              title: 'Clinic & Availability',
+                              icon: Icons.access_time,
+                              children: [
+                                _buildDialogResponsivePair(
+                                  isMobile,
+                                  canEdit
+                                      ? _buildModernField(
+                                          'Clinic Name',
+                                          clinicNameController,
+                                          maxLength: 60,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'[a-zA-Z .]'),
+                                            ),
+                                          ],
+                                        )
+                                      : _buildDetailItem(
+                                          'Clinic Name',
+                                          clinicNameController.text,
+                                        ),
+                                  canEdit
+                                      ? _buildModernField(
+                                          'Clinic Location',
+                                          clinicLocationController,
+                                          maxLength: 80,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'[a-zA-Z0-9 ,.-]'),
+                                            ),
+                                          ],
+                                        )
+                                      : _buildDetailItem(
+                                          'Clinic Location',
+                                          clinicLocationController.text,
+                                        ),
+                                ),
+                                SizedBox(height: isMobile ? 12 : 16),
+                                _buildDialogResponsivePair(
+                                  isMobile,
+                                  canEdit
+                                      ? _buildModernField(
+                                          'Consultation Fee',
+                                          feeController,
+                                          isNumeric: true,
+                                          maxLength: 8,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'[0-9.]'),
+                                            ),
+                                          ],
+                                        )
+                                      : _buildDetailItem(
+                                          'Consultation Fee',
+                                          feeController.text,
+                                        ),
+                                  canEdit
+                                      ? _buildModernField(
+                                          'Morning Start Time',
+                                          morningStartTimeController,
+                                          hint: 'e.g. 09:00 AM',
+                                          maxLength: 10,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(
+                                              RegExp(r'[0-9: AaPpMm]'),
+                                            ),
+                                          ],
+                                        )
+                                      : _buildDetailItem(
+                                          'Morning Shift',
+                                          morningStartTimeController
+                                                      .text
+                                                      .isNotEmpty &&
+                                                  morningEndTimeController
+                                                      .text
+                                                      .isNotEmpty
+                                              ? '${morningStartTimeController.text} to ${morningEndTimeController.text}'
+                                              : morningStartTimeController
+                                                    .text
+                                                    .isNotEmpty
+                                              ? 'Starts at ${morningStartTimeController.text}'
+                                              : 'Not Configured',
+                                        ),
+                                ),
+                                if (canEdit) ...[
+                                  SizedBox(height: isMobile ? 12 : 16),
+                                  _buildDialogResponsivePair(
+                                    isMobile,
+                                    _buildModernField(
+                                      'Morning End Time',
+                                      morningEndTimeController,
+                                      hint: 'e.g. 01:00 PM',
+                                      maxLength: 10,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9: AaPpMm]'),
+                                        ),
+                                      ],
+                                    ),
+                                    _buildModernField(
+                                      'Evening Start Time',
+                                      eveningStartTimeController,
+                                      hint: 'e.g. 04:00 PM',
+                                      maxLength: 10,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9: AaPpMm]'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(height: isMobile ? 12 : 16),
+                                  _buildDialogResponsivePair(
+                                    isMobile,
+                                    _buildModernField(
+                                      'Evening End Time',
+                                      eveningEndTimeController,
+                                      hint: 'e.g. 08:00 PM',
+                                      maxLength: 10,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9: AaPpMm]'),
+                                        ),
+                                      ],
+                                    ),
+                                    null,
+                                  ),
+                                ] else ...[
+                                  const SizedBox(height: 16),
+                                  _buildDetailItem(
+                                    'Evening Shift',
+                                    eveningStartTimeController
+                                                .text
+                                                .isNotEmpty &&
+                                            eveningEndTimeController
+                                                .text
+                                                .isNotEmpty
+                                        ? '${eveningStartTimeController.text} to ${eveningEndTimeController.text}'
+                                        : eveningStartTimeController
+                                              .text
+                                              .isNotEmpty
+                                        ? 'Starts at ${eveningStartTimeController.text}'
+                                        : 'Not Configured',
+                                  ),
+                                ],
+                                const SizedBox(height: 20),
+                                if (!canEdit)
+                                  _buildDetailItem(
+                                    'Available Days',
+                                    selectedDays.isNotEmpty
+                                        ? selectedDays.join(', ')
+                                        : 'Not Provided',
+                                  )
+                                else ...[
+                                  const Text(
+                                    'Available Days',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.textPrimaryColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: weekDays.map((day) {
+                                      final isSelected = selectedDays.contains(
+                                        day,
+                                      );
+                                      return InkWell(
+                                        onTap: () {
+                                          setDialogState(() {
+                                            if (isSelected)
+                                              selectedDays.remove(day);
+                                            else
+                                              selectedDays.add(day);
+                                          });
+                                        },
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? AppTheme.primaryColor
+                                                : Colors.white,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? AppTheme.primaryColor
+                                                  : AppTheme.borderColor,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            day,
+                                            style: TextStyle(
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : AppTheme.textSecondaryColor,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Actions
+                    Container(
+                      padding: EdgeInsets.all(isMobile ? 16 : 24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(24),
+                          bottomRight: Radius.circular(24),
+                        ),
+                        border: Border(
+                          top: BorderSide(
+                            color: AppTheme.borderColor.withOpacity(0.5),
+                          ),
+                        ),
+                      ),
+                      child: Builder(
+                        builder: (context) {
+                          final cancelBtn = OutlinedButton(
+                            onPressed: () =>
+                                DiscardDialogHelper.handleCancelOrDismiss(
+                                  context,
+                                  isDirty: isDirty(),
+                                ),
+                            style: AppTheme.cancelButton.copyWith(
+                              minimumSize: MaterialStateProperty.all(
+                                Size(isMobile ? 0 : 120, 48),
+                              ),
+                            ),
+                            child: Text(canEdit ? 'Cancel' : 'Close'),
+                          );
+                          final saveBtn = canEdit
+                              ? ElevatedButton(
+                                  onPressed: () async {
+                                    try {
+                                      await _adminController.updateStaff(
+                                        id: doctor.id,
+                                        fullname: fullnameController.text,
+                                        email: emailController.text,
+                                        mobile: mobileController.text,
+                                        role: 'Doctor',
+                                        medicalLicense: licenseController.text,
+                                        specializationId: selectedSpecId,
+                                        qualification:
+                                            qualificationController.text,
+                                        experience: experienceController.text,
+                                        patientsAttended:
+                                            int.tryParse(
+                                              patientsController.text,
+                                            ) ??
+                                            0,
+                                        bio: bioController.text,
+                                        availableDays: selectedDays,
+                                        morningStartTime:
+                                            morningStartTimeController.text
+                                                .trim()
+                                                .isNotEmpty
+                                            ? morningStartTimeController.text
+                                                  .trim()
+                                            : null,
+                                        morningEndTime:
+                                            morningEndTimeController.text
+                                                .trim()
+                                                .isNotEmpty
+                                            ? morningEndTimeController.text
+                                                  .trim()
+                                            : null,
+                                        eveningStartTime:
+                                            eveningStartTimeController.text
+                                                .trim()
+                                                .isNotEmpty
+                                            ? eveningStartTimeController.text
+                                                  .trim()
+                                            : null,
+                                        eveningEndTime:
+                                            eveningEndTimeController.text
+                                                .trim()
+                                                .isNotEmpty
+                                            ? eveningEndTimeController.text
+                                                  .trim()
+                                            : null,
+                                        slotStartTime:
+                                            morningStartTimeController.text
+                                                .trim()
+                                                .isNotEmpty
+                                            ? morningStartTimeController.text
+                                                  .trim()
+                                            : startTimeController.text,
+                                        slotEndTime:
+                                            eveningEndTimeController.text
+                                                .trim()
+                                                .isNotEmpty
+                                            ? eveningEndTimeController.text
+                                                  .trim()
+                                            : endTimeController.text,
+                                        clinicName: clinicNameController.text,
+                                        clinicLocation:
+                                            clinicLocationController.text,
+                                        consultationFee: double.tryParse(
+                                          feeController.text.replaceAll(
+                                            RegExp(r'[^0-9.]'),
+                                            '',
+                                          ),
+                                        ),
+                                        areasOfExpertise:
+                                            expertiseController.text,
+                                      );
+                                      if (context.mounted) {
+                                        Navigator.pop(context);
+                                        _loadDoctors();
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'Profile updated successfully',
+                                            ),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Error: $e'),
+                                            backgroundColor: Colors.red,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    foregroundColor: Colors.white,
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: isMobile ? 16 : 32,
+                                      vertical: isMobile ? 14 : 16,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: const Text(
+                                    'Save Changes',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                )
+                              : null;
+
+                          if (isMobile && saveBtn != null) {
+                            return Row(
+                              children: [
+                                Expanded(child: cancelBtn),
+                                const SizedBox(width: 12),
+                                Expanded(child: saveBtn),
+                              ],
+                            );
+                          }
                           return Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              Expanded(child: cancelBtn),
-                              const SizedBox(width: 12),
-                              Expanded(child: saveBtn),
+                              cancelBtn,
+                              if (saveBtn != null) ...[
+                                const SizedBox(width: 16),
+                                saveBtn,
+                              ],
                             ],
                           );
-                        }
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            cancelBtn,
-                            if (saveBtn != null) ...[
-                              const SizedBox(width: 16),
-                              saveBtn,
-                            ],
-                          ],
-                        );
-                      },
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           );
@@ -1297,16 +1756,17 @@ class _DoctorsViewState extends State<DoctorsView> {
     );
   }
 
-  Widget _buildDialogResponsivePair(bool isMobile, Widget first, Widget? second) {
+  Widget _buildDialogResponsivePair(
+    bool isMobile,
+    Widget first,
+    Widget? second,
+  ) {
     if (isMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           first,
-          if (second != null) ...[
-            const SizedBox(height: 12),
-            second,
-          ],
+          if (second != null) ...[const SizedBox(height: 12), second],
         ],
       );
     }
@@ -1358,7 +1818,11 @@ class _DoctorsViewState extends State<DoctorsView> {
     );
   }
 
-  Widget _buildProfileSection({required String title, required IconData icon, required List<Widget> children}) {
+  Widget _buildProfileSection({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1400,7 +1864,17 @@ class _DoctorsViewState extends State<DoctorsView> {
     );
   }
 
-  Widget _buildModernField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true, TextCapitalization textCapitalization = TextCapitalization.none, List<TextInputFormatter>? inputFormatters, int? maxLength}) {
+  Widget _buildModernField(
+    String label,
+    TextEditingController controller, {
+    bool isNumeric = false,
+    int maxLines = 1,
+    String? hint,
+    bool enabled = true,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    List<TextInputFormatter>? inputFormatters,
+    int? maxLength,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Column(
@@ -1423,23 +1897,36 @@ class _DoctorsViewState extends State<DoctorsView> {
             maxLines: maxLines,
             maxLength: maxLength,
             inputFormatters: inputFormatters,
-            style: const TextStyle(color: AppTheme.textPrimaryColor, fontSize: 14),
+            style: const TextStyle(
+              color: AppTheme.textPrimaryColor,
+              fontSize: 14,
+            ),
             decoration: InputDecoration(
               hintText: hint,
               isDense: true,
               counterText: maxLength != null ? '' : null,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              contentPadding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 16,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.borderColor.withOpacity(0.8)),
+                borderSide: BorderSide(
+                  color: AppTheme.borderColor.withOpacity(0.8),
+                ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppTheme.borderColor.withOpacity(0.8)),
+                borderSide: BorderSide(
+                  color: AppTheme.borderColor.withOpacity(0.8),
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: AppTheme.primaryColor, width: 1.5),
+                borderSide: const BorderSide(
+                  color: AppTheme.primaryColor,
+                  width: 1.5,
+                ),
               ),
               filled: true,
               fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade100,
@@ -1462,7 +1949,8 @@ class _DoctorsViewState extends State<DoctorsView> {
         label: label,
         value: value?.toString(),
         dropdownMap: {
-          for (var item in items) item['id'].toString(): item['name'].toString()
+          for (var item in items)
+            item['id'].toString(): item['name'].toString(),
         },
         onChanged: onChanged == null
             ? null
@@ -1478,14 +1966,25 @@ class _DoctorsViewState extends State<DoctorsView> {
   }
 
   String _getNextAvailable(UserModel doctor) {
-    if (doctor.availableDays == null || doctor.availableDays!.isEmpty || doctor.slotStartTime == null || doctor.slotStartTime!.isEmpty) {
+    if (doctor.availableDays == null ||
+        doctor.availableDays!.isEmpty ||
+        doctor.slotStartTime == null ||
+        doctor.slotStartTime!.isEmpty) {
       return '-';
     }
 
     final now = DateTime.now();
     final List<String> availableDays = List<String>.from(doctor.availableDays!);
-    final List<String> weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    
+    final List<String> weekDays = [
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ];
+
     int duration = 30;
     if (doctor.slotDuration != null) {
       duration = int.tryParse(doctor.slotDuration!.split(' ')[0]) ?? 30;
@@ -1495,31 +1994,38 @@ class _DoctorsViewState extends State<DoctorsView> {
     for (int i = 0; i < 7; i++) {
       final checkDate = now.add(Duration(days: i));
       final dayName = weekDays[checkDate.weekday - 1];
-      
+
       if (!availableDays.contains(dayName)) continue;
-      if (doctor.weeklyOffDays != null && doctor.weeklyOffDays!.contains(dayName)) continue;
-      
+      if (doctor.weeklyOffDays != null &&
+          doctor.weeklyOffDays!.contains(dayName))
+        continue;
+
       final dateStr = DateFormat('dd/MM/yyyy').format(checkDate);
-      if (doctor.specificLeaveDates != null && doctor.specificLeaveDates!.contains(dateStr)) continue;
+      if (doctor.specificLeaveDates != null &&
+          doctor.specificLeaveDates!.contains(dateStr))
+        continue;
 
       try {
         DateTime start = _parseTimeOnDate(checkDate, doctor.slotStartTime!);
-        DateTime end = doctor.slotEndTime != null 
-            ? _parseTimeOnDate(checkDate, doctor.slotEndTime!) 
-            : start.add(const Duration(hours: 8)); // Fallback 8 hour window if no end time
-        
+        DateTime end = doctor.slotEndTime != null
+            ? _parseTimeOnDate(checkDate, doctor.slotEndTime!)
+            : start.add(
+                const Duration(hours: 8),
+              ); // Fallback 8 hour window if no end time
+
         DateTime currentSlot = start;
         while (currentSlot.isBefore(end)) {
           // 1. Check if slot is in the future
           if (currentSlot.isAfter(now)) {
             final timeStr = DateFormat('hh:mm a').format(currentSlot);
-            
+
             // 2. Check if this specific slot is already booked for this doctor
-            bool isBooked = _appointments.any((a) => 
-              a.doctorName == doctor.fullname && 
-              a.appointmentDate == dateStr && 
-              a.appointmentTime == timeStr &&
-              (a.status == 'Confirmed' || a.status == 'Arrived')
+            bool isBooked = _appointments.any(
+              (a) =>
+                  a.doctorName == doctor.fullname &&
+                  a.appointmentDate == dateStr &&
+                  a.appointmentTime == timeStr &&
+                  (a.status == 'Confirmed' || a.status == 'Arrived'),
             );
 
             if (!isBooked) {
@@ -1533,7 +2039,7 @@ class _DoctorsViewState extends State<DoctorsView> {
         continue;
       }
     }
-    
+
     return '-';
   }
 
@@ -1542,7 +2048,7 @@ class _DoctorsViewState extends State<DoctorsView> {
     final hms = timeParts[0].split(':');
     int hour = int.parse(hms[0]);
     int minute = hms.length > 1 ? int.parse(hms[1]) : 0;
-    
+
     if (timeParts.length > 1) {
       if (timeParts[1].toUpperCase() == 'PM' && hour < 12) hour += 12;
       if (timeParts[1].toUpperCase() == 'AM' && hour == 12) hour = 0;
@@ -1550,7 +2056,16 @@ class _DoctorsViewState extends State<DoctorsView> {
     return DateTime(date.year, date.month, date.day, hour, minute);
   }
 
-  Widget _buildDialogField(String label, TextEditingController controller, {bool isNumeric = false, int maxLines = 1, String? hint, bool enabled = true, List<TextInputFormatter>? inputFormatters, int? maxLength}) {
+  Widget _buildDialogField(
+    String label,
+    TextEditingController controller, {
+    bool isNumeric = false,
+    int maxLines = 1,
+    String? hint,
+    bool enabled = true,
+    List<TextInputFormatter>? inputFormatters,
+    int? maxLength,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Column(

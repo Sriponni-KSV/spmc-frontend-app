@@ -47,6 +47,15 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
     return apptMidnight.isAfter(todayMidnight);
   }
 
+  bool get _isDirty {
+    if (!_editingVitalsMode) return false;
+    return _systolicCtrl.text.trim() != (widget.appointment.bloodPressureSystolic?.toString() ?? '') ||
+        _diastolicCtrl.text.trim() != (widget.appointment.bloodPressureDiastolic?.toString() ?? '') ||
+        _sugarCtrl.text.trim() != (widget.appointment.sugarLevel?.toString() ?? '') ||
+        _tempCtrl.text.trim() != (widget.appointment.temperature?.toString() ?? '') ||
+        _complaintsCtrl.text.trim() != (widget.appointment.reasonForVisit ?? '');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -123,7 +132,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
       return;
     }
 
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.validateAndScroll()) return;
 
     setState(() => _isSaving = true);
     try {
@@ -171,24 +180,30 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
   Widget build(BuildContext context) {
     final bool isMobile = MediaQuery.of(context).size.width < 768;
 
-    return Dialog(
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 40,
-        vertical: 20,
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 24,
-      backgroundColor: Colors.white,
-      child: Container(
-        width: double.infinity,
-        constraints: BoxConstraints(
-          maxWidth: 640,
-          maxHeight: MediaQuery.of(context).size.height * 0.88,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
+        DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty);
+      },
+      child: Dialog(
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 40,
+          vertical: 20,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 24,
+        backgroundColor: Colors.white,
+        child: Container(
+          width: double.infinity,
+          constraints: BoxConstraints(
+            maxWidth: 640,
+            maxHeight: MediaQuery.of(context).size.height * 0.88,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Dialog Header
             _buildHeader(isMobile),
             const Divider(height: 1),
@@ -284,8 +299,9 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildHeader(bool isMobile) {
     return Padding(
@@ -329,7 +345,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
             ),
           ),
           IconButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty),
             icon: const Icon(Icons.close, size: 20, color: Color(0xFF94A3B8)),
             splashRadius: 20,
           ),
@@ -1387,7 +1403,7 @@ class _AppointmentDetailsDialogState extends State<AppointmentDetailsDialog> {
             const SizedBox(width: 12),
           ],
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),

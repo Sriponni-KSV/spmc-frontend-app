@@ -1555,49 +1555,117 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // Pagination Controls
             if (sortedPatients.isNotEmpty)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      context.showingEntries(start: startIndex + 1, end: endIndex, total: totalPatients),
-                      style: const TextStyle(
-                        color: AppTheme.textSecondaryColor,
-                        fontSize: 13,
-                      ),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final bool useStacked = isMobile || constraints.maxWidth < 520;
+                  return Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: useStacked ? 12 : 16,
+                      vertical: useStacked ? 8 : 10,
                     ),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left),
-                          onPressed: _consultationsCurrentPage > 0
-                              ? () => setState(() => _consultationsCurrentPage--)
-                              : null,
-                        ),
-                        Text(
-                          context.pageOfTotal(_consultationsCurrentPage + 1, totalPages),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: useStacked
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                context.showingEntries(start: startIndex + 1, end: endIndex, total: totalPatients),
+                                style: const TextStyle(
+                                  color: AppTheme.textSecondaryColor,
+                                  fontSize: 12,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_left),
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(),
+                                    splashRadius: 20,
+                                    onPressed: _consultationsCurrentPage > 0
+                                        ? () => setState(() => _consultationsCurrentPage--)
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    context.pageOfTotal(_consultationsCurrentPage + 1, totalPages),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_right),
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(),
+                                    splashRadius: 20,
+                                    onPressed: _consultationsCurrentPage < totalPages - 1
+                                        ? () => setState(() => _consultationsCurrentPage++)
+                                        : null,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  context.showingEntries(start: startIndex + 1, end: endIndex, total: totalPatients),
+                                  style: const TextStyle(
+                                    color: AppTheme.textSecondaryColor,
+                                    fontSize: 13,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_left),
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(),
+                                    splashRadius: 20,
+                                    onPressed: _consultationsCurrentPage > 0
+                                        ? () => setState(() => _consultationsCurrentPage--)
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    context.pageOfTotal(_consultationsCurrentPage + 1, totalPages),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_right),
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(),
+                                    splashRadius: 20,
+                                    onPressed: _consultationsCurrentPage < totalPages - 1
+                                        ? () => setState(() => _consultationsCurrentPage++)
+                                        : null,
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right),
-                          onPressed: _consultationsCurrentPage < totalPages - 1
-                              ? () => setState(() => _consultationsCurrentPage++)
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
           ],
         ],
@@ -2758,7 +2826,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user?.role == 'Doctor') {
       final isScheduleValid = _availableDays != null && _availableDays!.isNotEmpty;
-      final isFormValid = _profileFormKey.currentState?.validate() ?? false;
+      final isFormValid = _profileFormKey.validateAndScroll();
       
       if (!isFormValid || !isScheduleValid) {
         setState(() {
@@ -2767,33 +2835,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _scheduleError = 'Please select at least one available day';
           }
         });
-        
-        // Focus the first invalid field
-        if (_qualController.text.trim().isEmpty) {
-          _qualFocusNode.requestFocus();
-        } else if (_licenseController.text.trim().isEmpty) {
-          _licenseFocusNode.requestFocus();
-        } else if (_expController.text.trim().isEmpty) {
-          _expFocusNode.requestFocus();
-        } else if (_areasOfExpertiseController.text.trim().isEmpty) {
-          _areasOfExpertiseFocusNode.requestFocus();
-        } else if (_patientsController.text.trim().isEmpty) {
-          _patientsFocusNode.requestFocus();
-        } else if (_bioController.text.trim().isEmpty) {
-          _bioFocusNode.requestFocus();
-        } else if (_slotDurationController.text.trim().isEmpty || 
-                   _parseDuration(_slotDurationController.text) == null || 
-                   _parseDuration(_slotDurationController.text)! < 15 || 
-                   _parseDuration(_slotDurationController.text)! > 59) {
-          _slotDurationFocusNode.requestFocus();
-        } else if (_clinicNameController.text.trim().isEmpty) {
-          _clinicNameFocusNode.requestFocus();
-        } else if (_clinicLocationController.text.trim().isEmpty) {
-          _clinicLocationFocusNode.requestFocus();
-        } else if (_consultationFeeController.text.trim().isEmpty) {
-          _consultationFeeFocusNode.requestFocus();
-        }
-        
         return;
       }
     }
@@ -5758,40 +5799,106 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       if (totalPages > 1)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                context.showingEntries(start: startIndex + 1, end: endIndex, total: totalItems),
-                                style: const TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              Row(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final bool useStacked = constraints.maxWidth < 520;
+                              if (useStacked) {
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      context.showingEntries(start: startIndex + 1, end: endIndex, total: totalItems),
+                                      style: const TextStyle(
+                                        color: AppTheme.textSecondaryColor,
+                                        fontSize: 12,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.chevron_left),
+                                          padding: const EdgeInsets.all(4),
+                                          constraints: const BoxConstraints(),
+                                          splashRadius: 20,
+                                          onPressed: _appointmentsCurrentPage > 0
+                                              ? () => setState(() => _appointmentsCurrentPage--)
+                                              : null,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          context.pageOfTotal(_appointmentsCurrentPage + 1, totalPages),
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        IconButton(
+                                          icon: const Icon(Icons.chevron_right),
+                                          padding: const EdgeInsets.all(4),
+                                          constraints: const BoxConstraints(),
+                                          splashRadius: 20,
+                                          onPressed: _appointmentsCurrentPage < totalPages - 1
+                                              ? () => setState(() => _appointmentsCurrentPage++)
+                                              : null,
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              }
+                              return Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.chevron_left),
-                                    onPressed: _appointmentsCurrentPage > 0
-                                        ? () => setState(() => _appointmentsCurrentPage--)
-                                        : null,
-                                  ),
-                                  Text(
-                                    context.pageOfTotal(_appointmentsCurrentPage + 1, totalPages),
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
+                                  Flexible(
+                                    child: Text(
+                                      context.showingEntries(start: startIndex + 1, end: endIndex, total: totalItems),
+                                      style: const TextStyle(
+                                        color: AppTheme.textSecondaryColor,
+                                        fontSize: 13,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  IconButton(
-                                    icon: const Icon(Icons.chevron_right),
-                                    onPressed: _appointmentsCurrentPage < totalPages - 1
-                                        ? () => setState(() => _appointmentsCurrentPage++)
-                                        : null,
+                                  const SizedBox(width: 8),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.chevron_left),
+                                        padding: const EdgeInsets.all(4),
+                                        constraints: const BoxConstraints(),
+                                        splashRadius: 20,
+                                        onPressed: _appointmentsCurrentPage > 0
+                                            ? () => setState(() => _appointmentsCurrentPage--)
+                                            : null,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        context.pageOfTotal(_appointmentsCurrentPage + 1, totalPages),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.chevron_right),
+                                        padding: const EdgeInsets.all(4),
+                                        constraints: const BoxConstraints(),
+                                        splashRadius: 20,
+                                        onPressed: _appointmentsCurrentPage < totalPages - 1
+                                            ? () => setState(() => _appointmentsCurrentPage++)
+                                            : null,
+                                      ),
+                                    ],
                                   ),
                                 ],
-                              ),
-                            ],
+                              );
+                            },
                           ),
                         ),
                     ],

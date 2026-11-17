@@ -15,6 +15,7 @@ class AdminController {
     required String role,
     String? medicalLicense,
     int? specializationId,
+    int? departmentId,
     String? qualification,
     String? experience,
     int? patientsAttended,
@@ -44,7 +45,8 @@ class AdminController {
           "password": password,
           "role": role,
           "medical_license": medicalLicense,
-          "specialization_id": specializationId,
+          "specialization_id": specializationId ?? departmentId,
+          "department_id": departmentId ?? specializationId,
           "qualification": qualification,
           "experience": experience,
           "patients_attended": patientsAttended,
@@ -139,6 +141,7 @@ class AdminController {
     String? status,
     String? medicalLicense,
     int? specializationId,
+    int? departmentId,
     String? qualification,
     String? experience,
     int? patientsAttended,
@@ -168,7 +171,8 @@ class AdminController {
           'role': role,
           'status': status,
           'medical_license': medicalLicense,
-          'specialization_id': specializationId,
+          'specialization_id': specializationId ?? departmentId,
+          'department_id': departmentId ?? specializationId,
           'qualification': qualification,
           'experience': experience,
           'patients_attended': patientsAttended,
@@ -213,6 +217,22 @@ class AdminController {
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchDepartments({bool includeInactive = false}) async {
+    try {
+      final url = includeInactive ? '$baseUrl/departments?include_inactive=true' : '$baseUrl/departments';
+      final response = await ApiService.get(url);
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        return List<Map<String, dynamic>>.from(body['data'] ?? []);
+      } else {
+        return fetchSpecializations();
+      }
+    } catch (_) {
+      return fetchSpecializations();
     }
   }
 

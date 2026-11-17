@@ -49,6 +49,26 @@ class _AdminGlobalSearchOverlayState extends State<AdminGlobalSearchOverlay> {
 
   static const List<AdminModuleItem> _allModules = [
     AdminModuleItem(
+      title: 'Department Master',
+      category: 'Master Catalog',
+      route: AppRoutes.adminDepartments,
+      index: 17,
+      icon: Icons.apartment_rounded,
+      keywords: [
+        'department',
+        'departments',
+        'dept',
+        'master',
+        'catalog',
+        'specialization',
+        'units',
+        'cardiology',
+        'general medicine',
+        'opd departments',
+      ],
+      description: 'Manage centralized hospital clinical and operational departments',
+    ),
+    AdminModuleItem(
       title: 'IPD Beds Master Catalog',
       category: 'Master Catalog',
       route: AppRoutes.adminIpdBeds,

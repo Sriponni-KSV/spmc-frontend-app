@@ -311,10 +311,10 @@ class _ICUManagementViewState extends State<ICUManagementView> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         'ICU & Emergency',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        style: AppTheme.pageTitleStyle(context, isMobile: true),
                       ),
                     ),
                     IconButton(
@@ -327,7 +327,7 @@ class _ICUManagementViewState extends State<ICUManagementView> {
                 const SizedBox(height: 4),
                 Text(
                   'Real-time patient monitoring and alerts',
-                  style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                  style: AppTheme.pageSubtitleStyle(context, isMobile: true),
                 ),
               ],
             )
@@ -339,14 +339,14 @@ class _ICUManagementViewState extends State<ICUManagementView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'ICU & Emergency',
-                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                        style: AppTheme.pageTitleStyle(context, isMobile: false),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Real-time monitoring of critical patient alerts and workflow escalation levels',
-                        style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                        style: AppTheme.pageSubtitleStyle(context, isMobile: false),
                       ),
                     ],
                   ),

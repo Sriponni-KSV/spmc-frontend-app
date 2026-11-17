@@ -4,6 +4,7 @@ import '../utils/app_theme.dart';
 import '../controllers/admin_controller.dart';
 import '../providers/auth_provider.dart';
 import 'custom_dropdown_search.dart';
+import '../utils/discard_dialog_helper.dart';
 
 class RbacManagementWidget extends StatefulWidget {
   final bool isMobile;
@@ -317,15 +318,35 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          return AlertDialog(
-            title: const Text(
-              'Create New Role',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+          final isMobile =
+              widget.isMobile || MediaQuery.of(ctx).size.width < 560;
+          bool isDirty() {
+            return nameCtrl.text.trim().isNotEmpty ||
+                descCtrl.text.trim().isNotEmpty ||
+                selectedPermissions.isNotEmpty ||
+                selectedRoleName != null;
+          }
+
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+            },
+            child: AlertDialog(
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 16 : 40,
+                vertical: 24,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                'Create New Role',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width > 680
-                  ? 680
-                  : MediaQuery.of(context).size.width * 0.95,
+              width: isMobile ? double.maxFinite : 680,
               child: SingleChildScrollView(
                 child: Form(
                   key: formKey,
@@ -333,8 +354,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           const Text(
                             'Role Name',
@@ -392,7 +414,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                             if (value == null || value.trim().isEmpty) {
                               return 'Role name cannot be empty';
                             }
-                            if (existingRoleNames.contains(value.trim().toLowerCase())) {
+                            if (existingRoleNames.contains(
+                              value.trim().toLowerCase(),
+                            )) {
                               return 'A role with this name already exists';
                             }
                             return null;
@@ -445,7 +469,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
             ),
             actions: [
               OutlinedButton(
-                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                 style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
@@ -454,7 +478,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                 onPressed: isSaving
                     ? null
                     : () async {
-                        if (!formKey.currentState!.validate()) return;
+                        if (!formKey.validateAndScroll()) return;
                         final finalRoleName = isCustomRole
                             ? nameCtrl.text.trim()
                             : (selectedRoleName ?? nameCtrl.text.trim());
@@ -473,7 +497,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                             _loadRbacData();
                             messenger.showSnackBar(
                               SnackBar(
-                                content: Text("Role '$finalRoleName' created successfully!"),
+                                content: Text(
+                                  "Role '$finalRoleName' created successfully!",
+                                ),
                                 backgroundColor: Colors.green.shade600,
                               ),
                             );
@@ -503,10 +529,11 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                     : const Text('Save Role'),
               ),
             ],
-          );
-        },
-      ),
-    );
+          ),
+        );
+      },
+    ),
+  );
   }
 
   void _showEditRoleDialog(
@@ -525,20 +552,40 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
         .map<int>((rp) => int.parse(rp['permission_id'].toString()))
         .toList();
 
+    final initialPermissions = List<int>.from(selectedPermissions);
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          return AlertDialog(
-            title: Text(
-              "Edit '${role['role_name']}' Permissions",
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+          final isMobile =
+              widget.isMobile || MediaQuery.of(ctx).size.width < 540;
+          bool isDirty() {
+            if (selectedPermissions.length != initialPermissions.length) return true;
+            return !Set<int>.from(selectedPermissions).containsAll(initialPermissions);
+          }
+
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+            },
+            child: AlertDialog(
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 16 : 40,
+                vertical: 24,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                "Edit '${role['role_name']}' Permissions",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width > 680
-                  ? 680
-                  : MediaQuery.of(context).size.width * 0.95,
+              width: isMobile ? double.maxFinite : 680,
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -571,7 +618,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
             ),
             actions: [
               OutlinedButton(
-                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                 style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
@@ -581,7 +628,10 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                     ? null
                     : () async {
                         final messenger = ScaffoldMessenger.of(context);
-                        final auth = Provider.of<AuthProvider>(context, listen: false);
+                        final auth = Provider.of<AuthProvider>(
+                          context,
+                          listen: false,
+                        );
                         setDialogState(() => isSaving = true);
                         try {
                           await _adminController.updateRolePermissions(
@@ -627,10 +677,11 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                     : const Text('Save Changes'),
               ),
             ],
-          );
-        },
-      ),
-    );
+          ),
+        );
+      },
+    ),
+  );
   }
 
   void _showDeleteRoleDialog(
@@ -643,9 +694,20 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: widget.isMobile ? 16 : 40,
+            vertical: 24,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
-              const Icon(Icons.warning_amber_rounded, color: AppTheme.dangerColor, size: 24),
+              const Icon(
+                Icons.warning_amber_rounded,
+                color: AppTheme.dangerColor,
+                size: 24,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'Delete Role',
@@ -659,7 +721,10 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
             children: [
               Text(
                 "Are you sure you want to delete the role '${role['role_name']}'?",
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
               const SizedBox(height: 12),
               Container(
@@ -667,19 +732,29 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                 decoration: BoxDecoration(
                   color: AppTheme.dangerColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.dangerColor.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppTheme.dangerColor.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.lock_person_outlined, size: 20, color: AppTheme.dangerColor),
+                    const Icon(
+                      Icons.lock_person_outlined,
+                      size: 20,
+                      color: AppTheme.dangerColor,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         assignedCount > 0
                             ? "$assignedCount staff member(s) currently belong to this role. Deleting this role will immediately unassign their role, hide all functionalities, and display 'Access Denied' on their screens."
                             : "Deleting this role will immediately revoke this functionality and prevent any user from accessing it.",
-                        style: const TextStyle(fontSize: 12, color: AppTheme.dangerColor, height: 1.4),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.dangerColor,
+                          height: 1.4,
+                        ),
                       ),
                     ),
                   ],
@@ -698,7 +773,10 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                   ? null
                   : () async {
                       final messenger = ScaffoldMessenger.of(context);
-                      final auth = Provider.of<AuthProvider>(context, listen: false);
+                      final auth = Provider.of<AuthProvider>(
+                        context,
+                        listen: false,
+                      );
                       setDialogState(() => isDeleting = true);
                       try {
                         await _adminController.deleteRole(role['id']);
@@ -708,7 +786,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                           auth.refreshPermissions();
                           messenger.showSnackBar(
                             SnackBar(
-                              content: Text("Role '${role['role_name']}' deleted. Assigned users now see 'Access Denied'."),
+                              content: Text(
+                                "Role '${role['role_name']}' deleted. Assigned users now see 'Access Denied'.",
+                              ),
                               backgroundColor: Colors.green.shade600,
                             ),
                           );
@@ -749,23 +829,44 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
     Map<String, dynamic> user,
     List<dynamic> roles,
   ) {
-    int? selectedRoleId = user['role_id'] != null ? int.tryParse(user['role_id'].toString()) : null;
+    int? selectedRoleId = user['role_id'] != null
+        ? int.tryParse(user['role_id'].toString())
+        : null;
     bool isSaving = false;
+
+    final initialRoleId = selectedRoleId;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          return AlertDialog(
-            title: Text(
-              "Assign Role for ${user['fullname'] ?? user['email']}",
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
+          final isMobile =
+              widget.isMobile || MediaQuery.of(ctx).size.width < 500;
+          bool isDirty() {
+            return selectedRoleId != initialRoleId;
+          }
+
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+            },
+            child: AlertDialog(
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 16 : 40,
+                vertical: 24,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                "Assign Role for ${user['fullname'] ?? user['email']}",
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
             content: SizedBox(
-              width: MediaQuery.of(context).size.width > 450
-                  ? 450
-                  : MediaQuery.of(context).size.width * 0.9,
+              width: isMobile ? double.maxFinite : 440,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -776,23 +877,38 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                   ),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<int?>(
+                    isExpanded: true,
                     initialValue: selectedRoleId,
                     decoration: InputDecoration(
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                     ),
                     items: [
                       const DropdownMenuItem<int?>(
                         value: null,
                         child: Text(
                           'No Role Assigned (Access Denied)',
-                          style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      ...roles.map((r) => DropdownMenuItem<int?>(
-                            value: int.parse(r['id'].toString()),
-                            child: Text(r['role_name'].toString()),
-                          )),
+                      ...roles.map(
+                        (r) => DropdownMenuItem<int?>(
+                          value: int.parse(r['id'].toString()),
+                          child: Text(
+                            r['role_name'].toString(),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
                     ],
                     onChanged: (val) {
                       setDialogState(() {
@@ -810,12 +926,19 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.info_outline, size: 16, color: AppTheme.dangerColor),
+                          Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: AppTheme.dangerColor,
+                          ),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Unassigning role will immediately block user access and show "Access Denied".',
-                              style: TextStyle(fontSize: 11, color: AppTheme.dangerColor),
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppTheme.dangerColor,
+                              ),
                             ),
                           ),
                         ],
@@ -826,7 +949,7 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
             ),
             actions: [
               OutlinedButton(
-                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                 style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
@@ -836,17 +959,25 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                     ? null
                     : () async {
                         final messenger = ScaffoldMessenger.of(context);
-                        final auth = Provider.of<AuthProvider>(context, listen: false);
+                        final auth = Provider.of<AuthProvider>(
+                          context,
+                          listen: false,
+                        );
                         setDialogState(() => isSaving = true);
                         try {
-                          await _adminController.updateUserRole(user['id'], selectedRoleId);
+                          await _adminController.updateUserRole(
+                            user['id'],
+                            selectedRoleId,
+                          );
                           if (mounted && ctx.mounted) {
                             Navigator.pop(ctx);
                             _loadRbacData();
                             auth.refreshPermissions();
                             messenger.showSnackBar(
                               const SnackBar(
-                                content: Text('User role updated successfully!'),
+                                content: Text(
+                                  'User role updated successfully!',
+                                ),
                                 backgroundColor: Colors.green,
                               ),
                             );
@@ -868,15 +999,19 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                     ? const SizedBox(
                         width: 18,
                         height: 18,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
                       )
                     : const Text('Update Role'),
               ),
             ],
-          );
-        },
-      ),
-    );
+          ),
+        );
+      },
+    ),
+  );
   }
 
   @override
@@ -898,7 +1033,11 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.error_outline, color: AppTheme.dangerColor, size: 48),
+                  const Icon(
+                    Icons.error_outline,
+                    color: AppTheme.dangerColor,
+                    size: 48,
+                  ),
                   const SizedBox(height: 12),
                   Text("Error loading RBAC data: ${snapshot.error}"),
                   const SizedBox(height: 16),
@@ -931,7 +1070,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
           int indexA = orderedRoles.indexOf(a['role_name']);
           int indexB = orderedRoles.indexOf(b['role_name']);
           if (indexA == -1 && indexB == -1) {
-            return a['role_name'].toString().compareTo(b['role_name'].toString());
+            return a['role_name'].toString().compareTo(
+              b['role_name'].toString(),
+            );
           }
           if (indexA == -1) return 1;
           if (indexB == -1) return -1;
@@ -939,7 +1080,8 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
         });
 
         final permissions = (data['permissions'] as List<dynamic>?) ?? [];
-        final rolePermissions = (data['rolePermissions'] as List<dynamic>?) ?? [];
+        final rolePermissions =
+            (data['rolePermissions'] as List<dynamic>?) ?? [];
         final rawUsers = (data['users'] as List<dynamic>?) ?? [];
 
         return Column(
@@ -962,17 +1104,17 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                       children: [
                         Text(
                           'Access Control (RBAC)',
-                          style: TextStyle(
-                            fontSize: widget.isMobile ? 22 : 28,
-                            fontWeight: FontWeight.bold,
+                          style: AppTheme.pageTitleStyle(
+                            context,
+                            isMobile: widget.isMobile,
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Manage live roles, view staff functional access, and assign permissions',
-                          style: TextStyle(
-                            color: AppTheme.textSecondaryColor,
-                            fontSize: 13,
+                          style: AppTheme.pageSubtitleStyle(
+                            context,
+                            isMobile: widget.isMobile,
                           ),
                         ),
                       ],
@@ -991,7 +1133,14 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                           fontSize: 13,
                         ),
                       ),
-                      style: AppTheme.dangerButton,
+                      style: AppTheme.dangerButton.copyWith(
+                        padding: WidgetStateProperty.all(
+                          EdgeInsets.symmetric(
+                            horizontal: widget.isMobile ? 12 : 16,
+                            vertical: widget.isMobile ? 8 : 12,
+                          ),
+                        ),
+                      ),
                     ),
                   ],
                 ],
@@ -1014,30 +1163,48 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                   Expanded(
                     child: InkWell(
                       onTap: () => setState(() => _activeTab = 0),
-                      borderRadius: const BorderRadius.horizontal(left: Radius.circular(10)),
+                      borderRadius: const BorderRadius.horizontal(
+                        left: Radius.circular(10),
+                      ),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: widget.isMobile ? 8 : 12,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: _activeTab == 0
                               ? AppTheme.primaryColor
                               : Colors.transparent,
-                          borderRadius: const BorderRadius.horizontal(left: Radius.circular(9)),
+                          borderRadius: const BorderRadius.horizontal(
+                            left: Radius.circular(9),
+                          ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.security_outlined,
-                              size: 18,
-                              color: _activeTab == 0 ? Colors.white : AppTheme.textSecondaryColor,
+                              size: widget.isMobile ? 16 : 18,
+                              color: _activeTab == 0
+                                  ? Colors.white
+                                  : AppTheme.textSecondaryColor,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              "Roles & Permissions (${roles.length})",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: _activeTab == 0 ? Colors.white : AppTheme.textSecondaryColor,
+                            SizedBox(width: widget.isMobile ? 6 : 8),
+                            Flexible(
+                              child: Text(
+                                widget.isMobile
+                                    ? "Roles (${roles.length})"
+                                    : "Roles & Permissions (${roles.length})",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: widget.isMobile ? 12 : 13,
+                                  color: _activeTab == 0
+                                      ? Colors.white
+                                      : AppTheme.textSecondaryColor,
+                                ),
                               ),
                             ),
                           ],
@@ -1048,30 +1215,48 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                   Expanded(
                     child: InkWell(
                       onTap: () => setState(() => _activeTab = 1),
-                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(10)),
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(10),
+                      ),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: widget.isMobile ? 8 : 12,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           color: _activeTab == 1
                               ? AppTheme.primaryColor
                               : Colors.transparent,
-                          borderRadius: const BorderRadius.horizontal(right: Radius.circular(9)),
+                          borderRadius: const BorderRadius.horizontal(
+                            right: Radius.circular(9),
+                          ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               Icons.people_alt_outlined,
-                              size: 18,
-                              color: _activeTab == 1 ? Colors.white : AppTheme.textSecondaryColor,
+                              size: widget.isMobile ? 16 : 18,
+                              color: _activeTab == 1
+                                  ? Colors.white
+                                  : AppTheme.textSecondaryColor,
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              "User Access Directory (${rawUsers.length})",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: _activeTab == 1 ? Colors.white : AppTheme.textSecondaryColor,
+                            SizedBox(width: widget.isMobile ? 6 : 8),
+                            Flexible(
+                              child: Text(
+                                widget.isMobile
+                                    ? "Users (${rawUsers.length})"
+                                    : "User Access Directory (${rawUsers.length})",
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: widget.isMobile ? 12 : 13,
+                                  color: _activeTab == 1
+                                      ? Colors.white
+                                      : AppTheme.textSecondaryColor,
+                                ),
                               ),
                             ),
                           ],
@@ -1087,8 +1272,20 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
             // Tab Content
             Expanded(
               child: _activeTab == 0
-                  ? _buildRolesList(roles, permissions, rolePermissions, rawUsers, isSuperAdmin)
-                  : _buildUserAccessDirectory(rawUsers, roles, permissions, rolePermissions, isSuperAdmin),
+                  ? _buildRolesList(
+                      roles,
+                      permissions,
+                      rolePermissions,
+                      rawUsers,
+                      isSuperAdmin,
+                    )
+                  : _buildUserAccessDirectory(
+                      rawUsers,
+                      roles,
+                      permissions,
+                      rolePermissions,
+                      isSuperAdmin,
+                    ),
             ),
           ],
         );
@@ -1256,16 +1453,28 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                 // Assigned Staff snippet
                 Row(
                   children: [
-                    const Icon(Icons.people_outline, size: 14, color: AppTheme.textSecondaryColor),
+                    const Icon(
+                      Icons.people_outline,
+                      size: 14,
+                      color: AppTheme.textSecondaryColor,
+                    ),
                     const SizedBox(width: 4),
-                    Text(
-                      assignedUsers.isEmpty
-                          ? 'No staff assigned'
-                          : 'Assigned Staff (${assignedUsers.length}): ${assignedUsers.map((u) => u['fullname'] ?? u['email']).take(4).join(', ')}${assignedUsers.length > 4 ? ' +${assignedUsers.length - 4} more' : ''}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: assignedUsers.isEmpty ? Colors.grey : AppTheme.primaryColor,
-                        fontWeight: assignedUsers.isEmpty ? FontWeight.normal : FontWeight.w500,
+                    Expanded(
+                      child: Text(
+                        assignedUsers.isEmpty
+                            ? 'No staff assigned'
+                            : 'Assigned Staff (${assignedUsers.length}): ${assignedUsers.map((u) => u['fullname'] ?? u['email']).take(4).join(', ')}${assignedUsers.length > 4 ? ' +${assignedUsers.length - 4} more' : ''}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: assignedUsers.isEmpty
+                              ? Colors.grey
+                              : AppTheme.primaryColor,
+                          fontWeight: assignedUsers.isEmpty
+                              ? FontWeight.normal
+                              : FontWeight.w500,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -1458,7 +1667,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
       final name = (u['fullname'] ?? '').toString().toLowerCase();
       final email = (u['email'] ?? '').toString().toLowerCase();
       final role = (u['role'] ?? '').toString().toLowerCase();
-      return name.contains(query) || email.contains(query) || role.contains(query);
+      return name.contains(query) ||
+          email.contains(query) ||
+          role.contains(query);
     }).toList();
 
     return Column(
@@ -1484,8 +1695,13 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                       },
                     )
                   : null,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               filled: true,
               fillColor: Colors.white,
             ),
@@ -1503,7 +1719,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.borderColor.withValues(alpha: 0.5)),
+              border: Border.all(
+                color: AppTheme.borderColor.withValues(alpha: 0.5),
+              ),
             ),
             child: filteredUsers.isEmpty
                 ? const Center(
@@ -1528,9 +1746,9 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                       // Calculate effective permissions for this user
                       final userPermIds = hasRole
                           ? rolePermissions
-                              .where((rp) => rp['role_id'] == roleId)
-                              .map((rp) => rp['permission_id'])
-                              .toList()
+                                .where((rp) => rp['role_id'] == roleId)
+                                .map((rp) => rp['permission_id'])
+                                .toList()
                           : [];
                       final userPerms = permissions
                           .where((p) => userPermIds.contains(p['id']))
@@ -1541,85 +1759,196 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        u['fullname'] ?? u['email'] ?? 'Staff User',
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                          color: AppTheme.textPrimaryColor,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        u['email'] ?? '',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: AppTheme.textSecondaryColor,
-                                        ),
-                                      ),
-                                    ],
+                            if (widget.isMobile)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    u['fullname'] ?? u['email'] ?? 'Staff User',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: AppTheme.textPrimaryColor,
+                                    ),
                                   ),
-                                ),
-                                Row(
-                                  children: [
-                                    // Role Badge
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: hasRole
-                                            ? AppTheme.primaryColor.withValues(alpha: 0.1)
-                                            : AppTheme.dangerColor.withValues(alpha: 0.12),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: hasRole
-                                              ? AppTheme.primaryColor.withValues(alpha: 0.3)
-                                              : AppTheme.dangerColor.withValues(alpha: 0.4),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    u['email'] ?? '',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.textSecondaryColor,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    children: [
+                                      // Role Badge
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
                                         ),
-                                      ),
-                                      child: Text(
-                                        hasRole ? roleName : 'No Role (Access Denied)',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
+                                        decoration: BoxDecoration(
                                           color: hasRole
                                               ? AppTheme.primaryColor
-                                              : AppTheme.dangerColor,
-                                        ),
-                                      ),
-                                    ),
-                                    if (isSuperAdmin) ...[
-                                      const SizedBox(width: 8),
-                                      OutlinedButton.icon(
-                                        onPressed: () => _showChangeUserRoleDialog(
-                                          context,
-                                          u,
-                                          roles,
-                                        ),
-                                        icon: const Icon(Icons.manage_accounts_outlined, size: 16),
-                                        label: const Text('Change Role'),
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 8,
+                                                    .withValues(alpha: 0.1)
+                                              : AppTheme.dangerColor.withValues(
+                                                  alpha: 0.12,
+                                                ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
-                                          textStyle: const TextStyle(fontSize: 11),
+                                          border: Border.all(
+                                            color: hasRole
+                                                ? AppTheme.primaryColor
+                                                      .withValues(alpha: 0.3)
+                                                : AppTheme.dangerColor
+                                                      .withValues(alpha: 0.4),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          hasRole
+                                              ? roleName
+                                              : 'No Role (Access Denied)',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: hasRole
+                                                ? AppTheme.primaryColor
+                                                : AppTheme.dangerColor,
+                                          ),
                                         ),
                                       ),
+                                      if (isSuperAdmin)
+                                        OutlinedButton.icon(
+                                          onPressed: () =>
+                                              _showChangeUserRoleDialog(
+                                                context,
+                                                u,
+                                                roles,
+                                              ),
+                                          icon: const Icon(
+                                            Icons.manage_accounts_outlined,
+                                            size: 16,
+                                          ),
+                                          label: const Text('Change Role'),
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ),
                                     ],
-                                  ],
-                                ),
-                              ],
-                            ),
+                                  ),
+                                ],
+                              )
+                            else
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          u['fullname'] ??
+                                              u['email'] ??
+                                              'Staff User',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                            color: AppTheme.textPrimaryColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          u['email'] ?? '',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.textSecondaryColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Row(
+                                    children: [
+                                      // Role Badge
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: hasRole
+                                              ? AppTheme.primaryColor
+                                                    .withValues(alpha: 0.1)
+                                              : AppTheme.dangerColor.withValues(
+                                                  alpha: 0.12,
+                                                ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: hasRole
+                                                ? AppTheme.primaryColor
+                                                      .withValues(alpha: 0.3)
+                                                : AppTheme.dangerColor
+                                                      .withValues(alpha: 0.4),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          hasRole
+                                              ? roleName
+                                              : 'No Role (Access Denied)',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: hasRole
+                                                ? AppTheme.primaryColor
+                                                : AppTheme.dangerColor,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isSuperAdmin) ...[
+                                        const SizedBox(width: 8),
+                                        OutlinedButton.icon(
+                                          onPressed: () =>
+                                              _showChangeUserRoleDialog(
+                                                context,
+                                                u,
+                                                roles,
+                                              ),
+                                          icon: const Icon(
+                                            Icons.manage_accounts_outlined,
+                                            size: 16,
+                                          ),
+                                          label: const Text('Change Role'),
+                                          style: OutlinedButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
                             const SizedBox(height: 10),
 
                             // Effective Live Functional Access
@@ -1645,52 +1974,58 @@ class _RbacManagementWidgetState extends State<RbacManagementWidget> {
                                               color: AppTheme.dangerColor,
                                             ),
                                             SizedBox(width: 4),
-                                            Text(
-                                              'Access Denied — User has no functional role and cannot perform actions',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: AppTheme.dangerColor,
-                                                fontWeight: FontWeight.w600,
+                                            Expanded(
+                                              child: Text(
+                                                'Access Denied — User has no functional role and cannot perform actions',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppTheme.dangerColor,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                               ),
                                             ),
                                           ],
                                         )
                                       : userPerms.isEmpty
-                                          ? const Text(
-                                              'No permissions assigned to this role (Access Denied for restricted operations)',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: Colors.orange,
-                                                fontStyle: FontStyle.italic,
-                                              ),
-                                            )
-                                          : Wrap(
-                                              spacing: 6,
-                                              runSpacing: 4,
-                                              children: userPerms.map<Widget>((p) {
-                                                return Container(
-                                                  padding: const EdgeInsets.symmetric(
+                                      ? const Text(
+                                          'No permissions assigned to this role (Access Denied for restricted operations)',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.orange,
+                                            fontStyle: FontStyle.italic,
+                                          ),
+                                        )
+                                      : Wrap(
+                                          spacing: 6,
+                                          runSpacing: 4,
+                                          children: userPerms.map<Widget>((p) {
+                                            return Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
                                                     horizontal: 7,
                                                     vertical: 3,
                                                   ),
-                                                  decoration: BoxDecoration(
-                                                    color: AppTheme.backgroundColor,
-                                                    borderRadius: BorderRadius.circular(8),
-                                                    border: Border.all(
-                                                      color: AppTheme.borderColor,
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    p['display_name'] ?? p['permission_name'],
-                                                    style: const TextStyle(
-                                                      fontSize: 10,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: AppTheme.textPrimaryColor,
-                                                    ),
-                                                  ),
-                                                );
-                                              }).toList(),
-                                            ),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.backgroundColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                border: Border.all(
+                                                  color: AppTheme.borderColor,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                p['display_name'] ??
+                                                    p['permission_name'],
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                  color:
+                                                      AppTheme.textPrimaryColor,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                        ),
                                 ),
                               ],
                             ),

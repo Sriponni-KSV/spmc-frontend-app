@@ -2210,12 +2210,27 @@ class _PatientsViewState extends State<PatientsView> {
       }
     }
 
+    bool isFormDirty() {
+      return nameCtrl.text.trim().isNotEmpty ||
+          dobCtrl.text.trim().isNotEmpty ||
+          phoneCtrl.text.trim().isNotEmpty ||
+          emailCtrl.text.trim().isNotEmpty ||
+          reasonCtrl.text.trim().isNotEmpty ||
+          selectedGender != null;
+    }
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            return Dialog(
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (bool didPop, dynamic result) async {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isFormDirty());
+              },
+              child: Dialog(
               backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -2271,7 +2286,7 @@ class _PatientsViewState extends State<PatientsView> {
                                 ],
                               ),
                               InkWell(
-                                onTap: () => Navigator.pop(context),
+                                onTap: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isFormDirty()),
                                 child: const Icon(
                                   Icons.close,
                                   size: 20,
@@ -2674,7 +2689,7 @@ class _PatientsViewState extends State<PatientsView> {
                                     child: SizedBox(
                                       height: 48,
                                       child: OutlinedButton(
-                                        onPressed: () => Navigator.pop(context),
+                                        onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isFormDirty()),
                                         style: AppTheme.cancelButton.copyWith(
                                           minimumSize:
                                               MaterialStateProperty.all(
@@ -2693,9 +2708,8 @@ class _PatientsViewState extends State<PatientsView> {
                                         onPressed: isSaving
                                             ? null
                                             : () async {
-                                                // Validate form fields
-                                                if (!_formKey.currentState!
-                                                    .validate()) {
+                                                // Validate form fields and scroll to first error
+                                                if (!_formKey.validateAndScroll()) {
                                                   return;
                                                 }
 
@@ -2962,7 +2976,8 @@ class _PatientsViewState extends State<PatientsView> {
                   ),
                 ),
               ),
-            );
+            ),
+          );
           },
         );
       },
@@ -3448,21 +3463,14 @@ class _PatientDetailViewState extends State<PatientDetailView>
                       children: [
                         Text(
                           context.tr('patient_insights', fallback: 'Patient Insights'),
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimaryColor,
-                          ),
+                          style: AppTheme.pageTitleStyle(context, isMobile: true),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           isTamil
                               ? '${context.tr('interview_for', fallback: 'நேர்காணல்:')} ${p.name}'
                               : '${context.tr('interview_for', fallback: 'Interview for')} ${p.name}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: AppTheme.textSecondaryColor,
-                          ),
+                          style: AppTheme.pageSubtitleStyle(context, isMobile: true),
                         ),
                         const SizedBox(height: 12),
                         SizedBox(
@@ -3527,20 +3535,14 @@ class _PatientDetailViewState extends State<PatientDetailView>
                             children: [
                               Text(
                                 context.tr('patient_insights', fallback: 'Patient Insights'),
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimaryColor,
-                                ),
+                                style: AppTheme.pageTitleStyle(context, isMobile: isMobile),
                               ),
+                              const SizedBox(height: 4),
                               Text(
                                 isTamil
                                     ? '${context.tr('interview_for', fallback: 'நேர்காணல்:')} ${p.name}'
                                     : '${context.tr('interview_for', fallback: 'Interview for')} ${p.name}',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
+                                style: AppTheme.pageSubtitleStyle(context, isMobile: isMobile),
                               ),
                             ],
                           ),
@@ -6253,7 +6255,7 @@ class PatientInsightsFormState extends State<PatientInsightsForm> {
     final bool isTamil =
         Provider.of<LanguageProvider>(context, listen: false).isTamil;
 
-    if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
+    if (_formKey.currentState != null && !_formKey.validateAndScroll()) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

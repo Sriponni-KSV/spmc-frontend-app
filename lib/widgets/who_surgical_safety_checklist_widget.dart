@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../utils/app_notification.dart';
+import '../utils/discard_dialog_helper.dart';
 import '../screens/ot_management.dart';
 import '../controllers/ot_controller.dart';
 
@@ -22,10 +24,12 @@ class WhoSurgicalSafetyChecklistWidget extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<WhoSurgicalSafetyChecklistWidget> createState() => _WhoSurgicalSafetyChecklistWidgetState();
+  State<WhoSurgicalSafetyChecklistWidget> createState() =>
+      _WhoSurgicalSafetyChecklistWidgetState();
 }
 
-class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChecklistWidget>
+class _WhoSurgicalSafetyChecklistWidgetState
+    extends State<WhoSurgicalSafetyChecklistWidget>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final OtController _otController = OtController();
@@ -33,12 +37,18 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
 
   // Local checklist copy
   late Map<String, dynamic> _checklist;
+  String _initialChecklistJson = '';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _checklist = Map<String, dynamic>.from(widget.otCase.whoChecklist);
+    _initialChecklistJson = jsonEncode(_checklist);
+  }
+
+  bool _isDirty() {
+    return jsonEncode(_checklist) != _initialChecklistJson;
   }
 
   @override
@@ -75,6 +85,7 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
 
       setState(() {
         _checklist = Map<String, dynamic>.from(updatedCase.whoChecklist);
+        _initialChecklistJson = jsonEncode(_checklist);
         widget.otCase.whoChecklist = updatedCase.whoChecklist;
         widget.otCase.auditLogs = updatedCase.auditLogs;
       });
@@ -120,7 +131,10 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 12 : 20, vertical: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.isMobile ? 12 : 20,
+        vertical: 12,
+      ),
       decoration: BoxDecoration(
         color: AppTheme.primaryColor.withOpacity(0.04),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -134,7 +148,11 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
               color: AppTheme.primaryColor.withOpacity(0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.fact_check_outlined, color: AppTheme.primaryColor, size: 20),
+            child: const Icon(
+              Icons.fact_check_outlined,
+              color: AppTheme.primaryColor,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -170,7 +188,10 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
             const SizedBox(width: 4),
             IconButton(
               icon: const Icon(Icons.close, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(
+                context,
+                isDirty: _isDirty(),
+              ),
               visualDensity: VisualDensity.compact,
               tooltip: 'Close Checklist',
             ),
@@ -192,9 +213,17 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         indicatorWeight: 3,
         labelColor: AppTheme.primaryColor,
         unselectedLabelColor: const Color(0xFF64748B),
-        labelStyle: TextStyle(fontSize: widget.isMobile ? 11 : 12, fontWeight: FontWeight.bold),
-        unselectedLabelStyle: TextStyle(fontSize: widget.isMobile ? 11 : 12, fontWeight: FontWeight.w500),
-        labelPadding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 4 : 16),
+        labelStyle: TextStyle(
+          fontSize: widget.isMobile ? 11 : 12,
+          fontWeight: FontWeight.bold,
+        ),
+        unselectedLabelStyle: TextStyle(
+          fontSize: widget.isMobile ? 11 : 12,
+          fontWeight: FontWeight.w500,
+        ),
+        labelPadding: EdgeInsets.symmetric(
+          horizontal: widget.isMobile ? 4 : 16,
+        ),
         tabs: [
           Tab(
             child: Row(
@@ -203,7 +232,9 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
               children: [
                 _buildStageIcon('sign_in'),
                 const SizedBox(width: 4),
-                const Flexible(child: Text('1. Sign-In', overflow: TextOverflow.ellipsis)),
+                const Flexible(
+                  child: Text('1. Sign-In', overflow: TextOverflow.ellipsis),
+                ),
               ],
             ),
           ),
@@ -214,7 +245,9 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
               children: [
                 _buildStageIcon('time_out'),
                 const SizedBox(width: 4),
-                const Flexible(child: Text('2. Time-Out', overflow: TextOverflow.ellipsis)),
+                const Flexible(
+                  child: Text('2. Time-Out', overflow: TextOverflow.ellipsis),
+                ),
               ],
             ),
           ),
@@ -225,7 +258,9 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
               children: [
                 _buildStageIcon('sign_out'),
                 const SizedBox(width: 4),
-                const Flexible(child: Text('3. Sign-Out', overflow: TextOverflow.ellipsis)),
+                const Flexible(
+                  child: Text('3. Sign-Out', overflow: TextOverflow.ellipsis),
+                ),
               ],
             ),
           ),
@@ -237,29 +272,39 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
   @override
   Widget build(BuildContext context) {
     if (widget.isPopup) {
-      return Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.borderColor),
-          boxShadow: AppTheme.cardShadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildHeader(context),
-            _buildTabs(),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildSignInStage(isNested: true),
-                  _buildTimeOutStage(isNested: true),
-                  _buildSignOutStage(isNested: true),
-                ],
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          DiscardDialogHelper.handleCancelOrDismiss(
+            context,
+            isDirty: _isDirty(),
+          );
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.borderColor),
+            boxShadow: AppTheme.cardShadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildHeader(context),
+              _buildTabs(),
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildSignInStage(isNested: true),
+                    _buildTimeOutStage(isNested: true),
+                    _buildSignOutStage(isNested: true),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
@@ -349,7 +394,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
       children: [
         _buildStageBanner(
           title: 'Stage 1: Sign-In',
-          subtitle: 'Before induction of anaesthesia • Conducted by Anaesthetist & Nurse',
+          subtitle:
+              'Before induction of anaesthesia • Conducted by Anaesthetist & Nurse',
           isComplete: isDone,
           completedBy: data['completed_by'],
           completedAt: data['completed_at'],
@@ -358,7 +404,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
 
         _buildCheckItem(
           title: 'Patient identity, site, procedure and consent confirmed',
-          subtitle: 'Patient verbally confirms name, DOB, procedure, and consent form is signed',
+          subtitle:
+              'Patient verbally confirms name, DOB, procedure, and consent form is signed',
           value: data['patient_confirmed'] ?? false,
           onChanged: (val) => setState(() {
             data['patient_confirmed'] = val;
@@ -367,7 +414,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         ),
         _buildCheckItem(
           title: 'Surgical site marked / Not applicable',
-          subtitle: 'Incision site is physically marked with indelible ink by surgical team',
+          subtitle:
+              'Incision site is physically marked with indelible ink by surgical team',
           value: data['site_marked'] ?? false,
           onChanged: (val) => setState(() {
             data['site_marked'] = val;
@@ -376,7 +424,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         ),
         _buildCheckItem(
           title: 'Anaesthesia machine & medication check complete',
-          subtitle: 'Vaporizers, suction, ventilator, alarms, drugs, and emergency tray inspected',
+          subtitle:
+              'Vaporizers, suction, ventilator, alarms, drugs, and emergency tray inspected',
           value: data['anaesthesia_check_complete'] ?? false,
           onChanged: (val) => setState(() {
             data['anaesthesia_check_complete'] = val;
@@ -394,7 +443,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         ),
         _buildCheckItem(
           title: 'Does the patient have a known allergy?',
-          subtitle: 'Check latex, antibiotics, iodinated contrast, and general anaesthetic agents',
+          subtitle:
+              'Check latex, antibiotics, iodinated contrast, and general anaesthetic agents',
           value: data['allergy_checked'] ?? false,
           onChanged: (val) => setState(() {
             data['allergy_checked'] = val;
@@ -403,7 +453,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         ),
         _buildCheckItem(
           title: 'Difficult airway / Aspiration risk assessed?',
-          subtitle: 'Equipment & video laryngoscope / fibreoptic bronchoscope assistance ready if required',
+          subtitle:
+              'Equipment & video laryngoscope / fibreoptic bronchoscope assistance ready if required',
           value: data['airway_risk_assessed'] ?? false,
           onChanged: (val) => setState(() {
             data['airway_risk_assessed'] = val;
@@ -412,7 +463,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         ),
         _buildCheckItem(
           title: 'Risk of >500ml blood loss (7ml/kg in children)?',
-          subtitle: 'Two large-bore IV lines/central access and matched blood products cross-matched and available',
+          subtitle:
+              'Two large-bore IV lines/central access and matched blood products cross-matched and available',
           value: data['blood_loss_risk_prepared'] ?? false,
           onChanged: (val) => setState(() {
             data['blood_loss_risk_prepared'] = val;
@@ -424,7 +476,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         _buildSaveStageButton(
           stageKey: 'sign_in',
           currentData: data,
-          allRequiredChecked: (data['patient_confirmed'] == true) &&
+          allRequiredChecked:
+              (data['patient_confirmed'] == true) &&
               (data['site_marked'] == true) &&
               (data['anaesthesia_check_complete'] == true) &&
               (data['pulse_oximeter_functioning'] == true) &&
@@ -460,7 +513,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
       children: [
         _buildStageBanner(
           title: 'Stage 2: Time-Out',
-          subtitle: 'Before skin incision • Complete team verbal pause led by Lead Surgeon',
+          subtitle:
+              'Before skin incision • Complete team verbal pause led by Lead Surgeon',
           isComplete: isDone,
           completedBy: data['completed_by'],
           completedAt: data['completed_at'],
@@ -469,7 +523,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
 
         _buildCheckItem(
           title: 'Team introduction by name and role',
-          subtitle: 'Lead Surgeon (${widget.otCase.leadSurgeon ?? widget.otCase.surgeon ?? "Dr."}), Assistant, Anaesthetist (${widget.otCase.anaesthetist ?? "Dr."}), Scrub & Circulating Nurses',
+          subtitle:
+              'Lead Surgeon (${widget.otCase.leadSurgeon ?? widget.otCase.surgeon ?? "Dr."}), Assistant, Anaesthetist (${widget.otCase.anaesthetist ?? "Dr."}), Scrub & Circulating Nurses',
           value: data['team_introduced'] ?? false,
           onChanged: (val) => setState(() {
             data['team_introduced'] = val;
@@ -477,8 +532,10 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
           }),
         ),
         _buildCheckItem(
-          title: 'Patient identity, surgical procedure, and incision site verbalized',
-          subtitle: 'All members unanimously confirm patient: ${widget.otCase.patientName}, procedure: ${widget.otCase.surgeryType ?? widget.otCase.diagnosis}',
+          title:
+              'Patient identity, surgical procedure, and incision site verbalized',
+          subtitle:
+              'All members unanimously confirm patient: ${widget.otCase.patientName}, procedure: ${widget.otCase.surgeryType ?? widget.otCase.diagnosis}',
           value: data['patient_site_procedure_verbalized'] ?? false,
           onChanged: (val) => setState(() {
             data['patient_site_procedure_verbalized'] = val;
@@ -495,8 +552,10 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
           }),
         ),
         _buildCheckItem(
-          title: 'Surgeon reviews: critical steps, duration, expected blood loss',
-          subtitle: 'Surgeon states planned operative course, potential hazards, and anticipated duration',
+          title:
+              'Surgeon reviews: critical steps, duration, expected blood loss',
+          subtitle:
+              'Surgeon states planned operative course, potential hazards, and anticipated duration',
           value: data['surgeon_review_done'] ?? false,
           onChanged: (val) => setState(() {
             data['surgeon_review_done'] = val;
@@ -504,8 +563,10 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
           }),
         ),
         _buildCheckItem(
-          title: 'Anaesthetist reviews: patient-specific concerns and vitals plan',
-          subtitle: 'Hemodynamic stability, blood product requirement, vasopressor readiness',
+          title:
+              'Anaesthetist reviews: patient-specific concerns and vitals plan',
+          subtitle:
+              'Hemodynamic stability, blood product requirement, vasopressor readiness',
           value: data['anaesthetist_review_done'] ?? false,
           onChanged: (val) => setState(() {
             data['anaesthetist_review_done'] = val;
@@ -513,8 +574,10 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
           }),
         ),
         _buildCheckItem(
-          title: 'Nursing team reviews: sterility confirmed and equipment ready',
-          subtitle: 'Sterilization indicators verified, implants and specialty instruments inspected',
+          title:
+              'Nursing team reviews: sterility confirmed and equipment ready',
+          subtitle:
+              'Sterilization indicators verified, implants and specialty instruments inspected',
           value: data['nursing_sterility_confirmed'] ?? false,
           onChanged: (val) => setState(() {
             data['nursing_sterility_confirmed'] = val;
@@ -523,7 +586,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         ),
         _buildCheckItem(
           title: 'Essential imaging displayed on viewbox / digital monitors?',
-          subtitle: 'CT, MRI, X-rays, or laparoscopic feeds correctly oriented and displayed',
+          subtitle:
+              'CT, MRI, X-rays, or laparoscopic feeds correctly oriented and displayed',
           value: data['essential_imaging_displayed'] ?? false,
           onChanged: (val) => setState(() {
             data['essential_imaging_displayed'] = val;
@@ -535,7 +599,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         _buildSaveStageButton(
           stageKey: 'time_out',
           currentData: data,
-          allRequiredChecked: (data['team_introduced'] == true) &&
+          allRequiredChecked:
+              (data['team_introduced'] == true) &&
               (data['patient_site_procedure_verbalized'] == true) &&
               (data['antibiotic_prophylaxis_verified'] == true) &&
               (data['surgeon_review_done'] == true) &&
@@ -571,7 +636,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
       children: [
         _buildStageBanner(
           title: 'Stage 3: Sign-Out',
-          subtitle: 'Before patient leaves the operating room • Lead Nurse & Surgical Team',
+          subtitle:
+              'Before patient leaves the operating room • Lead Nurse & Surgical Team',
           isComplete: isDone,
           completedBy: data['completed_by'],
           completedAt: data['completed_at'],
@@ -579,7 +645,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         const SizedBox(height: 14),
 
         _buildCheckItem(
-          title: 'Name of the procedure performed is verbally confirmed & recorded',
+          title:
+              'Name of the procedure performed is verbally confirmed & recorded',
           subtitle: 'Accurate surgical wording written in intra-op notes',
           value: data['procedure_name_recorded'] ?? false,
           onChanged: (val) => setState(() {
@@ -589,7 +656,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         ),
         _buildCheckItem(
           title: 'Instrument, needle, sponge and gauze counts are CORRECT',
-          subtitle: 'Verified by scrub nurse and circulating nurse prior to final wound closure',
+          subtitle:
+              'Verified by scrub nurse and circulating nurse prior to final wound closure',
           value: data['counts_correct'] ?? false,
           onChanged: (val) => setState(() {
             data['counts_correct'] = val;
@@ -597,8 +665,10 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
           }),
         ),
         _buildCheckItem(
-          title: 'Specimen correctly labelled with patient name, ID, and anatomical site',
-          subtitle: 'Specimen containers read aloud and verified against surgical pathology form',
+          title:
+              'Specimen correctly labelled with patient name, ID, and anatomical site',
+          subtitle:
+              'Specimen containers read aloud and verified against surgical pathology form',
           value: data['specimen_labelled'] ?? false,
           onChanged: (val) => setState(() {
             data['specimen_labelled'] = val;
@@ -606,8 +676,10 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
           }),
         ),
         _buildCheckItem(
-          title: 'Any equipment problems or malfunctions addressed and recorded',
-          subtitle: 'Diathermy, laparoscopy stack, instruments, or suction issues documented for biomedical engineering',
+          title:
+              'Any equipment problems or malfunctions addressed and recorded',
+          subtitle:
+              'Diathermy, laparoscopy stack, instruments, or suction issues documented for biomedical engineering',
           value: data['equipment_issues_addressed'] ?? false,
           onChanged: (val) => setState(() {
             data['equipment_issues_addressed'] = val;
@@ -615,8 +687,10 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
           }),
         ),
         _buildCheckItem(
-          title: 'Surgeon, Anaesthetist & Nurse review recovery and post-op care plan',
-          subtitle: 'Airway extubation status, analgesia, vital monitoring, and transfer destination agreed',
+          title:
+              'Surgeon, Anaesthetist & Nurse review recovery and post-op care plan',
+          subtitle:
+              'Airway extubation status, analgesia, vital monitoring, and transfer destination agreed',
           value: data['post_op_concerns_reviewed'] ?? false,
           onChanged: (val) => setState(() {
             data['post_op_concerns_reviewed'] = val;
@@ -628,7 +702,8 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         _buildSaveStageButton(
           stageKey: 'sign_out',
           currentData: data,
-          allRequiredChecked: (data['procedure_name_recorded'] == true) &&
+          allRequiredChecked:
+              (data['procedure_name_recorded'] == true) &&
               (data['counts_correct'] == true) &&
               (data['specimen_labelled'] == true) &&
               (data['equipment_issues_addressed'] == true) &&
@@ -660,24 +735,32 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
     String formattedTime = '';
     if (completedAt != null) {
       try {
-        formattedTime = DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.parse(completedAt).toLocal());
+        formattedTime = DateFormat(
+          'dd MMM yyyy, hh:mm a',
+        ).format(DateTime.parse(completedAt).toLocal());
       } catch (_) {}
     }
 
     return Container(
       padding: EdgeInsets.all(widget.isMobile ? 10 : 14),
       decoration: BoxDecoration(
-        color: isComplete ? AppTheme.secondaryColor.withOpacity(0.08) : const Color(0xFFF1F5F9),
+        color: isComplete
+            ? AppTheme.secondaryColor.withOpacity(0.08)
+            : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isComplete ? AppTheme.secondaryColor.withOpacity(0.3) : AppTheme.borderColor,
+          color: isComplete
+              ? AppTheme.secondaryColor.withOpacity(0.3)
+              : AppTheme.borderColor,
         ),
       ),
       child: Row(
         children: [
           Icon(
             isComplete ? Icons.verified_user : Icons.schedule,
-            color: isComplete ? AppTheme.secondaryColor : const Color(0xFF64748B),
+            color: isComplete
+                ? AppTheme.secondaryColor
+                : const Color(0xFF64748B),
             size: widget.isMobile ? 20 : 24,
           ),
           SizedBox(width: widget.isMobile ? 8 : 12),
@@ -690,12 +773,17 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: widget.isMobile ? 13 : 14,
-                    color: isComplete ? AppTheme.secondaryColor : AppTheme.textPrimaryColor,
+                    color: isComplete
+                        ? AppTheme.secondaryColor
+                        : AppTheme.textPrimaryColor,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: TextStyle(fontSize: widget.isMobile ? 11 : 12, color: AppTheme.textSecondaryColor),
+                  style: TextStyle(
+                    fontSize: widget.isMobile ? 11 : 12,
+                    color: AppTheme.textSecondaryColor,
+                  ),
                 ),
                 if (isComplete && completedBy != null) ...[
                   const SizedBox(height: 4),
@@ -715,7 +803,9 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: isComplete ? AppTheme.secondaryColor : const Color(0xFF94A3B8),
+              color: isComplete
+                  ? AppTheme.secondaryColor
+                  : const Color(0xFF94A3B8),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -746,7 +836,9 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
           side: BorderSide(
-            color: value ? AppTheme.primaryColor.withOpacity(0.3) : AppTheme.borderColor,
+            color: value
+                ? AppTheme.primaryColor.withOpacity(0.3)
+                : AppTheme.borderColor,
           ),
         ),
         clipBehavior: Clip.antiAlias,
@@ -754,9 +846,14 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
           value: value,
           onChanged: (val) => onChanged(val ?? false),
           activeColor: AppTheme.primaryColor,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
           controlAffinity: ListTileControlAffinity.leading,
-          contentPadding: EdgeInsets.symmetric(horizontal: widget.isMobile ? 8 : 12, vertical: 2),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: widget.isMobile ? 8 : 12,
+            vertical: 2,
+          ),
           title: Text(
             title,
             style: TextStyle(
@@ -767,7 +864,10 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
           ),
           subtitle: Text(
             subtitle,
-            style: TextStyle(fontSize: widget.isMobile ? 10 : 11, color: AppTheme.textSecondaryColor),
+            style: TextStyle(
+              fontSize: widget.isMobile ? 10 : 11,
+              color: AppTheme.textSecondaryColor,
+            ),
           ),
         ),
       ),
@@ -794,7 +894,11 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline_rounded, color: AppTheme.dangerColor, size: 20),
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: AppTheme.dangerColor,
+                  size: 20,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -826,12 +930,24 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
                       showDialog(
                         context: context,
                         builder: (ctx) => AlertDialog(
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           title: const Row(
                             children: [
-                              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.orange,
+                                size: 24,
+                              ),
                               SizedBox(width: 10),
-                              Text('Validation Error', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              Text(
+                                'Validation Error',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
                             ],
                           ),
                           content: const Text(
@@ -842,10 +958,18 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.primaryColor,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
                               onPressed: () => Navigator.of(ctx).pop(),
-                              child: const Text('OK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              child: const Text(
+                                'OK',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -859,20 +983,32 @@ class _WhoSurgicalSafetyChecklistWidgetState extends State<WhoSurgicalSafetyChec
                 ? const SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : Icon(
-                    allRequiredChecked ? Icons.check_circle : Icons.warning_amber_rounded,
+                    allRequiredChecked
+                        ? Icons.check_circle
+                        : Icons.warning_amber_rounded,
                     size: 18,
                   ),
             label: Text(
               'Verify & Submit Stage',
-              style: TextStyle(fontSize: widget.isMobile ? 13 : 14, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: widget.isMobile ? 13 : 14,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: allRequiredChecked ? AppTheme.secondaryColor : const Color(0xFFF59E0B),
+              backgroundColor: allRequiredChecked
+                  ? AppTheme.secondaryColor
+                  : const Color(0xFFF59E0B),
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
               elevation: 0,
             ),
           ),
