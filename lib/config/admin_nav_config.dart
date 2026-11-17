@@ -97,10 +97,10 @@ class AdminNavConfig {
   static const bool showHomeVisitConsumables = true;
   static const bool showCarriedKitItems = true;
   static const bool showIpdBeds = true;
-  static const bool showBillingServices = true;
-  static const bool showLabTestsMaster = true;
-  static const bool showSpecializationsMaster = true;
-  static const bool showDbInitialization = true;
+  static const bool showBillingServices = false;
+  static const bool showLabTestsMaster = false;
+  static const bool showSpecializationsMaster = false;
+  static const bool showDbInitialization = false;
   static const bool showDepartments = true;
 
   // =========================================================================
