@@ -9619,27 +9619,31 @@ class _HomeVisitExecutionScreenState extends State<HomeVisitExecutionScreen>
             ),
             const SizedBox(height: 16),
             Container(
-              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: CheckboxListTile(
-                activeColor: AppTheme.primaryColor,
-                title: Text(
-                  context.tr('nail_trimming_hygiene'),
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              child: Material(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                clipBehavior: Clip.antiAlias,
+                child: CheckboxListTile(
+                  contentPadding: const EdgeInsets.all(12),
+                  activeColor: AppTheme.primaryColor,
+                  title: Text(
+                    context.tr('nail_trimming_hygiene'),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    context.tr('check_nail_trimming'),
+                  ),
+                  value: _nailTrimmingDone,
+                  onChanged: (val) {
+                    setState(() {
+                      _nailTrimmingDone = val ?? false;
+                    });
+                  },
                 ),
-                subtitle: Text(
-                  context.tr('check_nail_trimming'),
-                ),
-                value: _nailTrimmingDone,
-                onChanged: (val) {
-                  setState(() {
-                    _nailTrimmingDone = val ?? false;
-                  });
-                },
               ),
             ),
             const SizedBox(height: 16),

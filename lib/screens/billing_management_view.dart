@@ -19,6 +19,7 @@ import 'home_visit_invoice_dialog.dart';
 import '../widgets/billing_receipt_dialog.dart';
 import '../utils/receipt_printer.dart';
 import '../utils/app_notification.dart';
+import '../utils/discard_dialog_helper.dart';
 
 class BillingManagementView extends StatefulWidget {
   const BillingManagementView({Key? key}) : super(key: key);
@@ -810,6 +811,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
           builder: (dialogContext, setDlgState) {
             final bool isMobileDialog = MediaQuery.of(dialogContext).size.width < 620;
 
+            bool isDirty() {
+              return theatreCtrl.text.trim() != initTheatre.toStringAsFixed(0) ||
+                  surgeonCtrl.text.trim() != initSurgeon.toStringAsFixed(0) ||
+                  (hasAsst && asstCtrl.text.trim() != initAsst.toStringAsFixed(0)) ||
+                  (hasAnaesth && anaesthCtrl.text.trim() != initAnaesth.toStringAsFixed(0));
+            }
+
             double calcTotal() {
               double t = double.tryParse(theatreCtrl.text.trim()) ?? 0;
               t += double.tryParse(surgeonCtrl.text.trim()) ?? 0;
@@ -818,32 +826,38 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
               return t;
             }
 
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              insetPadding: EdgeInsets.symmetric(
-                horizontal: isMobileDialog ? 12.0 : 40.0,
-                vertical: 24.0,
-              ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(color: const Color(0xFFE0F2FE), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.edit_calendar_outlined, color: Color(0xFF0284C7), size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Edit Case Bill Amount: ${otc['case_number'] ?? 'OT Case'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        Text('${otc['surgery_type'] ?? 'Surgery'} • ${otc['patient_name'] ?? 'Patient'}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                      ],
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(dCtx, isDirty: isDirty());
+              },
+              child: AlertDialog(
+                backgroundColor: Colors.white,
+                insetPadding: EdgeInsets.symmetric(
+                  horizontal: isMobileDialog ? 12.0 : 40.0,
+                  vertical: 24.0,
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(color: const Color(0xFFE0F2FE), borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.edit_calendar_outlined, color: Color(0xFF0284C7), size: 20),
                     ),
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Edit Case Bill Amount: ${otc['case_number'] ?? 'OT Case'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('${otc['surgery_type'] ?? 'Surgery'} • ${otc['patient_name'] ?? 'Patient'}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               content: SizedBox(
                 width: isMobileDialog ? double.maxFinite : 500,
                 child: SingleChildScrollView(
@@ -961,7 +975,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         children: [
                           Expanded(
                             child: OutlinedButton(
-                              onPressed: isSaving ? null : () => Navigator.pop(dCtx),
+                              onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(dCtx, isDirty: isDirty()),
                               style: AppTheme.cancelButton,
                               child: const Text('Cancel'),
                             ),
@@ -1021,7 +1035,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           OutlinedButton(
-                            onPressed: isSaving ? null : () => Navigator.pop(dCtx),
+                            onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(dCtx, isDirty: isDirty()),
                             style: AppTheme.cancelButton,
                             child: const Text('Cancel'),
                           ),
@@ -1115,6 +1129,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         ],
                       ),
                     ],
+              ),
             );
           },
         );
@@ -3034,24 +3049,34 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
             if (paidCtrl.text.isEmpty) paidCtrl.text = net.toStringAsFixed(0);
 
             final bool isMobileDialog = MediaQuery.of(ctx).size.width < 620;
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              insetPadding: EdgeInsets.symmetric(
-                horizontal: isMobileDialog ? 12.0 : 40.0,
-                vertical: 24.0,
-              ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: const Color(0xFFF5F3FF), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF7C3AED), size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text('Walk-in Pharmacy Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                ],
-              ),
+            bool isDirty() {
+              return selectedPatient != null || items.isNotEmpty || customCtrl.text.isNotEmpty || priceCtrl.text.isNotEmpty;
+            }
+
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(dlgCtx, isDirty: isDirty());
+              },
+              child: AlertDialog(
+                backgroundColor: Colors.white,
+                insetPadding: EdgeInsets.symmetric(
+                  horizontal: isMobileDialog ? 12.0 : 40.0,
+                  vertical: 24.0,
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: const Color(0xFFF5F3FF), borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.add_shopping_cart_rounded, color: Color(0xFF7C3AED), size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Walk-in Pharmacy Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                  ],
+                ),
               content: SizedBox(
                 width: isMobileDialog ? double.maxFinite : 620,
                 child: SingleChildScrollView(
@@ -3321,7 +3346,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                          onPressed: isSubmitting ? null : () => DiscardDialogHelper.handleCancelOrDismiss(dlgCtx, isDirty: isDirty()),
                           style: AppTheme.cancelButton,
                           child: const Text('Cancel'),
                         ),
@@ -3329,7 +3354,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                     ]
                   : [
                       OutlinedButton(
-                        onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                        onPressed: isSubmitting ? null : () => DiscardDialogHelper.handleCancelOrDismiss(dlgCtx, isDirty: isDirty()),
                         style: AppTheme.cancelButton,
                         child: const Text('Cancel'),
                       ),
@@ -3379,7 +3404,8 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         },
                 ),
               ],
-            );
+            ),
+          );
           },
         );
       },
@@ -3410,24 +3436,34 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
             if (paidCtrl.text.isEmpty) paidCtrl.text = net.toStringAsFixed(0);
 
             final bool isMobileDialog = MediaQuery.of(ctx).size.width < 620;
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              insetPadding: EdgeInsets.symmetric(
-                horizontal: isMobileDialog ? 12.0 : 40.0,
-                vertical: 24.0,
-              ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.biotech_rounded, color: Color(0xFF4F46E5), size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text('Walk-in Lab Diagnostics Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                ],
-              ),
+            bool isDirty() {
+              return selectedPatient != null || items.isNotEmpty;
+            }
+
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(dlgCtx, isDirty: isDirty());
+              },
+              child: AlertDialog(
+                backgroundColor: Colors.white,
+                insetPadding: EdgeInsets.symmetric(
+                  horizontal: isMobileDialog ? 12.0 : 40.0,
+                  vertical: 24.0,
+                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(8)),
+                      child: const Icon(Icons.biotech_rounded, color: Color(0xFF4F46E5), size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text('Walk-in Lab Diagnostics Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                  ],
+                ),
               content: SizedBox(
                 width: isMobileDialog ? double.maxFinite : 620,
                 child: SingleChildScrollView(
@@ -3616,7 +3652,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                          onPressed: isSubmitting ? null : () => DiscardDialogHelper.handleCancelOrDismiss(dlgCtx, isDirty: isDirty()),
                           style: AppTheme.cancelButton,
                           child: const Text('Cancel'),
                         ),
@@ -3624,7 +3660,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                     ]
                   : [
                       OutlinedButton(
-                        onPressed: isSubmitting ? null : () => Navigator.pop(dlgCtx),
+                        onPressed: isSubmitting ? null : () => DiscardDialogHelper.handleCancelOrDismiss(dlgCtx, isDirty: isDirty()),
                         style: AppTheme.cancelButton,
                         child: const Text('Cancel'),
                       ),
@@ -3674,7 +3710,8 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         },
                 ),
               ],
-            );
+            ),
+          );
           },
         );
       },
@@ -5333,77 +5370,100 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
       _svcCategory = role == 'Lab' ? 'Lab' : 'General';
     }
 
+    final initialName = service != null ? (service['name']?.toString() ?? '') : '';
+    final initialPrice = service != null ? (service['price']?.toString() ?? '') : '';
+    final initialDesc = service != null ? (service['description']?.toString() ?? '') : '';
+    final initialCat = _svcCategory;
+
     showDialog(
       context: context,
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             final dIsMobile = MediaQuery.of(context).size.width < 600;
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              insetPadding: EdgeInsets.symmetric(
-                horizontal: dIsMobile ? 16 : 24,
-                vertical: 24,
-              ),
-              title: Text(service == null ? 'Add Service Item' : 'Edit Service Item', style: const TextStyle(fontWeight: FontWeight.bold)),
-              content: SingleChildScrollView(
-                child: SizedBox(
-                  width: dIsMobile ? double.maxFinite : 400,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel('Service Name *'),
-                      TextFormField(controller: _svcNameController, decoration: const InputDecoration(hintText: 'e.g. CBC Blood Test')),
-                      const SizedBox(height: 16),
-                      _buildLabel('Price (₹) *'),
-                      TextFormField(controller: _svcPriceController, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(hintText: '0.00')),
-                      const SizedBox(height: 16),
-                      if (role != 'Lab') ...[
-                        _buildLabel('Category *'),
-                        CustomDropdownSearch(
-                          label: '',
-                          value: _svcCategory,
-                          dropdownItems: const ['OP', 'IP', 'Home Care', 'OT', 'Lab', 'Pharmacy', 'General'],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setDialogState(() => _svcCategory = val);
-                            }
-                          },
-                        ),
+            bool isDirty() {
+              return _svcNameController.text.trim() != initialName ||
+                  _svcPriceController.text.trim() != initialPrice ||
+                  _svcDescController.text.trim() != initialDesc ||
+                  _svcCategory != initialCat;
+            }
+
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+              },
+              child: AlertDialog(
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.white,
+                insetPadding: EdgeInsets.symmetric(
+                  horizontal: dIsMobile ? 16 : 24,
+                  vertical: 24,
+                ),
+                title: Text(service == null ? 'Add Service Item' : 'Edit Service Item', style: const TextStyle(fontWeight: FontWeight.bold)),
+                content: SingleChildScrollView(
+                  child: SizedBox(
+                    width: dIsMobile ? double.maxFinite : 400,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLabel('Service Name *'),
+                        TextFormField(controller: _svcNameController, decoration: const InputDecoration(hintText: 'e.g. CBC Blood Test')),
                         const SizedBox(height: 16),
+                        _buildLabel('Price (₹) *'),
+                        TextFormField(controller: _svcPriceController, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(hintText: '0.00')),
+                        const SizedBox(height: 16),
+                        if (role != 'Lab') ...[
+                          _buildLabel('Category *'),
+                          CustomDropdownSearch(
+                            label: '',
+                            value: _svcCategory,
+                            dropdownItems: const ['OP', 'IP', 'Home Care', 'OT', 'Lab', 'Pharmacy', 'General'],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setDialogState(() => _svcCategory = val);
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        _buildLabel('Description'),
+                        TextFormField(controller: _svcDescController, maxLines: 2, decoration: const InputDecoration(hintText: 'Brief details...')),
                       ],
-                      _buildLabel('Description'),
-                      TextFormField(controller: _svcDescController, maxLines: 2, decoration: const InputDecoration(hintText: 'Brief details...')),
-                    ],
+                    ),
                   ),
                 ),
+                actions: [
+                  OutlinedButton(
+                    onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
+                    style: AppTheme.cancelButton,
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () async {
+                      if (_svcNameController.text.trim().isEmpty || _svcPriceController.text.trim().isEmpty) return;
+                      final messenger = ScaffoldMessenger.of(context);
+                      try {
+                        await _billingCtrl.saveBillingService(
+                          name: _svcNameController.text.trim(),
+                          category: _svcCategory,
+                          price: double.parse(_svcPriceController.text.trim()),
+                          description: _svcDescController.text.trim(),
+                        );
+                        if (ctx.mounted) Navigator.of(ctx).pop();
+                        if (mounted) _loadCatalog();
+                        messenger.showSnackBar(const SnackBar(content: Text('Service saved successfully!'), backgroundColor: Colors.green));
+                      } catch (e) {
+                        messenger.showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                      }
+                    },
+                    style: AppTheme.primaryButton,
+                    child: const Text('Save'),
+                  )
+                ],
               ),
-              actions: [
-                OutlinedButton(onPressed: () => Navigator.pop(ctx), style: AppTheme.cancelButton, child: const Text('Cancel')),
-                ElevatedButton(
-                  onPressed: () async {
-                    if (_svcNameController.text.trim().isEmpty || _svcPriceController.text.trim().isEmpty) return;
-                    final messenger = ScaffoldMessenger.of(context);
-                    try {
-                      await _billingCtrl.saveBillingService(
-                        name: _svcNameController.text.trim(),
-                        category: _svcCategory,
-                        price: double.parse(_svcPriceController.text.trim()),
-                        description: _svcDescController.text.trim(),
-                      );
-                      if (ctx.mounted) Navigator.of(ctx).pop();
-                      if (mounted) _loadCatalog();
-                      messenger.showSnackBar(const SnackBar(content: Text('Service saved successfully!'), backgroundColor: Colors.green));
-                    } catch (e) {
-                      messenger.showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                    }
-                  },
-                  style: AppTheme.primaryButton,
-                  child: const Text('Save'),
-                )
-              ],
             );
           },
         );

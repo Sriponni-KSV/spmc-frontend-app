@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+export 'form_scroll_helper.dart';
+export 'discard_dialog_helper.dart';
 
 class AppTheme {
   // ── Colors ────────────────────────────────────────────────────────────────
@@ -156,10 +158,10 @@ class AppTheme {
   static TextTheme get textTheme => const TextTheme(
     displayLarge: TextStyle(
       fontFamily: fontFamily,
-      fontSize: 28,
+      fontSize: 26,
       fontWeight: FontWeight.bold,
       color: textPrimaryColor,
-      letterSpacing: -0.5,
+      letterSpacing: -0.4,
     ),
     headlineMedium: TextStyle(
       fontFamily: fontFamily,
@@ -198,6 +200,28 @@ class AppTheme {
       color: textPrimaryColor,
     ),
   );
+
+  /// Standardized Page Title typography style across the entire HMS application.
+  static TextStyle pageTitleStyle(BuildContext context, {bool isMobile = false}) {
+    return TextStyle(
+      fontFamily: fontFamily,
+      fontSize: isMobile ? 22 : 26,
+      fontWeight: FontWeight.bold,
+      color: getTextPrimaryColor(context),
+      letterSpacing: -0.4,
+    );
+  }
+
+  /// Standardized Page Subtitle typography style across the entire HMS application.
+  static TextStyle pageSubtitleStyle(BuildContext context, {bool isMobile = false}) {
+    return TextStyle(
+      fontFamily: fontFamily,
+      fontSize: isMobile ? 12.5 : 13.5,
+      fontWeight: FontWeight.w400,
+      color: getTextSecondaryColor(context),
+      height: 1.3,
+    );
+  }
 
   // ── Button Styles ─────────────────────────────────────────────────────────
   static ButtonStyle baseButtonStyle({

@@ -16,6 +16,7 @@ import '../controllers/appointment_controller.dart';
 import '../widgets/appointment_details_dialog.dart';
 import '../widgets/check_in_vitals_dialog.dart';
 import '../widgets/billing_receipt_dialog.dart';
+import '../utils/discard_dialog_helper.dart';
 import 'mocdoc_appointments_view.dart';
 import '../utils/date_formatter.dart';
 import '../utils/tamil_transliteration_helper.dart';
@@ -2941,16 +2942,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
         children: [
           Text(
             context.tr('appointments', fallback: 'Appointments'),
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimaryColor,
-            ),
+            style: AppTheme.pageTitleStyle(context, isMobile: true),
           ),
           const SizedBox(height: 4),
           Text(
             context.tr('manage_appointments_sub', fallback: 'Manage and schedule patient appointments'),
-            style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+            style: AppTheme.pageSubtitleStyle(context, isMobile: true),
           ),
           const SizedBox(height: 12),
           SingleChildScrollView(
@@ -3042,19 +3039,12 @@ class _AppointmentsViewState extends State<AppointmentsView> {
               children: [
                 Text(
                   context.tr('appointments', fallback: 'Appointments'),
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimaryColor,
-                  ),
+                  style: AppTheme.pageTitleStyle(context, isMobile: false),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   context.tr('manage_appointments_sub', fallback: 'Manage and schedule patient appointments'),
-                  style: TextStyle(
-                    color: AppTheme.textSecondaryColor,
-                    fontSize: 14,
-                  ),
+                  style: AppTheme.pageSubtitleStyle(context, isMobile: false),
                 ),
               ],
             ),
@@ -3972,10 +3962,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                           String? cancelReason;
                           await showDialog(
                             context: context,
+                            barrierDismissible: false,
                             builder: (dialogCtx) {
                               final ctrl = TextEditingController();
                               final formKey = GlobalKey<FormState>();
-                              return AlertDialog(
+                              return PopScope(
+                                canPop: false,
+                                onPopInvokedWithResult: (didPop, result) {
+                                  if (didPop) return;
+                                  DiscardDialogHelper.handleCancelOrDismiss(dialogCtx, isDirty: ctrl.text.trim().isNotEmpty);
+                                },
+                                child: AlertDialog(
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
@@ -4095,7 +4092,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 ),
                                 actions: [
                                   OutlinedButton(
-                                    onPressed: () => Navigator.pop(dialogCtx),
+                                      onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(dialogCtx, isDirty: ctrl.text.trim().isNotEmpty),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppTheme.textSecondaryColor,
                                       side: const BorderSide(color: AppTheme.borderColor),
@@ -4107,7 +4104,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   ),
                                   ElevatedButton(
                                     onPressed: () {
-                                      if (formKey.currentState!.validate()) {
+                                      if (formKey.validateAndScroll()) {
                                         cancelReason = ctrl.text.trim();
                                         Navigator.pop(dialogCtx);
                                       }
@@ -4122,6 +4119,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                     child: const Text('Cancel Appointment'),
                                   ),
                                 ],
+                                ),
                               );
                             },
                           );
@@ -4629,10 +4627,17 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         String? cancelReason;
                         await showDialog(
                           context: context,
+                            barrierDismissible: false,
                           builder: (dialogCtx) {
                             final ctrl = TextEditingController();
                             final formKey = GlobalKey<FormState>();
-                            return AlertDialog(
+                              return PopScope(
+                                canPop: false,
+                                onPopInvokedWithResult: (didPop, result) {
+                                  if (didPop) return;
+                                  DiscardDialogHelper.handleCancelOrDismiss(dialogCtx, isDirty: ctrl.text.trim().isNotEmpty);
+                                },
+                                child: AlertDialog(
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16),
                               ),
@@ -4752,7 +4757,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                               ),
                               actions: [
                                 OutlinedButton(
-                                  onPressed: () => Navigator.pop(dialogCtx),
+                                      onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(dialogCtx, isDirty: ctrl.text.trim().isNotEmpty),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: AppTheme.textSecondaryColor,
                                     side: const BorderSide(color: AppTheme.borderColor),
@@ -4764,7 +4769,7 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                 ),
                                 ElevatedButton(
                                   onPressed: () {
-                                    if (formKey.currentState!.validate()) {
+                                    if (formKey.validateAndScroll()) {
                                       cancelReason = ctrl.text.trim();
                                       Navigator.pop(dialogCtx);
                                     }
@@ -4779,7 +4784,8 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                                   child: const Text('Cancel Appointment'),
                                 ),
                               ],
-                            );
+                                ),
+                              );
                           },
                         );
                         if (cancelReason != null) {

@@ -850,7 +850,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   Future<void> _saveSurgeryRequest() async {
     setState(() => _nurseTeamTouched = true);
-    if (!_requestFormKey.currentState!.validate()) return;
+    if (!_requestFormKey.validateAndScroll()) return;
     
     final int? patientDbId = int.tryParse(_selectedPatientId ?? '');
     if (patientDbId == null) {
@@ -1201,7 +1201,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   void _saveAnaesthesia(OtCase otCase) {
-    if (!(_anesthesiaPacFormKey.currentState?.validate() ?? true)) {
+    if (!_anesthesiaPacFormKey.validateAndScroll()) {
       AppNotification.showError(
         context,
         'Please correct invalid characters in PAC Assessment Notes before clearing.',
@@ -1254,7 +1254,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   void _postponeSurgery(OtCase otCase) {
-    if (!(_anesthesiaPacFormKey.currentState?.validate() ?? true)) {
+    if (!_anesthesiaPacFormKey.validateAndScroll()) {
       AppNotification.showError(
         context,
         'Please correct invalid characters in PAC Assessment Notes before postponing.',
@@ -2343,19 +2343,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                         children: [
                           Text(
                             context.tr('ot_management', fallback: 'OT Management'),
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimaryColor,
-                            ),
+                            style: AppTheme.pageTitleStyle(context, isMobile: true),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             context.tr('ot_subtitle', fallback: 'Schedule and view operation cases details'),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondaryColor,
-                            ),
+                            style: AppTheme.pageSubtitleStyle(context, isMobile: true),
                           ),
                         ],
                       ),
@@ -2378,19 +2371,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                               children: [
                                 Text(
                                   context.tr('ot_management', fallback: 'OT Management'),
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimaryColor,
-                                  ),
+                                  style: AppTheme.pageTitleStyle(context, isMobile: false),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   context.tr('ot_subtitle', fallback: 'Schedule and view operation cases details'),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.textSecondaryColor,
-                                  ),
+                                  style: AppTheme.pageSubtitleStyle(context, isMobile: false),
                                 ),
                               ],
                             ),
@@ -2410,19 +2396,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                             children: [
                               Text(
                                 context.tr('ot_management', fallback: 'OT Management'),
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimaryColor,
-                                ),
+                                style: AppTheme.pageTitleStyle(context, isMobile: false),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 context.tr('ot_subtitle', fallback: 'Schedule and view operation cases details'),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
+                                style: AppTheme.pageSubtitleStyle(context, isMobile: false),
                               ),
                             ],
                           ),
@@ -8726,7 +8705,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                         }
                       }
 
-                      if (!_surgeryProcedureFormKey.currentState!.validate()) {
+                      if (!_surgeryProcedureFormKey.validateAndScroll()) {
                         AppNotification.showError(
                           context,
                           'Cannot proceed to Step 7: Please fill all mandatory surgical procedure fields correctly.',
@@ -9218,7 +9197,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
                     onPressed: () {
-                      if (_postOpNurseCareFormKey.currentState!.validate()) {
+                      if (_postOpNurseCareFormKey.validateAndScroll()) {
                         _addNurseCareLog(otCase);
                       } else {
                         AppNotification.showError(
@@ -9261,7 +9240,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
                     onPressed: () {
-                      if (_postOpDoctorNoteFormKey.currentState!.validate()) {
+                      if (_postOpDoctorNoteFormKey.validateAndScroll()) {
                         _addDoctorProgressNote(otCase);
                       } else {
                         AppNotification.showError(

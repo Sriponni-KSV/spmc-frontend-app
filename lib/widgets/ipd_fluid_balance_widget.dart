@@ -4,6 +4,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../utils/app_theme.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/custom_dropdown_search.dart';
+import '../utils/discard_dialog_helper.dart';
 
 /// 24-Hour Intake/Output and Fluid Balance Monitoring Widget
 class IpdFluidBalanceWidget extends StatefulWidget {
@@ -871,6 +872,10 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
     } else {
       shift = 'Night';
     }
+    final initialEntryType = entryType;
+    final initialCategory = category;
+    final initialRoute = route;
+    final initialShift = shift;
 
     final intakePresets = [
       {'name': 'Water 100ml', 'vol': '100', 'cat': 'Oral Fluids', 'route': 'Oral'},
@@ -900,7 +905,22 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
             final isIntake = entryType == 'Intake';
             final activePresets = isIntake ? intakePresets : outputPresets;
 
-            return Dialog(
+            bool isDirty() {
+              return volumeCtrl.text.trim().isNotEmpty ||
+                  descCtrl.text.trim().isNotEmpty ||
+                  entryType != initialEntryType ||
+                  category != initialCategory ||
+                  route != initialRoute ||
+                  shift != initialShift;
+            }
+
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty());
+              },
+              child: Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Container(
                 width: 520,
@@ -939,7 +959,7 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                             const SizedBox(width: 4),
                             IconButton(
                               icon: const Icon(Icons.close, size: 20),
-                              onPressed: () => Navigator.of(modalCtx).pop(),
+                              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty()),
                             ),
                           ],
                         ),
@@ -1190,7 +1210,7 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             OutlinedButton(
-                              onPressed: () => Navigator.of(modalCtx).pop(),
+                              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty()),
                               style: AppTheme.cancelButton,
                               child: const Text('Cancel'),
                             ),
@@ -1203,7 +1223,7 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
                               onPressed: () async {
-                                if (!formKey.currentState!.validate()) return;
+                                if (!formKey.validateAndScroll()) return;
                                 final vol = double.parse(volumeCtrl.text.trim());
                                 Navigator.of(modalCtx).pop();
 
@@ -1226,6 +1246,7 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                   ),
                 ),
               ),
+            ),
             );
           },
         );

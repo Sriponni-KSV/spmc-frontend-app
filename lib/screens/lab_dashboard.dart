@@ -14,6 +14,7 @@ import '../widgets/user_profile_dialog.dart';
 import 'billing_management_view.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
+import '../utils/discard_dialog_helper.dart';
 
 class LabDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -2205,11 +2206,19 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         
     final controller = TextEditingController(text: currentMinutes > 0 ? currentMinutes.toString() : '');
     final formKey = GlobalKey<FormState>();
+    final initialDuration = controller.text;
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) {
-        return AlertDialog(
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: controller.text.trim() != initialDuration.trim());
+          },
+          child: AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -2290,7 +2299,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: controller.text.trim() != initialDuration.trim()),
               child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
             ),
             ElevatedButton(
@@ -2331,6 +2340,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               child: const Text('Save Changes', style: TextStyle(color: Colors.white)),
             ),
           ],
+          ),
         );
       },
     );
@@ -2464,11 +2474,19 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
   void _showDelayDialog(Map<String, dynamic> req) {
     final controller = TextEditingController(text: req['delay_reason'] ?? '');
     final formKey = GlobalKey<FormState>();
+    final initialReason = controller.text;
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) {
-        return AlertDialog(
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: controller.text.trim() != initialReason.trim());
+          },
+          child: AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -2510,7 +2528,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx),
+              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: controller.text.trim() != initialReason.trim()),
               child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
             ),
             ElevatedButton(
@@ -2541,6 +2559,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               child: const Text('Save Delay', style: TextStyle(color: Colors.white)),
             ),
           ],
+          ),
         );
       },
     );
@@ -2704,6 +2723,14 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     final machineName = _getMachineName(testName);
     int machineFetchCount = 0;
     bool isMachineFetching = false;
+    final initialResultsSnapshot = jsonEncode(initialFields);
+    final initialRemarks = remarksController.text;
+    final initialAttachment = attachmentController.text;
+    bool isDirty() {
+      return remarksController.text != initialRemarks ||
+          attachmentController.text != initialAttachment ||
+          jsonEncode(initialFields) != initialResultsSnapshot;
+    }
 
     showDialog(
       context: context,
@@ -2714,7 +2741,13 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
             final screenWidth = MediaQuery.of(context).size.width;
             final isMobile = screenWidth < 700;
 
-            return AlertDialog(
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+              },
+              child: AlertDialog(
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -3117,7 +3150,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               ),
               actions: [
                 OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
+                  onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                   style: AppTheme.cancelButton,
                   child: const Text('Cancel'),
                 ),
@@ -3164,11 +3197,12 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   child: const Text('Submit Lab Report', style: TextStyle(color: Colors.white)),
                 ),
               ],
-            );
-          },
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    },
+  );
   }
 
   bool _isNumericField(String parameterName) {

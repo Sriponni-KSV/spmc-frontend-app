@@ -17,6 +17,7 @@ import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
 import '../utils/app_localizations.dart';
 import '../services/api_service.dart';
+import '../utils/discard_dialog_helper.dart';
 
 class DoctorIPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -2555,7 +2556,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                     onPressed: (isSubmitting || hasActiveBed)
                         ? null
                         : () async {
-                            if (!formKey.currentState!.validate()) return;
+                            if (!formKey.validateAndScroll()) return;
                             setBtn(() => isSubmitting = true);
                             try {
                               await _ipdController.createPendingAdmission({
@@ -2655,13 +2656,28 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
               });
             }
 
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-              ),
-              title: const Text(
+            bool isDirty() {
+              return selectedPatientId != null ||
+                  selectedDoctorName != null ||
+                  selectedWardType != null ||
+                  selectedBedNumber != null ||
+                  reasonController.text.trim().isNotEmpty ||
+                  selectedNurseName != null;
+            }
+
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty());
+              },
+              child: AlertDialog(
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                title: const Text(
                 'Admit Patient to IPD',
                 style: TextStyle(
                   fontFamily: AppTheme.fontFamily,
@@ -2964,7 +2980,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
               ),
               actions: [
                 OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty()),
                   style: AppTheme.cancelButton,
                   child: const Text('Cancel'),
                 ),
@@ -2972,7 +2988,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                   onPressed: hasActiveBed
                       ? null
                       : () async {
-                          if (!formKey.currentState!.validate() || hasActiveBed) {
+                          if (!formKey.validateAndScroll() || hasActiveBed) {
                             return;
                           }
 
@@ -3012,11 +3028,12 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                   child: const Text('Confirm Admission'),
                 ),
               ],
-            );
-          },
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    },
+  );
   }
 
   void _showNursingDashboard(Map<String, dynamic> admission) {
@@ -3333,78 +3350,87 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text(
-            'Discharge Patient: ${admission['patient_name']}',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          content: SizedBox(
-            width: 450,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Bed Number: ${admission['bed_number']} (${admission['ward_type']})',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: summaryController,
-                  maxLines: 4,
-                  decoration: const InputDecoration(
-                    labelText: 'Discharge Summary / Patient Advice',
-                    hintText:
-                        'Describe patient condition, prescribed medications on discharge, and review date...',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (summaryController.text.trim().isEmpty) {
-                  AppNotification.showError(
-                    context,
-                    'Discharge summary is required',
-                    atTop: true,
-                  );
-                  return;
-                }
+        bool isDirty() => summaryController.text.trim().isNotEmpty;
 
-                try {
-                  await _ipdController.dischargePatient(
-                    admission['id'],
-                    summaryController.text.trim(),
-                  );
-                  Navigator.pop(context);
-                  _loadData();
-                  AppNotification.showSuccess(
-                    context,
-                    'Patient Discharged Successfully!',
-                    atTop: true,
-                  );
-                } catch (e) {
-                  AppNotification.showError(
-                    context,
-                    'Error: $e',
-                    atTop: true,
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text(
-                'Confirm Discharge',
-                style: TextStyle(color: Colors.white),
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty());
+          },
+          child: AlertDialog(
+            title: Text(
+              'Discharge Patient: ${admission['patient_name']}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: SizedBox(
+              width: 450,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Bed Number: ${admission['bed_number']} (${admission['ward_type']})',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: summaryController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Discharge Summary / Patient Advice',
+                      hintText:
+                          'Describe patient condition, prescribed medications on discharge, and review date...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
+            actions: [
+              TextButton(
+                onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty()),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (summaryController.text.trim().isEmpty) {
+                    AppNotification.showError(
+                      context,
+                      'Discharge summary is required',
+                      atTop: true,
+                    );
+                    return;
+                  }
+
+                  try {
+                    await _ipdController.dischargePatient(
+                      admission['id'],
+                      summaryController.text.trim(),
+                    );
+                    Navigator.pop(context);
+                    _loadData();
+                    AppNotification.showSuccess(
+                      context,
+                      'Patient Discharged Successfully!',
+                      atTop: true,
+                    );
+                  } catch (e) {
+                    AppNotification.showError(
+                      context,
+                      'Error: $e',
+                      atTop: true,
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text(
+                  'Confirm Discharge',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -3530,12 +3556,24 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) {
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.white,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20)),
-            title: Row(
+          bool isDirty() {
+            return finalDiagnosisController.text.trim().isNotEmpty ||
+                treatmentSummaryController.text.trim().isNotEmpty ||
+                medicationPlanController.text.trim().isNotEmpty;
+          }
+
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty());
+            },
+            child: AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20)),
+              title: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
@@ -3675,13 +3713,13 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
             ),
             actions: [
               OutlinedButton(
-                onPressed: () => Navigator.pop(context),
+                onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty()),
                 style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
               ElevatedButton.icon(
                 onPressed: () async {
-                  if (!formKey.currentState!.validate()) return;
+                  if (!formKey.validateAndScroll()) return;
                   try {
                     await _ipdController.dischargePatient(
                       admission['id'],
@@ -3721,9 +3759,10 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                 ),
               ),
             ],
-          );
-        },
-      ),
-    );
+          ),
+        );
+      },
+    ),
+  );
   }
 }

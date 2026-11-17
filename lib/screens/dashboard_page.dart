@@ -1482,12 +1482,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (sortedPatients.isNotEmpty)
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final bool useStacked = isMobile || constraints.maxWidth < 460;
+                  final bool useStacked = isMobile || constraints.maxWidth < 520;
                   return Container(
                     margin: const EdgeInsets.only(top: 8),
                     padding: EdgeInsets.symmetric(
                       horizontal: useStacked ? 12 : 16,
-                      vertical: useStacked ? 8 : 12,
+                      vertical: useStacked ? 8 : 10,
                     ),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -1519,7 +1519,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                         ? () => setState(() => _consultationsCurrentPage--)
                                         : null,
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 10),
                                   Text(
                                     context.pageOfTotal(_consultationsCurrentPage + 1, totalPages),
                                     style: const TextStyle(
@@ -1527,7 +1527,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 10),
                                   IconButton(
                                     icon: const Icon(Icons.chevron_right),
                                     padding: const EdgeInsets.all(4),
@@ -1544,21 +1544,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                context.showingEntries(start: startIndex + 1, end: endIndex, total: totalPatients),
-                                style: const TextStyle(
-                                  color: AppTheme.textSecondaryColor,
-                                  fontSize: 13,
+                              Flexible(
+                                child: Text(
+                                  context.showingEntries(start: startIndex + 1, end: endIndex, total: totalPatients),
+                                  style: const TextStyle(
+                                    color: AppTheme.textSecondaryColor,
+                                    fontSize: 13,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Row(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   IconButton(
                                     icon: const Icon(Icons.chevron_left),
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(),
+                                    splashRadius: 20,
                                     onPressed: _consultationsCurrentPage > 0
                                         ? () => setState(() => _consultationsCurrentPage--)
                                         : null,
                                   ),
+                                  const SizedBox(width: 8),
                                   Text(
                                     context.pageOfTotal(_consultationsCurrentPage + 1, totalPages),
                                     style: const TextStyle(
@@ -1566,8 +1575,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   IconButton(
                                     icon: const Icon(Icons.chevron_right),
+                                    padding: const EdgeInsets.all(4),
+                                    constraints: const BoxConstraints(),
+                                    splashRadius: 20,
                                     onPressed: _consultationsCurrentPage < totalPages - 1
                                         ? () => setState(() => _consultationsCurrentPage++)
                                         : null,
@@ -2738,7 +2751,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user?.role == 'Doctor') {
       final isScheduleValid = _availableDays != null && _availableDays!.isNotEmpty;
-      final isFormValid = _profileFormKey.currentState?.validate() ?? false;
+      final isFormValid = _profileFormKey.validateAndScroll();
       
       if (!isFormValid || !isScheduleValid) {
         setState(() {
@@ -2747,33 +2760,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _scheduleError = 'Please select at least one available day';
           }
         });
-        
-        // Focus the first invalid field
-        if (_qualController.text.trim().isEmpty) {
-          _qualFocusNode.requestFocus();
-        } else if (_licenseController.text.trim().isEmpty) {
-          _licenseFocusNode.requestFocus();
-        } else if (_expController.text.trim().isEmpty) {
-          _expFocusNode.requestFocus();
-        } else if (_areasOfExpertiseController.text.trim().isEmpty) {
-          _areasOfExpertiseFocusNode.requestFocus();
-        } else if (_patientsController.text.trim().isEmpty) {
-          _patientsFocusNode.requestFocus();
-        } else if (_bioController.text.trim().isEmpty) {
-          _bioFocusNode.requestFocus();
-        } else if (_slotDurationController.text.trim().isEmpty || 
-                   _parseDuration(_slotDurationController.text) == null || 
-                   _parseDuration(_slotDurationController.text)! < 15 || 
-                   _parseDuration(_slotDurationController.text)! > 59) {
-          _slotDurationFocusNode.requestFocus();
-        } else if (_clinicNameController.text.trim().isEmpty) {
-          _clinicNameFocusNode.requestFocus();
-        } else if (_clinicLocationController.text.trim().isEmpty) {
-          _clinicLocationFocusNode.requestFocus();
-        } else if (_consultationFeeController.text.trim().isEmpty) {
-          _consultationFeeFocusNode.requestFocus();
-        }
-        
         return;
       }
     }
@@ -5735,7 +5721,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                           child: LayoutBuilder(
                             builder: (context, constraints) {
-                              final bool useStacked = constraints.maxWidth < 460;
+                              final bool useStacked = constraints.maxWidth < 520;
                               if (useStacked) {
                                 return Column(
                                   mainAxisSize: MainAxisSize.min,
@@ -5787,21 +5773,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               return Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    context.showingEntries(start: startIndex + 1, end: endIndex, total: totalItems),
-                                    style: const TextStyle(
-                                      color: AppTheme.textSecondaryColor,
-                                      fontSize: 13,
+                                  Flexible(
+                                    child: Text(
+                                      context.showingEntries(start: startIndex + 1, end: endIndex, total: totalItems),
+                                      style: const TextStyle(
+                                        color: AppTheme.textSecondaryColor,
+                                        fontSize: 13,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
                                         icon: const Icon(Icons.chevron_left),
+                                        padding: const EdgeInsets.all(4),
+                                        constraints: const BoxConstraints(),
+                                        splashRadius: 20,
                                         onPressed: _appointmentsCurrentPage > 0
                                             ? () => setState(() => _appointmentsCurrentPage--)
                                             : null,
                                       ),
+                                      const SizedBox(width: 8),
                                       Text(
                                         context.pageOfTotal(_appointmentsCurrentPage + 1, totalPages),
                                         style: const TextStyle(
@@ -5809,8 +5804,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
+                                      const SizedBox(width: 8),
                                       IconButton(
                                         icon: const Icon(Icons.chevron_right),
+                                        padding: const EdgeInsets.all(4),
+                                        constraints: const BoxConstraints(),
+                                        splashRadius: 20,
                                         onPressed: _appointmentsCurrentPage < totalPages - 1
                                             ? () => setState(() => _appointmentsCurrentPage++)
                                             : null,

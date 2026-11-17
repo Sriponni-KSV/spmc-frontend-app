@@ -955,23 +955,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      context.tr('home_visit_care_title', fallback: 'Home Visit Care & Services'),
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.textPrimaryColor,
-                                        fontFamily: 'Inter',
-                                      ),
-                                    ),
-                                    Text(
-                                      context.tr('home_visit_care_sub', fallback: 'Manage patient home care & billing'),
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                        fontFamily: 'Inter',
-                                      ),
-                                    ),
+                                    Text(context.tr('home_visit_care_title', fallback: 'Home Visit Care & Services'), style: AppTheme.pageTitleStyle(context, isMobile: true)), const SizedBox(height: 4), Text(context.tr('home_visit_care_sub', fallback: 'Manage patient home care & billing'), style: AppTheme.pageSubtitleStyle(context, isMobile: true)),
                                   ],
                                 ),
                               ),
@@ -1040,25 +1024,7 @@ class _HomeVisitListViewState extends State<HomeVisitListView> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      context.tr('home_visit_care_title', fallback: 'Home Visit Care & Services'),
-                                      style: const TextStyle(
-                                        fontSize: 22,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.textPrimaryColor,
-                                        fontFamily: 'Inter',
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    Text(
-                                      context.tr('home_visit_care_sub', fallback: 'Manage patient home care, vitals, dressing & attender billing'),
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey,
-                                        fontFamily: 'Inter',
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                    Text(context.tr('home_visit_care_title', fallback: 'Home Visit Care & Services'), style: AppTheme.pageTitleStyle(context, isMobile: false), overflow: TextOverflow.ellipsis), const SizedBox(height: 4), Text(context.tr('home_visit_care_sub', fallback: 'Manage patient home care, vitals, dressing & attender billing'), style: AppTheme.pageSubtitleStyle(context, isMobile: false), overflow: TextOverflow.ellipsis),
                                   ],
                                 ),
                               ),

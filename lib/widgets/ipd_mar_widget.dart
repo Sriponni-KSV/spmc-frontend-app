@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../utils/app_theme.dart';
 import '../utils/app_localizations.dart';
+import '../utils/discard_dialog_helper.dart';
 
 /// Clinical IPD Medication Administration Record (eMAR) Widget
 class IpdMarWidget extends StatefulWidget {
@@ -775,7 +776,17 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
       builder: (modalCtx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Dialog(
+            bool isDirty() {
+              return remarksController.text.trim().isNotEmpty || confirmedRights;
+            }
+
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty());
+              },
+              child: Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Container(
                 width: 480,
@@ -804,7 +815,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.close, size: 20),
-                          onPressed: () => Navigator.of(modalCtx).pop(),
+                          onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty()),
                         ),
                       ],
                     ),
@@ -907,7 +918,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                         runSpacing: 8,
                         children: [
                           OutlinedButton(
-                            onPressed: () => Navigator.of(modalCtx).pop(),
+                            onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty()),
                             style: AppTheme.cancelButton,
                             child: const Text('Cancel'),
                           ),
@@ -951,6 +962,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                   ],
                 ),
               ),
+              ),
             );
           },
         );
@@ -963,6 +975,8 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
   void _showOmissionRefusalModal(Map<String, dynamic> prescription, String slotKey) {
     String selectedCategory = 'Refused'; // 'Refused', 'Omitted', 'Delayed'
     String selectedReason = 'Patient Refused';
+    final initialCategory = selectedCategory;
+    final initialReason = selectedReason;
     final customReasonController = TextEditingController();
 
     final List<String> refusalReasons = [
@@ -984,7 +998,19 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
       builder: (modalCtx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            return Dialog(
+            bool isDirty() {
+              return customReasonController.text.trim().isNotEmpty ||
+                  selectedCategory != initialCategory ||
+                  selectedReason != initialReason;
+            }
+
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty());
+              },
+              child: Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Container(
                 width: 480,
@@ -1013,7 +1039,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                         ),
                         IconButton(
                           icon: const Icon(Icons.close, size: 20),
-                          onPressed: () => Navigator.of(modalCtx).pop(),
+                          onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty()),
                         ),
                       ],
                     ),
@@ -1105,7 +1131,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                         runSpacing: 8,
                         children: [
                           OutlinedButton(
-                            onPressed: () => Navigator.of(modalCtx).pop(),
+                            onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty()),
                             style: AppTheme.cancelButton,
                             child: const Text('Cancel'),
                           ),
@@ -1146,6 +1172,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                     ),
                   ],
                 ),
+              ),
               ),
             );
           },

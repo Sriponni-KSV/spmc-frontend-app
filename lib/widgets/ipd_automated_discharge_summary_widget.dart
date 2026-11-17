@@ -411,7 +411,7 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
   }
 
   Future<void> _submitFinalDischarge() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.validateAndScroll()) return;
 
     final confirmed = await showDialog<bool>(
       context: context,

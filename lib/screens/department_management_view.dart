@@ -51,6 +51,7 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
   @override
   Widget build(BuildContext context) {
     final bool isNarrow = widget.isMobile || MediaQuery.of(context).size.width < 900;
+    final bool isMobile = isNarrow;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -89,20 +90,16 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
                               child: const Icon(Icons.apartment_rounded, color: AppTheme.primaryColor, size: 22),
                             ),
                             const SizedBox(width: 10),
-                            const Text(
+                            Text(
                               'Department Master',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryColor,
-                              ),
+                              style: AppTheme.pageTitleStyle(context, isMobile: isMobile),
                             ),
                           ],
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Centralized hospital master controlling OPD, IPD, OT, Staff, and Billing departments',
-                          style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                          style: AppTheme.pageSubtitleStyle(context, isMobile: isMobile),
                         ),
                       ],
                     ),
@@ -211,37 +208,96 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
 
                 // ─── DEPARTMENTS LISTING ────────────────────────────────────────
                 if (_controller.isLoading && allDepts.isEmpty)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(40.0),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                else if (filtered.isEmpty)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(40),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 60),
+                    alignment: Alignment.center,
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.apartment_rounded, size: 54, color: Color(0xFFCBD5E1)),
-                        const SizedBox(height: 14),
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        CircularProgressIndicator(strokeWidth: 2.5),
+                        SizedBox(height: 16),
                         Text(
-                          _searchQuery.isNotEmpty
-                              ? 'No departments matching "$_searchQuery"'
-                              : 'No $_statusFilter departments found.',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF475569)),
+                          'Loading departments...',
+                          style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                         ),
-                        const SizedBox(height: 6),
-                        const Text('Use the "Add Department" button to register new hospital departments.', style: TextStyle(fontSize: 12.5, color: Colors.grey)),
                       ],
                     ),
                   )
+                else if (_controller.errorMessage != null && allDepts.isEmpty)
+                  _buildEmptyState(
+                    icon: Icons.cloud_off_rounded,
+                    iconColor: AppTheme.dangerColor,
+                    title: 'Error loading data',
+                    subtitle: _controller.errorMessage ?? 'Unable to connect to hospital master service.',
+                    action: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Retry'),
+                      onPressed: () => _controller.fetchDepartments(includeInactive: true, forceRefresh: true),
+                    ),
+                  )
+                else if (filtered.isEmpty)
+                  if (allDepts.isEmpty)
+                    _buildEmptyState(
+                      icon: Icons.inbox_outlined,
+                      iconColor: AppTheme.primaryColor,
+                      title: 'No data to display',
+                      subtitle: 'No departments have been registered yet in the hospital master. Click "Add Department" to get started.',
+                      action: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add Department'),
+                        onPressed: () => _showAddEditDepartmentDialog(context),
+                      ),
+                    )
+                  else if (_searchQuery.isNotEmpty)
+                    _buildEmptyState(
+                      icon: Icons.search_off_rounded,
+                      iconColor: const Color(0xFF64748B),
+                      title: 'No matching data found',
+                      subtitle: 'No departments match "$_searchQuery". Check spelling or clear search filters.',
+                      action: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryColor,
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.clear, size: 16),
+                        label: const Text('Clear Search'),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      ),
+                    )
+                  else
+                    _buildEmptyState(
+                      icon: Icons.filter_list_off_rounded,
+                      iconColor: const Color(0xFF64748B),
+                      title: 'No data to display',
+                      subtitle: 'There are no $_statusFilter departments in the master catalog.',
+                      action: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryColor,
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.clear_all, size: 16),
+                        label: const Text('Show All Departments'),
+                        onPressed: () => setState(() => _statusFilter = 'All'),
+                      ),
+                    )
                 else if (isNarrow)
                   ListView.separated(
                     shrinkWrap: true,
@@ -420,8 +476,80 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
     );
   }
 
-  Widget _buildDepartmentsTable(List<DepartmentModel> list) {
+  Widget _buildEmptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    Widget? action,
+    Color? iconColor,
+  }) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: (iconColor ?? const Color(0xFF94A3B8)).withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 44,
+              color: iconColor ?? const Color(0xFF94A3B8),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Color(0xFF1E293B),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Text(
+              subtitle,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF64748B),
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          if (action != null) ...[
+            const SizedBox(height: 18),
+            action,
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDepartmentsTable(List<DepartmentModel> list) {
+    if (list.isEmpty) {
+      return _buildEmptyState(
+        icon: Icons.inbox_outlined,
+        title: 'No data to display',
+        subtitle: 'No departments match the specified criteria.',
+      );
+    }
+
+    return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -429,108 +557,114 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-          horizontalMargin: 20,
-          columnSpacing: 24,
-          dataRowMaxHeight: 58,
-          columns: const [
-            DataColumn(label: Text('Department Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)))),
-            DataColumn(label: Text('Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)))),
-            DataColumn(label: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)))),
-            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)))),
-            DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)))),
-          ],
-          rows: list.map((dept) {
-            return DataRow(
-              cells: [
-                DataCell(
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Icon(Icons.apartment_rounded, size: 16, color: AppTheme.primaryColor),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        dept.name,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, color: Color(0xFF0F172A)),
-                      ),
-                    ],
-                  ),
-                ),
-                DataCell(
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Text(
-                      dept.code,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF475569)),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 320),
-                    child: Text(
-                      dept.description ?? '—',
-                      style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                DataCell(
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
-                    decoration: BoxDecoration(
-                      color: dept.isActive ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: dept.isActive ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1)),
-                    ),
-                    child: Text(
-                      dept.status,
-                      style: TextStyle(
-                        color: dept.isActive ? const Color(0xFF15803D) : const Color(0xFF64748B),
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                DataCell(
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF475569)),
-                        tooltip: 'Edit Department',
-                        onPressed: () => _showAddEditDepartmentDialog(context, existing: dept),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          dept.isActive ? Icons.archive_outlined : Icons.unarchive_outlined,
-                          size: 18,
-                          color: dept.isActive ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
-                        ),
-                        tooltip: dept.isActive ? 'Deactivate Department' : 'Activate Department',
-                        onPressed: () => _confirmToggleStatus(dept),
-                      ),
-                    ],
-                  ),
-                ),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 800),
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+              horizontalMargin: 20,
+              columnSpacing: 24,
+              dataRowMaxHeight: 58,
+              columns: const [
+                DataColumn(label: Text('Department Name', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)))),
+                DataColumn(label: Text('Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)))),
+                DataColumn(label: Text('Description', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)))),
+                DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)))),
+                DataColumn(label: Text('Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF334155)))),
               ],
-            );
-          }).toList(),
+              rows: list.map((dept) {
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.apartment_rounded, size: 16, color: AppTheme.primaryColor),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            dept.name,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, color: Color(0xFF0F172A)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    DataCell(
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Text(
+                          dept.code,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Color(0xFF475569)),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 320),
+                        child: Text(
+                          dept.description ?? '—',
+                          style: const TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+                        decoration: BoxDecoration(
+                          color: dept.isActive ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: dept.isActive ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1)),
+                        ),
+                        child: Text(
+                          dept.status,
+                          style: TextStyle(
+                            color: dept.isActive ? const Color(0xFF15803D) : const Color(0xFF64748B),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF475569)),
+                            tooltip: 'Edit Department',
+                            onPressed: () => _showAddEditDepartmentDialog(context, existing: dept),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              dept.isActive ? Icons.archive_outlined : Icons.unarchive_outlined,
+                              size: 18,
+                              color: dept.isActive ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                            ),
+                            tooltip: dept.isActive ? 'Deactivate Department' : 'Activate Department',
+                            onPressed: () => _confirmToggleStatus(dept),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
         ),
       ),
     );
@@ -545,6 +679,13 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
     final formKey = GlobalKey<FormState>();
     bool isSaving = false;
 
+    bool isDirty() {
+      return nameCtrl.text.trim() != (existing?.name ?? '') ||
+          codeCtrl.text.trim() != (existing?.code ?? '') ||
+          descCtrl.text.trim() != (existing?.description ?? '') ||
+          status != (existing?.status ?? 'Active');
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -552,7 +693,13 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
         return StatefulBuilder(
           builder: (ctx, setDlgState) {
             final isNarrow = MediaQuery.of(ctx).size.width < 500;
-            return AlertDialog(
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (bool didPop, dynamic result) async {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+              },
+              child: AlertDialog(
               backgroundColor: Colors.white,
               surfaceTintColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -656,7 +803,7 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
               ),
               actions: [
                 OutlinedButton(
-                  onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                  onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
@@ -667,7 +814,7 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
                   onPressed: isSaving
                       ? null
                       : () async {
-                          if (!formKey.currentState!.validate()) return;
+                          if (!formKey.validateAndScroll()) return;
                           final messenger = ScaffoldMessenger.of(context);
                           final nav = Navigator.of(ctx);
                           setDlgState(() => isSaving = true);
@@ -709,7 +856,8 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
                       : Text(isEdit ? 'Save Changes' : 'Create Department'),
                 ),
               ],
-            );
+            ),
+          );
           },
         );
       },

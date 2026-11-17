@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../utils/app_theme.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../services/api_service.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
 import 'package:intl/intl.dart';
 import '../providers/auth_provider.dart';
@@ -340,22 +339,37 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
             ],
           );
 
-          return AlertDialog(
-            backgroundColor: Colors.white,
-            surfaceTintColor: Colors.transparent,
-            title: Row(
-              children: [
-                Icon(
-                  isFoodCategory ? Icons.restaurant_menu : Icons.inventory_2_outlined,
-                  color: AppTheme.primaryColor,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  widget.isFoodStockOnly ? 'Add Food Stock Item' : 'Add Inventory Item',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-                ),
-              ],
-            ),
+          bool isDirty() {
+            return nameCtrl.text.trim().isNotEmpty ||
+                qtyCtrl.text.trim().isNotEmpty ||
+                thresholdCtrl.text.trim() != '10' ||
+                expiryDate != null ||
+                (unitCtrl.text.trim() != (widget.isFoodStockOnly ? 'kg' : '')) ||
+                category != (widget.isFoodStockOnly ? 'Food Stock' : 'Medicine');
+          }
+
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+            },
+            child: AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              title: Row(
+                children: [
+                  Icon(
+                    isFoodCategory ? Icons.restaurant_menu : Icons.inventory_2_outlined,
+                    color: AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    widget.isFoodStockOnly ? 'Add Food Stock Item' : 'Add Inventory Item',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                  ),
+                ],
+              ),
             content: SizedBox(
               width: widget.isMobile ? double.infinity : 420,
               child: Column(
@@ -627,11 +641,10 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                       ),
                       if (isCatalogItemControlled) ...[
                         const SizedBox(height: 12),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                        Material(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                          clipBehavior: Clip.antiAlias,
                           child: CheckboxListTile(
                             activeColor: AppTheme.primaryColor,
                             title: const Text(
@@ -670,7 +683,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               minimumSize: const Size(0, 48),
                             ),
-                            onPressed: () => Navigator.pop(ctx, false),
+                            onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                             child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                         ),
@@ -730,7 +743,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                         ),
                         minimumSize: const Size(130, 52),
                       ),
-                      onPressed: () => Navigator.pop(ctx, false),
+                      onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                       child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     ElevatedButton(
@@ -775,6 +788,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                       child: const Text('Save Item', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],
+            ),
           );
         },
       ),
@@ -893,23 +907,38 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
     await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (dialogCtx, setD) => AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              Icon(widget.isFoodStockOnly ? Icons.restaurant_menu : Icons.add_shopping_cart, color: AppTheme.primaryColor),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  item != null ? 'Replenish: ${item['name']}' : 'New Purchase Replenishment Request',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  overflow: TextOverflow.ellipsis,
-                ),
+        builder: (dialogCtx, setD) {
+          bool isDirty() {
+            if (item != null) {
+              return qtyCtrl.text.trim() != suggestedQty.toString();
+            } else {
+              return nameCtrl.text.trim().isNotEmpty || qtyCtrl.text.trim() != suggestedQty.toString();
+            }
+          }
+
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+            },
+            child: AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Icon(widget.isFoodStockOnly ? Icons.restaurant_menu : Icons.add_shopping_cart, color: AppTheme.primaryColor),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      item != null ? 'Replenish: ${item['name']}' : 'New Purchase Replenishment Request',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
           content: SizedBox(
             width: widget.isMobile ? double.infinity : 440,
             child: SingleChildScrollView(
@@ -1044,7 +1073,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
+              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
               style: AppTheme.cancelButton,
               child: const Text('Cancel'),
             ),
@@ -1089,8 +1118,10 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
             ),
           ],
         ),
-      ),
-    );
+      );
+    },
+  ),
+);
   }
 
   Future<void> _deletePurchaseRequest(int requestId, String itemName) async {
@@ -1152,17 +1183,32 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
-        builder: (ctx, setD) => AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              Icon(isFood ? Icons.restaurant : Icons.inventory_2, color: AppTheme.primaryColor),
-              const SizedBox(width: 10),
-              Text(isFood ? 'Edit Food Stock Item' : 'Edit Inventory Item', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-            ],
-          ),
+        builder: (ctx, setD) {
+          bool isDirty() {
+            return nameCtrl.text.trim() != (item['name']?.toString() ?? '') ||
+                unitCtrl.text.trim() != (item['unit']?.toString() ?? 'kg') ||
+                qtyCtrl.text.trim() != ((item['quantity'] ?? 0).toString()) ||
+                thresholdCtrl.text.trim() != ((item['threshold'] ?? 10).toString()) ||
+                expiryDate != (item['expiry_date'] != null ? DateTime.tryParse(item['expiry_date']) : null);
+          }
+
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(dialogCtx, isDirty: isDirty());
+            },
+            child: AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Icon(isFood ? Icons.restaurant : Icons.inventory_2, color: AppTheme.primaryColor),
+                  const SizedBox(width: 10),
+                  Text(isFood ? 'Edit Food Stock Item' : 'Edit Inventory Item', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                ],
+              ),
           content: SizedBox(
             width: widget.isMobile ? double.infinity : 420,
             child: Column(
@@ -1320,7 +1366,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
     ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogCtx, false),
+              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(dialogCtx, isDirty: isDirty()),
               style: AppTheme.cancelButton,
               child: const Text('Cancel'),
             ),
@@ -1384,8 +1430,10 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
             ),
           ],
         ),
-      ),
-    );
+      );
+    },
+  ),
+);
 
     if (result == true) {
       _showTopNotification('Item updated successfully', isError: false);
@@ -1642,7 +1690,6 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
 
               final int thresholdVal = item['threshold'] ?? 10;
               final int quantityVal = item['quantity'] ?? 0;
-              final double progress = (quantityVal / (thresholdVal > 0 ? thresholdVal * 2.5 : 25)).clamp(0.0, 1.0);
 
               return Card(
                 color: Colors.white,
@@ -2208,9 +2255,7 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                   }
                   final expFormatted = expDate != null ? DateFormat('dd MMM yyyy').format(expDate) : 'No Expiry';
                   final now = DateTime.now();
-                  final daysLeft = expDate != null
-                      ? expDate.difference(DateTime(now.year, now.month, now.day)).inDays
-                      : null;
+                  final daysLeft = expDate?.difference(DateTime(now.year, now.month, now.day)).inDays;
 
                   String urgencyBadge;
                   Color badgeColor;
@@ -2739,12 +2784,12 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                      style: AppTheme.pageTitleStyle(context, isMobile: true),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                      style: AppTheme.pageSubtitleStyle(context, isMobile: true),
                     ),
                     const SizedBox(height: 16),
                     SizedBox(
@@ -2778,12 +2823,12 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                         children: [
                           Text(
                             title,
-                            style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                            style: AppTheme.pageTitleStyle(context, isMobile: false),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             subtitle,
-                            style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                            style: AppTheme.pageSubtitleStyle(context, isMobile: false),
                           ),
                         ],
                       ),

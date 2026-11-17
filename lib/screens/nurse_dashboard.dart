@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
 import '../utils/app_theme.dart';
+import '../utils/unsaved_changes_helper.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart' hide PatientModel;
 import '../controllers/patient_controller.dart';
@@ -447,118 +448,17 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   }
 
   Future<bool> _confirmLeaveRegistration() async {
-    if (!_isRegisteringPatient) {
+    if (!UnsavedChangesHelper.hasUnsavedChanges) {
       return true;
     }
-    final shouldLeave = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        final isMobile = MediaQuery.of(ctx).size.width < 500;
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          backgroundColor: AppTheme.getCardColor(ctx),
-          insetPadding: EdgeInsets.symmetric(
-            horizontal: isMobile ? 16 : 32,
-            vertical: 24,
-          ),
-          child: Container(
-            width: isMobile ? double.infinity : 440,
-            constraints: const BoxConstraints(maxWidth: 440),
-            padding: EdgeInsets.all(isMobile ? 18 : 24),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.dangerColor.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.warning_amber_rounded,
-                        color: AppTheme.dangerColor,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        context.tr('unsaved_patient_reg', fallback: 'Unsaved Patient Registration'),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: AppTheme.getTextPrimaryColor(ctx),
-                          fontFamily: 'Inter',
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  context.tr('leave_registration_body', fallback: 'You are currently filling the patient registration form. If you navigate away now, any unsaved inputs will be lost.\n\nDo you want to leave this page?'),
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    color: AppTheme.getTextSecondaryColor(ctx),
-                    height: 1.4,
-                    fontFamily: 'Inter',
-                  ),
-                ),
-                const SizedBox(height: 24),
-                if (isMobile)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      ElevatedButton(
-                        style: AppTheme.dangerButton,
-                        onPressed: () {
-                          ModalHistoryHelper.skipNextHistoryBack();
-                          Navigator.of(ctx).pop(true);
-                        },
-                        child: Text(context.tr('leave_page', fallback: 'Leave Page')),
-                      ),
-                      const SizedBox(height: 10),
-                      OutlinedButton(
-                        style: AppTheme.cancelButton,
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: Text(context.tr('stay_on_page', fallback: 'Stay on Page')),
-                      ),
-                    ],
-                  )
-                else
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton(
-                        style: AppTheme.cancelButton,
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: Text(context.tr('stay_on_page', fallback: 'Stay on Page')),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        style: AppTheme.dangerButton,
-                        onPressed: () {
-                          ModalHistoryHelper.skipNextHistoryBack();
-                          Navigator.of(ctx).pop(true);
-                        },
-                        child: Text(context.tr('leave_page', fallback: 'Leave Page')),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-  );
-    return shouldLeave == true;
+    return DiscardDialogHelper.showDiscardWarningDialog(
+      context,
+      title: 'Discard Unsaved Changes?',
+      message:
+          'You are currently filling or editing the patient details. If you leave now, any unsaved inputs will be lost.\n\nDo you want to discard changes and leave?',
+      confirmText: 'Discard & Leave',
+      cancelText: 'Stay on Page',
+    );
   }
 
   void _changePage(
@@ -572,12 +472,15 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       final shouldLeave = await _confirmLeaveActiveVisit();
       if (!shouldLeave || !mounted) return;
     }
-    if (_isRegisteringPatient) {
+    if (UnsavedChangesHelper.hasUnsavedChanges) {
       if (index == 1 && isRegistering) {
         return;
       }
       final shouldLeave = await _confirmLeaveRegistration();
       if (!shouldLeave || !mounted) return;
+      UnsavedChangesHelper.clear();
+      setState(() => _isRegisteringPatient = false);
+    } else if (_isRegisteringPatient) {
       setState(() => _isRegisteringPatient = false);
     }
     setState(() {
