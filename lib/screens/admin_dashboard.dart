@@ -1,3 +1,4 @@
+import 'department_management_view.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,10 +12,7 @@ import '../models/user_model.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../providers/auth_provider.dart';
 import '../controllers/admin_controller.dart';
-import '../widgets/nurse_widgets.dart' hide PatientModel;
 import '../widgets/admin_widgets.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'dart:async';
 import '../widgets/rbac_management.dart';
 import '../widgets/access_denied_widget.dart';
@@ -40,7 +38,6 @@ import '../models/home_visit_model.dart';
 import 'home_visit_list_view.dart';
 import 'home_visit_execution_screen.dart';
 import '../services/api_service.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
 import '../config/admin_nav_config.dart';
 import 'ipd_beds_catalog_view.dart';
@@ -55,6 +52,7 @@ import '../utils/tamil_transliteration_helper.dart';
 import '../controllers/notification_controller.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/admin_global_search_overlay.dart';
+import '../utils/unsaved_changes_helper.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -501,6 +499,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         });
       }
     }
+  }
+
+  Future<bool> _confirmLeaveRegistration() async {
+    if (!UnsavedChangesHelper.hasUnsavedChanges) {
+      return true;
+    }
+    return DiscardDialogHelper.showDiscardWarningDialog(
+      context,
+      title: 'Discard Unsaved Changes?',
+      message:
+          'You are currently filling or editing the patient details. If you leave now, any unsaved inputs will be lost.\n\nDo you want to discard changes and leave?',
+      confirmText: 'Discard & Leave',
+      cancelText: 'Stay on Page',
+    );
   }
 
   Future<void> _loadShiftData() async {
@@ -1097,6 +1109,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 20:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return AdminDbInitializationView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 21:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return DepartmentManagementView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
 
@@ -2714,10 +2731,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         fontWeight: FontWeight.w500,
       ),
       child: InkWell(
-        onTap: () {
-        switch (index) {
-          case 0:
-            context.go(AppRoutes.adminDashboard);
+        onTap: () async {
+          if (UnsavedChangesHelper.hasUnsavedChanges) {
+            final shouldLeave = await _confirmLeaveRegistration();
+            if (!shouldLeave || !mounted) return;
+            UnsavedChangesHelper.clear();
+            setState(() {
+              _isRegisteringPatient = false;
+              _patientToComplete = null;
+            });
+          } else if (_isRegisteringPatient) {
+            setState(() {
+              _isRegisteringPatient = false;
+              _patientToComplete = null;
+            });
+          }
+          if (!mounted) return;
+          switch (index) {
+            case 0:
+              context.go(AppRoutes.adminDashboard);
             break;
           case 1:
             context.go(AppRoutes.adminUsers);
@@ -2778,6 +2810,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             break;
           case 20:
             context.go(AppRoutes.adminDbInitialization);
+            break;
+          case 21:
+            context.go(AppRoutes.adminDepartments);
             break;
 
           default:
@@ -3508,6 +3543,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return 'Master Catalog / Specializations Master';
       case 20:
         return 'Master Catalog / Database Initialization';
+        return 'Master Catalog / Department Master';
       default:
         return 'Admin Dashboard';
     }
@@ -12017,6 +12053,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                                         if (!RegExp(
                                                           r'^\d+(\.\d{1,2})?$',
                                                         ).hasMatch(clean)) {
+                                                          return 'Invalid';
+                                                        }
+                                                        if (!RegExp(
+                                                          r'^\d+(\.\d{1,2})?$',
+                                                        ).hasMatch(clean)) {
                                                           return 'Max 2 decimals';
                                                         }
                                                         return null;
@@ -17415,9 +17456,15 @@ class _EditStaffDialogState extends State<EditStaffDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
+        DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _hasChanges());
+      },
+      child: AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(28),
       ),
@@ -17825,7 +17872,7 @@ class _EditStaffDialogState extends State<EditStaffDialog> {
       ),
       actions: [
         OutlinedButton(
-          onPressed: _isSaving ? null : () => Navigator.pop(context),
+          onPressed: _isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _hasChanges()),
           style: AppTheme.cancelButton,
           child: const Text('Cancel'),
         ),
@@ -17855,7 +17902,8 @@ class _EditStaffDialogState extends State<EditStaffDialog> {
               : const Text('Save'),
         ),
       ],
-    );
+    ),
+  );
   }
 }
 
@@ -17904,6 +17952,14 @@ class _AddUserDialogState extends State<AddUserDialog> {
   Timer? _mobileDebounce;
   final _emailFocusNode = FocusNode();
   final _mobileFocusNode = FocusNode();
+
+  bool _isDirty() {
+    return _nameController.text.trim().isNotEmpty ||
+        _emailController.text.trim().isNotEmpty ||
+        _mobileController.text.trim().isNotEmpty ||
+        _licenseController.text.trim().isNotEmpty ||
+        _selectedRole != null;
+  }
 
   @override
   void initState() {
@@ -18871,45 +18927,51 @@ class _AddUserDialogState extends State<AddUserDialog> {
     final screenWidth = mediaQuery.size.width;
     final isMobile = screenWidth < 640;
 
-    return Dialog(
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      insetPadding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 40,
-        vertical: isMobile ? 16 : 24,
-      ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 600,
-          maxHeight: mediaQuery.size.height * (isMobile ? 0.9 : 0.85),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
+        DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty());
+      },
+      child: Dialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        insetPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 16 : 40,
+          vertical: isMobile ? 16 : 24,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 20, 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Register New Staff',
-                    style: TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: AppTheme.textPrimaryColor,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 600,
+            maxHeight: mediaQuery.size.height * (isMobile ? 0.9 : 0.85),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 20, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Register New Staff',
+                      style: TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: AppTheme.textPrimaryColor,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty()),
+                    ),
+                  ],
+                ),
               ),
-            ),
             const Divider(height: 1),
             // Scrollable form content
             Flexible(
@@ -19054,7 +19116,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OutlinedButton(
-                    onPressed: _isLoading ? null : () => Navigator.pop(context),
+                    onPressed: _isLoading ? null : () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty()),
                     style: AppTheme.cancelButton,
                     child: const Text('Cancel'),
                   ),
@@ -19086,7 +19148,8 @@ class _AddUserDialogState extends State<AddUserDialog> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
 

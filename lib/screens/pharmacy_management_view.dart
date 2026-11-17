@@ -340,12 +340,12 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(
                     context.tr('pharmacy_management', fallback: 'Pharmacy Management'),
-                    style: TextStyle(fontSize: widget.isMobile ? 22 : 26, fontWeight: FontWeight.bold),
+                    style: AppTheme.pageTitleStyle(context, isMobile: widget.isMobile),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     context.tr('manage_pharmacy_subtitle', fallback: 'Dispensing · Stock Monitoring · Controlled Drug Audit'),
-                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                    style: AppTheme.pageSubtitleStyle(context, isMobile: widget.isMobile),
                   ),
                 ]),
               ),

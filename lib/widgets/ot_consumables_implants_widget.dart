@@ -6,6 +6,7 @@ import '../utils/app_notification.dart';
 import '../screens/ot_management.dart';
 import '../controllers/ot_controller.dart';
 import 'custom_dropdown_search.dart';
+import '../utils/discard_dialog_helper.dart';
 
 double _safeNumToDouble(dynamic val, [double defaultVal = 0.0]) {
   if (val == null) return defaultVal;
@@ -1461,7 +1462,7 @@ class _AddConsumableDialogState extends State<_AddConsumableDialog> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.validateAndScroll()) return;
     if (widget.otCase.dbId == null) return;
 
     final qtyText = _quantityCtrl.text.trim();
@@ -1561,6 +1562,14 @@ class _AddConsumableDialogState extends State<_AddConsumableDialog> {
     }
   }
 
+  bool _isDirty() {
+    return _itemNameCtrl.text.trim().isNotEmpty ||
+        _batchCtrl.text.trim().isNotEmpty ||
+        _costCtrl.text.trim().isNotEmpty ||
+        _quantityCtrl.text.trim() != '1' ||
+        _selectedInventoryItem != null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredInventory = _inventoryItems.where((item) {
@@ -1580,45 +1589,51 @@ class _AddConsumableDialogState extends State<_AddConsumableDialog> {
       return true;
     }).toList();
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 520,
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Row(
-                children: [
-                  const Icon(
-                    Icons.inventory_2_outlined,
-                    color: AppTheme.primaryColor,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Log Surgical Consumable or Medicine',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty());
+      },
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: 520,
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.inventory_2_outlined,
+                      color: AppTheme.primaryColor,
+                      size: 20,
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, size: 18),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Log Surgical Consumable or Medicine',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty()),
+                      icon: const Icon(Icons.close, size: 18),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  ],
+                ),
               const Divider(height: 16),
 
               // Filter Chips: All, Surgical, Medicines, Implants
@@ -1958,7 +1973,7 @@ class _AddConsumableDialogState extends State<_AddConsumableDialog> {
                   TextButton(
                     onPressed: _isSubmitting
                         ? null
-                        : () => Navigator.pop(context),
+                        : () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty()),
                     child: const Text('Cancel'),
                   ),
                   const SizedBox(width: 10),
@@ -1984,7 +1999,8 @@ class _AddConsumableDialogState extends State<_AddConsumableDialog> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildFilterChip(String categoryValue, String? displayLabel) {
@@ -2156,7 +2172,7 @@ class _AddImplantDialogState extends State<_AddImplantDialog> {
   }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.validateAndScroll()) return;
     if (_expiryDate == null) {
       AppNotification.showError(
         context,
@@ -2239,48 +2255,66 @@ class _AddImplantDialogState extends State<_AddImplantDialog> {
     }
   }
 
+  bool _isDirty() {
+    return _modelNameCtrl.text.trim().isNotEmpty ||
+        _modelNumberCtrl.text.trim().isNotEmpty ||
+        _manufacturerCtrl.text.trim().isNotEmpty ||
+        _batchCtrl.text.trim().isNotEmpty ||
+        _serialCtrl.text.trim().isNotEmpty ||
+        _siteCtrl.text.trim().isNotEmpty ||
+        _notesCtrl.text.trim().isNotEmpty ||
+        _expiryDate != null ||
+        _selectedInventoryImplant != null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 540,
-        padding: const EdgeInsets.all(20),
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.qr_code_2,
-                      color: AppTheme.primaryColor,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Record Tracked Implant (UDI)',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty());
+      },
+      child: Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: 540,
+          padding: const EdgeInsets.all(20),
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.qr_code_2,
+                        color: AppTheme.primaryColor,
+                        size: 22,
                       ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, size: 18),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Record Tracked Implant (UDI)',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty()),
+                        icon: const Icon(Icons.close, size: 18),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
                 const Divider(height: 16),
 
                 // Select from Hospital Implant Inventory Dropdown via CustomDropdownSearch
@@ -2659,7 +2693,7 @@ class _AddImplantDialogState extends State<_AddImplantDialog> {
                     TextButton(
                       onPressed: _isSubmitting
                           ? null
-                          : () => Navigator.pop(context),
+                          : () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty()),
                       child: const Text('Cancel'),
                     ),
                     const SizedBox(width: 10),
@@ -2688,6 +2722,7 @@ class _AddImplantDialogState extends State<_AddImplantDialog> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

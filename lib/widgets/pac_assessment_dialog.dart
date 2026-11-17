@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
 import '../utils/app_notification.dart';
+import '../utils/discard_dialog_helper.dart';
 import '../screens/ot_management.dart';
 import '../controllers/ot_controller.dart';
 
@@ -57,6 +58,31 @@ class _PacAssessmentDialogState extends State<PacAssessmentDialog> {
   late TextEditingController _notesController;
   late TextEditingController _airwayDetailsController;
 
+  late String _initialAsaGrade;
+  late bool _initialIsEmergency;
+  late String _initialMallampatiClass;
+  late String _initialMouthOpening;
+  late String _initialNeckMobility;
+  late String _initialDentition;
+  late String _initialAnaesthesiaType;
+  late String _initialClearanceDecision;
+  late bool _initialNpoSolids;
+  late bool _initialNpoFluids;
+  late bool _initialEcg;
+  late bool _initialCxr;
+  late bool _initialCbc;
+  late bool _initialCoag;
+  late bool _initialRenal;
+  late bool _initialIcu;
+  late bool _initialHypertension;
+  late bool _initialDiabetes;
+  late bool _initialCad;
+  late bool _initialAsthma;
+  late bool _initialRenalDisease;
+  late bool _initialAnticoagulants;
+  late String _initialNotes;
+  late String _initialAirway;
+
   @override
   void initState() {
     super.initState();
@@ -92,6 +118,58 @@ class _PacAssessmentDialogState extends State<PacAssessmentDialog> {
 
     _notesController = TextEditingController(text: widget.otCase.anaesthesiaNotes ?? pac['clinical_notes'] ?? '');
     _airwayDetailsController = TextEditingController(text: pac['airway_details'] ?? '');
+
+    _initialAsaGrade = _asaGrade;
+    _initialIsEmergency = _isEmergency;
+    _initialMallampatiClass = _mallampatiClass;
+    _initialMouthOpening = _mouthOpening;
+    _initialNeckMobility = _neckMobility;
+    _initialDentition = _dentition;
+    _initialAnaesthesiaType = _anaesthesiaType;
+    _initialClearanceDecision = _clearanceDecision;
+    _initialNpoSolids = _npoSolidsVerified;
+    _initialNpoFluids = _npoFluidsVerified;
+    _initialEcg = _ecgVerified;
+    _initialCxr = _cxrVerified;
+    _initialCbc = _cbcHbVerified;
+    _initialCoag = _coagulationVerified;
+    _initialRenal = _renalElectrolytesVerified;
+    _initialIcu = _icuBedReserved;
+    _initialHypertension = _hasHypertension;
+    _initialDiabetes = _hasDiabetes;
+    _initialCad = _hasCad;
+    _initialAsthma = _hasAsthma;
+    _initialRenalDisease = _hasRenalDisease;
+    _initialAnticoagulants = _onAnticoagulants;
+    _initialNotes = _notesController.text.trim();
+    _initialAirway = _airwayDetailsController.text.trim();
+  }
+
+  bool _isDirty() {
+    return _asaGrade != _initialAsaGrade ||
+        _isEmergency != _initialIsEmergency ||
+        _mallampatiClass != _initialMallampatiClass ||
+        _mouthOpening != _initialMouthOpening ||
+        _neckMobility != _initialNeckMobility ||
+        _dentition != _initialDentition ||
+        _anaesthesiaType != _initialAnaesthesiaType ||
+        _clearanceDecision != _initialClearanceDecision ||
+        _npoSolidsVerified != _initialNpoSolids ||
+        _npoFluidsVerified != _initialNpoFluids ||
+        _ecgVerified != _initialEcg ||
+        _cxrVerified != _initialCxr ||
+        _cbcHbVerified != _initialCbc ||
+        _coagulationVerified != _initialCoag ||
+        _renalElectrolytesVerified != _initialRenal ||
+        _icuBedReserved != _initialIcu ||
+        _hasHypertension != _initialHypertension ||
+        _hasDiabetes != _initialDiabetes ||
+        _hasCad != _initialCad ||
+        _hasAsthma != _initialAsthma ||
+        _hasRenalDisease != _initialRenalDisease ||
+        _onAnticoagulants != _initialAnticoagulants ||
+        _notesController.text.trim() != _initialNotes ||
+        _airwayDetailsController.text.trim() != _initialAirway;
   }
 
   @override
@@ -193,7 +271,13 @@ class _PacAssessmentDialogState extends State<PacAssessmentDialog> {
   Widget build(BuildContext context) {
     final effectiveAsa = '$_asaGrade${_isEmergency ? "E" : ""}';
 
-    return Dialog(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, dynamic result) async {
+        if (didPop) return;
+        DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty());
+      },
+      child: Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: EdgeInsets.all(widget.isMobile ? 12 : 24),
       child: ConstrainedBox(
@@ -245,7 +329,7 @@ class _PacAssessmentDialogState extends State<PacAssessmentDialog> {
                     ),
                   ),
                   IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty()),
                     icon: const Icon(Icons.close, color: AppTheme.textSecondaryColor),
                   ),
                 ],
@@ -625,7 +709,7 @@ class _PacAssessmentDialogState extends State<PacAssessmentDialog> {
                             Expanded(
                               flex: 2,
                               child: OutlinedButton(
-                                onPressed: () => Navigator.of(context).pop(),
+                                onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty()),
                                 style: OutlinedButton.styleFrom(
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -668,7 +752,7 @@ class _PacAssessmentDialogState extends State<PacAssessmentDialog> {
                         Row(
                           children: [
                             OutlinedButton(
-                              onPressed: () => Navigator.of(context).pop(),
+                              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: _isDirty()),
                               style: OutlinedButton.styleFrom(
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
@@ -696,6 +780,7 @@ class _PacAssessmentDialogState extends State<PacAssessmentDialog> {
           ],
         ),
       ),
+    ),
     );
   }
 

@@ -13,7 +13,6 @@ import '../providers/auth_provider.dart';
 import '../widgets/nurse_widgets.dart';
 import '../widgets/custom_dropdown_search.dart';
 import '../services/api_service.dart';
-import '../utils/unsaved_changes_helper.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../config/api_config.dart';
 import '../utils/app_localizations.dart';
@@ -23,6 +22,7 @@ import '../widgets/ipd_mar_widget.dart';
 import '../widgets/ipd_fluid_balance_widget.dart';
 import '../widgets/ipd_doctor_rounds_soap_widget.dart';
 import '../widgets/ipd_automated_discharge_summary_widget.dart';
+import '../utils/discard_dialog_helper.dart';
 
 class IPDPatientDetailPage extends StatefulWidget {
   final Map<String, dynamic> admission;
@@ -103,7 +103,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   @override
   void initState() {
     super.initState();
-    UnsavedChangesHelper.setUnsavedChanges(true);
     final auth = Provider.of<AuthProvider>(context, listen: false);
     _userRole = auth.user?.role ?? 'Nurse';
     _staffName = auth.user?.fullname ?? 'Staff Member';
@@ -131,7 +130,6 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
   @override
   void dispose() {
-    UnsavedChangesHelper.setUnsavedChanges(false);
     _tabController.dispose();
     _medNameController.dispose();
     _dosageController.dispose();
@@ -443,17 +441,25 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Row(
-                children: const [
-                  Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                  SizedBox(width: 10),
-                  Text('Record Medication Deviation'),
-                ],
-              ),
+            bool isDirty() => remarksController.text.trim().isNotEmpty || selectedStatus != 'Missed';
+
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (didPop) return;
+                DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty());
+              },
+              child: AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                title: Row(
+                  children: const [
+                    Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                    SizedBox(width: 10),
+                    Text('Record Medication Deviation'),
+                  ],
+                ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,7 +521,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty()),
                   child: const Text('Cancel'),
                 ),
                 ElevatedButton(
@@ -537,11 +543,12 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                   child: const Text('Log Deviation'),
                 ),
               ],
-            );
-          },
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    },
+  );
   }
 
   Future<void> _submitVitals() async {
@@ -2461,41 +2468,56 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
       context: context,
       barrierDismissible: false,
       builder: (dlgCtx) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Container(
-            width: 520,
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: formKey,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
+        bool isDirty() {
+          return sysCtrl.text.isNotEmpty ||
+              diaCtrl.text.isNotEmpty ||
+              tempCtrl.text.isNotEmpty ||
+              pulseCtrl.text.isNotEmpty ||
+              respCtrl.text.isNotEmpty ||
+              spo2Ctrl.text.isNotEmpty;
+        }
+
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            DiscardDialogHelper.handleCancelOrDismiss(dlgCtx, isDirty: isDirty());
+          },
+          child: Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Container(
+              width: 520,
+              padding: const EdgeInsets.all(24),
+              child: Form(
+                key: formKey,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.monitor_heart, color: AppTheme.primaryColor, size: 22),
                         ),
-                        child: const Icon(Icons.monitor_heart, color: AppTheme.primaryColor, size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Record Clinical Vitals (TPR)',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Record Clinical Vitals (TPR)',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+                          ),
                         ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 20),
-                        onPressed: () => Navigator.of(dlgCtx).pop(),
-                      ),
-                    ],
-                  ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(dlgCtx, isDirty: isDirty()),
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: 16),
                   const Divider(height: 1),
                   const SizedBox(height: 16),
@@ -2602,7 +2624,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       OutlinedButton(
-                        onPressed: () => Navigator.of(dlgCtx).pop(),
+                        onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(dlgCtx, isDirty: isDirty()),
                         style: AppTheme.cancelButton,
                         child: const Text('Cancel'),
                       ),
@@ -2647,10 +2669,11 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               ),
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
   Widget _buildVitalParam(String label, String value, bool isAbnormal) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -6390,57 +6413,67 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                                                 TextEditingController();
                                             showDialog(
                                               context: context,
-                                              builder: (context) => AlertDialog(
-                                                title: const Text(
-                                                  'Enter Lab Results',
-                                                ),
-                                                content: TextField(
-                                                  controller: notesCont,
-                                                  maxLines: 3,
-                                                  decoration: const InputDecoration(
-                                                    hintText:
-                                                        'Enter test results...',
-                                                  ),
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () =>
-                                                        Navigator.pop(context),
-                                                    child: const Text('Cancel'),
-                                                  ),
-                                                  ElevatedButton(
-                                                    onPressed: () async {
-                                                      Navigator.pop(context);
-                                                      try {
-                                                        await _ipdController
-                                                            .updateLabOrderStatus(
-                                                              o['id'],
-                                                              {
-                                                                'status':
-                                                                    'Completed',
-                                                                'result_notes':
-                                                                    notesCont
-                                                                        .text
-                                                                        .trim(),
-                                                              },
+                                              builder: (ctx) {
+                                                bool isDirty() => notesCont.text.trim().isNotEmpty;
+                                                return PopScope(
+                                                  canPop: false,
+                                                  onPopInvokedWithResult: (didPop, result) {
+                                                    if (didPop) return;
+                                                    DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+                                                  },
+                                                  child: AlertDialog(
+                                                    title: const Text(
+                                                      'Enter Lab Results',
+                                                    ),
+                                                    content: TextField(
+                                                      controller: notesCont,
+                                                      maxLines: 3,
+                                                      decoration: const InputDecoration(
+                                                        hintText:
+                                                            'Enter test results...',
+                                                      ),
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () =>
+                                                            DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
+                                                        child: const Text('Cancel'),
+                                                      ),
+                                                      ElevatedButton(
+                                                        onPressed: () async {
+                                                          Navigator.pop(ctx);
+                                                          try {
+                                                            await _ipdController
+                                                                .updateLabOrderStatus(
+                                                                  o['id'],
+                                                                  {
+                                                                    'status':
+                                                                        'Completed',
+                                                                    'result_notes':
+                                                                        notesCont
+                                                                            .text
+                                                                            .trim(),
+                                                                  },
+                                                                );
+                                                            _loadAllData();
+                                                          } catch (e) {
+                                                            ScaffoldMessenger.of(
+                                                              context,
+                                                            ).showSnackBar(
+                                                              SnackBar(
+                                                                content: Text(
+                                                                  'Error: ',
+                                                                ),
+                                                              ),
                                                             );
-                                                        _loadAllData();
-                                                      } catch (e) {
-                                                        ScaffoldMessenger.of(
-                                                          context,
-                                                        ).showSnackBar(
-                                                          SnackBar(
-                                                            content: Text(
-                                                              'Error: $e',
-                                                            ),
-                                                          ),
-                                                        );
-                                                      }
-                                                    },
-                                                    child: const Text('Submit'),
+                                                          }
+                                                        },
+                                                        child: const Text('Submit'),
+                                                      ),
+                                                    ],
                                                   ),
-                                                ],
-                                              ),
+                                                );
+                                              },
                                             );
                                           },
                                           style: ElevatedButton.styleFrom(

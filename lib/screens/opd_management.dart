@@ -15,6 +15,7 @@ import '../utils/date_formatter.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/unsaved_changes_helper.dart';
+import '../utils/discard_dialog_helper.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/consultation_documents_view.dart';
 import '../widgets/check_in_vitals_dialog.dart';
@@ -63,7 +64,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   @override
   void initState() {
     super.initState();
-    UnsavedChangesHelper.setUnsavedChanges(true);
+    UnsavedChangesHelper.clear();
     _tabController = TabController(length: 8, vsync: this);
     _tabController.addListener(() {
       if (mounted) setState(() {});
@@ -74,7 +75,6 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
 
   @override
   void dispose() {
-    UnsavedChangesHelper.setUnsavedChanges(false);
     _tabController.dispose();
     _searchCtrl.dispose();
     super.dispose();
@@ -2685,6 +2685,18 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
       });
     }
 
+    final initialDoctor = selectedDoctor;
+    final initialDate = newDate;
+    final initialTime = newTime;
+    final initialReason = reasonCtrl.text.trim();
+
+    bool isDirty() {
+      return selectedDoctor != initialDoctor ||
+          newDate != initialDate ||
+          newTime != initialTime ||
+          reasonCtrl.text.trim() != initialReason;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -2717,7 +2729,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           final eligibleDoctors = getEligibleDoctors();
           final availableSlots = getFilteredSlots(newDate, selectedDoctor);
 
-          return AlertDialog(
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (bool didPop, dynamic result) async {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+            },
+            child: AlertDialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -3192,7 +3210,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             ),
             actions: [
               OutlinedButton(
-                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                 style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
@@ -3320,6 +3338,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                       ),
               ),
             ],
+          ),
           );
         },
       ),
@@ -3604,7 +3623,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           ),
           ElevatedButton(
             onPressed: () async {
-              if (!formKey.currentState!.validate()) {
+              if (!formKey.validateAndScroll()) {
                 return;
               }
 
@@ -4809,11 +4828,23 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
       'No-Show',
     ];
 
+    final initialStatus = app.status;
+
+    bool isDirty() {
+      return newStatus != initialStatus || reasonController.text.trim().isNotEmpty;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
+        builder: (ctx, setDialogState) => PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (bool didPop, dynamic result) async {
+            if (didPop) return;
+            DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+          },
+          child: AlertDialog(
           title: const Text(
             'Admin Status Override',
             style: TextStyle(fontWeight: FontWeight.bold),
@@ -4865,7 +4896,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
           ),
           actions: [
             OutlinedButton(
-              onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
               style: AppTheme.cancelButton,
               child: const Text('Cancel'),
             ),
@@ -4935,6 +4966,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                   : const Text('Confirm'),
             ),
           ],
+        ),
         ),
       ),
     );
@@ -5094,6 +5126,17 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
     final complaintCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
+    bool isDirty() {
+      return selectedPatient != null ||
+          selectedDoctor != null ||
+          selectedTime != null ||
+          bpSysCtrl.text.trim().isNotEmpty ||
+          bpDiaCtrl.text.trim().isNotEmpty ||
+          sugarCtrl.text.trim().isNotEmpty ||
+          tempCtrl.text.trim().isNotEmpty ||
+          complaintCtrl.text.trim().isNotEmpty;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -5116,7 +5159,13 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 });
           }
 
-          return AlertDialog(
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (bool didPop, dynamic result) async {
+              if (didPop) return;
+              DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+            },
+            child: AlertDialog(
             title: const Text(
               'Quick Walk-in Entry',
               style: TextStyle(fontWeight: FontWeight.bold),
@@ -5606,7 +5655,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
             ),
             actions: [
               OutlinedButton(
-                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                 style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
               ),
@@ -5614,7 +5663,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                 onPressed: isSaving
                     ? null
                     : () async {
-                        if (!formKey.currentState!.validate()) return;
+                        if (!formKey.validateAndScroll()) return;
                         if (selectedTime == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
@@ -5712,6 +5761,7 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
                     : const Text('Register'),
               ),
             ],
+          ),
           );
         },
       ),

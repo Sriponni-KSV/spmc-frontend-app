@@ -850,7 +850,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   Future<void> _saveSurgeryRequest() async {
     setState(() => _nurseTeamTouched = true);
-    if (!_requestFormKey.currentState!.validate()) return;
+    if (!_requestFormKey.validateAndScroll()) return;
     
     final int? patientDbId = int.tryParse(_selectedPatientId ?? '');
     if (patientDbId == null) {
@@ -1201,7 +1201,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   void _saveAnaesthesia(OtCase otCase) {
-    if (!(_anesthesiaPacFormKey.currentState?.validate() ?? true)) {
+    if (!_anesthesiaPacFormKey.validateAndScroll()) {
       AppNotification.showError(
         context,
         'Please correct invalid characters in PAC Assessment Notes before clearing.',
@@ -1254,7 +1254,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   void _postponeSurgery(OtCase otCase) {
-    if (!(_anesthesiaPacFormKey.currentState?.validate() ?? true)) {
+    if (!_anesthesiaPacFormKey.validateAndScroll()) {
       AppNotification.showError(
         context,
         'Please correct invalid characters in PAC Assessment Notes before postponing.',
@@ -2364,19 +2364,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                         children: [
                           Text(
                             context.tr('ot_management', fallback: 'OT Management'),
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimaryColor,
-                            ),
+                            style: AppTheme.pageTitleStyle(context, isMobile: true),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             context.tr('ot_subtitle', fallback: 'Schedule and view operation cases details'),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppTheme.textSecondaryColor,
-                            ),
+                            style: AppTheme.pageSubtitleStyle(context, isMobile: true),
                           ),
                         ],
                       ),
@@ -2399,19 +2392,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                               children: [
                                 Text(
                                   context.tr('ot_management', fallback: 'OT Management'),
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.textPrimaryColor,
-                                  ),
+                                  style: AppTheme.pageTitleStyle(context, isMobile: false),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   context.tr('ot_subtitle', fallback: 'Schedule and view operation cases details'),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.textSecondaryColor,
-                                  ),
+                                  style: AppTheme.pageSubtitleStyle(context, isMobile: false),
                                 ),
                               ],
                             ),
@@ -2431,19 +2417,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                             children: [
                               Text(
                                 context.tr('ot_management', fallback: 'OT Management'),
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.textPrimaryColor,
-                                ),
+                                style: AppTheme.pageTitleStyle(context, isMobile: false),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 context.tr('ot_subtitle', fallback: 'Schedule and view operation cases details'),
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
+                                style: AppTheme.pageSubtitleStyle(context, isMobile: false),
                               ),
                             ],
                           ),
@@ -2510,12 +2489,80 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   // ── VIEW 1: DASHBOARD & ROOM BOARD ──────────────────────────────────
 
   bool _matchesRoom(OtCase c, String targetCode, String targetName) {
-    final norm = (String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final norm = (String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '').replaceAll('room', '');
     final cRoom = norm(c.otRoom ?? '');
     final tCode = norm(targetCode);
     final tName = norm(targetName);
     if (cRoom.isEmpty) return false;
     return cRoom == tCode || cRoom == tName || cRoom.contains(tCode) || tCode.contains(cRoom);
+  }
+
+  Set<String> _getOccupiedRoomsForSlot({
+    required DateTime date,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+    int? excludeDbId,
+    String? excludeCaseId,
+  }) {
+    const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+    final proposedStart = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      startTime.hour,
+      startTime.minute,
+    );
+    final rawProposedEnd = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      endTime.hour,
+      endTime.minute,
+    );
+    final proposedEnd = rawProposedEnd.isAfter(proposedStart)
+        ? rawProposedEnd
+        : proposedStart.add(const Duration(minutes: 90));
+
+    final now = DateTime.now();
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+
+    return allRooms.where((room) {
+      return _otCases.any((c) {
+        if (excludeDbId != null && c.dbId == excludeDbId) return false;
+        if (excludeCaseId != null && c.id == excludeCaseId) return false;
+        if (!_matchesRoom(c, room, room)) return false;
+
+        // Skip non-active, cancelled, or completed cases
+        if (c.status == 'OT Case Closed' ||
+            c.status == 'Surgery Completed' ||
+            c.status == 'Post-Op Monitoring' ||
+            c.status == 'Cancelled' ||
+            c.status == 'Rejected' ||
+            c.status == 'OT Requested') {
+          return false;
+        }
+
+        // Live active surgery occupying theatre room right now (if scheduling for today)
+        if (isToday && (c.status == 'Patient In OT' || c.status == 'Surgery In Progress')) {
+          return true;
+        }
+
+        // Time overlap check for cases scheduled on the same date
+        final cStart = c.scheduledStartTime ?? c.surgeryDateTime;
+        if (cStart == null) return false;
+
+        final isSameDate = cStart.year == date.year &&
+                           cStart.month == date.month &&
+                           cStart.day == date.day;
+        if (!isSameDate) return false;
+
+        final cEnd = c.scheduledEndTime ??
+            cStart.add(Duration(minutes: c.estimatedDurationMinutes > 0 ? c.estimatedDurationMinutes : 90));
+
+        // Overlap: (cStart < proposedEnd) && (cEnd > proposedStart)
+        return cStart.isBefore(proposedEnd) && cEnd.isAfter(proposedStart);
+      });
+    }).toSet();
   }
 
   double _calculateCaseProgress(OtCase c) {
@@ -4322,16 +4369,16 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                             final user = Provider.of<AuthProvider>(context, listen: false).user;
                             showDialog(
                               context: context,
-                              builder: (_) => Dialog(
+                              builder: (dialogCtx) => Dialog(
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 insetPadding: EdgeInsets.symmetric(
                                   horizontal: 12,
-                                  vertical: MediaQuery.of(context).size.height * 0.05,
+                                  vertical: MediaQuery.of(dialogCtx).size.height * 0.05,
                                 ),
                                 child: ConstrainedBox(
                                   constraints: BoxConstraints(
                                     maxWidth: 820,
-                                    maxHeight: MediaQuery.of(context).size.height * 0.88,
+                                    maxHeight: MediaQuery.of(dialogCtx).size.height * 0.88,
                                   ),
                                   child: WhoSurgicalSafetyChecklistWidget(
                                     otCase: otCase,
@@ -6305,18 +6352,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   // ── SCHEDULING FORM: OT Room Dropdown + Time Pickers + Nurse Multi-Select ──
   Widget _buildSchedulingForm(OtCase otCase) {
-    // Determine which rooms are already occupied by ANOTHER active case
     const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
-    final occupiedRooms = _otCases
-        .where((c) =>
-            c.dbId != otCase.dbId &&
-            c.otRoom != null &&
-            c.status != 'OT Case Closed' &&
-            c.status != 'OT Requested')
-        .map((c) => c.otRoom!)
-        .toSet();
-
-    final availableRooms = allRooms.where((r) => !occupiedRooms.contains(r)).toList();
+    final caseDate = otCase.surgeryDateTime ?? DateTime.now();
+    final occupiedRooms = _getOccupiedRoomsForSlot(
+      date: caseDate,
+      startTime: _slotStartTime,
+      endTime: _slotEndTime,
+      excludeDbId: otCase.dbId,
+      excludeCaseId: otCase.id,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -6336,26 +6380,25 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         CustomDropdownSearch(
           label: 'OT Room',
           requiredMark: true,
-          hint: 'Select available OT Room',
-          value: (_selectedOtRoom != null && availableRooms.contains(_selectedOtRoom))
+          hint: 'Select OT Room',
+          value: (_selectedOtRoom != null && allRooms.contains(_selectedOtRoom))
               ? _selectedOtRoom
               : null,
-          dropdownMap: availableRooms.isEmpty
-              ? { '': 'No rooms available' }
-              : { for (var room in availableRooms) room: '$room (Available)' },
+          dropdownMap: {
+            for (var room in allRooms)
+              room: occupiedRooms.contains(room) ? '$room (Occupied)' : '$room (Available)'
+          },
           validator: (val) {
             if (val == null || val.trim().isEmpty) {
               return 'Please select an OT Room';
             }
             return null;
           },
-          onChanged: availableRooms.isEmpty
-              ? null
-              : (val) {
-                  if (val != null) {
-                    setState(() => _selectedOtRoom = val);
-                  }
-                },
+          onChanged: (val) {
+            if (val != null) {
+              setState(() => _selectedOtRoom = val);
+            }
+          },
         ),
         if (occupiedRooms.isNotEmpty)
           Padding(
@@ -6365,7 +6408,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 Icon(Icons.info_outline, size: 12, color: Colors.orange.shade700),
                 const SizedBox(width: 4),
                 Text(
-                  'Occupied: ${occupiedRooms.join(', ')}',
+                  'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
                   style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
                 ),
               ],
@@ -7734,16 +7777,16 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                         final user = Provider.of<AuthProvider>(context, listen: false).user;
                         showDialog(
                           context: context,
-                          builder: (_) => Dialog(
+                          builder: (dialogCtx) => Dialog(
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                             insetPadding: EdgeInsets.symmetric(
                               horizontal: widget.isMobile ? 12 : 24,
-                              vertical: widget.isMobile ? MediaQuery.of(context).size.height * 0.05 : 24,
+                              vertical: widget.isMobile ? MediaQuery.of(dialogCtx).size.height * 0.05 : 24,
                             ),
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
                                 maxWidth: 850,
-                                maxHeight: MediaQuery.of(context).size.height * (widget.isMobile ? 0.88 : 0.85),
+                                maxHeight: MediaQuery.of(dialogCtx).size.height * (widget.isMobile ? 0.88 : 0.85),
                               ),
                               child: WhoSurgicalSafetyChecklistWidget(
                                 otCase: otCase,
@@ -8796,7 +8839,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                         }
                       }
 
-                      if (!_surgeryProcedureFormKey.currentState!.validate()) {
+                      if (!_surgeryProcedureFormKey.validateAndScroll()) {
                         AppNotification.showError(
                           context,
                           'Cannot proceed to Step 7: Please fill all mandatory surgical procedure fields correctly.',
@@ -9425,7 +9468,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
                     onPressed: () {
-                      if (_postOpNurseCareFormKey.currentState!.validate()) {
+                      if (_postOpNurseCareFormKey.validateAndScroll()) {
                         _addNurseCareLog(otCase);
                       } else {
                         AppNotification.showError(
@@ -9505,7 +9548,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   const SizedBox(height: 12),
                   ElevatedButton.icon(
                     onPressed: () {
-                      if (_postOpDoctorNoteFormKey.currentState!.validate()) {
+                      if (_postOpDoctorNoteFormKey.validateAndScroll()) {
                         _addDoctorProgressNote(otCase);
                       } else {
                         AppNotification.showError(
@@ -10373,15 +10416,12 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   List<Widget> _buildSchedulingParametersChildren() {
-    final allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
-    final occupiedRooms = _otCases
-        .where((c) =>
-            c.otRoom != null &&
-            c.status != 'OT Case Closed' &&
-            c.status != 'OT Requested')
-        .map((c) => c.otRoom!)
-        .toSet();
-
+    const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+    final occupiedRooms = _getOccupiedRoomsForSlot(
+      date: _selectedDate,
+      startTime: _slotStartTime,
+      endTime: _slotEndTime,
+    );
 
     return [
       const SizedBox(height: 24),
@@ -10412,6 +10452,20 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           }
         },
       ),
+      if (occupiedRooms.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, size: 12, color: Colors.orange.shade700),
+              const SizedBox(width: 4),
+              Text(
+                'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
+                style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+              ),
+            ],
+          ),
+        ),
       const SizedBox(height: 16),
 
       // Time Slot

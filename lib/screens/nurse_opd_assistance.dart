@@ -11,6 +11,7 @@ import '../controllers/patient_controller.dart';
 import '../controllers/admin_controller.dart';
 import '../utils/date_formatter.dart';
 import '../widgets/custom_dropdown_search.dart';
+import '../utils/discard_dialog_helper.dart';
 
 /// Nurse-only OPD Assistance screen.
 /// Flow: Patient Arrives → Mark Arrived → Record Vitals → Send to Doctor
@@ -808,7 +809,14 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
 
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: cancelReasonController.text.trim().isNotEmpty);
+        },
+        child: AlertDialog(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -928,7 +936,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
         ),
         actions: [
           OutlinedButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: cancelReasonController.text.trim().isNotEmpty),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.textSecondaryColor,
               side: const BorderSide(color: AppTheme.borderColor),
@@ -940,7 +948,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
           ),
           ElevatedButton(
             onPressed: () async {
-              if (!formKey.currentState!.validate()) {
+              if (!formKey.validateAndScroll()) {
                 return;
               }
 
@@ -981,6 +989,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
             child: Text(context.tr('cancel_appointment', fallback: 'Cancel Appointment')),
           ),
         ],
+        ),
       ),
     );
   }
@@ -1016,13 +1025,32 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
     );
     final cmpCtrl = TextEditingController(text: app.reasonForVisit ?? '');
     final formKey = GlobalKey<FormState>();
+    final initialSys = sysCtrl.text;
+    final initialDia = diaCtrl.text;
+    final initialSug = sugCtrl.text;
+    final initialTmp = tmpCtrl.text;
+    final initialCmp = cmpCtrl.text;
+    bool isDirty() {
+      return sysCtrl.text != initialSys ||
+          diaCtrl.text != initialDia ||
+          sugCtrl.text != initialSug ||
+          tmpCtrl.text != initialTmp ||
+          cmpCtrl.text != initialCmp;
+    }
     bool isSaving = false;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
+        builder: (ctx, setS) => PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            if (isSaving) return;
+            DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+          },
+          child: AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           shape: RoundedRectangleBorder(
@@ -1273,7 +1301,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
           ),
           actions: [
             OutlinedButton(
-              onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
               style: AppTheme.cancelButton,
               child: Text(context.tr('cancel', fallback: 'Cancel')),
             ),
@@ -1281,7 +1309,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               onPressed: isSaving
                   ? null
                   : () async {
-                      if (!formKey.currentState!.validate()) return;
+                      if (!formKey.validateAndScroll()) return;
                       setS(() => isSaving = true);
                       try {
                         final vitalsData = <String, dynamic>{
@@ -1353,6 +1381,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
               ),
             ),
           ],
+          ),
         ),
       ),
     );
@@ -1549,7 +1578,25 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                 });
           }
 
-          return AlertDialog(
+          bool isDirty() {
+            return selectedPatient != null ||
+                selectedDoctor != null ||
+                selectedTime != null ||
+                bpSysCtrl.text.isNotEmpty ||
+                bpDiaCtrl.text.isNotEmpty ||
+                sugarCtrl.text.isNotEmpty ||
+                tempCtrl.text.isNotEmpty ||
+                complaintCtrl.text.isNotEmpty;
+          }
+
+          return PopScope(
+            canPop: false,
+            onPopInvokedWithResult: (didPop, result) {
+              if (didPop) return;
+              if (isSaving) return;
+              DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+            },
+            child: AlertDialog(
             backgroundColor: Colors.white,
             surfaceTintColor: Colors.white,
             title: const Row(
@@ -2039,7 +2086,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
             ),
             actions: [
               OutlinedButton(
-                onPressed: isSaving ? null : () => Navigator.pop(ctx),
+                onPressed: isSaving ? null : () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
                 style: AppTheme.cancelButton,
                 child: Text(context.tr('cancel', fallback: 'Cancel')),
               ),
@@ -2051,7 +2098,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                         selectedPatient == null)
                     ? null
                     : () async {
-                        if (!formKey.currentState!.validate()) return;
+                        if (!formKey.validateAndScroll()) return;
                         setDialogState(() => isSaving = true);
                         try {
                           final vitalsData = <String, dynamic>{
@@ -2136,6 +2183,7 @@ class _NurseOPDAssistanceScreenState extends State<NurseOPDAssistanceScreen>
                     : Text(context.tr('register_walk_in', fallback: 'Register Walk-in')),
               ),
             ],
+          ),
           );
         },
       ),

@@ -101,6 +101,7 @@ class AdminNavConfig {
   static const bool showLabTestsMaster = true;
   static const bool showSpecializationsMaster = true;
   static const bool showDbInitialization = true;
+  static const bool showDepartments = true;
 
   // =========================================================================
   // HELPER METHODS TO FILTER AND RETURN ACTIVE MENU ITEMS
@@ -285,6 +286,12 @@ class AdminNavConfig {
         icon: Icons.storage_outlined,
         label: 'Database Initialization',
         isVisible: showDbInitialization,
+      ),
+      const AdminCatalogSubItem(
+        index: 21,
+        icon: Icons.apartment_rounded,
+        label: 'Department Master',
+        isVisible: showDepartments,
       ),
     ];
 
