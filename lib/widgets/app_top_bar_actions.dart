@@ -27,7 +27,7 @@ class AppTopBarActions extends StatelessWidget {
     this.showClock = false,
     this.liveClockWidget,
     this.showSettings = true,
-    this.showLanguageToggle = true,
+    this.showLanguageToggle = false,
   });
 
   @override

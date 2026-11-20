@@ -18,6 +18,7 @@ import '../models/appointment_model.dart';
 import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
 import '../utils/logout_helper.dart';
+import '../services/token_service.dart';
 import '../widgets/user_profile_dialog.dart';
 import '../widgets/access_denied_widget.dart';
 import 'doctor_ipd_management.dart';
@@ -261,6 +262,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _notificationsTimer = Timer.periodic(const Duration(seconds: 6), (timer) {
       _fetchNotifications();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final user = Provider.of<AuthProvider>(context).user;
+    if (user != null && _doctorAppointments.isEmpty && !_isLoading) {
+      _fetchDoctorData();
+    }
   }
 
   @override
@@ -598,16 +608,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isDoctorMatch(AppointmentModel appt, UserModel? user) {
     if (user == null) return false;
     if (user.role == 'Admin' || user.role == 'Super Admin') return true;
-    if (appt.doctorId != null && user.id != null && appt.doctorId == user.id) {
+
+    // 1. Direct ID match (check numeric and string, both id and user.id)
+    if (appt.doctorId != null && user.id != 0) {
+      if (appt.doctorId == user.id || appt.doctorId.toString() == user.id.toString()) {
+        return true;
+      }
+    }
+
+    // 2. Doctor display ID / staffUniqueId match (case-insensitive, trimmed)
+    final apptDocDisp = appt.doctorDisplayId?.trim().toLowerCase();
+    final userStaffId = user.staffUniqueId?.trim().toLowerCase();
+    if (apptDocDisp != null && apptDocDisp.isNotEmpty && userStaffId != null && userStaffId.isNotEmpty) {
+      if (apptDocDisp == userStaffId) return true;
+    }
+
+    // 3. Name matching via helper
+    if (_isDoctorNameMatch(appt.doctorName, user)) {
       return true;
     }
-    if (appt.doctorDisplayId != null &&
-        appt.doctorDisplayId!.isNotEmpty &&
-        user.staffUniqueId != null &&
-        user.staffUniqueId!.isNotEmpty) {
-      if (appt.doctorDisplayId == user.staffUniqueId) return true;
+
+    // 4. Substring fallback on doctor name
+    final docNameLower = appt.doctorName.trim().toLowerCase();
+    final userRawName = (user.rawFullname ?? user.fullname).trim().toLowerCase();
+    if (docNameLower.isNotEmpty && userRawName.isNotEmpty) {
+      if (docNameLower.contains(userRawName) || userRawName.contains(docNameLower)) {
+        return true;
+      }
     }
-    return _isDoctorNameMatch(appt.doctorName, user);
+
+    return false;
   }
 
   bool _isDoctorNameMatch(dynamic docName, UserModel? user) {
@@ -618,21 +648,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (sDoc.isEmpty) return false;
 
     String clean(String s) {
-      s = s.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
-      if (s.startsWith('dr.')) s = s.substring(3).trim();
-      if (s.startsWith('dr ')) s = s.substring(2).trim();
-      if (s.contains(' - ')) s = s.split(' - ')[0].trim();
-      return s;
+      return s
+          .toLowerCase()
+          .replaceAll(RegExp(r'\b(dr|doctor|prof|mr|mrs|ms)\b\.?', caseSensitive: false), ' ')
+          .replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
     }
 
     final cDoc = clean(sDoc);
     final cUser = clean(user.rawFullname ?? user.fullname);
     if (cDoc.isEmpty || cUser.isEmpty) return false;
-    return cDoc == cUser || cDoc.contains(cUser) || cUser.contains(cDoc);
+    if (cDoc == cUser || cDoc.contains(cUser) || cUser.contains(cDoc)) return true;
+
+    // Check individual significant word tokens (e.g. "Gayathri" matching "Dr. Gayathri" or "Gayathri Dr")
+    final docWords = cDoc.split(RegExp(r'\s+')).where((w) => w.length >= 3).toSet();
+    final userWords = cUser.split(RegExp(r'\s+')).where((w) => w.length >= 3).toSet();
+    return docWords.intersection(userWords).isNotEmpty;
   }
 
   bool _isSameDay(String apptDateStr, DateTime date) {
     try {
+      final trimmed = apptDateStr.trim().toLowerCase();
+      if (trimmed == 'today' || trimmed.startsWith('today')) {
+        final now = DateTime.now();
+        return date.year == now.year && date.month == now.month && date.day == now.day;
+      }
       final dt = DateFormatter.toDateTime(apptDateStr);
       if (dt != null) {
         return dt.year == date.year && dt.month == date.month && dt.day == date.day;
@@ -640,6 +681,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final cleanAppt = apptDateStr.replaceAll('-', '/').trim();
       final target = DateFormat('dd/MM/yyyy').format(date);
       if (cleanAppt == target || cleanAppt.startsWith(target)) return true;
+
+      final targetDb = DateFormat('yyyy/MM/dd').format(date);
+      if (cleanAppt == targetDb || cleanAppt.startsWith(targetDb)) return true;
 
       // Fallback parse
       final parts = cleanAppt.split('/');
@@ -668,13 +712,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _fetchDoctorData() async {
     if (!mounted) return;
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    UserModel? user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user == null) {
-      if (mounted) setState(() => _isLoading = false);
-      return;
+      try {
+        final cachedUser = await TokenService.getUser();
+        if (cachedUser != null) {
+          user = UserModel.fromJson(jsonDecode(cachedUser));
+        }
+      } catch (_) {}
     }
 
-    if (user.role == 'Anaesthetist') {
+    if (user != null && user.role == 'Anaesthetist') {
       if (!mounted) return;
       setState(() => _isLoading = true);
       try {
@@ -692,8 +740,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
-    if (!user.hasPermission('book_appointment')) {
-      debugPrint('[_fetchDoctorData] Bypassing fetch: user lacks book_appointment permission');
+    final role = user?.role.toLowerCase() ?? '';
+    final isAllowed = role == 'doctor' ||
+        role == 'admin' ||
+        role == 'super admin' ||
+        (user?.hasPermission('conduct_consultations') ?? false) ||
+        (user?.hasPermission('view_appointment') ?? false) ||
+        (user?.hasPermission('book_appointment') ?? false);
+
+    if (user != null && !isAllowed) {
+      debugPrint('[_fetchDoctorData] Bypassing fetch: user lacks doctor dashboard access');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -703,15 +759,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final user = Provider.of<AuthProvider>(context, listen: false).user;
       final allAppointments = await _appointmentController.fetchAppointments();
+      final currentUser = Provider.of<AuthProvider>(context, listen: false).user ?? user;
 
       if (mounted) {
         setState(() {
           _doctorAppointments = allAppointments.where((appt) {
-            return _isDoctorMatch(appt, user);
+            return _isDoctorMatch(appt, currentUser);
           }).toList();
           _isLoading = false;
+
+          // If there are no appointments for today, but the doctor has appointments on other dates,
+          // auto-reset _selectedDate to null so all records are immediately displayed!
+          final hasTodayAppts = _doctorAppointments.any((a) => _isSameDay(a.appointmentDate, DateTime.now()));
+          if (!hasTodayAppts && _doctorAppointments.isNotEmpty && _selectedDate != null) {
+            _selectedDate = null;
+          }
         });
       }
 
@@ -4852,13 +4915,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isDark = AppTheme.isDark(context);
 
     return Container(
-      width: 275,
-      margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+      width: isMobile ? double.infinity : 275,
+      margin: isMobile ? EdgeInsets.zero : const EdgeInsets.fromLTRB(16, 16, 8, 16),
       decoration: BoxDecoration(
         color: AppTheme.getCardColor(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.getBorderColor(context)),
-        boxShadow: isDark
+        borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(20),
+        border: isMobile ? null : Border.all(color: AppTheme.getBorderColor(context)),
+        boxShadow: isDark || isMobile
             ? []
             : [
                 BoxShadow(
@@ -4892,6 +4955,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         item.index,
                         item.icon,
                         item.label,
+                        isMobile: isMobile,
                       ),
                     )
                     .toList(),
@@ -5058,7 +5122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return label;
   }
 
-  Widget _buildSidebarItem(int index, IconData icon, String label) {
+  Widget _buildSidebarItem(int index, IconData icon, String label, {bool isMobile = false}) {
     final displayLabel = _translateDoctorLabel(label);
     bool isSelected = _selectedIndex == index;
     final user = Provider.of<AuthProvider>(context, listen: false).user;
@@ -5075,6 +5139,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return InkWell(
       onTap: () async {
+        if (isMobile) {
+          Navigator.of(context).pop();
+        }
         if (!hasTimings) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -5357,9 +5424,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             a.status.toLowerCase() != 'cancelled')
         .length;
     final int confirmedCount = _doctorAppointments
-        .where((a) =>
-            a.status.toLowerCase() == 'confirmed' ||
-            a.status.toLowerCase() == 'scheduled')
+        .where((a) {
+          final s = a.status.toLowerCase();
+          return s == 'confirmed' ||
+              s == 'scheduled' ||
+              s == 'waiting' ||
+              s == 'booked' ||
+              s == 'pending' ||
+              s == 'checked in' ||
+              s == 'checked-in' ||
+              s == 'arrived';
+        })
         .length;
     final int totalAppointments = _doctorAppointments
         .where((a) => a.status.toLowerCase() != 'cancelled')
@@ -5464,8 +5539,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // If a specific date is selected, show all statuses. 
       // If we are viewing all dates, only display active statuses.
       if (_selectedDate == null) {
-        final status = a.status;
-        if (status != 'Confirmed' && status != 'Waiting' && status != 'In Consultation') {
+        final status = a.status.toLowerCase().trim();
+        if (status != 'confirmed' &&
+            status != 'waiting' &&
+            status != 'in consultation' &&
+            status != 'checked in' &&
+            status != 'checked-in' &&
+            status != 'scheduled' &&
+            status != 'booked' &&
+            status != 'pending' &&
+            status != 'arrived') {
           return false;
         }
       }
@@ -5778,9 +5861,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                 ),
                                 if (_selectedDate != null)
-                                  TextButton(
+                                  ElevatedButton.icon(
                                     onPressed: () => setState(() => _selectedDate = null),
-                                    child: const Text('View All Records'),
+                                    icon: const Icon(Icons.list_alt, size: 16),
+                                    label: Text(
+                                      _doctorAppointments.isNotEmpty
+                                          ? 'View All Appointments (${_doctorAppointments.length})'
+                                          : 'View All Records',
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryColor,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    ),
                                   ),
                               ],
                             ),
@@ -5950,7 +6043,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return InkWell(
       onTap: () async {
-        if (appt.status == 'Waiting') {
+        if (appt.status == 'Waiting' ||
+            appt.status == 'Confirmed' ||
+            appt.status == 'Checked In' ||
+            appt.status == 'Checked-in' ||
+            appt.status == 'Scheduled' ||
+            appt.status == 'Booked' ||
+            appt.status == 'Pending' ||
+            appt.status == 'Arrived' ||
+            appt.status == 'Admitted') {
           await _startConsultation(appt);
         } else if (appt.status == 'In Consultation') {
           _resumeConsultation(appt);
@@ -6130,7 +6231,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               flex: 3,
               child: Align(
                 alignment: Alignment.center,
-                child: (appt.status == 'Waiting' || appt.status == 'Confirmed' || appt.status == 'Checked In' || appt.status == 'Admitted' || appt.status == 'Scheduled')
+                child: (appt.status == 'Waiting' ||
+                        appt.status == 'Confirmed' ||
+                        appt.status == 'Checked In' ||
+                        appt.status == 'Checked-in' ||
+                        appt.status == 'Admitted' ||
+                        appt.status == 'Scheduled' ||
+                        appt.status == 'Booked' ||
+                        appt.status == 'Pending' ||
+                        appt.status == 'Arrived')
                     ? ElevatedButton.icon(
                         onPressed: () => _startConsultation(appt),
                         style: ElevatedButton.styleFrom(

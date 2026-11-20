@@ -578,9 +578,12 @@ class _AdminGlobalSearchOverlayState extends State<AdminGlobalSearchOverlay> {
           ),
           title: Row(
             children: [
-              Text(
-                module.title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+              Expanded(
+                child: Text(
+                  module.title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               const SizedBox(width: 8),
               Container(
@@ -598,15 +601,18 @@ class _AdminGlobalSearchOverlayState extends State<AdminGlobalSearchOverlay> {
             ],
           ),
           subtitle: Padding(
-            padding: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.only(top: 3),
             child: Text(
               module.description,
-              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-              maxLines: 1,
+              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, height: 1.25),
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppTheme.primaryColor),
+          trailing: const Padding(
+            padding: EdgeInsets.only(left: 6),
+            child: Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppTheme.primaryColor),
+          ),
           onTap: () {
             widget.onNavigate(module.route, module.index);
           },
@@ -642,9 +648,12 @@ class _AdminGlobalSearchOverlayState extends State<AdminGlobalSearchOverlay> {
           ),
           title: Row(
             children: [
-              Text(
-                name,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               const SizedBox(width: 8),
               Container(

@@ -932,13 +932,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
-      drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
+      drawer: isMobile ? Drawer(child: _buildSidebar(context, isMobile: true)) : null,
       body: SafeArea(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // Sidebar (only on desktop)
-            if (!isMobile) _buildSidebar(context),
+            if (!isMobile) _buildSidebar(context, isMobile: false),
 
             // Main Content Area
             Expanded(
@@ -2455,18 +2455,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildSidebar(BuildContext context) {
+  Widget _buildSidebar(BuildContext context, {bool isMobile = false}) {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     final isDark = AppTheme.isDark(context);
 
     return Container(
-      width: 275,
-      margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+      width: isMobile ? double.infinity : 275,
+      margin: isMobile ? EdgeInsets.zero : const EdgeInsets.fromLTRB(16, 16, 8, 16),
       decoration: BoxDecoration(
         color: AppTheme.getCardColor(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.getBorderColor(context)),
-        boxShadow: isDark
+        borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(20),
+        border: isMobile ? null : Border.all(color: AppTheme.getBorderColor(context)),
+        boxShadow: isDark || isMobile
             ? []
             : [
                 BoxShadow(
@@ -2499,6 +2499,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       item.index,
                       item.icon,
                       item.label,
+                      isMobile: isMobile,
                     ),
                   ),
                   if (AdminNavConfig.showMasterCatalog &&
@@ -2506,7 +2507,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           user?.role == 'Admin' ||
                           user?.role == 'Super Admin' ||
                           user?.role == 'Supervisor'))
-                    _buildCatalogParentMenu(),
+                    _buildCatalogParentMenu(isMobile: isMobile),
                 ],
               ),
             ),
@@ -2604,7 +2605,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildCatalogParentMenu() {
+  Widget _buildCatalogParentMenu({bool isMobile = false}) {
     bool isChildSelected =
         _selectedIndex == 11 ||
         _selectedIndex == 13 ||
@@ -2675,6 +2676,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     subItem.icon,
                     subItem.label,
                     isSubItem: true,
+                    isMobile: isMobile,
                   ),
                 )
                 .toList(),
@@ -2704,6 +2706,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     IconData icon,
     String label, {
     bool isSubItem = false,
+    bool isMobile = false,
   }) {
     bool isSelected =
         (_selectedIndex == index && !_isRegisteringPatient) ||
@@ -2732,6 +2735,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
       child: InkWell(
         onTap: () async {
+          if (isMobile) {
+            Navigator.of(context).pop();
+          }
           if (UnsavedChangesHelper.hasUnsavedChanges) {
             final shouldLeave = await _confirmLeaveRegistration();
             if (!shouldLeave || !mounted) return;
@@ -4982,10 +4988,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               iconColor: AppTheme.primaryColor,
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: allDoctors.map((doc) {
+            _buildStaffBadgeGrid(
+              allDoctors.map((doc) {
                 final spec = doc.specialization != null && doc.specialization!.isNotEmpty
                     ? doc.specialization!
                     : 'General Physician';
@@ -5010,10 +5014,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               iconColor: AppTheme.secondaryColor,
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: allNurses.map((nurse) {
+            _buildStaffBadgeGrid(
+              allNurses.map((nurse) {
                 return _buildStaffMemberBadge(
                   name: nurse.fullname,
                   subtitle: nurse.shiftType != null && nurse.shiftType!.isNotEmpty
@@ -5037,10 +5039,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               iconColor: AppTheme.warningColor,
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: allSupport.map((staff) {
+            _buildStaffBadgeGrid(
+              allSupport.map((staff) {
                 return _buildStaffMemberBadge(
                   name: staff.fullname,
                   subtitle: staff.role,
@@ -5062,10 +5062,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               iconColor: const Color(0xFF94A3B8),
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: allOffDuty.map((staff) {
+            _buildStaffBadgeGrid(
+              allOffDuty.map((staff) {
                 final reason = _getUserOffReason(staff, selectedDayAbbr);
                 return _buildStaffMemberBadge(
                   name: staff.role == 'Doctor' ? 'Dr. ${staff.fullname}' : staff.fullname,
@@ -5079,6 +5077,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildStaffBadgeGrid(List<Widget> badges) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double maxWidth = constraints.maxWidth;
+        final int crossAxisCount = maxWidth < 340 ? 1 : (maxWidth < 700 ? 2 : (maxWidth < 1050 ? 3 : 4));
+        final double itemWidth = (maxWidth - (crossAxisCount - 1) * 8) / crossAxisCount;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: badges.map((b) => SizedBox(width: itemWidth, child: b)).toList(),
+        );
+      },
     );
   }
 
@@ -5132,7 +5145,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     required Color roleColor,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
@@ -5150,10 +5163,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           CircleAvatar(
-            radius: 12,
+            radius: 13,
             backgroundColor: isOnDuty
                 ? roleColor.withValues(alpha: 0.12)
                 : const Color(0xFFF1F5F9),
@@ -5169,7 +5181,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Flexible(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -5179,12 +5191,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                     color: isOnDuty ? AppTheme.textPrimaryColor : const Color(0xFF64748B),
                   ),
                 ),
-                const SizedBox(height: 1),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
                   maxLines: 1,
@@ -5200,7 +5212,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
           const SizedBox(width: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
             decoration: BoxDecoration(
               color: isOnDuty
                   ? AppTheme.secondaryColor.withValues(alpha: 0.1)
@@ -5217,6 +5229,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
       ),
     );
   }
@@ -7837,15 +7852,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       lastDate: DateTime(2035),
                       initialDateRange: _allocLogDateRangeFilter,
                       builder: (context, child) {
-                        return Theme(
-                          data: Theme.of(context).copyWith(
-                            colorScheme: const ColorScheme.light(
-                              primary: AppTheme.primaryColor,
-                              onPrimary: Colors.white,
-                              onSurface: AppTheme.textPrimaryColor,
+                        return Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: 440,
+                              maxHeight: 560,
+                            ),
+                            child: Container(
+                              clipBehavior: Clip.antiAlias,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 20,
+                                    offset: Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Theme(
+                                data: Theme.of(context).copyWith(
+                                  colorScheme: const ColorScheme.light(
+                                    primary: AppTheme.primaryColor,
+                                    onPrimary: Colors.white,
+                                    onSurface: AppTheme.textPrimaryColor,
+                                  ),
+                                ),
+                                child: child!,
+                              ),
                             ),
                           ),
-                          child: child!,
                         );
                       },
                     );

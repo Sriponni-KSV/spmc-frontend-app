@@ -24,6 +24,7 @@ import '../utils/capitalize_formatter.dart';
 import '../utils/tamil_transliteration_helper.dart';
 import '../providers/language_provider.dart';
 import '../widgets/consultation_documents_view.dart';
+import '../widgets/bed_room_request_dialog.dart';
 
 class PatientsView extends StatefulWidget {
   final List<PatientModel> patients;
@@ -3667,33 +3668,62 @@ class _PatientDetailViewState extends State<PatientDetailView>
     final user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user?.role.toLowerCase() != 'doctor') return const SizedBox.shrink();
 
-    // Find an active appointment for today or pending consultation
-    final pendingAppt = _patientAppointments.firstWhere(
-      (a) => a.status == 'Confirmed' ||
-             a.status == 'Waiting' ||
-             a.status == 'Pending' ||
-             a.status == 'In Consultation' ||
-             a.status == 'Checked In' ||
-             a.status == 'Checked-in' ||
-             a.status == 'Scheduled' ||
-             a.status == 'Arrived',
-      orElse: () => _patientAppointments.isNotEmpty
-          ? _patientAppointments.first
-          : AppointmentModel(
-              patientId: widget.patient.id ?? 0,
-              patientName: widget.patient.name,
-              department: '',
-              doctorName: '',
-              appointmentDate: DateFormatter.toUi(DateTime.now()),
-              appointmentTime: '',
-              status: '',
-            ),
+    bool isPendingStatus(String status) {
+      final s = status.toLowerCase();
+      return s == 'confirmed' ||
+             s == 'waiting' ||
+             s == 'pending' ||
+             s == 'in consultation' ||
+             s == 'checked in' ||
+             s == 'checked-in' ||
+             s == 'scheduled' ||
+             s == 'arrived' ||
+             s == 'booked';
+    }
+
+    final now = DateTime.now();
+
+    // 1. Prioritize an active/pending appointment for today
+    AppointmentModel? targetAppt;
+    try {
+      targetAppt = _patientAppointments.firstWhere(
+        (a) {
+          if (!isPendingStatus(a.status)) return false;
+          final dt = DateFormatter.toDateTime(a.appointmentDate);
+          return dt != null &&
+                 dt.year == now.year &&
+                 dt.month == now.month &&
+                 dt.day == now.day;
+        },
+      );
+    } catch (_) {}
+
+    // 2. If no today active appointment, look for any active/pending appointment
+    if (targetAppt == null) {
+      try {
+        targetAppt = _patientAppointments.firstWhere(
+          (a) => isPendingStatus(a.status),
+        );
+      } catch (_) {}
+    }
+
+    final resolvedAppt = targetAppt ?? AppointmentModel(
+      patientId: widget.patient.id ?? 0,
+      patientName: widget.patient.name,
+      department: '',
+      doctorName: user?.fullname ?? '',
+      appointmentDate: DateFormatter.toUi(now),
+      appointmentTime: '',
+      status: 'Confirmed',
     );
 
-    final existingConsul = _consultations.firstWhere(
-      (c) => c['appointment_id'] == pendingAppt.id,
-      orElse: () => {},
-    );
+    // Only consider consultation as existing if it specifically matches this target appointment
+    final existingConsul = (targetAppt?.id != null)
+        ? _consultations.firstWhere(
+            (c) => c['appointment_id'] == targetAppt!.id,
+            orElse: () => {},
+          )
+        : <String, dynamic>{};
 
     return Container(
       width: double.infinity,
@@ -3701,7 +3731,7 @@ class _PatientDetailViewState extends State<PatientDetailView>
       height: 52,
       child: ElevatedButton.icon(
         onPressed: () {
-          _showConsultationDialog(pendingAppt);
+          _showConsultationDialog(resolvedAppt);
         },
         icon: const Icon(Icons.medical_services_outlined, color: Colors.white),
         label: Text(
@@ -3740,10 +3770,12 @@ class _PatientDetailViewState extends State<PatientDetailView>
       }
     }
 
-    final existingConsul = _consultations.firstWhere(
-      (c) => c['appointment_id'] == appt.id,
-      orElse: () => {},
-    );
+    final existingConsul = (appt.id != null)
+        ? _consultations.firstWhere(
+            (c) => c['appointment_id'] == appt.id,
+            orElse: () => {},
+          )
+        : <String, dynamic>{};
 
     showGeneralDialog(
       context: context,
@@ -3852,6 +3884,22 @@ class _PatientDetailViewState extends State<PatientDetailView>
                   Icons.calendar_today_outlined,
                   context.tr('book_appointment_desktop', fallback: 'Book Appointment'),
                   onTap: () => widget.onBookAppointment(p),
+                  isPrimary: true,
+                ),
+                const SizedBox(width: 12),
+                _buildHeaderButton(
+                  Icons.hotel_outlined,
+                  'Bed/Room Request',
+                  onTap: () => BedRoomRequestDialog.show(
+                    context,
+                    patientId: p.id,
+                    patientName: p.name,
+                    patientDisplayId: p.patientId,
+                    patientGender: p.gender,
+                    patientAge: p.age,
+                    patientPhone: p.phone,
+                    onSuccess: _fetchData,
+                  ),
                   isPrimary: true,
                 ),
                 const SizedBox(width: 12),
@@ -4033,6 +4081,21 @@ class _PatientDetailViewState extends State<PatientDetailView>
               Icons.calendar_month_outlined,
               p.age < 18 ? context.tr('book_pediatric', fallback: 'Book Pediatric') : context.tr('book_appt', fallback: 'Book Appt.'),
               onTap: () => widget.onBookAppointment(p),
+              isPrimary: true,
+            ),
+            _buildHeaderButton(
+              Icons.hotel_outlined,
+              'Bed/Room Request',
+              onTap: () => BedRoomRequestDialog.show(
+                context,
+                patientId: p.id,
+                patientName: p.name,
+                patientDisplayId: p.patientId,
+                patientGender: p.gender,
+                patientAge: p.age,
+                patientPhone: p.phone,
+                onSuccess: _fetchData,
+              ),
               isPrimary: true,
             ),
             _buildHeaderButton(

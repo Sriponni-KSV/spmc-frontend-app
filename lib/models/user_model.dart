@@ -114,7 +114,11 @@ class UserModel {
     }
 
     return UserModel(
-      id: json['id'] is int ? json['id'] : int.tryParse(json['id'].toString()) ?? 0,
+      id: json['user_id'] is int
+          ? json['user_id']
+          : (json['id'] is int
+              ? json['id']
+              : int.tryParse((json['user_id'] ?? json['id']).toString()) ?? 0),
       rawFullname: json['fullname'] ?? json['fullName'] ?? '',
       email: json['email'] ?? '',
       role: json['role'] ?? '',

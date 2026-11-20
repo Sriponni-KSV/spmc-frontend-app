@@ -2289,14 +2289,15 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   Widget _buildShiftStatusPanel(bool isMobile) {
     String currentShift = context.tr('active_shift', fallback: 'Active Shift');
     String wardType = context.tr('general_ward', fallback: 'General Ward');
-    String timings = '06:00 AM - 02:00 PM';
+    String timings = '--';
     String assignedNurse = context.tr('not_assigned', fallback: 'Not Assigned');
     String status = context.tr('not_assigned', fallback: 'Not Assigned');
     String prevNurse = context.tr('none', fallback: 'None');
     String nextNurse = context.tr('none', fallback: 'None');
     String wardRoom = context.tr('none', fallback: 'None');
 
-    Map<String, dynamic>? dataToUse = _activeShiftData ?? _todayShiftData;
+    // Prioritize the nurse's own allocated shift for today/the week
+    Map<String, dynamic>? dataToUse = _todayShiftData ?? _activeShiftData;
 
     if (dataToUse != null) {
       final shiftRaw = dataToUse['shift_name'] ?? dataToUse['current_shift'];
@@ -2305,7 +2306,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       wardType = wardRaw != null ? '$wardRaw' : context.tr('general_ward', fallback: 'General Ward');
       final startTime = dataToUse['start_time']?.toString();
       final endTime = dataToUse['end_time']?.toString();
-      timings = '${_formatTo12Hour(startTime)} - ${_formatTo12Hour(endTime)}';
+      if (startTime != null && endTime != null) {
+        timings = '${_formatTo12Hour(startTime)} - ${_formatTo12Hour(endTime)}';
+      }
       assignedNurse =
           dataToUse['assigned_nurse']?.toString() ??
           dataToUse['nurse_name']?.toString() ??
