@@ -232,6 +232,23 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   List<PatientModel> _patients = [];
   List<Map<String, dynamic>> _beds = [];
   bool _isLoadingBeds = false;
+  List<Map<String, dynamic>> _loadedTheatres = [];
+
+  List<String> get _availableOtRooms {
+    if (_loadedTheatres.isNotEmpty) {
+      final list = <String>[];
+      for (final t in _loadedTheatres) {
+        final code = t['theatre_code']?.toString();
+        final name = t['theatre_name']?.toString();
+        final label = (name != null && name.isNotEmpty) ? name : (code ?? '');
+        if (label.isNotEmpty && !list.contains(label)) {
+          list.add(label);
+        }
+      }
+      if (list.isNotEmpty) return list;
+    }
+    return const ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+  }
   List<UserModel> _doctors = [];
   List<UserModel> _anaesthetists = [];
   List<UserModel> _nurses = [];
@@ -553,6 +570,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         _adminController.fetchStaff(role: 'Nurse'),
         _otController.fetchOtStats(),
         _ipdController.fetchBeds(),
+        _otController.fetchTheatres(),
       ]);
       if (mounted) {
         _patients = results[0] as List<PatientModel>;
@@ -562,6 +580,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         _nurses = results[4] as List<UserModel>;
         final stats = results[5] as Map<String, dynamic>;
         _beds = results[6] as List<Map<String, dynamic>>;
+        _loadedTheatres = results[7] as List<Map<String, dynamic>>;
 
         final now = DateTime.now();
         final localTodayCases = fetchedCases.where((c) {
@@ -2504,7 +2523,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     int? excludeDbId,
     String? excludeCaseId,
   }) {
-    const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+    final allRooms = _availableOtRooms;
     final proposedStart = DateTime(
       date.year,
       date.month,
@@ -6352,7 +6371,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   // ── SCHEDULING FORM: OT Room Dropdown + Time Pickers + Nurse Multi-Select ──
   Widget _buildSchedulingForm(OtCase otCase) {
-    const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+    final allRooms = List<String>.from(_availableOtRooms);
+    if (otCase.otRoom != null && otCase.otRoom!.isNotEmpty && !allRooms.contains(otCase.otRoom)) {
+      allRooms.insert(0, otCase.otRoom!);
+    }
     final caseDate = otCase.surgeryDateTime ?? DateTime.now();
     final occupiedRooms = _getOccupiedRoomsForSlot(
       date: caseDate,
@@ -10416,7 +10438,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   List<Widget> _buildSchedulingParametersChildren() {
-    const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+    final allRooms = _availableOtRooms;
     final occupiedRooms = _getOccupiedRoomsForSlot(
       date: _selectedDate,
       startTime: _slotStartTime,

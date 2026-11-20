@@ -136,10 +136,11 @@ class OtController {
     }
   }
 
-  /// Fetch all Operation Theatres
-  Future<List<Map<String, dynamic>>> fetchTheatres() async {
+  /// Fetch Operation Theatres (active & operational by default for scheduling)
+  Future<List<Map<String, dynamic>>> fetchTheatres({bool includeInactive = false}) async {
     try {
-      final response = await ApiService.get('$baseUrl/ot/theatres');
+      final uri = includeInactive ? '$baseUrl/ot/theatres?include_inactive=true' : '$baseUrl/ot/theatres';
+      final response = await ApiService.get(uri);
       if (response.statusCode != 200) {
         throw Exception('Failed to fetch OT theatres');
       }

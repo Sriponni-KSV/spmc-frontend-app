@@ -1,4 +1,7 @@
 import 'department_management_view.dart';
+import 'operation_theatres_master_screen.dart';
+import 'nurse_shift_master_screen.dart';
+import 'regional_address_master_screen.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1114,6 +1117,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 21:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
           return DepartmentManagementView(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 22:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return OperationTheatresMasterScreen(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 23:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return NurseShiftMasterScreen(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
+      case 24:
+        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+          return RegionalAddressMasterScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
 
@@ -2610,7 +2628,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _selectedIndex == 13 ||
         _selectedIndex == 14 ||
         _selectedIndex == 15 ||
-        _selectedIndex == 16;
+        _selectedIndex == 16 ||
+        _selectedIndex == 17 ||
+        _selectedIndex == 18 ||
+        _selectedIndex == 19 ||
+        _selectedIndex == 20 ||
+        _selectedIndex == 21 ||
+        _selectedIndex == 22 ||
+        _selectedIndex == 23 ||
+        _selectedIndex == 24;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2813,6 +2839,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             break;
           case 21:
             context.go(AppRoutes.adminDepartments);
+            break;
+          case 22:
+            context.go(AppRoutes.adminOperationTheatres);
+            break;
+          case 23:
+            context.go(AppRoutes.adminNurseShifts);
+            break;
+          case 24:
+            context.go(AppRoutes.adminRegionalAddress);
             break;
 
           default:
@@ -3032,27 +3067,49 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   : AppTheme.getTextPrimaryColor(context),
               size: 20,
             ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             tooltip: 'Notifications',
             onPressed: _showAdminNotificationsDialog,
           ),
-          IconButton(
+          const SizedBox(width: 4),
+          PopupMenuButton<String>(
             icon: Icon(
-              Icons.help_outline,
+              Icons.more_vert,
               color: AppTheme.getTextPrimaryColor(context),
               size: 20,
             ),
-            tooltip: 'Help',
-            onPressed: _showAdminHelpDialog,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            tooltip: 'More Actions',
+            onSelected: (val) {
+              if (val == 'help') _showAdminHelpDialog();
+              if (val == 'share') _showAdminShareDialog();
+            },
+            itemBuilder: (ctx) => const [
+              PopupMenuItem(
+                value: 'help',
+                child: Row(
+                  children: [
+                    Icon(Icons.help_outline, size: 18),
+                    SizedBox(width: 10),
+                    Text('Help & Operational Guide'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'share',
+                child: Row(
+                  children: [
+                    Icon(Icons.share_outlined, size: 18),
+                    SizedBox(width: 10),
+                    Text('Share SPMC'),
+                  ],
+                ),
+              ),
+            ],
           ),
-          IconButton(
-            icon: Icon(
-              Icons.share_outlined,
-              color: AppTheme.getTextPrimaryColor(context),
-              size: 20,
-            ),
-            tooltip: 'Share',
-            onPressed: _showAdminShareDialog,
-          ),
+          const SizedBox(width: 4),
           const AppTopBarActions(
             showClock: false,
             showLanguageToggle: false,
@@ -3543,7 +3600,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return 'Master Catalog / Specializations Master';
       case 20:
         return 'Master Catalog / Database Initialization';
+      case 21:
         return 'Master Catalog / Department Master';
+      case 22:
+        return 'Master Catalog / Operation Theatres Master';
+      case 23:
+        return 'Master Catalog / Nurse Shift Master';
+      case 24:
+        return 'Master Catalog / Regional Address Master';
       default:
         return 'Admin Dashboard';
     }
@@ -7409,12 +7473,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         value:
                             _selectedAllocShift == null ||
                                 !_shifts.any(
-                                  (s) => s['id'] == _selectedAllocShift!['id'],
+                                  (s) => s['id'] == _selectedAllocShift!['id'] &&
+                                      s['is_active'] != false &&
+                                      (s['status'] == null || s['status'].toString().toLowerCase() == 'active'),
                                 )
                             ? null
                             : _selectedAllocShift!['id'].toString(),
                         dropdownMap: {
-                          for (var s in _shifts)
+                          for (var s in _shifts.where((s) =>
+                              s['is_active'] != false &&
+                              (s['status'] == null || s['status'].toString().toLowerCase() == 'active')))
                             s['id'].toString():
                                 '${s['name']} (${_formatTo12Hour(s['start_time'])} - ${_formatTo12Hour(s['end_time'])})',
                         },

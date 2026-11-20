@@ -81,9 +81,7 @@ class AppRouter {
       initialLocation: AppRoutes.login,
       debugLogDiagnostics: true,
       refreshListenable: authProvider,
-      observers: [
-        ModalHistoryObserver(),
-      ],
+      observers: [ModalHistoryObserver()],
 
       // 🛑 ROUTE GUARDS & DYNAMIC REDIRECTION (Auth & Role-Based Checks)
       redirect: (context, state) {
@@ -198,22 +196,27 @@ class AppRouter {
           if (!isNurse) {
             return AppRoutes.dashboard;
           }
-          if ((path == AppRoutes.nursePatients || path == AppRoutes.nurseViewPatient) &&
+          if ((path == AppRoutes.nursePatients ||
+                  path == AppRoutes.nurseViewPatient) &&
               !currentUser.hasPermission('view_patients')) {
             return AppRoutes.nurseDashboard;
           }
-          if ((path == AppRoutes.nurseNewPatient || path == AppRoutes.nurseEditPatient) &&
+          if ((path == AppRoutes.nurseNewPatient ||
+                  path == AppRoutes.nurseEditPatient) &&
               !currentUser.hasPermission('add_patient') &&
               !currentUser.hasPermission('edit_patients')) {
             return AppRoutes.nurseDashboard;
           }
-          if ((path == AppRoutes.nurseAppointments || path == AppRoutes.nurseBookAppointment) &&
+          if ((path == AppRoutes.nurseAppointments ||
+                  path == AppRoutes.nurseBookAppointment) &&
               !currentUser.hasPermission('book_appointment')) {
             return AppRoutes.nurseDashboard;
           }
           if (path == AppRoutes.nurseIpdMonitoring) {
             if (state.extra != null && state.extra is Map) {
-              _lastKnownNurseIpdAdmission = Map<String, dynamic>.from(state.extra as Map);
+              _lastKnownNurseIpdAdmission = Map<String, dynamic>.from(
+                state.extra as Map,
+              );
             } else if (_lastKnownNurseIpdAdmission == null) {
               return AppRoutes.nurseIpd;
             }
@@ -228,7 +231,8 @@ class AppRouter {
           if (!isDoctor) {
             return AppRoutes.dashboard;
           }
-          if ((path == AppRoutes.doctorConsultation || path == AppRoutes.doctorDashboardConsultation) &&
+          if ((path == AppRoutes.doctorConsultation ||
+                  path == AppRoutes.doctorDashboardConsultation) &&
               !currentUser.hasPermission('conduct_consultations') &&
               !isDoctor) {
             return AppRoutes.doctorDashboard;
@@ -246,7 +250,8 @@ class AppRouter {
               !currentUser.hasPermission('book_appointment')) {
             return AppRoutes.doctorDashboard;
           }
-          if ((path == AppRoutes.doctorIpd || path == AppRoutes.doctorIpdMonitoring) &&
+          if ((path == AppRoutes.doctorIpd ||
+                  path == AppRoutes.doctorIpdMonitoring) &&
               !currentUser.hasPermission('ipd_doctor_rounds') &&
               !isDoctor) {
             return AppRoutes.doctorDashboard;
@@ -273,7 +278,9 @@ class AppRouter {
           }
           if (path == AppRoutes.doctorIpdMonitoring) {
             if (state.extra != null && state.extra is Map) {
-              _lastKnownDoctorIpdAdmission = Map<String, dynamic>.from(state.extra as Map);
+              _lastKnownDoctorIpdAdmission = Map<String, dynamic>.from(
+                state.extra as Map,
+              );
             } else if (_lastKnownDoctorIpdAdmission == null) {
               return AppRoutes.doctorIpd;
             }
@@ -289,11 +296,13 @@ class AppRouter {
           if (!isReception) {
             return AppRoutes.dashboard;
           }
-          if ((path == AppRoutes.frontDeskPatients || path == AppRoutes.frontDeskViewPatient) &&
+          if ((path == AppRoutes.frontDeskPatients ||
+                  path == AppRoutes.frontDeskViewPatient) &&
               !currentUser.hasPermission('view_patients')) {
             return AppRoutes.receptionDashboard;
           }
-          if ((path == AppRoutes.frontDeskAppointments || path == AppRoutes.frontDeskBookAppointment) &&
+          if ((path == AppRoutes.frontDeskAppointments ||
+                  path == AppRoutes.frontDeskBookAppointment) &&
               !currentUser.hasPermission('book_appointment')) {
             return AppRoutes.receptionDashboard;
           }
@@ -589,6 +598,27 @@ class AppRouter {
             child: AdminDashboardScreen(initialIndex: 21),
           ),
         ),
+        GoRoute(
+          path: AppRoutes.adminOperationTheatres,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 22),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminNurseShifts,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 23),
+          ),
+        ),
+        GoRoute(
+          path: AppRoutes.adminRegionalAddress,
+          pageBuilder: (context, state) => const NoTransitionPage(
+            key: ValueKey('admin_dashboard'),
+            child: AdminDashboardScreen(initialIndex: 24),
+          ),
+        ),
 
         // --- Nurse Protected Routes ---
         GoRoute(
@@ -708,9 +738,7 @@ class AppRouter {
             }
             return NoTransitionPage(
               key: const ValueKey('nurse_ipd_monitoring'),
-              child: IPDPatientDetailPage(
-                admission: adm,
-              ),
+              child: IPDPatientDetailPage(admission: adm),
             );
           },
         ),
@@ -906,9 +934,7 @@ class AppRouter {
             }
             return NoTransitionPage(
               key: const ValueKey('doctor_ipd_monitoring'),
-              child: IPDPatientDetailPage(
-                admission: adm,
-              ),
+              child: IPDPatientDetailPage(admission: adm),
             );
           },
         ),
