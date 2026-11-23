@@ -113,7 +113,6 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(8),
@@ -124,9 +123,11 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
                                 child: const Icon(Icons.meeting_room_rounded, color: AppTheme.primaryColor, size: 22),
                               ),
                               const SizedBox(width: 10),
-                              Text(
-                                'Operation Theatres Master',
-                                style: AppTheme.pageTitleStyle(context, isMobile: isMobile),
+                              Expanded(
+                                child: Text(
+                                  'Operation Theatres Master',
+                                  style: AppTheme.pageTitleStyle(context, isMobile: isMobile),
+                                ),
                               ),
                             ],
                           ),
@@ -198,24 +199,30 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
                   width: double.infinity,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final double cardWidth;
+                      final int crossAxisCount;
                       if (constraints.maxWidth < 600) {
-                        cardWidth = (constraints.maxWidth - 10) / 2;
+                        crossAxisCount = 2;
                       } else if (constraints.maxWidth < 960) {
-                        cardWidth = (constraints.maxWidth - 20) / 3;
+                        crossAxisCount = 3;
                       } else {
-                        cardWidth = (constraints.maxWidth - 40) / 5;
+                        crossAxisCount = 5;
                       }
 
+                      final double spacing = 10.0;
+                      final double cardWidth = ((constraints.maxWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount).floorToDouble();
+
                       return Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
+                        spacing: spacing,
+                        runSpacing: spacing,
                         children: [
-                          SizedBox(width: cardWidth.clamp(130.0, 360.0), child: _buildStatCard('Total OT Suites', allTheatres.length.toString(), Icons.meeting_room_outlined, const Color(0xFF0284C7))),
-                          SizedBox(width: cardWidth.clamp(130.0, 360.0), child: _buildStatCard('Active & Available', activeCount.toString(), Icons.check_circle_outline_rounded, const Color(0xFF16A34A))),
-                          SizedBox(width: cardWidth.clamp(130.0, 360.0), child: _buildStatCard('Under Maintenance', maintenanceCount.toString(), Icons.build_circle_outlined, const Color(0xFFD97706))),
-                          SizedBox(width: cardWidth.clamp(130.0, 360.0), child: _buildStatCard('Inactive / Closed', inactiveCount.toString(), Icons.pause_circle_outline_rounded, const Color(0xFF64748B))),
-                          SizedBox(width: cardWidth.clamp(130.0, 360.0), child: _buildStatCard('Major / Minor OT', '$majorCount / $minorCount', Icons.medical_services_outlined, const Color(0xFF7C3AED))),
+                          SizedBox(width: cardWidth, child: _buildStatCard('Total OT Suites', allTheatres.length.toString(), Icons.meeting_room_outlined, const Color(0xFF0284C7))),
+                          SizedBox(width: cardWidth, child: _buildStatCard('Active & Available', activeCount.toString(), Icons.check_circle_outline_rounded, const Color(0xFF16A34A))),
+                          SizedBox(width: cardWidth, child: _buildStatCard('Under Maintenance', maintenanceCount.toString(), Icons.build_circle_outlined, const Color(0xFFD97706))),
+                          SizedBox(width: cardWidth, child: _buildStatCard('Inactive / Closed', inactiveCount.toString(), Icons.pause_circle_outline_rounded, const Color(0xFF64748B))),
+                          SizedBox(
+                            width: crossAxisCount == 2 ? constraints.maxWidth : cardWidth,
+                            child: _buildStatCard('Major / Minor OT', '$majorCount / $minorCount', Icons.medical_services_outlined, const Color(0xFF7C3AED)),
+                          ),
                         ],
                       );
                     },
@@ -234,7 +241,7 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
                   ),
                   child: LayoutBuilder(
                     builder: (context, barConstraints) {
-                      final isNarrowBar = barConstraints.maxWidth < 720;
+                      final isNarrowBar = barConstraints.maxWidth < 840;
 
                       final searchBox = SizedBox(
                         width: isNarrowBar ? double.infinity : 320,
@@ -366,7 +373,7 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          searchBox,
+                          Flexible(child: searchBox),
                           const SizedBox(width: 10),
                           Row(
                             mainAxisSize: MainAxisSize.min,
@@ -505,7 +512,7 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
   // ─── STAT CARD ─────────────────────────────────────────────────────────────
   Widget _buildStatCard(String label, String value, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -514,24 +521,29 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(9),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: color)),
+                Text(
+                  value,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: color),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 2),
                 Text(
                   label,
-                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -941,7 +953,7 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
@@ -952,6 +964,8 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
           final countText = Text(
             'Showing $start to $end of $totalCount operation theatres',
             style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           );
 
           final pageSizeWidget = Row(
@@ -987,9 +1001,12 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
                 tooltip: 'Previous Page',
                 onPressed: _currentPage > 1 ? () => setState(() => _currentPage--) : null,
               ),
-              Text(
-                'Page $_currentPage of $totalPages',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Text(
+                  'Page $_currentPage of $totalPages',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF1E293B)),
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.chevron_right, size: 20),
@@ -1001,12 +1018,17 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
             ],
           );
 
-          // Mobile Viewport (< 460px): Stack into 2 clean rows
-          if (constraints.maxWidth < 460) {
+          // Narrow Viewport (< 620px): Clean 2-row layout with FittedBox to prevent any overflow
+          if (constraints.maxWidth < 620) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Center(child: countText),
+                Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: countText,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1019,36 +1041,21 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
             );
           }
 
-          // Tablet Viewport (< 680px)
-          if (constraints.maxWidth < 680) {
-            return Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    countText,
-                    pageSizeWidget,
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Align(alignment: Alignment.centerRight, child: navControls),
-              ],
-            );
-          }
-
-          // Desktop Viewport (>= 680px)
+          // Desktop Viewport (>= 620px)
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  countText,
-                  const SizedBox(width: 14),
-                  pageSizeWidget,
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(child: countText),
+                    const SizedBox(width: 14),
+                    pageSizeWidget,
+                  ],
+                ),
               ),
+              const SizedBox(width: 10),
               navControls,
             ],
           );
@@ -1336,10 +1343,12 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
     showDialog(
       context: context,
       builder: (ctx) {
+        final isNarrow = MediaQuery.of(ctx).size.width < 520;
         return AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding: EdgeInsets.symmetric(horizontal: isNarrow ? 14 : 40, vertical: 24),
           title: Row(
             children: [
               Container(
@@ -1360,11 +1369,12 @@ class _OperationTheatresMasterScreenState extends State<OperationTheatresMasterS
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               _buildStatusBadge(t),
             ],
           ),
           content: SizedBox(
-            width: 440,
+            width: isNarrow ? double.maxFinite : 440,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,

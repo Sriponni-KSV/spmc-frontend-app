@@ -217,21 +217,24 @@ class _NurseShiftMasterScreenState extends State<NurseShiftMasterScreen> {
                   width: double.infinity,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final double cardWidth;
+                      final int crossAxisCount;
                       if (constraints.maxWidth < 600) {
-                        cardWidth = (constraints.maxWidth - 10) / 2;
+                        crossAxisCount = 2;
                       } else if (constraints.maxWidth < 960) {
-                        cardWidth = (constraints.maxWidth - 20) / 3;
+                        crossAxisCount = 3;
                       } else {
-                        cardWidth = (constraints.maxWidth - 40) / 5;
+                        crossAxisCount = 5;
                       }
 
+                      final double spacing = 10.0;
+                      final double cardWidth = ((constraints.maxWidth - (spacing * (crossAxisCount - 1))) / crossAxisCount).floorToDouble();
+
                       return Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
+                        spacing: spacing,
+                        runSpacing: spacing,
                         children: [
                           SizedBox(
-                            width: cardWidth.clamp(130.0, 360.0),
+                            width: cardWidth,
                             child: _buildStatCard(
                               'Total Shifts',
                               allShifts.length.toString(),
@@ -240,7 +243,7 @@ class _NurseShiftMasterScreenState extends State<NurseShiftMasterScreen> {
                             ),
                           ),
                           SizedBox(
-                            width: cardWidth.clamp(130.0, 360.0),
+                            width: cardWidth,
                             child: _buildStatCard(
                               'Active & Operational',
                               activeCount.toString(),
@@ -249,7 +252,7 @@ class _NurseShiftMasterScreenState extends State<NurseShiftMasterScreen> {
                             ),
                           ),
                           SizedBox(
-                            width: cardWidth.clamp(130.0, 360.0),
+                            width: cardWidth,
                             child: _buildStatCard(
                               'Inactive Shifts',
                               inactiveCount.toString(),
@@ -258,7 +261,7 @@ class _NurseShiftMasterScreenState extends State<NurseShiftMasterScreen> {
                             ),
                           ),
                           SizedBox(
-                            width: cardWidth.clamp(130.0, 360.0),
+                            width: cardWidth,
                             child: _buildStatCard(
                               'Overnight Shifts',
                               overnightCount.toString(),
@@ -267,7 +270,7 @@ class _NurseShiftMasterScreenState extends State<NurseShiftMasterScreen> {
                             ),
                           ),
                           SizedBox(
-                            width: cardWidth.clamp(130.0, 360.0),
+                            width: crossAxisCount == 2 ? constraints.maxWidth : cardWidth,
                             child: _buildStatCard(
                               'Day / Evening',
                               '$morningCount / $eveningCount',
@@ -1100,12 +1103,17 @@ class _NurseShiftMasterScreenState extends State<NurseShiftMasterScreen> {
             ],
           );
 
-          // Mobile Viewport (< 460px): Stack into 2 clean rows
-          if (constraints.maxWidth < 460) {
+          // Narrow Viewport (< 620px): Clean 2-row layout with FittedBox to prevent any overflow
+          if (constraints.maxWidth < 620) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Center(child: countText),
+                Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: countText,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1118,36 +1126,21 @@ class _NurseShiftMasterScreenState extends State<NurseShiftMasterScreen> {
             );
           }
 
-          // Tablet Viewport (< 680px)
-          if (constraints.maxWidth < 680) {
-            return Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    countText,
-                    pageSizeWidget,
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Align(alignment: Alignment.centerRight, child: navControls),
-              ],
-            );
-          }
-
-          // Desktop Viewport (>= 680px)
+          // Desktop Viewport (>= 620px)
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  countText,
-                  const SizedBox(width: 14),
-                  pageSizeWidget,
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(child: countText),
+                    const SizedBox(width: 14),
+                    pageSizeWidget,
+                  ],
+                ),
               ),
+              const SizedBox(width: 10),
               navControls,
             ],
           );

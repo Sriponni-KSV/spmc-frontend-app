@@ -1533,12 +1533,17 @@ class _RegionalAddressMasterScreenState extends State<RegionalAddressMasterScree
             ],
           );
 
-          // Mobile Viewport (< 460px): Stack into 2 clean rows
-          if (constraints.maxWidth < 460) {
+          // Narrow Viewport (< 620px): Clean 2-row layout with FittedBox to prevent any overflow
+          if (constraints.maxWidth < 620) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Center(child: countText),
+                Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: countText,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1551,36 +1556,21 @@ class _RegionalAddressMasterScreenState extends State<RegionalAddressMasterScree
             );
           }
 
-          // Tablet Viewport (< 680px)
-          if (constraints.maxWidth < 680) {
-            return Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    countText,
-                    pageSizeWidget,
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Align(alignment: Alignment.centerRight, child: navControls),
-              ],
-            );
-          }
-
-          // Desktop Viewport (>= 680px)
+          // Desktop Viewport (>= 620px)
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  countText,
-                  const SizedBox(width: 14),
-                  pageSizeWidget,
-                ],
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(child: countText),
+                    const SizedBox(width: 14),
+                    pageSizeWidget,
+                  ],
+                ),
               ),
+              const SizedBox(width: 10),
               navControls,
             ],
           );
