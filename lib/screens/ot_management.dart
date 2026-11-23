@@ -8826,7 +8826,13 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             ElevatedButton.icon(
               onPressed: () {
                 setState(() {
+                  _previousTab = _activeTab;
                   _activeTab = 2; // Switch to Completed Cases tab
+                  _showPipelineSidebar = true;
+                  _openedFromLiveDashboard = false;
+                  if (widget.isMobile) {
+                    _selectedCase = null; // Display Completed Cases registry list on mobile
+                  }
                 });
               },
               icon: const Icon(Icons.inventory_2_outlined),
