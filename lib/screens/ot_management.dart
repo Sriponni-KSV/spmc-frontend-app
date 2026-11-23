@@ -951,6 +951,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       _slotStartTime.hour,
       _slotStartTime.minute,
     );
+    if (_isPastDateTime(_selectedDate, _slotStartTime)) {
+      AppNotification.showError(
+        context,
+        'Cannot schedule surgery for past time (${_formatTimeOfDay(_slotStartTime)}) on today\'s date. Please select a current or future time.',
+        atTop: true,
+      );
+      return;
+    }
     final DateTime? endDateTime = _slotEndTime != null
         ? DateTime(
             _selectedDate.year,
@@ -1284,6 +1292,18 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     return '$hour:$min $period';
   }
 
+  bool _isPastDateTime(DateTime date, TimeOfDay time) {
+    final now = DateTime.now();
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    if (!isToday) {
+      final dateOnly = DateTime(date.year, date.month, date.day);
+      final todayOnly = DateTime(now.year, now.month, now.day);
+      return dateOnly.isBefore(todayOnly);
+    }
+    final target = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    return target.isBefore(now.subtract(const Duration(minutes: 1)));
+  }
+
   void _confirmScheduling(OtCase otCase) async {
     if (_selectedOtRoom == null || _selectedOtRoom!.trim().isEmpty) {
       AppNotification.showError(context, 'Please select an OT Room.', atTop: true);
@@ -1315,6 +1335,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       _slotStartTime.hour,
       _slotStartTime.minute,
     );
+    if (_isPastDateTime(existingDate, _slotStartTime)) {
+      AppNotification.showError(
+        context,
+        'Cannot schedule surgery for past time (${_formatTimeOfDay(_slotStartTime)}) on today\'s date. Please select a current or future time.',
+        atTop: true,
+      );
+      return;
+    }
     final DateTime? endDateTime = _slotEndTime != null
         ? DateTime(
             existingDate.year,
@@ -8250,7 +8278,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                         initialTime: _slotStartTime,
                         helpText: 'Select Surgery Start Time',
                       );
-                      if (picked != null) setState(() => _slotStartTime = picked);
+                      if (picked != null) {
+                        if (_isPastDateTime(caseDate, picked)) {
+                          AppNotification.showError(
+                            context,
+                            'Cannot select past time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a current or future time.',
+                            atTop: true,
+                          );
+                          return;
+                        }
+                        setState(() => _slotStartTime = picked);
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -8289,7 +8327,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                         initialTime: _slotEndTime ?? TimeOfDay(hour: (_slotStartTime.hour + 2) % 24, minute: _slotStartTime.minute),
                         helpText: 'Select Surgery End Time (Optional)',
                       );
-                      if (picked != null) setState(() => _slotEndTime = picked);
+                      if (picked != null) {
+                        if (_isPastDateTime(caseDate, picked)) {
+                          AppNotification.showError(
+                            context,
+                            'Cannot select past end time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a future time.',
+                            atTop: true,
+                          );
+                          return;
+                        }
+                        setState(() => _slotEndTime = picked);
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -8345,7 +8393,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           initialTime: _slotStartTime,
                           helpText: 'Select Surgery Start Time',
                         );
-                        if (picked != null) setState(() => _slotStartTime = picked);
+                        if (picked != null) {
+                          if (_isPastDateTime(caseDate, picked)) {
+                            AppNotification.showError(
+                              context,
+                              'Cannot select past time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a current or future time.',
+                              atTop: true,
+                            );
+                            return;
+                          }
+                          setState(() => _slotStartTime = picked);
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -8387,7 +8445,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           initialTime: _slotEndTime ?? TimeOfDay(hour: (_slotStartTime.hour + 2) % 24, minute: _slotStartTime.minute),
                           helpText: 'Select Surgery End Time (Optional)',
                         );
-                        if (picked != null) setState(() => _slotEndTime = picked);
+                        if (picked != null) {
+                          if (_isPastDateTime(caseDate, picked)) {
+                            AppNotification.showError(
+                              context,
+                              'Cannot select past end time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a future time.',
+                              atTop: true,
+                            );
+                            return;
+                          }
+                          setState(() => _slotEndTime = picked);
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -11105,33 +11173,19 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
                         bool matchesDest = false;
                         if (_selectedTransferDest == 'Recovery Room') {
-                          matchesDest = wLower.contains('recovery') ||
-                                        wLower.contains('pacu') ||
-                                        bUpper.startsWith('RR') ||
-                                        bUpper.startsWith('REC') ||
-                                        bUpper.startsWith('PACU');
+                          matchesDest = wLower.contains('recovery') || wLower.contains('pacu') || bUpper.startsWith('RR') || bUpper.startsWith('REC');
                         } else if (_selectedTransferDest == 'ICU') {
-                          matchesDest = (wardType == 'ICU' || wLower.contains('icu')) &&
-                                        !wLower.contains('recovery') &&
-                                        !bUpper.startsWith('RR');
+                          matchesDest = wLower.contains('icu') || bUpper.startsWith('ICU');
                         } else if (_selectedTransferDest == 'Ward') {
-                          matchesDest = (wardType == 'General' ||
-                                         wardType == 'Semi-Private' ||
-                                         wardType == 'Private' ||
-                                         wLower.contains('ward')) &&
-                                        !wLower.contains('icu') &&
-                                        !wLower.contains('recovery') &&
-                                        !bUpper.startsWith('RR') &&
-                                        !bUpper.startsWith('ICU');
+                          matchesDest = !wLower.contains('recovery') && !wLower.contains('pacu') && !wLower.contains('icu') && !bUpper.startsWith('RR') && !bUpper.startsWith('ICU');
                         }
 
-                        if (matchesDest && (status == 'Available' || bedNum == currentBed)) {
+                        if (matchesDest && (status == 'Available' || status == 'Vacant' || status == 'Unoccupied')) {
                           availableBedNumbers.add(bedNum);
                         }
                       }
 
-                      // Dedicated Recovery Room beds if none yet in DB
-                      if (_selectedTransferDest == 'Recovery Room' && availableBedNumbers.isEmpty) {
+                      if (currentBed.isNotEmpty && !availableBedNumbers.contains(currentBed)) {
                         final cUpper = currentBed.toUpperCase();
                         bool validForCurrentDest = false;
                         if (_selectedTransferDest == 'Recovery Room') {
@@ -12906,6 +12960,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   helpText: 'Select Surgery Start Time',
                 );
                 if (picked != null) {
+                  if (_isPastDateTime(_selectedDate, picked)) {
+                    AppNotification.showError(
+                      context,
+                      'Cannot select past time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a current or future time.',
+                      atTop: true,
+                    );
+                    return;
+                  }
                   final sMin = picked.hour * 60 + picked.minute;
                   if (_slotEndTime != null) {
                     final eMin = _slotEndTime!.hour * 60 + _slotEndTime!.minute;
@@ -12961,6 +13023,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   helpText: 'Select Surgery End Time (Optional)',
                 );
                 if (picked != null) {
+                  if (_isPastDateTime(_selectedDate, picked)) {
+                    AppNotification.showError(
+                      context,
+                      'Cannot select past end time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a future time.',
+                      atTop: true,
+                    );
+                    return;
+                  }
                   final sMin = _slotStartTime.hour * 60 + _slotStartTime.minute;
                   final eMin = picked.hour * 60 + picked.minute;
                   if (eMin <= sMin) {
@@ -13287,7 +13357,20 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 firstDate: DateTime.now(),
                 lastDate: DateTime.now().add(const Duration(days: 365)),
               );
-              if (picked != null) setState(() => _selectedDate = picked);
+              if (picked != null) {
+                setState(() {
+                  _selectedDate = picked;
+                  if (_isPastDateTime(picked, _slotStartTime)) {
+                    final now = DateTime.now();
+                    final nextHour = TimeOfDay(hour: (now.hour + 1) % 24, minute: 0);
+                    _slotStartTime = nextHour;
+                    _selectedTime = nextHour;
+                    if (_slotEndTime != null) {
+                      _slotEndTime = TimeOfDay(hour: (nextHour.hour + 2) % 24, minute: 0);
+                    }
+                  }
+                });
+              }
             },
           ),
         ),
@@ -13306,6 +13389,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 initialTime: _selectedTime,
               );
               if (picked != null) {
+                if (_isPastDateTime(_selectedDate, picked)) {
+                  AppNotification.showError(
+                    context,
+                    'Cannot select past time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a current or future time.',
+                    atTop: true,
+                  );
+                  return;
+                }
                 setState(() {
                   _selectedTime = picked;
                   _slotStartTime = picked;
@@ -13333,7 +13424,20 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       firstDate: DateTime.now(),
                       lastDate: DateTime.now().add(const Duration(days: 365)),
                     );
-                    if (picked != null) setState(() => _selectedDate = picked);
+                    if (picked != null) {
+                      setState(() {
+                        _selectedDate = picked;
+                        if (_isPastDateTime(picked, _slotStartTime)) {
+                          final now = DateTime.now();
+                          final nextHour = TimeOfDay(hour: (now.hour + 1) % 24, minute: 0);
+                          _slotStartTime = nextHour;
+                          _selectedTime = nextHour;
+                          if (_slotEndTime != null) {
+                            _slotEndTime = TimeOfDay(hour: (nextHour.hour + 2) % 24, minute: 0);
+                          }
+                        }
+                      });
+                    }
                   },
                 ),
               ),
@@ -13354,6 +13458,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       initialTime: _selectedTime,
                     );
                     if (picked != null) {
+                      if (_isPastDateTime(_selectedDate, picked)) {
+                        AppNotification.showError(
+                          context,
+                          'Cannot select past time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a current or future time.',
+                          atTop: true,
+                        );
+                        return;
+                      }
                       setState(() {
                         _selectedTime = picked;
                         _slotStartTime = picked;
