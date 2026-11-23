@@ -5232,9 +5232,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       ),
     );
   }
-      ),
-    );
-  }
 
   // ─── Shift Allocation and Management UI ──────────────────────────────────────
 

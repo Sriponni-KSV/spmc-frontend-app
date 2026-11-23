@@ -4331,7 +4331,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
              c.patientId.toLowerCase().contains(query) ||
              c.id.toLowerCase().contains(query) ||
              (c.surgeryType ?? '').toLowerCase().contains(query) ||
-             (c.doctorName ?? '').toLowerCase().contains(query) ||
+             (c.surgeon ?? c.leadSurgeon ?? '').toLowerCase().contains(query) ||
              (c.otRoom ?? '').toLowerCase().contains(query) ||
              c.status.toLowerCase().contains(query);
     }).toList();
@@ -4560,7 +4560,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                   ),
                                 ],
                               ),
-                              if (c.doctorName != null && c.doctorName!.isNotEmpty) ...[
+                              if ((c.surgeon ?? c.leadSurgeon) != null && (c.surgeon ?? c.leadSurgeon)!.isNotEmpty) ...[
                                 const SizedBox(height: 3),
                                 Row(
                                   children: [
@@ -4568,7 +4568,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
-                                        'Surgeon: ${c.doctorName}',
+                                        'Surgeon: ${c.surgeon ?? c.leadSurgeon}',
                                         style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
@@ -4765,7 +4765,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
              c.patientId.toLowerCase().contains(query) ||
              c.id.toLowerCase().contains(query) ||
              (c.surgeryType ?? '').toLowerCase().contains(query) ||
-             (c.doctorName ?? '').toLowerCase().contains(query) ||
+             (c.surgeon ?? c.leadSurgeon ?? '').toLowerCase().contains(query) ||
              (c.otRoom ?? '').toLowerCase().contains(query) ||
              c.status.toLowerCase().contains(query);
     }).toList();
@@ -4990,7 +4990,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                   ),
                                 ],
                               ),
-                              if (c.doctorName != null && c.doctorName!.isNotEmpty) ...[
+                              if ((c.surgeon ?? c.leadSurgeon) != null && (c.surgeon ?? c.leadSurgeon)!.isNotEmpty) ...[
                                 const SizedBox(height: 3),
                                 Row(
                                   children: [
@@ -4998,7 +4998,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                     const SizedBox(width: 4),
                                     Expanded(
                                       child: Text(
-                                        'Surgeon: ${c.doctorName}',
+                                        'Surgeon: ${c.surgeon ?? c.leadSurgeon}',
                                         style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
