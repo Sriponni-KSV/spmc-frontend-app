@@ -609,7 +609,9 @@ class _SearchOverlayState extends State<SearchOverlay> {
             constraints: BoxConstraints(
               maxHeight: MediaQuery.of(context).size.height * 0.8,
             ),
-            margin: const EdgeInsets.symmetric(horizontal: 24),
+            margin: EdgeInsets.symmetric(
+              horizontal: MediaQuery.of(context).size.width < 500 ? 12 : 24,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -860,9 +862,12 @@ class _SearchOverlayState extends State<SearchOverlay> {
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 2,
                   children: [
-                    if (patient.patientId.isNotEmpty) ...[
+                    if (patient.patientId.isNotEmpty)
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -881,13 +886,13 @@ class _SearchOverlayState extends State<SearchOverlay> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
-                    ],
                     Text(
-                      '$ageDisplay • ${patient.phone}',
+                      patient.phone.isNotEmpty
+                          ? '$ageDisplay • ${patient.phone}'
+                          : ageDisplay,
                       style: const TextStyle(
                         color: AppTheme.textSecondaryColor,
-                        fontSize: 13,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -904,8 +909,8 @@ class _SearchOverlayState extends State<SearchOverlay> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
-                minimumSize: const Size(80, 36),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                minimumSize: const Size(64, 34),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(6),
                 ),

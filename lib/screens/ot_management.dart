@@ -798,7 +798,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     setState(() {
       _selectedCase = otCase;
       _populateControllersForCase(otCase);
-      _showPipelineSidebar = true;
+      _showPipelineSidebar = !widget.isMobile;
     });
   }
 
@@ -2842,6 +2842,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           _previousTab = _activeTab;
           _selectedCase = selectedCase;
           _populateControllersForCase(selectedCase);
+          _showPipelineSidebar = !widget.isMobile;
           _activeTab = 1; // Open workflow in Active cases
         });
       },
@@ -3183,35 +3184,35 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         children: [
           // Header
           Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
+            padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
+            child: widget.isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.event_note, color: AppTheme.primaryColor, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.event_note, color: AppTheme.primaryColor, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Row(
                               children: [
-                                const Text(
-                                  'Scheduled Surgeries & Theatre Pipeline',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                                const Flexible(
+                                  child: Text(
+                                    'Scheduled Surgeries',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimaryColor),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: AppTheme.primaryColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
@@ -3223,38 +3224,112 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Live scheduled cases, procedure timings, room assignments, and surgical teams',
-                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Live scheduled cases, procedure timings & room assignments',
+                        style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryColor),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _previousTab = _activeTab;
+                              _resetScheduleSurgeryForm();
+                              _activeTab = 3; // Schedule Surgery
+                            });
+                          },
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Schedule Surgery'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.08),
+                              ),
+                              child: const Icon(Icons.event_note, color: AppTheme.primaryColor, size: 20),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Flexible(
+                                        child: Text(
+                                          'Scheduled Surgeries & Theatre Pipeline',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          '${scheduledCases.length}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryColor),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    'Live scheduled cases, procedure timings, room assignments, and surgical teams',
+                                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _previousTab = _activeTab;
+                            _resetScheduleSurgeryForm();
+                            _activeTab = 3; // Schedule Surgery
+                          });
+                        },
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Schedule Surgery'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _previousTab = _activeTab;
-                      _resetScheduleSurgeryForm();
-                      _activeTab = 3; // Schedule Surgery
-                    });
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Schedule Surgery'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
-                ),
-              ],
-            ),
           ),
           const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
 
@@ -3298,6 +3373,201 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 ),
               ),
             )
+          else if (widget.isMobile)
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(12),
+              itemCount: scheduledCases.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, idx) {
+                final c = scheduledCases[idx];
+                final dt = c.scheduledStartTime ?? c.surgeryDateTime;
+                final isToday = dt != null && dt.year == now.year && dt.month == now.month && dt.day == now.day;
+                final dateStr = dt != null
+                    ? (isToday ? 'Today' : DateFormat('dd/MM/yyyy').format(dt))
+                    : 'Unscheduled';
+                final slotStr = c.surgerySlot ?? (dt != null ? _formatTimeOfDay(TimeOfDay.fromDateTime(dt)) : '');
+                final isEmergency = (c.priority ?? '').toLowerCase() == 'emergency';
+                final isCaseDone = c.status == 'OT Case Closed' || c.status == 'Surgery Completed' || c.status == 'Completed';
+                final progress = _calculateCaseProgress(c);
+                final statusLabel = isCaseDone
+                    ? 'COMPLETED'
+                    : (c.status == 'Surgery In Progress'
+                        ? 'IN PROGRESS'
+                        : c.status.toUpperCase());
+                final badgeColor = isCaseDone ? Colors.green : _getStatusColor(c.status);
+
+                return Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      _selectOtCase(c);
+                      setState(() {
+                        _previousTab = _activeTab;
+                        _openedFromLiveDashboard = true;
+                        _showPipelineSidebar = false;
+                        _activeTab = 1;
+                      });
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_today_outlined, size: 13, color: isToday ? AppTheme.primaryColor : const Color(0xFF64748B)),
+                              const SizedBox(width: 4),
+                              Text(
+                                dateStr,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: isToday ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+                                ),
+                              ),
+                              if (slotStr.isNotEmpty) ...[
+                                const Text(' • ', style: TextStyle(color: Color(0xFF94A3B8))),
+                                Flexible(
+                                  child: Text(
+                                    slotStr,
+                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isEmergency ? const Color(0xFFFEE2E2) : const Color(0xFFF0FDF4),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  c.priority ?? 'Elective',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10,
+                                    color: isEmergency ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 16, thickness: 1, color: Color(0xFFF1F5F9)),
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                child: Text(
+                                  c.patientName.trim().isNotEmpty ? c.patientName.trim()[0].toUpperCase() : 'P',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      c.patientName.isNotEmpty ? c.patientName : 'Unnamed Patient',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${c.patientId.isNotEmpty ? c.patientId : '-'} • ${c.age > 0 ? '${c.age}y ' : ''}${c.gender}',
+                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.meeting_room_outlined, size: 12, color: Color(0xFF1D4ED8)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      c.otRoom ?? 'Unassigned',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF1D4ED8)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              const Icon(Icons.medical_services_outlined, size: 13, color: Color(0xFF64748B)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  c.surgeryType ?? 'General Surgery',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Text(
+                                'Dr. ${c.leadSurgeon ?? c.surgeon ?? "TBD"}',
+                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: badgeColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: badgeColor.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  statusLabel,
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: badgeColor),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(3),
+                                  child: LinearProgressIndicator(
+                                    value: progress,
+                                    minHeight: 5,
+                                    color: badgeColor,
+                                    backgroundColor: badgeColor.withOpacity(0.12),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.chevron_right, size: 18, color: AppTheme.primaryColor),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            )
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -3334,6 +3604,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     final isEmergency = (c.priority ?? '').toLowerCase() == 'emergency';
 
                     return DataRow(
+                      onSelectChanged: (_) {
+                        _selectOtCase(c);
+                        setState(() {
+                          _previousTab = _activeTab;
+                          _openedFromLiveDashboard = true;
+                          _showPipelineSidebar = false;
+                          _activeTab = 1;
+                        });
+                      },
                       cells: [
                         // Date & Time
                         DataCell(
@@ -3725,190 +4004,214 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: isOccupied
-                  ? SingleChildScrollView(
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            activeInRoom.patientName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${activeInRoom.age} yrs • ${activeInRoom.gender} • Blood: ${activeInRoom.bloodGroup}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryColor),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const Icon(Icons.healing, size: 12, color: AppTheme.textSecondaryColor),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  activeInRoom.surgeryType ?? '',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.person, size: 12, color: AppTheme.textSecondaryColor),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Surgeon: ${activeInRoom.surgeon ?? 'TBD'}',
-                                  style: const TextStyle(fontSize: 11, color: AppTheme.textPrimaryColor),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          // Progress Bar representing case completion
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Surgery Progress', style: TextStyle(fontSize: 9.5, color: AppTheme.textSecondaryColor)),
-                              Text(
-                                '${(progressVal * 100).toInt()}%',
-                                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: progressVal,
-                              color: color,
-                              backgroundColor: color.withOpacity(0.1),
-                              minHeight: 5,
+                  ? InkWell(
+                      onTap: () {
+                        _selectOtCase(activeInRoom);
+                        setState(() {
+                          _previousTab = _activeTab;
+                          _openedFromLiveDashboard = true;
+                          _showPipelineSidebar = false;
+                          _activeTab = 1;
+                        });
+                      },
+                      child: SingleChildScrollView(
+                        physics: const NeverScrollableScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              activeInRoom.patientName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          InkWell(
-                            onTap: () {
-                              _selectOtCase(activeInRoom);
-                              setState(() {
-                                _previousTab = _activeTab;
-                                _openedFromLiveDashboard = true;
-                                _activeTab = 1; // Go to active patients registry
-                              });
-                            },
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
+                            const SizedBox(height: 2),
+                            Text(
+                              '${activeInRoom.age} yrs • ${activeInRoom.gender} • Blood: ${activeInRoom.bloodGroup}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryColor),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
                               children: [
-                                Text(
-                                  'View Live Workflow Board',
-                                  style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 11),
+                                const Icon(Icons.healing, size: 12, color: AppTheme.textSecondaryColor),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    activeInRoom.surgeryType ?? '',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                                SizedBox(width: 4),
-                                Icon(Icons.arrow_forward, size: 11, color: AppTheme.primaryColor),
                               ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.person, size: 12, color: AppTheme.textSecondaryColor),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Surgeon: ${activeInRoom.surgeon ?? 'TBD'}',
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.textPrimaryColor),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            // Progress Bar representing case completion
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Surgery Progress', style: TextStyle(fontSize: 9.5, color: AppTheme.textSecondaryColor)),
+                                Text(
+                                  '${(progressVal * 100).toInt()}%',
+                                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: progressVal,
+                                color: color,
+                                backgroundColor: color.withOpacity(0.1),
+                                minHeight: 5,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: () {
+                                _selectOtCase(activeInRoom);
+                                setState(() {
+                                  _previousTab = _activeTab;
+                                  _openedFromLiveDashboard = true;
+                                  _showPipelineSidebar = false;
+                                  _activeTab = 1; // Go to active patients registry
+                                });
+                              },
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'View Live Workflow Board',
+                                    style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 11),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Icon(Icons.arrow_forward, size: 11, color: AppTheme.primaryColor),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   : (hasScheduled
-                      ? SingleChildScrollView(
-                          physics: const NeverScrollableScrollPhysics(),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                scheduledInRoom!.patientName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${scheduledInRoom.age > 0 ? '${scheduledInRoom.age} yrs • ' : ''}${scheduledInRoom.gender} • Blood: ${scheduledInRoom.bloodGroup.isNotEmpty ? scheduledInRoom.bloodGroup : '-'}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryColor),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  const Icon(Icons.healing, size: 12, color: Color(0xFF0284C7)),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      scheduledInRoom.surgeryType ?? 'Surgery',
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0284C7)),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(Icons.access_time, size: 12, color: AppTheme.textSecondaryColor),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Slot: ${scheduledInRoom.surgerySlot ?? (scheduledInRoom.scheduledStartTime != null ? _formatTimeOfDay(TimeOfDay.fromDateTime(scheduledInRoom.scheduledStartTime!)) : 'Scheduled')}',
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.textPrimaryColor),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(Icons.person, size: 12, color: AppTheme.textSecondaryColor),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Surgeon: ${scheduledInRoom.leadSurgeon ?? scheduledInRoom.surgeon ?? 'TBD'}',
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              InkWell(
-                                onTap: () {
-                                  _selectOtCase(scheduledInRoom);
-                                  setState(() {
-                                    _previousTab = _activeTab;
-                                    _openedFromLiveDashboard = true;
-                                    _activeTab = 1; // Go to active workflow
-                                  });
-                                },
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
+                      ? InkWell(
+                          onTap: () {
+                            _selectOtCase(scheduledInRoom!);
+                            setState(() {
+                              _previousTab = _activeTab;
+                              _openedFromLiveDashboard = true;
+                              _showPipelineSidebar = false;
+                              _activeTab = 1;
+                            });
+                          },
+                          child: SingleChildScrollView(
+                            physics: const NeverScrollableScrollPhysics(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  scheduledInRoom!.patientName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${scheduledInRoom.age > 0 ? '${scheduledInRoom.age} yrs • ' : ''}${scheduledInRoom.gender} • Blood: ${scheduledInRoom.bloodGroup.isNotEmpty ? scheduledInRoom.bloodGroup : '-'}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryColor),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
                                   children: [
-                                    Text(
-                                      'View Scheduled Case',
-                                      style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold, fontSize: 11),
+                                    const Icon(Icons.healing, size: 12, color: Color(0xFF0284C7)),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        scheduledInRoom.surgeryType ?? 'Surgery',
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0284C7)),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                    SizedBox(width: 4),
-                                    Icon(Icons.arrow_forward, size: 11, color: Color(0xFF0284C7)),
                                   ],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.access_time, size: 12, color: AppTheme.textSecondaryColor),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Slot: ${scheduledInRoom.surgerySlot ?? (scheduledInRoom.scheduledStartTime != null ? _formatTimeOfDay(TimeOfDay.fromDateTime(scheduledInRoom.scheduledStartTime!)) : 'Scheduled')}',
+                                        style: const TextStyle(fontSize: 11, color: AppTheme.textPrimaryColor),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.person, size: 12, color: AppTheme.textSecondaryColor),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Surgeon: ${scheduledInRoom.leadSurgeon ?? scheduledInRoom.surgeon ?? 'TBD'}',
+                                        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                InkWell(
+                                  onTap: () {
+                                    _selectOtCase(scheduledInRoom);
+                                    setState(() {
+                                      _previousTab = _activeTab;
+                                      _openedFromLiveDashboard = true;
+                                      _showPipelineSidebar = false;
+                                      _activeTab = 1; // Go to active workflow
+                                    });
+                                  },
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'View Scheduled Case',
+                                        style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold, fontSize: 11),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Icon(Icons.arrow_forward, size: 11, color: Color(0xFF0284C7)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         )
                       : Column(
@@ -4668,50 +4971,8 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     );
 
     if (widget.isMobile) {
-      if (_selectedCase != null && !_showPipelineSidebar) {
-        return Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.primaryColor),
-                    onPressed: () {
-                      setState(() {
-                        _selectedCase = null;
-                        _showPipelineSidebar = true;
-                      });
-                    },
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _selectedCase!.patientName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Color(0xFF0F172A)),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          '${_selectedCase!.surgeryType ?? "Surgery"} • ${_selectedCase!.patientId}',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(child: _buildCaseWorkflowDetails(_selectedCase!)),
-          ],
-        );
+      if (_selectedCase != null) {
+        return _buildCaseWorkflowDetails(_selectedCase!);
       }
       return masterPane;
     }
@@ -5098,50 +5359,8 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     );
 
     if (widget.isMobile) {
-      if (_selectedCase != null && !_showPipelineSidebar) {
-        return Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.primaryColor),
-                    onPressed: () {
-                      setState(() {
-                        _selectedCase = null;
-                        _showPipelineSidebar = true;
-                      });
-                    },
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _selectedCase!.patientName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Color(0xFF0F172A)),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          '${_selectedCase!.surgeryType ?? "Surgery"} • ${_selectedCase!.patientId}',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(child: _buildCaseWorkflowDetails(_selectedCase!)),
-          ],
-        );
+      if (_selectedCase != null) {
+        return _buildCaseWorkflowDetails(_selectedCase!);
       }
       return masterPane;
     }
@@ -5291,9 +5510,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       InkWell(
                         onTap: () {
                           setState(() {
+                            _showPipelineSidebar = true;
                             if (_openedFromLiveDashboard) {
                               _selectedCase = null;
-                              _activeTab = 0;
+                              _activeTab = _previousTab;
                               _openedFromLiveDashboard = false;
                             } else {
                               _selectedCase = null;
