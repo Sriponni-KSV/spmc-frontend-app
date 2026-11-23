@@ -8221,12 +8221,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, size: 12, color: Colors.orange.shade700),
-                const SizedBox(width: 4),
-                Text(
-                  'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
-                  style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+                Icon(Icons.info_outline, size: 13, color: Colors.orange.shade700),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
+                    style: TextStyle(fontSize: 11, color: Colors.orange.shade700, height: 1.25),
+                  ),
                 ),
               ],
             ),
@@ -8495,7 +8498,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               children: [
                 Icon(Icons.info_outline, size: 16, color: AppTheme.textSecondaryColor),
                 SizedBox(width: 8),
-                Text('No nurses found in database.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12.5)),
+                Expanded(
+                  child: Text('No nurses found in database.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12.5)),
+                ),
               ],
             ),
           )
@@ -11127,10 +11132,6 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
                       // Dedicated Recovery Room beds if none yet in DB
                       if (_selectedTransferDest == 'Recovery Room' && availableBedNumbers.isEmpty) {
-                        availableBedNumbers = ['RR-01', 'RR-02', 'RR-03', 'RR-04', 'RR-05'];
-                      }
-
-                      if (currentBed.isNotEmpty && !availableBedNumbers.contains(currentBed)) {
                         final cUpper = currentBed.toUpperCase();
                         bool validForCurrentDest = false;
                         if (_selectedTransferDest == 'Recovery Room') {
@@ -12876,12 +12877,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline, size: 12, color: Colors.orange.shade700),
-              const SizedBox(width: 4),
-              Text(
-                'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
-                style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+              Icon(Icons.info_outline, size: 13, color: Colors.orange.shade700),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
+                  style: TextStyle(fontSize: 11, color: Colors.orange.shade700, height: 1.25),
+                ),
               ),
             ],
           ),
@@ -12930,15 +12934,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   children: [
                     const Icon(Icons.play_circle_outline, size: 18, color: AppTheme.primaryColor),
                     const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Start Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
-                        Text(
-                          _formatTimeOfDay(_slotStartTime),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Start Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                          Text(
+                            _formatTimeOfDay(_slotStartTime),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -13075,7 +13081,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             children: [
               Icon(Icons.info_outline, size: 16, color: AppTheme.textSecondaryColor),
               SizedBox(width: 8),
-              Text('No nurses found in database.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12.5)),
+              Expanded(
+                child: Text('No nurses found in database.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12.5)),
+              ),
             ],
           ),
         )
