@@ -192,7 +192,7 @@ class OtController {
 
   /// Update WHO Surgical Safety Checklist (Sign-In, Time-Out, Sign-Out)
   Future<OtCase> updateWhoChecklist(
-    int caseDbId, {
+    dynamic caseDbId, {
     required String stage, // 'sign_in', 'time_out', 'sign_out'
     required Map<String, dynamic> checklistData,
     required String updatedBy,
@@ -219,7 +219,7 @@ class OtController {
 
   /// Update Pre-Anaesthetic Checkup (PAC) assessment & mandatory clearance
   Future<OtCase> updatePacClearance(
-    int caseDbId, {
+    dynamic caseDbId, {
     required String pacStatus, // 'Cleared', 'High Risk Clearance', 'Deferred', 'Rejected', 'Pending'
     required Map<String, dynamic> pacDetails,
     required String pacClearedBy,

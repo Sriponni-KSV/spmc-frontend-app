@@ -418,13 +418,50 @@ class IpdController {
     }
   }
 
-  /// Resolve ICU alert
-  Future<void> resolveIcuAlert(int alertId) async {
+  /// Acknowledge ICU / Critical alert
+  Future<Map<String, dynamic>> acknowledgeIcuAlert(int alertId, {String? acknowledgedBy, String? notes}) async {
     try {
-      final response = await ApiService.post('$baseUrl/ipd/icu-alerts/$alertId/resolve', {});
+      final response = await ApiService.post('$baseUrl/ipd/icu-alerts/$alertId/acknowledge', {
+        if (acknowledgedBy != null) 'acknowledged_by': acknowledgedBy,
+        if (notes != null) 'notes': notes,
+      });
       final body = jsonDecode(response.body);
-      if (response.statusCode != 200) {
-        throw Exception(body['message'] ?? 'Failed to resolve alert');
+      if (response.statusCode == 200 && body['success'] == true) {
+        return Map<String, dynamic>.from(body['data'] ?? {});
+      }
+      throw Exception(body['message'] ?? 'Failed to acknowledge alert');
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Resolve ICU / Critical alert
+  Future<Map<String, dynamic>> resolveIcuAlert(int alertId, {String? resolvedBy, String? notes}) async {
+    try {
+      final response = await ApiService.post('$baseUrl/ipd/icu-alerts/$alertId/resolve', {
+        if (resolvedBy != null) 'resolved_by': resolvedBy,
+        if (notes != null) 'notes': notes,
+      });
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        return Map<String, dynamic>.from(body['data'] ?? {});
+      }
+      throw Exception(body['message'] ?? 'Failed to resolve alert');
+    } catch (e) {
+      throw Exception(e.toString().replaceAll('Exception: ', ''));
+    }
+  }
+
+  /// Fetch ICU / Critical alert history (active, acknowledged, resolved)
+  Future<List<Map<String, dynamic>>> fetchIcuAlertHistory() async {
+    try {
+      final response = await ApiService.get('$baseUrl/ipd/icu/alerts/history');
+      final body = jsonDecode(response.body);
+      if (response.statusCode == 200 && body['success'] == true) {
+        final List data = body['data'] ?? [];
+        return data.map((e) => Map<String, dynamic>.from(e)).toList();
+      } else {
+        throw Exception(body['message'] ?? 'Failed to fetch ICU alert history');
       }
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));

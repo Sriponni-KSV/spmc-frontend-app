@@ -18,6 +18,8 @@ import '../core/routes/route_constants.dart';
 import '../utils/app_localizations.dart';
 import '../services/api_service.dart';
 import '../utils/discard_dialog_helper.dart';
+import '../utils/receipt_printer.dart';
+import '../widgets/bed_room_request_dialog.dart';
 
 class DoctorIPDManagementScreen extends StatefulWidget {
   final bool isMobile;
@@ -54,6 +56,10 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
     _loadData();
   }
 
+  void _onTabChanged() {
+    if (mounted) setState(() {});
+  }
+
   /// didChangeDependencies is the first place Provider.of(context) is safe.
   /// We read the role here ONCE and create the correctly-sized TabController.
   @override
@@ -64,6 +70,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
         length: 5,
         vsync: this,
       );
+      _tabController.addListener(_onTabChanged);
       _tabControllerReady = true;
     }
   }
@@ -72,6 +79,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
   void dispose() {
     try { ScaffoldMessenger.of(context).clearSnackBars(); } catch (_) {}
     if (_tabControllerReady) {
+      _tabController.removeListener(_onTabChanged);
       _tabController.dispose();
     }
     super.dispose();
@@ -147,22 +155,27 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
     }
   }
 
-  int get _admittedCount {
-    final activePatients = <dynamic>{};
-    for (final a in _admissions) {
-      if (a['status'] == 'Admitted' &&
-          a['discharge_date'] == null &&
-          a['bed_number'] != null &&
-          a['bed_number'].toString().trim().isNotEmpty) {
-        activePatients.add(a['patient_id'] ?? a['id']);
-      }
-    }
-    return activePatients.length;
-  }
-  int get _availableBedsCount =>
-      _beds.where((b) => b['status'] == 'Available').length;
-  int get _icuOccupancy => _admissions
-      .where((a) => a['status'] == 'Admitted' && a['ward_type'] == 'ICU')
+  List<Map<String, dynamic>> get _activeAdmissions => _admissions
+      .where((a) =>
+          a['status'] == 'Admitted' &&
+          a['discharge_date'] == null)
+      .toList();
+
+  int get _admittedCount => _activeAdmissions.length;
+
+  int get _occupiedBedsCount => _beds.where((b) {
+        final s = (b['status'] ?? '').toString().toLowerCase();
+        return s == 'occupied' || b['admission_id'] != null;
+      }).length;
+
+  int get _availableBedsCount => _beds.where((b) {
+        final s = (b['status'] ?? '').toString().toLowerCase();
+        final hasPatient = b['admission_id'] != null;
+        return (s == 'available' || s.isEmpty) && !hasPatient;
+      }).length;
+
+  int get _icuOccupancy => _activeAdmissions
+      .where((a) => a['ward_type'] == 'ICU')
       .length;
 
   @override
@@ -171,28 +184,31 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
       backgroundColor: AppTheme.backgroundColor,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                if (_activeIcuAlerts.isNotEmpty) _buildCriticalIcuAlertBanner(),
-                _buildStatsRow(),
-                _buildTabBar(_isDoctor),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _buildActiveAdmissionsTab(),
-                      _buildPendingAdmissionsTab(),
-                      _buildBedAvailabilityTab(),
-                      _buildDischargeHistoryTab(),
-                      _buildICUDashboardTab(),
-                    ],
-                  ),
-                ),
-              ],
+          : SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(),
+                  if (_activeIcuAlerts.isNotEmpty) _buildCriticalIcuAlertBanner(),
+                  _buildStatsRow(),
+                  _buildTabBar(_isDoctor),
+                  _buildActiveTabContent(),
+                  const SizedBox(height: 32),
+                ],
+              ),
             ),
     );
+  }
+
+  Widget _buildActiveTabContent() {
+    if (!_tabControllerReady) return const SizedBox.shrink();
+    final idx = _tabController.index;
+    if (idx == 0) return _buildActiveAdmissionsTab();
+    if (idx == 1) return _buildPendingAdmissionsTab();
+    if (idx == 2) return _buildBedAvailabilityTab();
+    if (idx == 3) return _buildDischargeHistoryTab();
+    if (idx == 4) return _buildICUDashboardTab();
+    return _buildActiveAdmissionsTab();
   }
 
   Widget _buildHeader() {
@@ -231,9 +247,9 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () => _showAdmitDialog(),
-                    icon: const Icon(Icons.person_add_outlined, size: 18),
+                    icon: const Icon(Icons.hotel_outlined, size: 18),
                     label: const Text(
-                      'Admit Patient',
+                      'Bed/Room Request',
                       style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                     style: ElevatedButton.styleFrom(
@@ -276,9 +292,9 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                 ),
                 ElevatedButton.icon(
                   onPressed: () => _showAdmitDialog(),
-                  icon: const Icon(Icons.person_add_outlined, size: 18),
+                  icon: const Icon(Icons.hotel_outlined, size: 18),
                   label: const Text(
-                    'Admit Patient',
+                    'Bed/Room Request',
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -317,7 +333,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
             _buildStatCard(
               'Available Beds',
               '$_availableBedsCount/${_beds.length}',
-              'Ready for intake',
+              '$_occupiedBedsCount occupied • $_availableBedsCount ready',
               Icons.hotel_outlined,
               Colors.green,
             ),
@@ -438,6 +454,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
       ),
       child: TabBar(
         controller: _tabController,
+        onTap: (_) => setState(() {}),
         labelColor: AppTheme.primaryColor,
         unselectedLabelColor: AppTheme.textSecondaryColor,
         indicatorColor: AppTheme.primaryColor,
@@ -456,7 +473,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
   }
 
   Widget _buildActiveAdmissionsTab() {
-    final active = _admissions.where((a) => a['status'] == 'Admitted').toList();
+    final active = _activeAdmissions;
     if (active.isEmpty) {
       return _buildEmptyState(
         'No active admissions.',
@@ -464,6 +481,8 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
       );
     }
     return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
       itemCount: active.length,
       itemBuilder: (context, index) {
@@ -712,6 +731,8 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
     }
 
     return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(24),
       itemCount: _pendingAdmissions.length,
       itemBuilder: (context, index) {
@@ -831,9 +852,11 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
 
     groupedBeds.removeWhere((key, value) => value.isEmpty);
 
-    return ListView(
+    return Padding(
       padding: const EdgeInsets.all(24),
-      children: groupedBeds.entries.map((entry) {
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: groupedBeds.entries.map((entry) {
         final wardName = entry.key;
         final wardBeds = entry.value;
 
@@ -959,6 +982,7 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
           ],
         );
       }).toList(),
+      ),
     );
   }
 
@@ -1178,11 +1202,9 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
             ),
           ),
           const SizedBox(height: 16),
-          Expanded(
-            child: _dischargeSummarySubTab == 0
-                ? _buildActiveInpatientsForDischarge(activeInpatients)
-                : _buildDischargedRecordsList(discharged),
-          ),
+          _dischargeSummarySubTab == 0
+              ? _buildActiveInpatientsForDischarge(activeInpatients)
+              : _buildDischargedRecordsList(discharged),
         ],
       ),
     );
@@ -1193,6 +1215,8 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
       return _buildEmptyState('No active inpatients available for discharge summary.', Icons.hotel_class_outlined);
     }
     return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: activeInpatients.length,
       itemBuilder: (context, index) {
         final adm = activeInpatients[index];
@@ -1287,6 +1311,8 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
       return _buildEmptyState('No discharged records.', Icons.history);
     }
     return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       itemCount: discharged.length,
       itemBuilder: (context, index) {
         final adm = discharged[index];
@@ -1400,6 +1426,8 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
       return _buildEmptyState('No patients in ICU currently.', Icons.local_hospital_outlined);
     }
     return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(24),
       itemCount: icuPatients.length,
       itemBuilder: (context, index) {
@@ -2231,28 +2259,40 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
   }
 
   Widget _buildEmptyState(String text, IconData icon) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 48, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          Text(
-            text,
-            style: const TextStyle(
-              color: AppTheme.textSecondaryColor,
-              fontSize: 14,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 48, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text(
+              text,
+              style: const TextStyle(
+                color: AppTheme.textSecondaryColor,
+                fontSize: 14,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   void _showAdmitDialog() {
-    final doctorName =
-        Provider.of<AuthProvider>(context, listen: false).user?.fullname ?? '';
-    _showDoctorAdmitDialog(doctorName);
+    BedRoomRequestDialog.show(
+      context,
+      availablePatients: _patients.map((p) => {
+        'id': p.id,
+        'patient_id': p.patientId,
+        'name': p.name,
+        'gender': p.gender,
+        'age': p.age,
+        'phone': p.phone,
+      }).toList(),
+      onSuccess: _loadData,
+    );
   }
 
   // ─── Doctor Admit: send to queue ────────────────
@@ -3511,6 +3551,24 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
               onPressed: () => Navigator.pop(context),
               child: Text(context.tr('close', fallback: 'Close')),
             ),
+            ElevatedButton.icon(
+              onPressed: () {
+                printDischargeSummary(
+                  context: context,
+                  admission: admission,
+                  finalDiagnosis: admission['final_diagnosis'] ?? admission['diagnosis'] ?? '',
+                  treatmentSummary: admission['treatment_summary'] ?? admission['discharge_summary'] ?? '',
+                  medicationPlan: admission['medication_plan'] ?? '',
+                  dischargeInstructions: admission['discharge_instructions'] ?? '',
+                );
+              },
+              icon: const Icon(Icons.print_outlined, size: 16),
+              label: const Text('Preview & Print'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+            ),
           ],
         );
       },
@@ -3716,6 +3774,25 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                 onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(context, isDirty: isDirty()),
                 style: AppTheme.cancelButton,
                 child: const Text('Cancel'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  if (!formKey.validateAndScroll()) return;
+                  printDischargeSummary(
+                    context: context,
+                    admission: admission,
+                    finalDiagnosis: finalDiagnosisController.text.trim(),
+                    treatmentSummary: treatmentSummaryController.text.trim(),
+                    medicationPlan: medicationPlanController.text.trim(),
+                  );
+                },
+                icon: const Icon(Icons.print_outlined, size: 16),
+                label: const Text('Preview & Print'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryColor,
+                  side: const BorderSide(color: AppTheme.primaryColor),
+                  minimumSize: const Size(130, 48),
+                ),
               ),
               ElevatedButton.icon(
                 onPressed: () async {

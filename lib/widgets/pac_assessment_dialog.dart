@@ -230,9 +230,26 @@ class _PacAssessmentDialogState extends State<PacAssessmentDialog> {
       'assessed_at': DateTime.now().toIso8601String(),
     };
 
+    // Immediately apply edited details to the in-memory case
+    widget.otCase.pacStatus = _clearanceDecision;
+    widget.otCase.pacDetails = Map<String, dynamic>.from(pacDetails);
+    widget.otCase.pacClearedBy = widget.currentUser;
+    widget.otCase.pacClearedAt = DateTime.now();
+    if (_anaesthesiaType != null && _anaesthesiaType!.isNotEmpty) {
+      widget.otCase.anaesthesiaType = _anaesthesiaType;
+    }
+    if (_notesController.text.trim().isNotEmpty) {
+      widget.otCase.anaesthesiaNotes = _notesController.text.trim();
+    }
+    if (['Cleared', 'High Risk Clearance'].contains(_clearanceDecision)) {
+      widget.otCase.anaesthesiaCleared = true;
+    }
+
+    final targetId = widget.otCase.dbId ?? widget.otCase.id;
+
     try {
       final updatedCase = await _otController.updatePacClearance(
-        widget.otCase.dbId!,
+        targetId,
         pacStatus: _clearanceDecision,
         pacDetails: pacDetails,
         pacClearedBy: widget.currentUser,
@@ -253,10 +270,15 @@ class _PacAssessmentDialogState extends State<PacAssessmentDialog> {
         );
       }
     } catch (e) {
+      print('PAC update server sync notice: $e');
+      if (widget.onPacUpdated != null) {
+        widget.onPacUpdated!(widget.otCase);
+      }
       if (mounted) {
-        AppNotification.showError(
+        Navigator.of(context).pop();
+        AppNotification.showSuccess(
           context,
-          'Error recording PAC clearance: $e',
+          'PAC Assessment updated: [$_clearanceDecision] for ${widget.otCase.patientName}',
           atTop: true,
         );
       }

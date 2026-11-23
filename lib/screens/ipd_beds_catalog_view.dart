@@ -47,7 +47,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
     super.dispose();
   }
 
-  Future<void> _loadBeds() async {
+  Future<void> _loadBeds({bool showFeedback = false}) async {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
@@ -61,6 +61,16 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
           _beds = bedsList;
           _isLoading = false;
         });
+        if (showFeedback) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('IPD bed records, statuses, and dashboard counts refreshed successfully.'),
+              duration: Duration(seconds: 2),
+              backgroundColor: AppTheme.secondaryColor,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -68,6 +78,16 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
           _errorMessage = e.toString();
           _isLoading = false;
         });
+        if (showFeedback) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to refresh beds: $e'),
+              duration: const Duration(seconds: 3),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+        }
       }
     }
   }
@@ -370,6 +390,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
 
     String selectedWard = (bed['ward_type']?.toString() ?? 'General').trim();
     if (selectedWard.isEmpty) selectedWard = 'General';
+    final initialWard = selectedWard;
     final wards = List<String>.from(_availableWards);
     if (!wards.contains(selectedWard)) {
       wards.add(selectedWard);
@@ -381,7 +402,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
       selectedStatus = 'Available';
     }
 
-    final bool isCurrentlyOccupied = selectedStatus == 'Occupied';
+    final bool isCurrentlyOccupied = selectedStatus == 'Occupied' || bed['admission_id'] != null;
     bool isSaving = false;
     String? dialogError;
 
@@ -479,18 +500,19 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: const Color(0xFFFDE68A)),
                         ),
-                        child: const Row(
+                        child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.info_outline, color: Color(0xFFB45309), size: 18),
-                            SizedBox(width: 8),
+                            const Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309), size: 18),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'This bed is currently occupied by an admitted patient. Changing its status directly to Available is restricted until the patient is discharged.',
-                                style: TextStyle(
+                                'This bed is currently occupied${bed['patient_name'] != null ? ' by patient ${bed['patient_name']}' : ''}. Direct changes to its ward location ($initialWard) or status are restricted. Any patient relocation must be handled through the proper IPD patient transfer workflow.',
+                                style: const TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFF92400E),
                                   height: 1.3,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -549,7 +571,7 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                       hint: 'Select Ward Category',
                       value: selectedWard,
                       dropdownItems: wards,
-                      isEnabled: !isSaving,
+                      isEnabled: !isSaving && !isCurrentlyOccupied,
                       onChanged: (val) {
                         if (val != null && val.isNotEmpty) {
                           setDialogState(() => selectedWard = val);
@@ -559,9 +581,23 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                         if (val == null || val.trim().isEmpty) {
                           return 'Ward category is required';
                         }
+                        if (isCurrentlyOccupied && val.trim().toLowerCase() != initialWard.toLowerCase()) {
+                          return 'Cannot change ward of occupied bed directly. Use IPD patient transfer.';
+                        }
                         return null;
                       },
                     ),
+                    if (isCurrentlyOccupied) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Location cannot be changed while bed is occupied. Use IPD Patient Transfer.',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.amber.shade900,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
                     // Status Dropdown
@@ -608,6 +644,12 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                               ? null
                               : () async {
                                   if (!formKey.currentState!.validate()) return;
+                                  if (isCurrentlyOccupied && selectedWard.trim().toLowerCase() != initialWard.toLowerCase()) {
+                                    setDialogState(() {
+                                      dialogError = 'Cannot change the ward/location of an occupied bed directly. Please use the IPD patient transfer workflow.';
+                                    });
+                                    return;
+                                  }
                                   setDialogState(() {
                                     isSaving = true;
                                     dialogError = null;
@@ -932,6 +974,20 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                     ),
                     const SizedBox(width: 6),
                     _buildAddButton(),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      tooltip: 'Refresh Beds',
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+                            )
+                          : const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      onPressed: _isLoading ? null : () => _loadBeds(showFeedback: true),
+                    ),
                   ],
                 ),
               ],
@@ -955,8 +1011,14 @@ class _IpdBedsCatalogViewState extends State<IpdBedsCatalogView> {
                 const SizedBox(width: 8),
                 IconButton(
                   tooltip: 'Refresh Beds',
-                  icon: const Icon(Icons.refresh, color: AppTheme.primaryColor),
-                  onPressed: _loadBeds,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryColor),
+                        )
+                      : const Icon(Icons.refresh, color: AppTheme.primaryColor),
+                  onPressed: _isLoading ? null : () => _loadBeds(showFeedback: true),
                 ),
               ],
             ),

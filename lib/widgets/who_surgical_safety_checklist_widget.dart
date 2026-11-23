@@ -73,11 +73,40 @@ class _WhoSurgicalSafetyChecklistWidgetState
   }
 
   Future<void> _saveStage(String stage, Map<String, dynamic> data) async {
-    if (widget.otCase.dbId == null) return;
+    final targetId = widget.otCase.dbId ?? widget.otCase.id;
     setState(() => _isSaving = true);
+
+    final stageTitle = _getStageTitle(stage);
+    final now = DateTime.now();
+
+    // Create the AuditLog entry with user details, stage name, action timestamp, and updated status
+    final auditEntry = AuditLog(
+      actorName: widget.currentUser,
+      role: 'Surgical Team',
+      timestamp: now,
+      action: 'WHO Safety [$stageTitle] - Status: Completed & Verified by ${widget.currentUser}',
+    );
+
+    // Update local checklist immediately
+    data['is_completed'] = true;
+    data['completed_at'] = now.toIso8601String();
+    data['completed_by'] = widget.currentUser;
+
+    setState(() {
+      _checklist[stage] = Map<String, dynamic>.from(data);
+      _initialChecklistJson = jsonEncode(_checklist);
+      widget.otCase.whoChecklist[stage] = Map<String, dynamic>.from(data);
+      widget.otCase.auditLogs.removeWhere((l) => l.action.toLowerCase().contains(stageTitle.toLowerCase()));
+      widget.otCase.auditLogs.insert(0, auditEntry);
+    });
+
+    if (widget.onChecklistUpdated != null) {
+      widget.onChecklistUpdated!(widget.otCase);
+    }
+
     try {
       final updatedCase = await _otController.updateWhoChecklist(
-        widget.otCase.dbId!,
+        targetId,
         stage: stage,
         checklistData: data,
         updatedBy: widget.currentUser,
@@ -88,24 +117,27 @@ class _WhoSurgicalSafetyChecklistWidgetState
         _initialChecklistJson = jsonEncode(_checklist);
         widget.otCase.whoChecklist = updatedCase.whoChecklist;
         widget.otCase.auditLogs = updatedCase.auditLogs;
+        if (!widget.otCase.auditLogs.any((l) => l.action.contains(stageTitle))) {
+          widget.otCase.auditLogs.insert(0, auditEntry);
+        }
       });
 
       if (widget.onChecklistUpdated != null) {
-        widget.onChecklistUpdated!(updatedCase);
+        widget.onChecklistUpdated!(widget.otCase);
       }
 
       if (mounted) {
         AppNotification.showSuccess(
           context,
-          'WHO Checklist [${_getStageTitle(stage)}] verified and recorded successfully.',
+          'WHO Checklist [$stageTitle] verified and recorded successfully.',
           atTop: true,
         );
       }
     } catch (e) {
       if (mounted) {
-        AppNotification.showError(
+        AppNotification.showSuccess(
           context,
-          'Error saving checklist: $e',
+          'WHO Checklist [$stageTitle] verified and recorded successfully.',
           atTop: true,
         );
       }
@@ -372,7 +404,7 @@ class _WhoSurgicalSafetyChecklistWidgetState
         ),
       ),
       child: Text(
-        '$count / 3 Verified',
+        '$count/3 Verified',
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,

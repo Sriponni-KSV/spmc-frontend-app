@@ -22,6 +22,7 @@ import '../widgets/ipd_mar_widget.dart';
 import '../widgets/ipd_fluid_balance_widget.dart';
 import '../widgets/ipd_doctor_rounds_soap_widget.dart';
 import '../widgets/ipd_automated_discharge_summary_widget.dart';
+import '../widgets/bed_room_request_dialog.dart';
 import '../utils/discard_dialog_helper.dart';
 
 class IPDPatientDetailPage extends StatefulWidget {
@@ -107,18 +108,19 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     _userRole = auth.user?.role ?? 'Nurse';
     _staffName = auth.user?.fullname ?? 'Staff Member';
 
-    final tabCount = _userRole == 'Doctor' ? 9 : 6;
-    final initTab = (_userRole == 'Doctor' && _activeDoctorTabIndex >= 0 && _activeDoctorTabIndex < tabCount)
+    final isDoctorView = _userRole == 'Doctor' || _userRole == 'Admin' || _userRole == 'Super Admin';
+    final tabCount = isDoctorView ? 9 : 6;
+    final initTab = (isDoctorView && _activeDoctorTabIndex >= 0 && _activeDoctorTabIndex < tabCount)
         ? _activeDoctorTabIndex
-        : (_userRole == 'Nurse' && _activeNurseTabIndex >= 0 && _activeNurseTabIndex < tabCount)
+        : (_activeNurseTabIndex >= 0 && _activeNurseTabIndex < tabCount)
             ? _activeNurseTabIndex
             : 0;
     _tabController = TabController(length: tabCount, vsync: this, initialIndex: initTab);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
-        if (_userRole == 'Doctor') {
+        if (isDoctorView) {
           _activeDoctorTabIndex = _tabController.index;
-        } else if (_userRole == 'Nurse') {
+        } else {
           _activeNurseTabIndex = _tabController.index;
         }
       }
@@ -329,10 +331,61 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     return null;
   }
 
+  String? _validateDosage(String? val) {
+    if (val == null || val.trim().isEmpty) {
+      return 'Dosage required (e.g. 500mg, 10ml)';
+    }
+    final clean = val.trim();
+    // Must contain at least one numeric digit
+    if (!RegExp(r'[0-9]').hasMatch(clean)) {
+      return 'Must include numeric quantity (e.g. 500mg)';
+    }
+    if (!RegExp(r'^[0-9]+(?:\.[0-9]+)?(?:\s*[/]\s*[0-9]+)?\s*[a-zA-Z/.]*$').hasMatch(clean) &&
+        !RegExp(r'^[0-9\s/.]+[a-zA-Z\s]*$').hasMatch(clean)) {
+      return 'Invalid dosage (e.g. 500mg, 10ml)';
+    }
+    return null;
+  }
+
+  String? _validateDuration(String? val) {
+    if (val == null || val.trim().isEmpty) {
+      return 'Duration required (e.g. 5 Days, 1 Week)';
+    }
+    final clean = val.trim();
+    final validTerms = ['stat', 'sos', 'prn', 'single dose', 'once', 'ongoing', 'as directed', 'continuous', 'immediately'];
+    if (validTerms.contains(clean.toLowerCase())) {
+      return null;
+    }
+    if (!RegExp(r'[0-9]').hasMatch(clean)) {
+      return 'Must include numeric value (e.g. 5 Days)';
+    }
+    final validDurRegex = RegExp(r'^[0-9]+\s*(days?|weeks?|months?|hours?|hrs?|d|w|m|h)?$', caseSensitive: false);
+    if (!validDurRegex.hasMatch(clean)) {
+      return 'Invalid duration format (e.g. 5 Days)';
+    }
+    return null;
+  }
+
   // --- ACTIONS ---
 
   Future<void> _addPrescription() async {
     if (!_prescFormKey.currentState!.validate()) return;
+
+    final dosageErr = _validateDosage(_dosageController.text);
+    if (dosageErr != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(dosageErr), backgroundColor: AppTheme.dangerColor),
+      );
+      return;
+    }
+
+    final durErr = _validateDuration(_durController.text);
+    if (durErr != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(durErr), backgroundColor: AppTheme.dangerColor),
+      );
+      return;
+    }
 
     final medName = _medNameController.text.trim();
     if (medName.isEmpty) {
@@ -578,6 +631,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
       _pulseController.clear();
       _spo2Controller.clear();
       _respRateController.clear();
+      _vitalsFormKey.currentState?.reset();
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -597,23 +651,55 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     }
   }
 
-  Future<void> _resolveAlert(int id) async {
+  Future<void> _acknowledgeAlert(int id) async {
+    final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final userName = currentUser?.fullname ?? (_userRole.isNotEmpty ? _userRole : 'Clinical Staff');
     try {
-      await _ipdController.resolveIcuAlert(id);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Alert resolved!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      await _ipdController.acknowledgeIcuAlert(id, acknowledgedBy: userName);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Critical alert acknowledged successfully!'),
+            backgroundColor: Color(0xFF2563EB),
+          ),
+        );
+      }
       _loadAllData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error resolving alert: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error acknowledging alert: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _resolveAlert(int id) async {
+    final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+    final userName = currentUser?.fullname ?? (_userRole.isNotEmpty ? _userRole : 'Clinical Staff');
+    try {
+      await _ipdController.resolveIcuAlert(id, resolvedBy: userName);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Alert marked as resolved!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      _loadAllData();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error resolving alert: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -1446,15 +1532,59 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                     ],
                   ),
           ),
-          // Refresh button
-          IconButton(
-            icon: const Icon(
-              Icons.refresh,
-              size: 20,
-              color: AppTheme.primaryColor,
+          // Bed/Room Request button
+          ElevatedButton.icon(
+            onPressed: () => BedRoomRequestDialog.show(
+              context,
+              initialPatient: widget.admission,
+              patientId: widget.admission['patient_id'],
+              patientName: widget.admission['patient_name'],
+              patientGender: widget.admission['gender'],
+              patientAge: widget.admission['age'],
+              patientPhone: widget.admission['phone'],
+              onSuccess: _loadAllData,
             ),
-            tooltip: 'Refresh data',
-            onPressed: _loadAllData,
+            icon: const Icon(Icons.hotel_outlined, size: 17, color: Colors.white),
+            label: Text(
+              isMobile ? 'Bed Req.' : 'Bed/Room Request',
+              style: const TextStyle(
+                fontSize: 13,
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.2,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: isMobile ? 8 : 10),
+              minimumSize: Size(0, isMobile ? 36 : 38),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Refresh button
+          Container(
+            height: isMobile ? 36 : 38,
+            width: isMobile ? 36 : 38,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+            ),
+            child: IconButton(
+              icon: const Icon(
+                Icons.refresh,
+                size: 18,
+                color: AppTheme.primaryColor,
+              ),
+              padding: EdgeInsets.zero,
+              tooltip: 'Refresh data',
+              onPressed: _loadAllData,
+            ),
           ),
         ],
       ),
@@ -1607,7 +1737,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
               fontSize: 13,
               fontWeight: FontWeight.normal,
             ),
-            tabs: _userRole == 'Doctor' ? doctorTabs : nurseTabs,
+            tabs: (_userRole == 'Doctor' || _userRole == 'Admin' || _userRole == 'Super Admin') ? doctorTabs : nurseTabs,
           ),
         ),
         const Divider(height: 1, thickness: 1, color: AppTheme.borderColor),
@@ -1625,7 +1755,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                 )
               : TabBarView(
                   controller: _tabController,
-                  children: _userRole == 'Doctor'
+                  children: (_userRole == 'Doctor' || _userRole == 'Admin' || _userRole == 'Super Admin')
                       ? [
                           _buildOverviewTab(),
                           _buildDoctorVitalsTab(),
@@ -2799,10 +2929,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s/.]')),
                           ],
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) return 'Dosage is required (e.g. 500mg)';
-                            return null;
-                          },
+                          validator: _validateDosage,
                         ),
                         const SizedBox(height: 16),
                         CustomDropdownSearch(
@@ -2856,10 +2983,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             inputFormatters: [
                               FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s/.]')),
                             ],
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) return 'Dosage is required (e.g. 500mg)';
-                              return null;
-                            },
+                            validator: _validateDosage,
                           ),
                         ),
                         const SizedBox(width: 20),
@@ -2948,10 +3072,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]')),
                           ],
-                          validator: (val) {
-                            if (val == null || val.trim().isEmpty) return 'Duration is required (e.g. 5 Days)';
-                            return null;
-                          },
+                          validator: _validateDuration,
                         ),
                       ],
                     )
@@ -2999,10 +3120,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                             inputFormatters: [
                               FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]')),
                             ],
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) return 'Duration is required (e.g. 5 Days)';
-                              return null;
-                            },
+                            validator: _validateDuration,
                           ),
                         ),
                       ],
@@ -3363,6 +3481,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,
+            errorMaxLines: 3,
+            errorStyle: const TextStyle(fontSize: 11, height: 1.25, overflow: TextOverflow.visible),
             counterText: maxLength != null ? '' : null,
             prefixIcon: Icon(icon, color: AppTheme.primaryColor, size: 18),
             filled: true,
@@ -4730,12 +4850,12 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildDoctorIcuTab() {
-    if (widget.admission['ward_type'] != 'ICU') {
+    if (widget.admission['ward_type'] != 'ICU' && _icuAlerts.isEmpty) {
       return _buildNonIcuNotice();
     }
 
     final activeAlerts = _icuAlerts
-        .where((a) => a['status'] == 'Active')
+        .where((a) => a['status'] != 'Resolved')
         .toList();
     final resolvedAlerts = _icuAlerts
         .where((a) => a['status'] == 'Resolved')
@@ -4749,70 +4869,351 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBedsideMonitor(latestVitals),
-          const SizedBox(height: 20),
-          _buildSimulationPanel(),
+          if (widget.admission['ward_type'] == 'ICU') ...[
+            const SizedBox(height: 20),
+            _buildSimulationPanel(),
+          ],
           const SizedBox(height: 24),
-          const Text(
-            'Active ICU Alerts',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.red,
-            ),
+          Row(
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Active & Acknowledged Alerts (${activeAlerts.length})',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           if (activeAlerts.isEmpty)
-            const Text('No active critical alerts.')
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 18),
+                  SizedBox(width: 8),
+                  Text('No active critical alerts. Patient condition is stable.', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            )
           else
-            ...activeAlerts.map((a) => _buildAlertCard(a, true)),
+            ...activeAlerts.map((a) => _buildAlertCard(a)),
           const Divider(height: 40),
-          const Text(
-            'Resolved Alerts',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.green,
-            ),
+          Row(
+            children: [
+              const Icon(Icons.history, color: Colors.green, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Resolved Alerts History (${resolvedAlerts.length})',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           if (resolvedAlerts.isEmpty)
-            const Text('No past alerts.')
+            const Text('No past resolved alerts for this admission.')
           else
-            ...resolvedAlerts.map((a) => _buildAlertCard(a, false)),
+            ...resolvedAlerts.map((a) => _buildAlertCard(a)),
         ],
       ),
     );
   }
 
-  Widget _buildAlertCard(Map<String, dynamic> a, bool isActive) {
-    final date = _safeFormatDate(a['created_at'], pattern: 'dd/MM/yyyy HH:mm');
+  Widget _buildAlertCard(Map<String, dynamic> a) {
+    final status = a['status']?.toString() ?? 'Active';
+    final isActive = status == 'Active';
+    final isAcknowledged = status == 'Acknowledged';
+    final isResolved = status == 'Resolved';
+
+    final alertType = a['alert_type'] ?? 'Critical Alert';
+    final severity = a['severity'] ?? 'Critical';
+    final isCritical = severity.toString().toLowerCase() == 'critical';
+    final date = _safeFormatDate(a['created_at'], pattern: 'dd/MM/yyyy hh:mm a');
+    final message = a['alert_message'] ?? 'Abnormal physiological parameter detected.';
+
+    final patientName = widget.admission['patient_name'] ?? 'Admitted Patient';
+    final patientId = widget.admission['patient_display_id'] ?? widget.admission['patient_id']?.toString() ?? '';
+    final bedNum = widget.admission['bed_number'] ?? '--';
+    final wardType = widget.admission['ward_type'] ?? 'General';
+
+    // Parse action history
+    List<dynamic> historyList = [];
+    try {
+      if (a['action_history'] is List) {
+        historyList = a['action_history'] as List;
+      } else if (a['action_history'] is String && a['action_history'].toString().trim().isNotEmpty) {
+        historyList = jsonDecode(a['action_history']) as List;
+      }
+    } catch (_) {}
+
+    Color cardBg = Colors.grey.shade50;
+    Color borderColor = Colors.grey.shade300;
+    Color statusBg = Colors.grey.shade100;
+    Color statusColor = Colors.grey.shade800;
+
+    if (isActive) {
+      cardBg = isCritical ? const Color(0xFFFEF2F2) : const Color(0xFFFFFBEB);
+      borderColor = isCritical ? const Color(0xFFFCA5A5) : const Color(0xFFFCD34D);
+      statusBg = isCritical ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7);
+      statusColor = isCritical ? const Color(0xFFDC2626) : const Color(0xFFD97706);
+    } else if (isAcknowledged) {
+      cardBg = const Color(0xFFEFF6FF);
+      borderColor = const Color(0xFF93C5FD);
+      statusBg = const Color(0xFFDBEAFE);
+      statusColor = const Color(0xFF2563EB);
+    } else if (isResolved) {
+      cardBg = const Color(0xFFF0FDF4);
+      borderColor = const Color(0xFF86EFAC);
+      statusBg = const Color(0xFFDCFCE7);
+      statusColor = const Color(0xFF16A34A);
+    }
+
     return Card(
       elevation: 0,
-      color: isActive ? Colors.red.shade50 : Colors.grey.shade50,
+      color: cardBg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: isActive ? Colors.red : Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: borderColor, width: isActive ? 1.5 : 1),
       ),
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        title: Text(
-          '${a['alert_type']} (${a['severity']})',
-          style: TextStyle(
-            color: isActive ? Colors.red.shade800 : Colors.black,
-            fontWeight: FontWeight.bold,
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isCritical ? Colors.red.shade700 : Colors.amber.shade700,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(
+                        alertType,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isCritical ? Colors.red.shade100 : Colors.amber.shade100,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    severity,
+                    style: TextStyle(
+                      color: isCritical ? Colors.red.shade800 : Colors.amber.shade900,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusBg,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Text(
+                    status,
+                    style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Patient: $patientName ${patientId.isNotEmpty ? "($patientId)" : ""} • $wardType Ward (Bed $bedNum)',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Colors.black87),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              message,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: isCritical ? Colors.red.shade900 : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Triggered: $date',
+              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+            ),
+            if (a['acknowledged_by'] != null && a['acknowledged_by'].toString().isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                'Acknowledged by: ${a['acknowledged_by']}${a['acknowledged_at'] != null ? " at ${_safeFormatDate(a['acknowledged_at'], pattern: 'dd/MM/yyyy hh:mm a')}" : ""}',
+                style: TextStyle(fontSize: 11, color: Colors.blue.shade800, fontWeight: FontWeight.w500),
+              ),
+            ],
+            if (a['resolved_by'] != null && a['resolved_by'].toString().isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                'Resolved by: ${a['resolved_by']}${a['resolved_at'] != null ? " at ${_safeFormatDate(a['resolved_at'], pattern: 'dd/MM/yyyy hh:mm a')}" : ""}',
+                style: TextStyle(fontSize: 11, color: Colors.green.shade800, fontWeight: FontWeight.w500),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (isActive) ...[
+                  ElevatedButton.icon(
+                    onPressed: () => _acknowledgeAlert(a['id']),
+                    icon: const Icon(Icons.thumb_up_alt_outlined, size: 14, color: Colors.white),
+                    label: const Text('Acknowledge', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () => _resolveAlert(a['id']),
+                    icon: const Icon(Icons.check_circle_outline, size: 14, color: Colors.white),
+                    label: const Text('Resolve', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ] else if (isAcknowledged) ...[
+                  ElevatedButton.icon(
+                    onPressed: () => _resolveAlert(a['id']),
+                    icon: const Icon(Icons.check_circle_outline, size: 14, color: Colors.white),
+                    label: const Text('Resolve Alert', style: TextStyle(color: Colors.white, fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                if (historyList.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () => _showAlertHistoryDialog(a, historyList),
+                    icon: const Icon(Icons.history, size: 15, color: AppTheme.primaryColor),
+                    label: Text(
+                      'Action History (${historyList.length})',
+                      style: const TextStyle(color: AppTheme.primaryColor, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAlertHistoryDialog(Map<String, dynamic> a, List<dynamic> historyList) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.history, color: AppTheme.primaryColor),
+            const SizedBox(width: 8),
+            Text('${a['alert_type'] ?? 'Critical Alert'} - Action History', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Condition: ${a['alert_message']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text('Patient: ${widget.admission['patient_name']} • Bed ${widget.admission['bed_number']} (${widget.admission['ward_type']})', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const Divider(height: 24),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: historyList.length,
+                  itemBuilder: (context, idx) {
+                    final h = historyList[idx];
+                    final action = h['action'] ?? 'Update';
+                    final by = h['by'] ?? 'System';
+                    final at = _safeFormatDate(h['at'], pattern: 'dd/MM/yyyy hh:mm a');
+                    final notes = h['notes'] ?? '';
+
+                    Color actionColor = Colors.grey;
+                    if (action == 'Triggered') actionColor = Colors.red;
+                    if (action == 'Acknowledged') actionColor = Colors.blue;
+                    if (action == 'Resolved') actionColor = Colors.green;
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(color: actionColor.withOpacity(0.1), shape: BoxShape.circle),
+                            child: Icon(Icons.circle, size: 8, color: actionColor),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(action, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: actionColor)),
+                                    const SizedBox(width: 6),
+                                    Text('by $by', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                                if (notes.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(notes, style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic)),
+                                ],
+                                const SizedBox(height: 2),
+                                Text(at, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
-        subtitle: Text('${a['alert_message']}\nTriggered at: $date'),
-        trailing: isActive && _userRole == 'Doctor'
-            ? OutlinedButton(
-                onPressed: () => _resolveAlert(a['id']),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.green,
-                  side: const BorderSide(color: Colors.green),
-                ),
-                child: const Text('Resolve'),
-              )
-            : null,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
       ),
     );
   }
@@ -4914,177 +5315,104 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                 ],
               ),
 
-              const SizedBox(height: 30),
-
-              isMobile
-                  ? Column(
-                      children: [
-                        _buildVitalsField(
-                          controller: _bpSystolicController,
-                          label: 'Systolic BP',
-                          hint: 'Enter Systolic',
-                          suffix: 'mmHg',
-                          icon: Icons.favorite_outline,
-                          maxLength: 3,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        ),
-                        const SizedBox(height: 20),
-                        _buildVitalsField(
-                          controller: _bpDiastolicController,
-                          label: 'Diastolic BP',
-                          hint: 'Enter Diastolic',
-                          suffix: 'mmHg',
-                          icon: Icons.favorite_outline,
-                          maxLength: 3,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(
-                          child: _buildVitalsField(
-                            controller: _bpSystolicController,
-                            label: 'Systolic BP',
-                            hint: 'Enter Systolic',
-                            suffix: 'mmHg',
-                            icon: Icons.favorite_outline,
-                            maxLength: 3,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        Expanded(
-                          child: _buildVitalsField(
-                            controller: _bpDiastolicController,
-                            label: 'Diastolic BP',
-                            hint: 'Enter Diastolic',
-                            suffix: 'mmHg',
-                            icon: Icons.favorite_outline,
-                            maxLength: 3,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          ),
-                        ),
-                      ],
-                    ),
-
               const SizedBox(height: 20),
 
-              isMobile
-                  ? Column(
-                      children: [
-                        _buildVitalsField(
-                          controller: _tempController,
-                          label: 'Temperature',
-                          hint: 'Enter Temperature',
-                          suffix: '°F',
-                          icon: Icons.thermostat,
-                          maxLength: 5,
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        _buildVitalsField(
-                          controller: _pulseController,
-                          label: 'Pulse',
-                          hint: 'Enter Pulse',
-                          suffix: 'bpm',
-                          icon: Icons.monitor_heart_outlined,
-                          maxLength: 3,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(
-                          child: _buildVitalsField(
-                            controller: _tempController,
-                            label: 'Temperature',
-                            hint: 'Enter Temperature',
-                            suffix: '°F',
-                            icon: Icons.thermostat,
-                            maxLength: 5,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        Expanded(
-                          child: _buildVitalsField(
-                            controller: _pulseController,
-                            label: 'Pulse',
-                            hint: 'Enter Pulse',
-                            suffix: 'bpm',
-                            icon: Icons.monitor_heart_outlined,
-                            maxLength: 3,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          ),
-                        ),
+              // Systolic & Diastolic BP
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildVitalsField(
+                      controller: _bpSystolicController,
+                      label: 'Systolic BP',
+                      hint: 'Systolic',
+                      suffix: 'mmHg',
+                      icon: Icons.favorite_outline,
+                      maxLength: 3,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                  ),
+                  SizedBox(width: isMobile ? 12 : 20),
+                  Expanded(
+                    child: _buildVitalsField(
+                      controller: _bpDiastolicController,
+                      label: 'Diastolic BP',
+                      hint: 'Diastolic',
+                      suffix: 'mmHg',
+                      icon: Icons.favorite_outline,
+                      maxLength: 3,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Temperature & Pulse
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildVitalsField(
+                      controller: _tempController,
+                      label: 'Temperature',
+                      hint: 'Enter Temp',
+                      suffix: '°F',
+                      icon: Icons.thermostat,
+                      maxLength: 5,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                       ],
                     ),
-
-              const SizedBox(height: 20),
-
-              isMobile
-                  ? Column(
-                      children: [
-                        _buildVitalsField(
-                          controller: _spo2Controller,
-                          label: 'SPO2',
-                          hint: 'Enter SPO2',
-                          suffix: '%',
-                          icon: Icons.air,
-                          maxLength: 3,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        ),
-                        const SizedBox(height: 20),
-                        _buildVitalsField(
-                          controller: _respRateController,
-                          label: 'Respiratory Rate',
-                          hint: 'Enter Respiratory Rate',
-                          suffix: 'bpm',
-                          icon: Icons.water_drop_outlined,
-                          maxLength: 3,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                        ),
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(
-                          child: _buildVitalsField(
-                            controller: _spo2Controller,
-                            label: 'SPO2',
-                            hint: 'Enter SPO2',
-                            suffix: '%',
-                            icon: Icons.air,
-                            maxLength: 3,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        Expanded(
-                          child: _buildVitalsField(
-                            controller: _respRateController,
-                            label: 'Respiratory Rate',
-                            hint: 'Enter Respiratory Rate',
-                            suffix: 'bpm',
-                            icon: Icons.water_drop_outlined,
-                            maxLength: 3,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          ),
-                        ),
-                      ],
+                  ),
+                  SizedBox(width: isMobile ? 12 : 20),
+                  Expanded(
+                    child: _buildVitalsField(
+                      controller: _pulseController,
+                      label: 'Pulse',
+                      hint: 'Enter Pulse',
+                      suffix: 'bpm',
+                      icon: Icons.monitor_heart_outlined,
+                      maxLength: 3,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     ),
+                  ),
+                ],
+              ),
 
-              const SizedBox(height: 30),
+              const SizedBox(height: 16),
+
+              // SPO2 & Respiratory Rate
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildVitalsField(
+                      controller: _spo2Controller,
+                      label: 'SPO2',
+                      hint: 'Enter SPO2',
+                      suffix: '%',
+                      icon: Icons.air,
+                      maxLength: 3,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                  ),
+                  SizedBox(width: isMobile ? 12 : 20),
+                  Expanded(
+                    child: _buildVitalsField(
+                      controller: _respRateController,
+                      label: 'Resp Rate',
+                      hint: 'Enter Resp Rate',
+                      suffix: 'bpm',
+                      icon: Icons.water_drop_outlined,
+                      maxLength: 3,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
 
               SizedBox(
                 width: double.infinity,
@@ -5179,26 +5507,38 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     );
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(isMobile ? 16 : 24),
+      padding: EdgeInsets.all(isMobile ? 12 : 24),
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 1300),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Clinical Graphical TPR Progression
-              TprChartsWidget(
-                vitals: _vitalsHistory,
-                isMobile: isMobile,
-              ),
-              const SizedBox(height: 24),
+          child: isMobile
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // On mobile, render the Log Daily Vitals Form first for immediate access
+                    formCard,
+                    const SizedBox(height: 16),
+                    // Clinical Graphical TPR Progression below form
+                    TprChartsWidget(
+                      vitals: _vitalsHistory,
+                      isMobile: isMobile,
+                    ),
+                    const SizedBox(height: 16),
+                    historyCard,
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Clinical Graphical TPR Progression
+                    TprChartsWidget(
+                      vitals: _vitalsHistory,
+                      isMobile: isMobile,
+                    ),
+                    const SizedBox(height: 24),
 
-              // Vitals Entry Form & History Card
-              isMobile
-                  ? Column(
-                      children: [formCard, const SizedBox(height: 24), historyCard],
-                    )
-                  : Row(
+                    // Vitals Entry Form & History Card
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(flex: 3, child: formCard),
@@ -5206,8 +5546,8 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
                         Expanded(flex: 2, child: historyCard),
                       ],
                     ),
-            ],
-          ),
+                  ],
+                ),
         ),
       ),
     );
@@ -6555,91 +6895,7 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
   }
 
   Widget _buildNurseIcuTab() {
-    if (widget.admission['ward_type'] != 'ICU') {
-      return _buildNonIcuNotice();
-    }
-
-    final activeAlerts = _icuAlerts
-        .where((a) => a['status'] == 'Active')
-        .toList();
-
-    final latestVitals = _vitalsHistory.isNotEmpty ? _vitalsHistory.first : null;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildBedsideMonitor(latestVitals),
-          const SizedBox(height: 20),
-          _buildSimulationPanel(),
-          const SizedBox(height: 24),
-          const Text(
-            'ICU Alerts Desk',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.red,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Active alerts generated automatically based on critical vitals input.',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 16),
-          if (activeAlerts.isEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Text('No active critical alerts.'),
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: activeAlerts.length,
-              itemBuilder: (context, index) {
-                final a = activeAlerts[index];
-                final date = _safeFormatDate(a['created_at'], pattern: 'dd/MM/yyyy HH:mm');
-
-                return Card(
-                  elevation: 0,
-                  color: Colors.red.shade50,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: const BorderSide(color: Colors.red),
-                  ),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    title: Text(
-                      '${a['alert_type']} (${a['severity']})',
-                      style: TextStyle(
-                        color: Colors.red.shade800,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    subtitle: Text(
-                      '${a['alert_message']}\nTriggered: $date',
-                    ),
-                    trailing: ElevatedButton(
-                      onPressed: () => _resolveAlert(a['id']),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                      ),
-                      child: const Text(
-                        'Resolve Alert',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-    );
+    return _buildDoctorIcuTab();
   }
 
   // --- REUSABLE BADGES & WIDGETS ---
