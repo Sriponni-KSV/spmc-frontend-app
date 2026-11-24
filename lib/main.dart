@@ -27,6 +27,8 @@ Future<void> main() async {
     } catch (_) {}
   }
 
+  debugPrint('[SPMC] Active API Endpoint: ${ApiEndpoints.baseUrl}');
+
   final authProvider = AuthProvider();
   await authProvider.initializeSession(); // Restore session prior to rendering
 

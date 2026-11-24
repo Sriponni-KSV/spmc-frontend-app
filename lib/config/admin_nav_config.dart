@@ -102,6 +102,9 @@ class AdminNavConfig {
   static const bool showSpecializationsMaster = false;
   static const bool showDbInitialization = false;
   static const bool showDepartments = true;
+  static const bool showOperationTheatres = true;
+  static const bool showNurseShifts = true;
+  static const bool showRegionalAddress = true;
 
   // =========================================================================
   // HELPER METHODS TO FILTER AND RETURN ACTIVE MENU ITEMS
@@ -290,6 +293,24 @@ class AdminNavConfig {
         icon: Icons.apartment_rounded,
         label: 'Department Master',
         isVisible: showDepartments,
+      ),
+      const AdminCatalogSubItem(
+        index: 22,
+        icon: Icons.meeting_room_rounded,
+        label: 'Operation Theatres Master',
+        isVisible: showOperationTheatres,
+      ),
+      const AdminCatalogSubItem(
+        index: 23,
+        icon: Icons.schedule_rounded,
+        label: 'Nurse Shift Master',
+        isVisible: showNurseShifts,
+      ),
+      const AdminCatalogSubItem(
+        index: 24,
+        icon: Icons.map_rounded,
+        label: 'Regional Address Master',
+        isVisible: showRegionalAddress,
       ),
     ];
 

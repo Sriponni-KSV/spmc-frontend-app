@@ -1,12 +1,255 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
+import '../config/api_config.dart';
+import '../models/nurse_shift_model.dart';
 import '../services/api_service.dart';
 
-import '../config/api_config.dart';
+class NurseShiftController extends ChangeNotifier {
+  static final NurseShiftController _instance = NurseShiftController._internal();
+  factory NurseShiftController() => _instance;
+  NurseShiftController._internal();
 
-class NurseShiftController {
   String get baseUrl => ApiEndpoints.baseUrl;
 
-  // --- ADMIN SHIFT CONFIG ---
+  List<NurseShiftModel> _shiftModels = [];
+  List<NurseShiftModel> get shiftModels => List.unmodifiable(_shiftModels);
+
+  List<NurseShiftModel> get activeShiftModels =>
+      _shiftModels.where((s) => s.isOperational).toList();
+
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
+
+  DateTime? _lastFetchTime;
+
+  /// Check whether a shift code already exists in memory
+  bool isCodeDuplicate(String code, {int? excludeId}) {
+    final clean = code.trim().toUpperCase();
+    if (clean.isEmpty) return false;
+    return _shiftModels.any(
+      (s) => s.code.toUpperCase() == clean && (excludeId == null || s.id != excludeId),
+    );
+  }
+
+  // --- MODEL-BASED SHIFT CRUD (ADMIN MASTER CATALOG) ---
+
+  Future<List<NurseShiftModel>> fetchShiftModels({
+    bool includeInactive = true,
+    bool forceRefresh = false,
+    String? search,
+    String? status,
+  }) async {
+    final now = DateTime.now();
+    if (!forceRefresh &&
+        _shiftModels.isNotEmpty &&
+        _lastFetchTime != null &&
+        now.difference(_lastFetchTime!).inMinutes < 2 &&
+        search == null &&
+        status == null) {
+      return includeInactive ? _shiftModels : activeShiftModels;
+    }
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final queryParams = <String, String>{};
+      if (includeInactive) queryParams['include_inactive'] = 'true';
+      if (search != null && search.trim().isNotEmpty) {
+        queryParams['search'] = search.trim();
+      }
+      if (status != null && status.trim().isNotEmpty && status != 'All') {
+        queryParams['status'] = status.trim();
+      }
+
+      final uri = Uri.parse('$baseUrl/ipd/admin/shifts').replace(
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+      );
+      final response = await ApiService.get(uri.toString());
+
+      if (response.statusCode == 200) {
+        final decoded = ApiService.decodeJsonResponse(response);
+        final List list = decoded['data'] ?? [];
+        _shiftModels = list.map((json) => NurseShiftModel.fromJson(json)).toList();
+        _lastFetchTime = DateTime.now();
+        _errorMessage = null;
+      } else {
+        final decoded = ApiService.decodeJsonResponse(response);
+        _errorMessage = decoded['message'] ?? 'Failed to load shifts (${response.statusCode})';
+      }
+    } catch (e) {
+      _errorMessage = 'Network error fetching shifts: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+
+    return includeInactive ? _shiftModels : activeShiftModels;
+  }
+
+  Future<Map<String, dynamic>> createShiftModel({
+    required String code,
+    required String name,
+    required String startTime,
+    required String endTime,
+    int breakMinutes = 30,
+    String? description,
+    String status = 'Active',
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final body = {
+        'code': code.trim().toUpperCase(),
+        'name': name.trim(),
+        'start_time': startTime.trim(),
+        'end_time': endTime.trim(),
+        'break_minutes': breakMinutes,
+        'description': (description ?? '').trim(),
+        'status': status.trim(),
+      };
+
+      final response = await ApiService.post('$baseUrl/ipd/admin/shifts', body);
+      final decoded = ApiService.decodeJsonResponse(response);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        if (decoded['data'] != null) {
+          final newShift = NurseShiftModel.fromJson(decoded['data']);
+          _shiftModels.add(newShift);
+          _shiftModels.sort((a, b) => a.code.compareTo(b.code));
+        }
+        await fetchShiftModels(includeInactive: true, forceRefresh: true);
+        return {'success': true, 'message': decoded['message'] ?? 'Shift created successfully.'};
+      } else {
+        return {'success': false, 'message': decoded['message'] ?? 'Failed to create shift.'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error creating shift: $e'};
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> updateShiftModel(
+    int id, {
+    required String code,
+    required String name,
+    required String startTime,
+    required String endTime,
+    int breakMinutes = 30,
+    String? description,
+    String status = 'Active',
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final body = {
+        'code': code.trim().toUpperCase(),
+        'name': name.trim(),
+        'start_time': startTime.trim(),
+        'end_time': endTime.trim(),
+        'break_minutes': breakMinutes,
+        'description': (description ?? '').trim(),
+        'status': status.trim(),
+      };
+
+      final response = await ApiService.put('$baseUrl/ipd/admin/shifts/$id', body);
+      final decoded = ApiService.decodeJsonResponse(response);
+
+      if (response.statusCode == 200) {
+        await fetchShiftModels(includeInactive: true, forceRefresh: true);
+        return {'success': true, 'message': decoded['message'] ?? 'Shift updated successfully.'};
+      } else {
+        return {'success': false, 'message': decoded['message'] ?? 'Failed to update shift.'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error updating shift: $e'};
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> toggleShiftStatus(int id, String newStatus) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.patch(
+        '$baseUrl/ipd/admin/shifts/$id/status',
+        {'status': newStatus},
+      );
+      final decoded = ApiService.decodeJsonResponse(response);
+
+      if (response.statusCode == 200) {
+        await fetchShiftModels(includeInactive: true, forceRefresh: true);
+        return {'success': true, 'message': decoded['message'] ?? 'Shift status updated.'};
+      } else {
+        return {'success': false, 'message': decoded['message'] ?? 'Failed to toggle shift status.'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error updating shift status: $e'};
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteShiftModel(int id) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.delete('$baseUrl/ipd/admin/shifts/$id');
+      final decoded = ApiService.decodeJsonResponse(response);
+
+      if (response.statusCode == 200) {
+        await fetchShiftModels(includeInactive: true, forceRefresh: true);
+        return {'success': true, 'message': decoded['message'] ?? 'Shift deleted successfully.'};
+      } else {
+        return {'success': false, 'message': decoded['message'] ?? 'Failed to delete shift.'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error deleting shift: $e'};
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> seedDefaultShiftModels() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await ApiService.post('$baseUrl/ipd/admin/shifts/seed-defaults', {});
+      final decoded = ApiService.decodeJsonResponse(response);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        await fetchShiftModels(includeInactive: true, forceRefresh: true);
+        return {
+          'success': true,
+          'message': decoded['message'] ?? 'Default shifts configured successfully.',
+          'data': decoded['data'],
+        };
+      } else {
+        return {'success': false, 'message': decoded['message'] ?? 'Failed to seed default shifts.'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Network error seeding shifts: $e'};
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // --- BACKWARD-COMPATIBLE ADMIN SHIFT METHODS ---
 
   Future<List<Map<String, dynamic>>> fetchShifts() async {
     try {
@@ -16,7 +259,11 @@ class NurseShiftController {
         fallbackMessage: 'Failed to fetch shifts',
       );
       if (response.statusCode == 200 && body['success'] == true) {
-        return List<Map<String, dynamic>>.from(body['data'] ?? []);
+        final list = List<Map<String, dynamic>>.from(body['data'] ?? []);
+        _shiftModels = list.map((json) => NurseShiftModel.fromJson(json)).toList();
+        _lastFetchTime = DateTime.now();
+        notifyListeners();
+        return list;
       }
       throw Exception(body['message'] ?? 'Failed to fetch shifts');
     } catch (e) {
@@ -40,6 +287,7 @@ class NurseShiftController {
         fallbackMessage: 'Failed to create shift',
       );
       if (response.statusCode == 201 && body['success'] == true) {
+        await fetchShiftModels(includeInactive: true, forceRefresh: true);
         return Map<String, dynamic>.from(body['data']);
       }
       throw Exception(body['message'] ?? 'Failed to create shift');
@@ -59,6 +307,7 @@ class NurseShiftController {
         fallbackMessage: 'Failed to seed default shifts',
       );
       if (response.statusCode == 201 && body['success'] == true) {
+        await fetchShiftModels(includeInactive: true, forceRefresh: true);
         return List<Map<String, dynamic>>.from(body['data'] ?? []);
       }
       throw Exception(body['message'] ?? 'Failed to seed default shifts');
@@ -84,6 +333,7 @@ class NurseShiftController {
         fallbackMessage: 'Failed to update shift',
       );
       if (response.statusCode == 200 && body['success'] == true) {
+        await fetchShiftModels(includeInactive: true, forceRefresh: true);
         return Map<String, dynamic>.from(body['data']);
       }
       throw Exception(body['message'] ?? 'Failed to update shift');
@@ -102,6 +352,7 @@ class NurseShiftController {
       if (response.statusCode != 200 || body['success'] != true) {
         throw Exception(body['message'] ?? 'Failed to delete shift');
       }
+      await fetchShiftModels(includeInactive: true, forceRefresh: true);
     } catch (e) {
       throw Exception(e.toString().replaceAll('Exception: ', ''));
     }
