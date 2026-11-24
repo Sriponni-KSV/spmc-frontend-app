@@ -24,6 +24,8 @@ import '../widgets/ipd_doctor_rounds_soap_widget.dart';
 import '../widgets/ipd_automated_discharge_summary_widget.dart';
 import '../widgets/bed_room_request_dialog.dart';
 import '../utils/discard_dialog_helper.dart';
+import '../utils/sidebar_state.dart';
+import '../widgets/user_profile_dialog.dart';
 
 class IPDPatientDetailPage extends StatefulWidget {
   final Map<String, dynamic> admission;
@@ -962,8 +964,9 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     IconData icon,
     String label,
     String routePath,
-    bool isSelected,
-  ) {
+    bool isSelected, {
+    bool isCollapsed = false,
+  }) {
     return Tooltip(
       message: label,
       waitDuration: const Duration(milliseconds: 200),
@@ -998,312 +1001,523 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
           router.go(routePath);
         },
         child: Container(
-          margin: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          margin: EdgeInsets.only(
+            bottom: 8,
+            left: isCollapsed ? 8 : 16,
+            right: isCollapsed ? 8 : 16,
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: isCollapsed ? 0 : 16,
+            vertical: 12,
+          ),
           decoration: BoxDecoration(
             color: isSelected
                 ? AppTheme.primaryColor.withValues(alpha: 0.1)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: isSelected
-                    ? AppTheme.primaryColor
-                    : AppTheme.textSecondaryColor,
-                size: 22,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+          child: isCollapsed
+              ? Center(
+                  child: Icon(
+                    icon,
                     color: isSelected
                         ? AppTheme.primaryColor
                         : AppTheme.textSecondaryColor,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    size: 22,
                   ),
+                )
+              : Row(
+                  children: [
+                    Icon(
+                      icon,
+                      color: isSelected
+                          ? AppTheme.primaryColor
+                          : AppTheme.textSecondaryColor,
+                      size: 22,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isSelected
+                              ? AppTheme.primaryColor
+                              : AppTheme.textSecondaryColor,
+                          fontWeight:
+                              isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 
-  Widget _buildRoleSidebar() {
+  Widget _buildRoleSidebar({bool isMobile = false}) {
     final bool isAdmin =
         _userRole == 'Admin' ||
         _userRole == 'Supervisor' ||
         _userRole == 'Super Admin';
     final bool isDoctor = _userRole == 'Doctor';
 
-    return Container(
-      width: 275,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          right: BorderSide(color: AppTheme.borderColor, width: 1),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Logo Section
-          Container(
-            padding: const EdgeInsets.only(
-              left: 24,
-              top: 0,
-              bottom: 0,
-              right: 24,
-            ),
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppTheme.borderColor, width: 1),
-              ),
-            ),
-            child: Row(
-              children: [
-                Image.asset(
-                  'assets/image/full_logo.png',
-                  width: 100,
-                  height: 89,
-                ),
-              ],
+    return ValueListenableBuilder<bool>(
+      valueListenable: SidebarState.isCollapsed,
+      builder: (context, isSidebarCollapsed, _) {
+        final effectiveCollapsed = isMobile ? false : isSidebarCollapsed;
+        final width =
+            isMobile ? double.infinity : (effectiveCollapsed ? 76.0 : 275.0);
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          width: width,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              right: BorderSide(color: AppTheme.borderColor, width: 1),
             ),
           ),
+          child: ClipRect(
+            child: LayoutBuilder(
+              builder: (context, sidebarBox) {
+                final showCollapsed =
+                    effectiveCollapsed || (!isMobile && sidebarBox.maxWidth < 210);
 
-          // Navigation Items (Scrollable)
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Column(
-                children: [
-                  if (isDoctor) ...[
-                    _buildSidebarItem(
-                      Icons.grid_view_outlined,
-                      'Dashboard',
-                      AppRoutes.doctorDashboard,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.history_edu_outlined,
-                      'My Consultations',
-                      AppRoutes.doctorPatients,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.local_hospital_outlined,
-                      'IPD Management',
-                      AppRoutes.doctorIpd,
-                      true,
-                    ),
-                    _buildSidebarItem(
-                      Icons.healing_outlined,
-                      'OT Management',
-                      AppRoutes.doctorOt,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.person_outline,
-                      'My Profile',
-                      AppRoutes.doctorProfile,
-                      false,
-                    ),
-                  ] else if (isAdmin) ...[
-                    _buildSidebarItem(
-                      Icons.dashboard_outlined,
-                      'Dashboard',
-                      AppRoutes.adminDashboard,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.people_outline,
-                      'Staff Management',
-                      AppRoutes.adminUsers,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.people_outline,
-                      'Patients',
-                      AppRoutes.adminPatients,
-                      false,
-                    ),
-                    if (_userRole == 'Super Admin')
-                      _buildSidebarItem(
-                        Icons.settings_suggest_outlined,
-                        'RBAC Settings',
-                        AppRoutes.adminSettings,
-                        false,
+                return Column(
+                  children: [
+                    // Logo Section
+                    Container(
+                      padding: EdgeInsets.only(
+                        left: showCollapsed ? 8 : 24,
+                        top: 0,
+                        bottom: 0,
+                        right: showCollapsed ? 8 : 16,
                       ),
-                    _buildSidebarItem(
-                      Icons.calendar_today_outlined,
-                      'Appointments',
-                      AppRoutes.adminAppointments,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.local_hospital_outlined,
-                      'OPD Assistance',
-                      AppRoutes.adminOpd,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.bedroom_child_outlined,
-                      'IPD Management',
-                      AppRoutes.adminIpd,
-                      true,
-                    ),
-                    _buildSidebarItem(
-                      Icons.healing_outlined,
-                      'OT Management',
-                      AppRoutes.adminOt,
-                      false,
-                    ),
-                  ] else ...[
-                    // Nurse
-                    _buildSidebarItem(
-                      Icons.dashboard_outlined,
-                      context.tr('dashboard', fallback: 'Dashboard'),
-                      AppRoutes.nurseDashboard,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.people_outline,
-                      context.tr('patients', fallback: 'Patients'),
-                      AppRoutes.nursePatients,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.calendar_today_outlined,
-                      context.tr('appointments', fallback: 'Appointments'),
-                      AppRoutes.nurseAppointments,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.medical_services_outlined,
-                      context.tr('doctors', fallback: 'Doctors'),
-                      AppRoutes.nurseDoctors,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.local_hospital_outlined,
-                      context.tr('opd_assistance', fallback: 'OPD Assistance'),
-                      AppRoutes.nurseOpd,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.bedroom_child_outlined,
-                      context.tr('ipd_management', fallback: 'IPD Management'),
-                      AppRoutes.nurseIpd,
-                      true,
-                    ),
-                    _buildSidebarItem(
-                      Icons.healing_outlined,
-                      context.tr('ot_management', fallback: 'OT Management'),
-                      AppRoutes.nurseOt,
-                      false,
-                    ),
-                    _buildSidebarItem(
-                      Icons.person_outline,
-                      context.tr('profile', fallback: 'Profile'),
-                      AppRoutes.nurseProfile,
-                      false,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-
-          // User Profile Footer
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Divider(
-                color: AppTheme.borderColor,
-                height: 1,
-                thickness: 1,
-              ),
-              Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Consumer<AuthProvider>(
-                  builder: (context, auth, _) {
-                    final user = auth.user;
-                    if (user == null) return const SizedBox.shrink();
-                    return Row(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.borderColor),
-                          ),
-                          child: CircleAvatar(
-                            backgroundColor: AppTheme.getAvatarColors(
-                              user.fullname,
-                            )['bg'],
-                            radius: 18,
-                            child: Text(
-                              user.fullname.isNotEmpty
-                                  ? user.fullname[0].toUpperCase()
-                                  : '?',
-                              style: TextStyle(
-                                color: AppTheme.getAvatarColors(
-                                  user.fullname,
-                                )['text'],
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                      constraints: const BoxConstraints(minHeight: 89),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom:
+                              BorderSide(color: AppTheme.borderColor, width: 1),
+                        ),
+                      ),
+                      child: showCollapsed
+                          ? Center(
+                              child: Tooltip(
+                                message: 'Expand Sidebar',
+                                preferBelow: false,
+                                child: InkWell(
+                                  onTap: () => SidebarState.setCollapsed(false),
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4.0),
+                                    child: Image.asset(
+                                      'assets/image/sriPonniLogo.png',
+                                      width: 34,
+                                      height: 34,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.local_hospital_rounded,
+                                        color: AppTheme.primaryColor,
+                                        size: 28,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
+                            )
+                          : Row(
+                              children: [
+                                Image.asset(
+                                  'assets/image/full_logo.png',
+                                  width: 100,
+                                  height: 89,
+                                ),
+                                const Spacer(),
+                                if (!isMobile)
+                                  IconButton(
+                                    onPressed: () =>
+                                        SidebarState.setCollapsed(true),
+                                    tooltip: 'Collapse Sidebar',
+                                    icon: const Icon(
+                                      Icons.chevron_left_rounded,
+                                      color: AppTheme.textSecondaryColor,
+                                      size: 20,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 32,
+                                      minHeight: 32,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                              ],
+                            ),
+                    ),
+
+                    // Navigation Items (Scrollable)
+                    Expanded(
+                      child: ListView(
+                          physics: const ClampingScrollPhysics(),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          children: [
+                            if (isDoctor) ...[
+                              _buildSidebarItem(
+                                Icons.grid_view_outlined,
+                                'Dashboard',
+                                AppRoutes.doctorDashboard,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.history_edu_outlined,
+                                'My Consultations',
+                                AppRoutes.doctorPatients,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.local_hospital_outlined,
+                                'IPD Management',
+                                AppRoutes.doctorIpd,
+                                true,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.healing_outlined,
+                                'OT Management',
+                                AppRoutes.doctorOt,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.person_outline,
+                                'My Profile',
+                                AppRoutes.doctorProfile,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                            ] else if (isAdmin) ...[
+                              _buildSidebarItem(
+                                Icons.dashboard_outlined,
+                                'Dashboard',
+                                AppRoutes.adminDashboard,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.people_outline,
+                                'Staff Management',
+                                AppRoutes.adminUsers,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.people_outline,
+                                'Patients',
+                                AppRoutes.adminPatients,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              if (_userRole == 'Super Admin')
+                                _buildSidebarItem(
+                                  Icons.settings_suggest_outlined,
+                                  'RBAC Settings',
+                                  AppRoutes.adminSettings,
+                                  false,
+                                  isCollapsed: showCollapsed,
+                                ),
+                              _buildSidebarItem(
+                                Icons.calendar_today_outlined,
+                                'Appointments',
+                                AppRoutes.adminAppointments,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.local_hospital_outlined,
+                                'OPD Assistance',
+                                AppRoutes.adminOpd,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.bedroom_child_outlined,
+                                'IPD Management',
+                                AppRoutes.adminIpd,
+                                true,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.healing_outlined,
+                                'OT Management',
+                                AppRoutes.adminOt,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                            ] else ...[
+                              // Nurse
+                              _buildSidebarItem(
+                                Icons.dashboard_outlined,
+                                context.tr('dashboard', fallback: 'Dashboard'),
+                                AppRoutes.nurseDashboard,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.people_outline,
+                                context.tr('patients', fallback: 'Patients'),
+                                AppRoutes.nursePatients,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.calendar_today_outlined,
+                                context.tr(
+                                  'appointments',
+                                  fallback: 'Appointments',
+                                ),
+                                AppRoutes.nurseAppointments,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.medical_services_outlined,
+                                context.tr('doctors', fallback: 'Doctors'),
+                                AppRoutes.nurseDoctors,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.local_hospital_outlined,
+                                context.tr(
+                                  'opd_assistance',
+                                  fallback: 'OPD Assistance',
+                                ),
+                                AppRoutes.nurseOpd,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.bedroom_child_outlined,
+                                context.tr(
+                                  'ipd_management',
+                                  fallback: 'IPD Management',
+                                ),
+                                AppRoutes.nurseIpd,
+                                true,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.healing_outlined,
+                                context.tr(
+                                  'ot_management',
+                                  fallback: 'OT Management',
+                                ),
+                                AppRoutes.nurseOt,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                              _buildSidebarItem(
+                                Icons.person_outline,
+                                context.tr('profile', fallback: 'Profile'),
+                                AppRoutes.nurseProfile,
+                                false,
+                                isCollapsed: showCollapsed,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+
+                    // Expand button when collapsed on desktop
+                    if (showCollapsed && !isMobile)
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            top: BorderSide(color: AppTheme.borderColor),
+                          ),
+                        ),
+                        child: Center(
+                          child: IconButton(
+                            onPressed: () => SidebarState.setCollapsed(false),
+                            tooltip: 'Expand Sidebar',
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints(
+                              minWidth: 36,
+                              minHeight: 36,
+                            ),
+                            icon: const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppTheme.primaryColor,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user.fullname,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                user.role,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppTheme.textSecondaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
+                      ),
+
+                    // User Profile Footer
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Divider(
+                          color: AppTheme.borderColor,
+                          height: 1,
+                          thickness: 1,
                         ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.logout,
-                            size: 18,
-                            color: AppTheme.textSecondaryColor,
-                          ),
-                          onPressed: () => LogoutHelper.showLogoutConfirmation(
-                            context,
-                            auth,
+                        Padding(
+                          padding: EdgeInsets.all(showCollapsed ? 12.0 : 24.0),
+                          child: Consumer<AuthProvider>(
+                            builder: (context, auth, _) {
+                              final user = auth.user;
+                              if (user == null) return const SizedBox.shrink();
+                              return showCollapsed
+                                  ? Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Tooltip(
+                                          message:
+                                              '${user.fullname} (${user.role})',
+                                          preferBelow: false,
+                                          child: InkWell(
+                                            onTap: () =>
+                                                UserProfileDialog.show(
+                                                  context,
+                                                  user,
+                                                ),
+                                            borderRadius:
+                                                BorderRadius.circular(18),
+                                            child: CircleAvatar(
+                                              backgroundColor:
+                                                  AppTheme.getAvatarColors(
+                                                    user.fullname,
+                                                  )['bg'],
+                                              radius: 18,
+                                              child: Text(
+                                                user.fullname.isNotEmpty
+                                                    ? user.fullname[0]
+                                                        .toUpperCase()
+                                                    : '?',
+                                                style: TextStyle(
+                                                  color:
+                                                      AppTheme.getAvatarColors(
+                                                        user.fullname,
+                                                      )['text'],
+                                                  fontWeight:
+                                                      FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.logout,
+                                            size: 18,
+                                            color: AppTheme.textSecondaryColor,
+                                          ),
+                                          onPressed: () =>
+                                              LogoutHelper.showLogoutConfirmation(
+                                                context,
+                                                auth,
+                                              ),
+                                          visualDensity: VisualDensity.compact,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 32,
+                                            minHeight: 32,
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                      ],
+                                    )
+                                  : Row(
+                                      children: [
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: AppTheme.borderColor,
+                                            ),
+                                          ),
+                                          child: CircleAvatar(
+                                            backgroundColor:
+                                                AppTheme.getAvatarColors(
+                                                  user.fullname,
+                                                )['bg'],
+                                            radius: 18,
+                                            child: Text(
+                                              user.fullname.isNotEmpty
+                                                  ? user.fullname[0]
+                                                      .toUpperCase()
+                                                  : '?',
+                                              style: TextStyle(
+                                                color:
+                                                    AppTheme.getAvatarColors(
+                                                      user.fullname,
+                                                    )['text'],
+                                                fontWeight:
+                                                    FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                user.fullname,
+                                                style: const TextStyle(
+                                                  fontWeight:
+                                                      FontWeight.bold,
+                                                  fontSize: 13,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                user.role,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: AppTheme
+                                                      .textSecondaryColor,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.logout,
+                                            size: 18,
+                                            color: AppTheme.textSecondaryColor,
+                                          ),
+                                          onPressed: () =>
+                                              LogoutHelper.showLogoutConfirmation(
+                                                context,
+                                                auth,
+                                              ),
+                                        ),
+                                      ],
+                                    );
+                            },
                           ),
                         ),
                       ],
-                    );
-                  },
-                ),
-              ),
-            ],
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1599,12 +1813,12 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
     if (admissionIdRaw == null) {
       return Scaffold(
         backgroundColor: AppTheme.backgroundColor,
-        drawer: isMobile ? Drawer(child: _buildRoleSidebar()) : null,
+        drawer: isMobile ? Drawer(child: _buildRoleSidebar(isMobile: true)) : null,
         body: SafeArea(
           bottom: false,
           child: Row(
             children: [
-              if (!isMobile) _buildRoleSidebar(),
+              if (!isMobile) _buildRoleSidebar(isMobile: false),
               Expanded(
                 child: Column(
                   children: [
@@ -1782,13 +1996,13 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      drawer: isMobile ? Drawer(child: _buildRoleSidebar()) : null,
+      drawer: isMobile ? Drawer(child: _buildRoleSidebar(isMobile: true)) : null,
       appBar: null,
       body: SafeArea(
         bottom: false,
         child: Row(
           children: [
-            if (!isMobile) _buildRoleSidebar(),
+            if (!isMobile) _buildRoleSidebar(isMobile: false),
             Expanded(child: contentArea),
           ],
         ),

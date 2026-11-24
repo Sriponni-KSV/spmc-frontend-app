@@ -29,6 +29,7 @@ import '../controllers/notification_controller.dart';
 import '../widgets/user_profile_dialog.dart';
 import '../utils/modal_history_helper.dart';
 import '../config/nurse_nav_config.dart';
+import '../utils/sidebar_state.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 import '../providers/language_provider.dart';
@@ -609,7 +610,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: AppTheme.getBackgroundColor(context),
-      drawer: isMobile ? Drawer(child: _buildSidebar(context)) : null,
+      drawer: isMobile ? Drawer(child: _buildSidebar(context, isMobile: true)) : null,
       floatingActionButton: null,
       body: SafeArea(
         child: Stack(
@@ -617,7 +618,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           Row(
             children: [
               // Sidebar (only on desktop)
-              if (!isMobile) _buildSidebar(context),
+              if (!isMobile) _buildSidebar(context, isMobile: false),
 
               // Main Content Area
               Expanded(
@@ -809,13 +810,28 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
       case 4:
         return NurseProfileView(isEditing: widget.isEditingProfile);
       case 5:
-        return OPDManagementScreen(isMobile: isMobile, title: 'OPD Assistance');
+        if (user?.hasPermission('opd_assistance') ?? false) {
+          return OPDManagementScreen(isMobile: isMobile, title: 'OPD Assistance');
+        }
+        return const AccessDeniedWidget();
       case 6:
-        return IPDManagementScreen(isMobile: isMobile);
+        if ((user?.hasPermission('ipd_nursing_care') ?? false) ||
+            (user?.hasPermission('ipd_admission_counter') ?? false)) {
+          return IPDManagementScreen(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
       case 7:
-        return OTManagementScreen(isMobile: isMobile);
+        if ((user?.hasPermission('ot_nursing_consumables') ?? false) ||
+            (user?.hasPermission('ot_who_checklist') ?? false) ||
+            (user?.hasPermission('ot_surgeries') ?? false)) {
+          return OTManagementScreen(isMobile: isMobile);
+        }
+        return const AccessDeniedWidget();
       case 8:
-        return const AppointmentsView(initialViewMode: 'Doctor');
+        if (user?.hasPermission('book_appointment') ?? false) {
+          return const AppointmentsView(initialViewMode: 'Doctor');
+        }
+        return const AccessDeniedWidget();
       default:
         return _buildDashboardView(isMobile);
     }
@@ -919,160 +935,307 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     );
   }
 
-  Widget _buildSidebar(BuildContext context) {
+  Widget _buildSidebar(BuildContext context, {bool isMobile = false}) {
     final isDark = AppTheme.isDark(context);
-    return Consumer<AuthProvider>(
-      builder: (context, auth, _) {
-        final user = auth.user;
-        return Container(
-          width: 275,
-          margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
-          decoration: BoxDecoration(
-            color: AppTheme.getCardColor(context),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppTheme.getBorderColor(context)),
-            boxShadow: isDark
-                ? []
-                : [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.06),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-          ),
-          child: Column(
-            children: [
-              // Logo Section
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                child: Image.asset(
-                  'assets/image/full_logo.png',
-                  width: 110,
-                  height: 90,
-                ),
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: SidebarState.isCollapsed,
+      builder: (context, isSidebarCollapsed, _) {
+        final effectiveCollapsed = isMobile ? false : isSidebarCollapsed;
+        final width = isMobile ? double.infinity : (effectiveCollapsed ? 76.0 : 275.0);
+
+        return Consumer<AuthProvider>(
+          builder: (context, auth, _) {
+            final user = auth.user;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeInOut,
+              width: width,
+              margin: isMobile
+                  ? EdgeInsets.zero
+                  : (effectiveCollapsed
+                      ? const EdgeInsets.fromLTRB(10, 16, 6, 16)
+                      : const EdgeInsets.fromLTRB(16, 16, 8, 16)),
+              decoration: BoxDecoration(
+                color: AppTheme.getCardColor(context),
+                borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(20),
+                border: isMobile ? null : Border.all(color: AppTheme.getBorderColor(context)),
+                boxShadow: isDark || isMobile
+                    ? []
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
               ),
+              child: ClipRect(
+                child: LayoutBuilder(
+                  builder: (context, sidebarBox) {
+                    final showCollapsed = effectiveCollapsed || (!isMobile && sidebarBox.maxWidth < 210);
 
-              // Navigation Items (Scrollable Area driven by NurseNavConfig)
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: NurseNavConfig.getVisibleNavItems(user)
-                        .map(
-                          (item) {
-                            String translatedLabel = item.label;
-                            final lower = item.label.toLowerCase();
-                            if (lower.contains('home visit')) {
-                              translatedLabel = Provider.of<LanguageProvider>(context).isTamil
-                                  ? 'வீட்டுப் பராமரிப்பு வருகை'
-                                  : item.label;
-                            }
-
-                            return _buildSidebarItem(
-                              item.index,
-                              item.icon,
-                              translatedLabel,
-                            );
-                          },
-                        )
-                        .toList(),
-                  ),
-                ),
-              ),
-
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(color: AppTheme.getBorderColor(context), width: 1),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: user == null
-                    ? const SizedBox.shrink()
-                    : Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () =>
-                                  UserProfileDialog.show(context, user),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: AppTheme.primaryColor,
-                                    radius: 18,
-                                    child: Text(
-                                      user.fullname.isNotEmpty
-                                          ? user.fullname[0].toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                    return Column(
+                      children: [
+                        // Brand Header
+                        Container(
+                          constraints: const BoxConstraints(minHeight: 70),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: showCollapsed ? 8 : 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: AppTheme.getBorderColor(context).withOpacity(0.6),
+                                width: 1,
+                              ),
+                            ),
+                          ),
+                          child: showCollapsed
+                              ? Center(
+                                  child: Tooltip(
+                                    message: 'Expand Sidebar',
+                                    preferBelow: false,
+                                    child: InkWell(
+                                      onTap: () => SidebarState.setCollapsed(false),
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(4.0),
+                                        child: Image.asset(
+                                          'assets/image/sriPonniLogo.png',
+                                          width: 34,
+                                          height: 34,
+                                          errorBuilder: (_, __, ___) => const Icon(
+                                            Icons.local_hospital_rounded,
+                                            color: AppTheme.primaryColor,
+                                            size: 28,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          user.fullname,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                            color: AppTheme.getTextPrimaryColor(context),
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
+                                )
+                              : Row(
+                                  children: [
+                                    Expanded(
+                                      child: Center(
+                                        child: Image.asset(
+                                          'assets/image/full_logo.png',
+                                          width: 110,
+                                          height: 80,
+                                          fit: BoxFit.contain,
                                         ),
-                                        Text(
-                                          context.translateRole(user.role),
-                                          style: TextStyle(
-                                            fontSize: 11,
+                                      ),
+                                    ),
+                                    if (!isMobile)
+                                      IconButton(
+                                        onPressed: () => SidebarState.setCollapsed(true),
+                                        tooltip: 'Collapse Sidebar',
+                                        icon: Icon(
+                                          Icons.chevron_left_rounded,
+                                          color: AppTheme.getTextSecondaryColor(context),
+                                          size: 20,
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                        padding: EdgeInsets.zero,
+                                      ),
+                                  ],
+                                ),
+                        ),
+
+                        // Navigation Items (Scrollable Area driven by NurseNavConfig)
+                        Expanded(
+                          child: ListView(
+                            physics: const ClampingScrollPhysics(),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: showCollapsed ? 4 : 0,
+                              vertical: 10,
+                            ),
+                            children: NurseNavConfig.getVisibleNavItems(user)
+                                .map(
+                                  (item) {
+                                    String translatedLabel = item.label;
+                                    final lower = item.label.toLowerCase();
+                                    if (lower.contains('home visit')) {
+                                      translatedLabel = Provider.of<LanguageProvider>(context).isTamil
+                                          ? 'வீட்டுப் பராமரிப்பு வருகை'
+                                          : item.label;
+                                    }
+
+                                    return _buildSidebarItem(
+                                      item.index,
+                                      item.icon,
+                                      translatedLabel,
+                                      isMobile: isMobile,
+                                      isCollapsed: showCollapsed,
+                                    );
+                                  },
+                                )
+                                .toList(),
+                          ),
+                        ),
+
+                        // Expand button when collapsed on desktop
+                        if (showCollapsed && !isMobile)
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                top: BorderSide(
+                                  color: AppTheme.getBorderColor(context).withOpacity(0.6),
+                                ),
+                              ),
+                            ),
+                            child: Center(
+                              child: IconButton(
+                                onPressed: () => SidebarState.setCollapsed(false),
+                                tooltip: 'Expand Sidebar',
+                                visualDensity: VisualDensity.compact,
+                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                icon: const Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: AppTheme.primaryColor,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        // User Profile Footer
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: AppTheme.getBorderColor(context), width: 1),
+                            ),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: showCollapsed ? 8 : 16,
+                            vertical: 14,
+                          ),
+                          child: user == null
+                              ? const SizedBox.shrink()
+                              : showCollapsed
+                                  ? Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Tooltip(
+                                          message: '${user.fullname} (${context.translateRole(user.role)})',
+                                          preferBelow: false,
+                                          child: InkWell(
+                                            onTap: () => UserProfileDialog.show(context, user),
+                                            borderRadius: BorderRadius.circular(18),
+                                            child: CircleAvatar(
+                                              backgroundColor: AppTheme.primaryColor,
+                                              radius: 18,
+                                              child: Text(
+                                                user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Tooltip(
+                                          message: 'Logout',
+                                          preferBelow: false,
+                                          child: IconButton(
+                                            icon: Icon(
+                                              Icons.logout,
+                                              size: 18,
+                                              color: AppTheme.getTextSecondaryColor(context),
+                                            ),
+                                            visualDensity: VisualDensity.compact,
+                                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                            padding: EdgeInsets.zero,
+                                            onPressed: () => LogoutHelper.showLogoutConfirmation(
+                                              context,
+                                              auth,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Row(
+                                      children: [
+                                        Expanded(
+                                          child: InkWell(
+                                            onTap: () => UserProfileDialog.show(context, user),
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: Row(
+                                              children: [
+                                                CircleAvatar(
+                                                  backgroundColor: AppTheme.primaryColor,
+                                                  radius: 18,
+                                                  child: Text(
+                                                    user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        user.fullname,
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 13,
+                                                          color: AppTheme.getTextPrimaryColor(context),
+                                                        ),
+                                                        overflow: TextOverflow.ellipsis,
+                                                      ),
+                                                      Text(
+                                                        context.translateRole(user.role),
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          color: AppTheme.getTextSecondaryColor(context),
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            Icons.logout,
+                                            size: 18,
                                             color: AppTheme.getTextSecondaryColor(context),
-                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          onPressed: () => LogoutHelper.showLogoutConfirmation(
+                                            context,
+                                            auth,
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.logout,
-                              size: 18,
-                              color: AppTheme.getTextSecondaryColor(context),
-                            ),
-                            onPressed: () =>
-                                LogoutHelper.showLogoutConfirmation(
-                                  context,
-                                  auth,
-                                ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildSidebarItem(int index, IconData icon, String label) {
+  Widget _buildSidebarItem(int index, IconData icon, String label, {bool isMobile = false, bool isCollapsed = false}) {
     bool isSelected = _selectedIndex == index;
     return Tooltip(
       message: label,
@@ -1100,34 +1263,48 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          margin: EdgeInsets.symmetric(
+            horizontal: isCollapsed ? 8 : 12,
+            vertical: isCollapsed ? 3 : 2,
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: isCollapsed ? 0 : 14,
+            vertical: isCollapsed ? 10 : 11,
+          ),
           decoration: BoxDecoration(
             color: isSelected ? AppTheme.primaryColor : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13.5,
+          child: isCollapsed
+              ? Center(
+                  child: Icon(
+                    icon,
+                    color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                    size: 20,
                   ),
+                )
+              : Row(
+                  children: [
+                    Icon(
+                      icon,
+                      color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );

@@ -492,20 +492,17 @@ class _AdminLabTestsCatalogViewState extends State<AdminLabTestsCatalogView> {
                 children: [
                   AppTheme.tableHeaderCell(
                     context: context,
-                    label: '#',
-                    icon: Icons.tag,
+                    label: 'S.No',
                     flex: 1,
                   ),
                   AppTheme.tableHeaderCell(
                     context: context,
                     label: 'Test Name',
-                    icon: Icons.science_outlined,
                     flex: 4,
                   ),
                   AppTheme.tableHeaderCell(
                     context: context,
                     label: 'Target TAT',
-                    icon: Icons.timer_outlined,
                     flex: 2,
                     textAlign: TextAlign.center,
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -513,7 +510,6 @@ class _AdminLabTestsCatalogViewState extends State<AdminLabTestsCatalogView> {
                   AppTheme.tableHeaderCell(
                     context: context,
                     label: 'Processing Time',
-                    icon: Icons.hourglass_bottom_outlined,
                     flex: 2,
                     textAlign: TextAlign.center,
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -521,13 +517,11 @@ class _AdminLabTestsCatalogViewState extends State<AdminLabTestsCatalogView> {
                   AppTheme.tableHeaderCell(
                     context: context,
                     label: 'Description',
-                    icon: Icons.info_outline,
                     flex: 4,
                   ),
                   AppTheme.tableHeaderCell(
                     context: context,
                     label: 'Actions',
-                    icon: Icons.settings_outlined,
                     flex: 2,
                     textAlign: TextAlign.center,
                     mainAxisAlignment: MainAxisAlignment.center,

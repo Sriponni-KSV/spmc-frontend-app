@@ -28,6 +28,7 @@ import '../controllers/ot_controller.dart';
 import '../controllers/lab_controller.dart';
 import '../controllers/notification_controller.dart';
 import '../config/doctor_nav_config.dart';
+import '../utils/sidebar_state.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 import '../widgets/consultation_documents_view.dart';
@@ -1022,22 +1023,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ? _buildAnaesthetistDashboardView(isMobile)
             : _buildDashboardView(isMobile);
       case 1:
-        if ((user?.hasPermission('conduct_consultations') ?? false) || isDoctor) {
+        if (user?.hasPermission('conduct_consultations') ?? false) {
           return _buildConsultationsView(isMobile);
         }
         return const AccessDeniedWidget();
       case 2:
         return _buildProfileView(isMobile);
       case 3:
-        if ((user?.hasPermission('ipd_doctor_rounds') ?? false) || isDoctor) {
+        if (user?.hasPermission('ipd_doctor_rounds') ?? false) {
           return DoctorIPDManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 4:
         if ((user?.hasPermission('ot_surgeries') ?? false) ||
             (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
-            (user?.hasPermission('ot_who_checklist') ?? false) ||
-            isDoctor) {
+            (user?.hasPermission('ot_who_checklist') ?? false)) {
           return OTManagementScreen(
             isMobile: isMobile,
             initialSelectedCase: _otInitialSelectedCase,
@@ -1047,8 +1047,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const AccessDeniedWidget();
       case 5:
         if ((user?.hasPermission('ot_surgeries') ?? false) ||
-            (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
-            isDoctor) {
+            (user?.hasPermission('ot_anaesthesia_pac') ?? false)) {
           return OTManagementScreen(
             isMobile: isMobile,
             initialSelectedCase: _otInitialSelectedCase,
@@ -1057,12 +1056,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 6:
-        if ((user?.hasPermission('view_lab_reports') ?? false) || isDoctor) {
+        if (user?.hasPermission('view_lab_reports') ?? false) {
           return _buildLabReportsView(isMobile);
         }
         return const AccessDeniedWidget();
       case 7:
-        if ((user?.hasPermission('view_patients') ?? false) || isDoctor) {
+        if (user?.hasPermission('view_patients') ?? false) {
           return PatientsView(
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
@@ -1075,7 +1074,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 8:
-        if ((user?.hasPermission('book_appointment') ?? false) || isDoctor) {
+        if (user?.hasPermission('book_appointment') ?? false) {
           return const AppointmentsView();
         }
         return const AccessDeniedWidget();
@@ -4909,147 +4908,318 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSidebar(bool isMobile) {
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final user = Provider.of<AuthProvider>(context).user;
     final isAnaesthetist = user?.role == 'Anaesthetist';
     final isDoctor = user?.role == 'Doctor' || isAnaesthetist;
     final isDark = AppTheme.isDark(context);
 
-    return Container(
-      width: isMobile ? double.infinity : 275,
-      margin: isMobile ? EdgeInsets.zero : const EdgeInsets.fromLTRB(16, 16, 8, 16),
-      decoration: BoxDecoration(
-        color: AppTheme.getCardColor(context),
-        borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(20),
-        border: isMobile ? null : Border.all(color: AppTheme.getBorderColor(context)),
-        boxShadow: isDark || isMobile
-            ? []
-            : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-      ),
-      child: Column(
-        children: [
-          // Logo Section
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Image.asset(
-              'assets/image/full_logo.png',
-              width: 110,
-              height: 90,
-            ),
-          ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: SidebarState.isCollapsed,
+      builder: (context, isSidebarCollapsed, _) {
+        final effectiveCollapsed = isMobile ? false : isSidebarCollapsed;
+        final width = isMobile ? double.infinity : (effectiveCollapsed ? 76.0 : 275.0);
 
-          // Navigation Items (Scrollable Area driven by DoctorNavConfig)
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: DoctorNavConfig.getVisibleNavItems(user)
-                    .map(
-                      (item) => _buildSidebarItem(
-                        item.index,
-                        item.icon,
-                        item.label,
-                        isMobile: isMobile,
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          width: width,
+          margin: isMobile
+              ? EdgeInsets.zero
+              : (effectiveCollapsed
+                  ? const EdgeInsets.fromLTRB(10, 16, 6, 16)
+                  : const EdgeInsets.fromLTRB(16, 16, 8, 16)),
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(20),
+            border: isMobile ? null : Border.all(color: AppTheme.getBorderColor(context)),
+            boxShadow: isDark || isMobile
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+          ),
+          child: ClipRect(
+            child: LayoutBuilder(
+              builder: (context, sidebarBox) {
+                final showCollapsed = effectiveCollapsed || (!isMobile && sidebarBox.maxWidth < 210);
+
+                return Column(
+                  children: [
+                    // Brand Header
+                    Container(
+                      constraints: const BoxConstraints(minHeight: 70),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: showCollapsed ? 8 : 16,
+                        vertical: 12,
                       ),
-                    )
-                    .toList(),
-              ),
-            ),
-          ),
-
-          // User Profile Footer
-          Container(
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: AppTheme.getBorderColor(context), width: 1)),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: user == null
-                ? const SizedBox.shrink()
-                : Consumer<AuthProvider>(
-                    builder: (context, auth, _) {
-                      final user = auth.user;
-                      if (user == null) return const SizedBox.shrink();
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => UserProfileDialog.show(context, user),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: AppTheme.primaryColor,
-                                    radius: 18,
-                                    child: Text(
-                                      (user.rawFullname ?? user.fullname).isNotEmpty
-                                          ? (user.rawFullname ?? user.fullname)[0].toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppTheme.getBorderColor(context).withOpacity(0.6),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: showCollapsed
+                          ? Center(
+                              child: Tooltip(
+                                message: 'Expand Sidebar',
+                                preferBelow: false,
+                                child: InkWell(
+                                  onTap: () => SidebarState.setCollapsed(false),
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4.0),
+                                    child: Image.asset(
+                                      'assets/image/sriPonniLogo.png',
+                                      width: 34,
+                                      height: 34,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.local_hospital_rounded,
+                                        color: AppTheme.primaryColor,
+                                        size: 28,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          user.rawFullname ?? user.fullname,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                            color: AppTheme.getTextPrimaryColor(context),
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        Text(
-                                          context.translateRole(user.role),
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: AppTheme.getTextSecondaryColor(context),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
+                                ),
+                              ),
+                            )
+                          : Row(
+                              children: [
+                                Expanded(
+                                  child: Center(
+                                    child: Image.asset(
+                                      'assets/image/full_logo.png',
+                                      width: 110,
+                                      height: 80,
+                                      fit: BoxFit.contain,
                                     ),
                                   ),
-                                ],
+                                ),
+                                if (!isMobile)
+                                  IconButton(
+                                    onPressed: () => SidebarState.setCollapsed(true),
+                                    tooltip: 'Collapse Sidebar',
+                                    icon: Icon(
+                                      Icons.chevron_left_rounded,
+                                      color: AppTheme.getTextSecondaryColor(context),
+                                      size: 20,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                              ],
+                            ),
+                    ),
+
+                    // Navigation Items (Scrollable Area driven by DoctorNavConfig)
+                    Expanded(
+                      child: ListView(
+                        physics: const ClampingScrollPhysics(),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: showCollapsed ? 4 : 0,
+                          vertical: 10,
+                        ),
+                        children: DoctorNavConfig.getVisibleNavItems(user)
+                            .map(
+                              (item) => _buildSidebarItem(
+                                item.index,
+                                item.icon,
+                                item.label,
+                                isMobile: isMobile,
+                                isCollapsed: showCollapsed,
                               ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+
+                    // Expand button when collapsed on desktop
+                    if (showCollapsed && !isMobile)
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: AppTheme.getBorderColor(context).withOpacity(0.6),
                             ),
                           ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.logout,
-                              size: 18,
-                              color: AppTheme.getTextSecondaryColor(context),
+                        ),
+                        child: Center(
+                          child: IconButton(
+                            onPressed: () => SidebarState.setCollapsed(false),
+                            tooltip: 'Expand Sidebar',
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                            icon: const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppTheme.primaryColor,
                             ),
-                            onPressed: () async {
-                              if (_activeAppointment != null) {
-                                final canLeave = await _confirmLeaveConsultation();
-                                if (!canLeave) return;
-                              }
-                              LogoutHelper.showLogoutConfirmation(
-                                context,
-                                auth,
-                              );
-                            },
                           ),
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                      ),
+
+                    // User Profile Footer
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: AppTheme.getBorderColor(context),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: showCollapsed ? 8 : 16,
+                        vertical: 14,
+                      ),
+                      child: user == null
+                          ? const SizedBox.shrink()
+                          : Consumer<AuthProvider>(
+                              builder: (context, auth, _) {
+                                final user = auth.user;
+                                if (user == null) return const SizedBox.shrink();
+
+                                if (showCollapsed) {
+                                  return Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Tooltip(
+                                        message: '${user.rawFullname ?? user.fullname} (${context.translateRole(user.role)})',
+                                        preferBelow: false,
+                                        child: InkWell(
+                                          onTap: () => UserProfileDialog.show(context, user),
+                                          borderRadius: BorderRadius.circular(18),
+                                          child: CircleAvatar(
+                                            backgroundColor: AppTheme.primaryColor,
+                                            radius: 18,
+                                            child: Text(
+                                              (user.rawFullname ?? user.fullname).isNotEmpty
+                                                  ? (user.rawFullname ?? user.fullname)[0].toUpperCase()
+                                                  : '?',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Tooltip(
+                                        message: 'Logout',
+                                        preferBelow: false,
+                                        child: IconButton(
+                                          icon: Icon(
+                                            Icons.logout,
+                                            size: 18,
+                                            color: AppTheme.getTextSecondaryColor(context),
+                                          ),
+                                          visualDensity: VisualDensity.compact,
+                                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                          padding: EdgeInsets.zero,
+                                          onPressed: () async {
+                                            if (_activeAppointment != null) {
+                                              final canLeave = await _confirmLeaveConsultation();
+                                              if (!canLeave) return;
+                                            }
+                                            LogoutHelper.showLogoutConfirmation(
+                                              context,
+                                              auth,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }
+
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () => UserProfileDialog.show(context, user),
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Row(
+                                          children: [
+                                            CircleAvatar(
+                                              backgroundColor: AppTheme.primaryColor,
+                                              radius: 18,
+                                              child: Text(
+                                                (user.rawFullname ?? user.fullname).isNotEmpty
+                                                    ? (user.rawFullname ?? user.fullname)[0].toUpperCase()
+                                                    : '?',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    user.rawFullname ?? user.fullname,
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 13,
+                                                      color: AppTheme.getTextPrimaryColor(context),
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  Text(
+                                                    context.translateRole(user.role),
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: AppTheme.getTextSecondaryColor(context),
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.logout,
+                                        size: 18,
+                                        color: AppTheme.getTextSecondaryColor(context),
+                                      ),
+                                      onPressed: () async {
+                                        if (_activeAppointment != null) {
+                                          final canLeave = await _confirmLeaveConsultation();
+                                          if (!canLeave) return;
+                                        }
+                                        LogoutHelper.showLogoutConfirmation(
+                                          context,
+                                          auth,
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -5122,7 +5292,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return label;
   }
 
-  Widget _buildSidebarItem(int index, IconData icon, String label, {bool isMobile = false}) {
+  Widget _buildSidebarItem(int index, IconData icon, String label, {bool isMobile = false, bool isCollapsed = false}) {
     final displayLabel = _translateDoctorLabel(label);
     bool isSelected = _selectedIndex == index;
     final user = Provider.of<AuthProvider>(context, listen: false).user;
@@ -5203,36 +5373,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
           fontWeight: FontWeight.w500,
         ),
         child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
-              size: 20,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                _translateDoctorLabel(label),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
-                  fontSize: 15,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          duration: const Duration(milliseconds: 180),
+          margin: EdgeInsets.symmetric(
+            horizontal: isCollapsed ? 8 : 12,
+            vertical: isCollapsed ? 3 : 2,
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: isCollapsed ? 0 : 14,
+            vertical: isCollapsed ? 10 : 11,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: isCollapsed
+              ? Center(
+                  child: Icon(
+                    icon,
+                    color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                    size: 20,
+                  ),
+                )
+              : Row(
+                  children: [
+                    Icon(
+                      icon,
+                      color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        displayLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
+                          fontSize: 15,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-          ],
         ),
-      ),
       ),
     );
   }

@@ -53,6 +53,7 @@ import '../controllers/notification_controller.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/admin_global_search_overlay.dart';
 import '../utils/unsaved_changes_helper.dart';
+import '../utils/sidebar_state.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -798,7 +799,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   void _loadRbacData() {
     final user = Provider.of<AuthProvider>(context, listen: false).user;
-    if (user?.role == 'Super Admin') {
+    if (user?.role == 'Super Admin' ||
+        (user?.hasPermission('manage_rbac') ?? false) ||
+        (user?.hasPermission('manage_users') ?? false)) {
       setState(() {
         _rbacFuture = _adminController.fetchRbacData();
       });
@@ -1013,32 +1016,38 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 3:
-        if (user?.role == 'Super Admin' || user?.role == 'Admin') {
+        if (user?.hasPermission('manage_rbac') ?? false) {
           return RbacManagementWidget(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 4:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.hasPermission('book_appointment') ?? false) {
           return const AdminAppointmentManagement();
         }
         return const AccessDeniedWidget();
       case 5:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if ((user?.hasPermission('opd_assistance') ?? false) ||
+            (user?.hasPermission('conduct_consultations') ?? false)) {
           return OPDManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 6:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if ((user?.hasPermission('ipd_doctor_rounds') ?? false) ||
+            (user?.hasPermission('ipd_nursing_care') ?? false) ||
+            (user?.hasPermission('ipd_admission_counter') ?? false)) {
           return IPDManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 7:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if ((user?.hasPermission('ot_surgeries') ?? false) ||
+            (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
+            (user?.hasPermission('ot_who_checklist') ?? false) ||
+            (user?.hasPermission('ot_nursing_consumables') ?? false)) {
           return OTManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 8:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.hasPermission('manage_shifts') ?? false) {
           return _buildShiftManagement(isMobile);
         }
         return const AccessDeniedWidget();
@@ -1048,7 +1057,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 10:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if ((user?.hasPermission('op_billing') ?? false) ||
+            (user?.hasPermission('ipd_billing_settlement') ?? false)) {
           return Localizations.override(
             context: context,
             locale: const Locale('en'),
@@ -1057,7 +1067,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 11:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.hasPermission('manage_catalogs') ?? false) {
           return InventoryManagementView(
             isMobile: isMobile,
             isFoodStockOnly: true,
@@ -1065,54 +1075,53 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 12:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.hasPermission('home_visit_care') ?? false) {
           return _buildAdminHomeVisitCare(isMobile);
         }
         return const AccessDeniedWidget();
       case 13:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.hasPermission('manage_catalogs') ?? false) {
           return _buildMedicationCatalog(isMobile);
         }
         return const AccessDeniedWidget();
       case 14:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.hasPermission('manage_catalogs') ?? false) {
           return _buildHomeVisitConsumablesCatalog(isMobile);
         }
         return const AccessDeniedWidget();
       case 15:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.hasPermission('manage_catalogs') ?? false) {
           return _buildCarriedKitItemsCatalog(isMobile);
         }
         return const AccessDeniedWidget();
       case 16:
-        if (user?.role == 'Admin' ||
-            user?.role == 'Super Admin' ||
-            user?.role == 'Supervisor') {
+        if (user?.hasPermission('manage_catalogs') ?? false) {
           return IpdBedsCatalogView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 17:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.hasPermission('manage_catalogs') ?? false) {
           return AdminBillingServicesCatalogView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 18:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.hasPermission('manage_catalogs') ?? false) {
           return AdminLabTestsCatalogView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 19:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.hasPermission('manage_catalogs') ?? false) {
           return AdminSpecializationsCatalogView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 20:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.role == 'Super Admin' ||
+            (user?.hasPermission('manage_catalogs') ?? false)) {
           return AdminDbInitializationView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 21:
-        if (user?.role == 'Admin' || user?.role == 'Super Admin') {
+        if (user?.hasPermission('manage_catalogs') ?? false) {
           return DepartmentManagementView(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
@@ -2456,162 +2465,363 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildSidebar(BuildContext context, {bool isMobile = false}) {
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final user = Provider.of<AuthProvider>(context).user;
     final isDark = AppTheme.isDark(context);
 
-    return Container(
-      width: isMobile ? double.infinity : 275,
-      margin: isMobile ? EdgeInsets.zero : const EdgeInsets.fromLTRB(16, 16, 8, 16),
-      decoration: BoxDecoration(
-        color: AppTheme.getCardColor(context),
-        borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(20),
-        border: isMobile ? null : Border.all(color: AppTheme.getBorderColor(context)),
-        boxShadow: isDark || isMobile
-            ? []
-            : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-      ),
-      child: Column(
-        children: [
-          // Logo Section
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Image.asset(
-              'assets/image/full_logo.png',
-              width: 110,
-              height: 90,
-            ),
-          ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: SidebarState.isCollapsed,
+      builder: (context, isSidebarCollapsed, _) {
+        final effectiveCollapsed = isMobile ? false : isSidebarCollapsed;
+        final width = isMobile ? double.infinity : (effectiveCollapsed ? 76.0 : 275.0);
 
-          // Navigation Items (Scrollable driven by AdminNavConfig)
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(
-                children: [
-                  ...AdminNavConfig.getVisibleNavItems(user).map(
-                    (item) => _buildSidebarItem(
-                      item.index,
-                      item.icon,
-                      item.label,
-                      isMobile: isMobile,
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          width: width,
+          margin: isMobile
+              ? EdgeInsets.zero
+              : (effectiveCollapsed
+                  ? const EdgeInsets.fromLTRB(10, 16, 6, 16)
+                  : const EdgeInsets.fromLTRB(16, 16, 8, 16)),
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(20),
+            border: isMobile ? null : Border.all(color: AppTheme.getBorderColor(context)),
+            boxShadow: isDark || isMobile
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
-                  if (AdminNavConfig.showMasterCatalog &&
-                      ((user?.hasPermission('manage_catalogs') ?? false) ||
-                          user?.role == 'Admin' ||
-                          user?.role == 'Super Admin' ||
-                          user?.role == 'Supervisor'))
-                    _buildCatalogParentMenu(isMobile: isMobile),
-                ],
-              ),
-            ),
+                  ],
           ),
+          child: ClipRect(
+            child: LayoutBuilder(
+              builder: (context, sidebarBox) {
+                final showCollapsed = effectiveCollapsed || (!isMobile && sidebarBox.maxWidth < 210);
 
-          // User Profile Footer
-          Container(
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: AppTheme.getBorderColor(context), width: 1),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: user == null
-                ? const SizedBox.shrink()
-                : Consumer<AuthProvider>(
-                    builder: (context, auth, _) {
-                      final user = auth.user;
-                      if (user == null) return const SizedBox.shrink();
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () =>
-                                  UserProfileDialog.show(context, user),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: AppTheme.primaryColor,
-                                    radius: 18,
-                                    child: Text(
-                                      (user.rawFullname ?? user.fullname)
-                                              .isNotEmpty
-                                          ? (user.rawFullname ??
-                                                    user.fullname)[0]
-                                                .toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                return Column(
+                  children: [
+                    // Brand Header
+                    Container(
+                      constraints: const BoxConstraints(minHeight: 70),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: showCollapsed ? 8 : 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppTheme.getBorderColor(context).withOpacity(0.6),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: showCollapsed
+                          ? Center(
+                              child: Tooltip(
+                                message: 'Expand Sidebar',
+                                preferBelow: false,
+                                child: InkWell(
+                                  onTap: () => SidebarState.setCollapsed(false),
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4.0),
+                                    child: Image.asset(
+                                      'assets/image/sriPonniLogo.png',
+                                      width: 34,
+                                      height: 34,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.local_hospital_rounded,
+                                        color: AppTheme.primaryColor,
+                                        size: 28,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          user.rawFullname ?? user.fullname,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                            color: AppTheme.getTextPrimaryColor(context),
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        Text(
-                                          context.translateRole(user.role),
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: AppTheme.getTextSecondaryColor(context),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
+                                ),
+                              ),
+                            )
+                          : Row(
+                              children: [
+                                Expanded(
+                                  child: Center(
+                                    child: Image.asset(
+                                      'assets/image/full_logo.png',
+                                      width: 110,
+                                      height: 80,
+                                      fit: BoxFit.contain,
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.logout,
-                              size: 18,
-                              color: AppTheme.getTextSecondaryColor(context),
-                            ),
-                            onPressed: () =>
-                                LogoutHelper.showLogoutConfirmation(
-                                  context,
-                                  auth,
                                 ),
+                                if (!isMobile)
+                                  IconButton(
+                                    onPressed: () => SidebarState.setCollapsed(true),
+                                    tooltip: 'Collapse Sidebar',
+                                    icon: Icon(
+                                      Icons.chevron_left_rounded,
+                                      color: AppTheme.getTextSecondaryColor(context),
+                                      size: 20,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                              ],
+                            ),
+                    ),
+
+                    // Navigation Items (Scrollable driven by AdminNavConfig)
+                    Expanded(
+                      child: ListView(
+                        physics: const ClampingScrollPhysics(),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: showCollapsed ? 4 : 0,
+                          vertical: 10,
+                        ),
+                        children: [
+                          ...AdminNavConfig.getVisibleNavItems(user).map(
+                            (item) => _buildSidebarItem(
+                              item.index,
+                              item.icon,
+                              item.label,
+                              isMobile: isMobile,
+                              isCollapsed: showCollapsed,
+                            ),
                           ),
+                          if (AdminNavConfig.showMasterCatalog &&
+                              (user?.hasPermission('manage_catalogs') ?? false))
+                            _buildCatalogParentMenu(
+                              isMobile: isMobile,
+                              isCollapsed: showCollapsed,
+                            ),
                         ],
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+
+                    // Expand button when collapsed on desktop
+                    if (showCollapsed && !isMobile)
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: AppTheme.getBorderColor(context).withOpacity(0.6),
+                            ),
+                          ),
+                        ),
+                        child: Center(
+                          child: IconButton(
+                            onPressed: () => SidebarState.setCollapsed(false),
+                            tooltip: 'Expand Sidebar',
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                            icon: const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    // User Profile Footer
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: AppTheme.getBorderColor(context),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: showCollapsed ? 8 : 16,
+                        vertical: 14,
+                      ),
+                      child: user == null
+                          ? const SizedBox.shrink()
+                          : Consumer<AuthProvider>(
+                              builder: (context, auth, _) {
+                                final user = auth.user;
+                                if (user == null) return const SizedBox.shrink();
+
+                                if (showCollapsed) {
+                                  return Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Tooltip(
+                                        message: '${user.rawFullname ?? user.fullname} (${context.translateRole(user.role)})',
+                                        preferBelow: false,
+                                        child: InkWell(
+                                          onTap: () => UserProfileDialog.show(context, user),
+                                          borderRadius: BorderRadius.circular(18),
+                                          child: CircleAvatar(
+                                            backgroundColor: AppTheme.primaryColor,
+                                            radius: 18,
+                                            child: Text(
+                                              (user.rawFullname ?? user.fullname).isNotEmpty
+                                                  ? (user.rawFullname ?? user.fullname)[0].toUpperCase()
+                                                  : '?',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Tooltip(
+                                        message: 'Logout',
+                                        preferBelow: false,
+                                        child: IconButton(
+                                          icon: Icon(
+                                            Icons.logout,
+                                            size: 18,
+                                            color: AppTheme.getTextSecondaryColor(context),
+                                          ),
+                                          visualDensity: VisualDensity.compact,
+                                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                          padding: EdgeInsets.zero,
+                                          onPressed: () => LogoutHelper.showLogoutConfirmation(
+                                            context,
+                                            auth,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }
+
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () =>
+                                            UserProfileDialog.show(context, user),
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Row(
+                                          children: [
+                                            CircleAvatar(
+                                              backgroundColor: AppTheme.primaryColor,
+                                              radius: 18,
+                                              child: Text(
+                                                (user.rawFullname ?? user.fullname)
+                                                        .isNotEmpty
+                                                    ? (user.rawFullname ??
+                                                              user.fullname)[0]
+                                                          .toUpperCase()
+                                                    : '?',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    user.rawFullname ?? user.fullname,
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 13,
+                                                      color: AppTheme.getTextPrimaryColor(context),
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  Text(
+                                                    context.translateRole(user.role),
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: AppTheme.getTextSecondaryColor(context),
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.logout,
+                                        size: 18,
+                                        color: AppTheme.getTextSecondaryColor(context),
+                                      ),
+                                      onPressed: () =>
+                                          LogoutHelper.showLogoutConfirmation(
+                                            context,
+                                            auth,
+                                          ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildCatalogParentMenu({bool isMobile = false}) {
+  Widget _buildCatalogParentMenu({bool isMobile = false, bool isCollapsed = false}) {
     bool isChildSelected =
         _selectedIndex == 11 ||
         _selectedIndex == 13 ||
         _selectedIndex == 14 ||
         _selectedIndex == 15 ||
         _selectedIndex == 16;
+
+    if (isCollapsed) {
+      return Tooltip(
+        message: 'Master Catalog',
+        preferBelow: false,
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              SidebarState.setCollapsed(false);
+              _isCatalogMenuExpanded = true;
+            });
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: isChildSelected
+                  ? AppTheme.primaryColor.withOpacity(0.08)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: Icon(
+                Icons.menu_book_outlined,
+                color: isChildSelected
+                    ? AppTheme.primaryColor
+                    : const Color(0xFF4A5568),
+                size: 20,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2677,6 +2887,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     subItem.label,
                     isSubItem: true,
                     isMobile: isMobile,
+                    isCollapsed: false,
                   ),
                 )
                 .toList(),
@@ -2707,6 +2918,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     String label, {
     bool isSubItem = false,
     bool isMobile = false,
+    bool isCollapsed = false,
   }) {
     bool isSelected =
         (_selectedIndex == index && !_isRegisteringPatient) ||
@@ -2830,41 +3042,49 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: isSubItem ? 1 : 2,
+          horizontal: isCollapsed ? 8 : (isSubItem ? 16 : 12),
+          vertical: isCollapsed ? 3 : (isSubItem ? 1 : 2),
         ),
         padding: EdgeInsets.symmetric(
-          horizontal: isSubItem ? 12 : 14,
-          vertical: isSubItem ? 9 : 11,
+          horizontal: isCollapsed ? 0 : (isSubItem ? 12 : 14),
+          vertical: isCollapsed ? 10 : (isSubItem ? 9 : 11),
         ),
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.primaryColor : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Row(
-          children: [
-            if (isSubItem) const SizedBox(width: 12),
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
-              size: isSubItem ? 18 : 20,
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                displayLabel,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
-                  fontWeight: isSelected
-                      ? FontWeight.bold
-                      : (isSubItem ? FontWeight.w600 : FontWeight.bold),
-                  fontSize: isSubItem ? 13 : 14,
+        child: isCollapsed
+            ? Center(
+                child: Icon(
+                  icon,
+                  color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                  size: 20,
                 ),
-                overflow: TextOverflow.ellipsis,
+              )
+            : Row(
+                children: [
+                  if (isSubItem) const SizedBox(width: 12),
+                  Icon(
+                    icon,
+                    color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                    size: isSubItem ? 18 : 20,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      displayLabel,
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : (isSubItem ? FontWeight.w600 : FontWeight.bold),
+                        fontSize: isSubItem ? 13 : 14,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     ),
   );
@@ -17958,6 +18178,7 @@ class _AddUserDialogState extends State<AddUserDialog> {
 
   String? _selectedRole;
   List<String> _roles = [
+    'Admin',
     'Doctor',
     'Nurse',
     'Anaesthetist',
@@ -17997,6 +18218,13 @@ class _AddUserDialogState extends State<AddUserDialog> {
   @override
   void initState() {
     super.initState();
+    final currentUserRole = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    ).user?.role;
+    if (currentUserRole != 'Super Admin') {
+      _roles.remove('Admin');
+    }
     _passwordController.text = PasswordPolicy.generateSecurePassword();
     _loadSpecializations();
     _loadRoles();
@@ -18304,10 +18532,39 @@ class _AddUserDialogState extends State<AddUserDialog> {
     try {
       final rbacData = await _adminController.fetchRbacData();
       final rolesList = rbacData['roles'] as List<dynamic>? ?? [];
+      final currentUserRole = Provider.of<AuthProvider>(
+        context,
+        listen: false,
+      ).user?.role;
+
+      final orderedRoles = [
+        'Admin',
+        'Doctor',
+        'Nurse',
+        'Anaesthetist',
+        'Front Desk',
+        'Lab',
+        'Pharmacy',
+      ];
+
       final names = rolesList
-          .map((r) => r['name']?.toString() ?? '')
-          .where((name) => name.isNotEmpty && name != 'Super Admin')
+          .map((r) => (r['role_name'] ?? r['name'])?.toString().trim() ?? '')
+          .where((name) {
+            if (name.isEmpty || name == 'Super Admin') return false;
+            if (currentUserRole == 'Super Admin') return true;
+            return name != 'Admin';
+          })
           .toList();
+
+      names.sort((a, b) {
+        int indexA = orderedRoles.indexOf(a);
+        int indexB = orderedRoles.indexOf(b);
+        if (indexA == -1 && indexB == -1) return a.compareTo(b);
+        if (indexA == -1) return 1;
+        if (indexB == -1) return -1;
+        return indexA.compareTo(indexB);
+      });
+
       if (mounted) {
         setState(() {
           if (names.isNotEmpty) _roles = names;
@@ -18316,7 +18573,16 @@ class _AddUserDialogState extends State<AddUserDialog> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoadingRoles = false);
+        final currentUserRole = Provider.of<AuthProvider>(
+          context,
+          listen: false,
+        ).user?.role;
+        setState(() {
+          if (currentUserRole != 'Super Admin') {
+            _roles.remove('Admin');
+          }
+          _isLoadingRoles = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading roles: $e'),
