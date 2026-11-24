@@ -73,6 +73,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
   bool _isLoadingLabRequests = false;
   String _labSearch = '';
   String _labStatusFilter = 'Pending'; // 'Pending', 'Billed', 'All'
+  bool _isOpeningWorksheet = false;
 
   // Quick Bill State
   String? _qbDoctorName;
@@ -1397,7 +1398,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
       if (!matchQ) return false;
 
       final stat = (p['pharmacy_status'] ?? 'Pending').toString();
-      final isDone = stat == 'Billed' || stat == 'Dispensed';
+      final isDone = stat == 'Billed' || stat == 'Dispensed' || p['invoice_id'] != null;
       if (_pharmacyStatusFilter == 'Pending') return !isDone;
       if (_pharmacyStatusFilter == 'Dispensed') return isDone;
       return true;
@@ -1405,7 +1406,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
 
     final pendingCount = _pharmacyPrescriptions.where((p) {
       final s = (p['pharmacy_status'] ?? 'Pending').toString();
-      return s != 'Billed' && s != 'Dispensed';
+      return s != 'Billed' && s != 'Dispensed' && p['invoice_id'] == null;
     }).length;
 
     final dispensedCount = _pharmacyPrescriptions.length - pendingCount;
@@ -1562,7 +1563,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                           final pres = filtered[index];
                           final items = (pres['items'] as List?) ?? [];
                           final stat = (pres['pharmacy_status'] ?? 'Pending').toString();
-                          final bool isDone = stat == 'Billed' || stat == 'Dispensed';
+                          final bool isDone = stat == 'Billed' || stat == 'Dispensed' || pres['invoice_id'] != null;
                           final dateStr = pres['created_at'] != null
                               ? DateFormat('dd-MMM-yyyy • hh:mm a').format(DateTime.parse(pres['created_at']).toLocal())
                               : 'Recent';
@@ -1760,7 +1761,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                               ),
                                               icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
                                               label: const Text('Dispensed & Billed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                              onPressed: () => _tabController?.animateTo(1),
+                                              onPressed: () {
+                                                if (pres['invoice_id'] != null) {
+                                                  _showInvoiceReceiptDialog(pres['invoice_id']);
+                                                } else {
+                                                  _tabController?.animateTo(1);
+                                                }
+                                              },
                                             ),
                                     )
                                   else
@@ -1789,7 +1796,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                             ),
                                             icon: const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF16A34A)),
                                             label: const Text('Dispensed & Billed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                            onPressed: () => _tabController?.animateTo(1),
+                                            onPressed: () {
+                                                if (pres['invoice_id'] != null) {
+                                                  _showInvoiceReceiptDialog(pres['invoice_id']);
+                                                } else {
+                                                  _tabController?.animateTo(1);
+                                                }
+                                              },
                                           ),
                                       ],
                                     ),
@@ -2121,10 +2134,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                   setDlgState(() => isSubmitting = true);
                                   final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
                                   try {
+                                    final bool isIpd = (pres['type'] ?? '') == 'inpatient';
+                                    final int? presId = int.tryParse(pres['id']?.toString() ?? '');
                                     final res = await _billingCtrl.createInvoice(
                                       patientId: patientId,
                                       admissionType: 'Pharmacy',
-                                      consultationId: int.tryParse(pres['id']?.toString() ?? ''),
+                                      consultationId: !isIpd ? presId : null,
+                                      prescriptionId: isIpd ? presId : null,
                                       doctorName: pres['doctor_name']?.toString(),
                                       items: billItems,
                                       discount: discount,
@@ -2190,10 +2206,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                     setDlgState(() => isSubmitting = true);
                                     final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
                                     try {
-                                      final res = await _billingCtrl.createInvoice(
-                                        patientId: patientId,
-                                        admissionType: 'Pharmacy',
-                                        consultationId: int.tryParse(pres['id']?.toString() ?? ''),
+                                      final bool isIpd = (pres['type'] ?? '') == 'inpatient';
+                                    final int? presId = int.tryParse(pres['id']?.toString() ?? '');
+                                    final res = await _billingCtrl.createInvoice(
+                                      patientId: patientId,
+                                      admissionType: 'Pharmacy',
+                                      consultationId: !isIpd ? presId : null,
+                                      prescriptionId: isIpd ? presId : null,
                                         doctorName: pres['doctor_name']?.toString(),
                                         items: billItems,
                                         discount: discount,
@@ -2243,13 +2262,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
       final matchQ = pName.contains(q) || pUhid.contains(q) || tName.contains(q) || docName.contains(q);
       if (!matchQ) return false;
 
-      final isBilled = r['is_billed'] == true;
+      final isBilled = r['is_billed'] == true || r['invoice_id'] != null;
       if (_labStatusFilter == 'Pending') return !isBilled;
       if (_labStatusFilter == 'Billed') return isBilled;
       return true;
     }).toList();
 
-    final pendingCount = _labRequests.where((r) => r['is_billed'] != true).length;
+    final pendingCount = _labRequests.where((r) => r['is_billed'] != true && r['invoice_id'] == null).length;
     final billedCount = _labRequests.length - pendingCount;
 
     double labRev = 0;
@@ -2402,7 +2421,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                         itemCount: filtered.length,
                         itemBuilder: (context, index) {
                           final req = filtered[index];
-                          final bool isBilled = req['is_billed'] == true;
+                          final bool isBilled = req['is_billed'] == true || req['invoice_id'] != null;
                           final dateStr = req['created_at'] != null
                               ? DateFormat('dd-MMM-yyyy • hh:mm a').format(DateTime.parse(req['created_at']).toLocal())
                               : 'Recent';
@@ -2595,6 +2614,13 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                               onPressed: () {
                                                 if (req['invoice_id'] != null) {
                                                   _showInvoiceReceiptDialog(req['invoice_id']);
+                                                } else {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text('No invoice receipt found for this lab order.'),
+                                                      backgroundColor: Colors.orange,
+                                                    ),
+                                                  );
                                                 }
                                               },
                                             ),
@@ -2627,8 +2653,15 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                             label: const Text('Billed', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                             onPressed: () {
                                               if (req['invoice_id'] != null) {
-                                                _showInvoiceReceiptDialog(req['invoice_id']);
-                                              }
+                                                  _showInvoiceReceiptDialog(req['invoice_id']);
+                                                } else {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text('No invoice receipt found for this lab order.'),
+                                                      backgroundColor: Colors.orange,
+                                                    ),
+                                                  );
+                                                }
                                             },
                                           ),
                                       ],
@@ -2916,6 +2949,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                     final res = await _billingCtrl.createInvoice(
                                       patientId: patientId,
                                       admissionType: 'Lab',
+                                      appointmentId: int.tryParse(req['appointment_id']?.toString() ?? ''),
                                       labRequestIds: [int.tryParse(req['id']?.toString() ?? '') ?? 0],
                                       doctorName: req['doctor_name']?.toString(),
                                       items: billItems,
@@ -2978,8 +3012,9 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                 final double collected = double.tryParse(paidCtrl.text.trim()) ?? net;
                                 try {
                                   final res = await _billingCtrl.createInvoice(
-                                    patientId: patientId,
-                                    admissionType: 'Lab',
+                                      patientId: patientId,
+                                      admissionType: 'Lab',
+                                      appointmentId: int.tryParse(req['appointment_id']?.toString() ?? ''),
                                     labRequestIds: [int.tryParse(req['id']?.toString() ?? '') ?? 0],
                                     doctorName: req['doctor_name']?.toString(),
                                     items: billItems,
@@ -3841,7 +3876,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                             ),
                                             icon: Icon(active ? Icons.receipt_long : Icons.visibility_outlined, size: 16),
                                             label: Text(active ? 'Worksheet' : 'Receipt'),
-                                            onPressed: () => _openIpBillingWorksheet(adm),
+                                            onPressed: _isOpeningWorksheet ? null : () => _openIpBillingWorksheet(adm),
                                           ),
                                         ),
                                       ],
@@ -3880,7 +3915,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                           ),
                                           icon: Icon(active ? Icons.receipt_long : Icons.visibility_outlined, size: 16),
                                           label: Text(active ? 'Worksheet' : 'Receipt'),
-                                          onPressed: () => _openIpBillingWorksheet(adm),
+                                          onPressed: _isOpeningWorksheet ? null : () => _openIpBillingWorksheet(adm),
                                         ),
                                       ],
                                     ),
@@ -4629,7 +4664,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                                 padding: const EdgeInsets.symmetric(vertical: 11),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
-                              onPressed: () => _showIpdWorksheetDialog(otc['admission_id']),
+                              onPressed: _isOpeningWorksheet ? null : () => _openIpBillingWorksheet({'id': otc['admission_id'], 'status': 'Admitted'}),
                             ),
                           ),
                         ],
@@ -4697,7 +4732,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            onPressed: () => _showIpdWorksheetDialog(otc['admission_id']),
+                            onPressed: _isOpeningWorksheet ? null : () => _openIpBillingWorksheet({'id': otc['admission_id'], 'status': 'Admitted'}),
                           ),
                         ElevatedButton.icon(
                           icon: const Icon(Icons.receipt_long, size: 16),
@@ -5474,1016 +5509,56 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
   // ─── IP WORKSHEET & DISCHARGE PANEL ────────────────────────────────────────
 
   void _openIpBillingWorksheet(Map<String, dynamic> adm) async {
+    if (_isOpeningWorksheet) return;
+    setState(() => _isOpeningWorksheet = true);
+
     final int admissionId = adm['id'];
 
     if (adm['status'] == 'Discharged') {
-      // Patients who are already discharged: load invoice receipt dialog directly
       try {
         final res = await _billingCtrl.fetchIpdBillingSummary(admissionId);
         final inv = res['invoice'];
         if (inv != null) {
           _showInvoiceReceiptDialog(inv['id']);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No invoice found for this discharged patient'), backgroundColor: Colors.orange));
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No invoice found for this discharged patient'), backgroundColor: Colors.orange),
+            );
+          }
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading invoice: $e'), backgroundColor: Colors.red));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error loading invoice: $e'), backgroundColor: Colors.red),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isOpeningWorksheet = false);
       }
       return;
     }
 
-    // Otherwise, open worksheet dialog for active IP cases
-    _showIpdWorksheetDialog(admissionId);
-  }
-
-  void _showIpdWorksheetDialog(int admissionId) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        Map<String, dynamic> admission = {};
-        Map<String, dynamic> bedDetails = {};
-        Map<String, dynamic> clearances = {};
-        Map<String, dynamic> unifiedFolio = {};
-        Map<String, dynamic> clinicalData = {};
-        Map<String, dynamic>? activeInvoice;
-        List<Map<String, dynamic>> advancesPaid = [];
-        bool loading = true;
-
-        final TextEditingController ipSvcPriceCtrl = TextEditingController();
-        final TextEditingController depositAmtCtrl = TextEditingController();
-        final TextEditingController ipSvcQtyCtrl = TextEditingController(text: '1');
-        String? selectedSvcId;
-        bool fetchInitiated = false;
-
-        return StatefulBuilder(
-          builder: (sheetCtx, setSheetState) {
-            Future<void> fetchSummary() async {
-              try {
-                final summary = await _billingCtrl.fetchIpdBillingSummary(admissionId);
-                if (sheetCtx.mounted) {
-                  setSheetState(() {
-                    admission = Map<String, dynamic>.from(summary['admission'] ?? {});
-                    bedDetails = Map<String, dynamic>.from(summary['bed_details'] ?? {});
-                    clearances = Map<String, dynamic>.from(summary['clearances'] ?? {});
-                    unifiedFolio = Map<String, dynamic>.from(summary['unified_folio'] ?? {});
-                    clinicalData = Map<String, dynamic>.from(summary['clinical_discharge_data'] ?? {});
-                    activeInvoice = summary['invoice'] != null ? Map<String, dynamic>.from(summary['invoice']) : null;
-                    advancesPaid = List<Map<String, dynamic>>.from(summary['payments'] ?? []);
-                    loading = false;
-                  });
-                }
-              } catch (e) {
-                if (ctx.mounted) Navigator.of(ctx).pop();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error loading IP billing: $e'), backgroundColor: Colors.red));
-                }
-              }
-            }
-
-            if (loading) {
-              if (!fetchInitiated) {
-                fetchInitiated = true;
-                WidgetsBinding.instance.addPostFrameCallback((_) => fetchSummary());
-              }
-              return const AlertDialog(
-                backgroundColor: Colors.white,
-                content: SizedBox(height: 120, child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Assembling Unified Inpatient Folio...')]))),
-              );
-            }
-
-            // Calculation Logic from Unified Folio Totals
-            final folioTotals = (unifiedFolio['totals'] as Map<String, dynamic>?) ?? {};
-            final int bedDays = bedDetails['days'] as int? ?? (folioTotals['bed_days'] as int? ?? 1);
-            final double grossFolioTotal = double.tryParse((folioTotals['gross_total'] ?? 0).toString()) ?? 0.0;
-            final double folioDiscount = double.tryParse((folioTotals['discount'] ?? 0).toString()) ?? 0.0;
-            final double netFolioTotal = double.tryParse((folioTotals['net_total'] ?? 0).toString()) ?? (grossFolioTotal - folioDiscount);
-            final double totalAdvancesPaid = double.tryParse((folioTotals['advance_paid'] ?? 0).toString()) ?? 0.0;
-            final double remainingBalance = double.tryParse((folioTotals['balance_due'] ?? 0).toString()) ?? math.max(0.0, netFolioTotal - totalAdvancesPaid);
-
-            final roomCharges = (unifiedFolio['room_charges'] as Map<String, dynamic>?) ?? {};
-            final nursingServices = (unifiedFolio['nursing_services'] as Map<String, dynamic>?) ?? {};
-            final doctorRounds = (unifiedFolio['doctor_rounds'] as Map<String, dynamic>?) ?? {};
-            final pharmacyItems = (unifiedFolio['pharmacy_items'] as Map<String, dynamic>?) ?? {};
-            final labInvestigations = (unifiedFolio['lab_investigations'] as Map<String, dynamic>?) ?? {};
-            final otCharges = (unifiedFolio['ot_charges'] as Map<String, dynamic>?) ?? {};
-            final otherCharges = (unifiedFolio['other_charges'] as Map<String, dynamic>?) ?? {};
-
-            final roomItems = List<Map<String, dynamic>>.from(roomCharges['items'] ?? []);
-            final nursingItems = List<Map<String, dynamic>>.from(nursingServices['items'] ?? []);
-            final doctorItems = List<Map<String, dynamic>>.from(doctorRounds['items'] ?? []);
-            final pharmacyItemsList = List<Map<String, dynamic>>.from(pharmacyItems['items'] ?? []);
-            final labItemsList = List<Map<String, dynamic>>.from(labInvestigations['items'] ?? []);
-            final otItemsList = List<Map<String, dynamic>>.from(otCharges['items'] ?? []);
-            final otCasesList = List<Map<String, dynamic>>.from(otCharges['cases'] ?? []);
-            final otherItemsList = List<Map<String, dynamic>>.from(otherCharges['items'] ?? []);
-
-            final pharmacyClr = (clearances['pharmacy'] as Map<String, dynamic>?) ?? {};
-            final labClr = (clearances['lab'] as Map<String, dynamic>?) ?? {};
-            final nursingClr = (clearances['nursing'] as Map<String, dynamic>?) ?? {};
-            final otClr = (clearances['ot'] as Map<String, dynamic>?) ?? {};
-            final billingClr = (clearances['billing'] as Map<String, dynamic>?) ?? {};
-
-            final bool isPharmacyCleared = pharmacyClr['is_cleared'] == true;
-            final bool isLabCleared = labClr['is_cleared'] == true;
-            final bool isNursingCleared = nursingClr['is_cleared'] == true;
-            final bool isOtCleared = otClr['is_cleared'] == true;
-            final bool isBillingCleared = billingClr['is_cleared'] == true;
-            final bool allClearancesPassed = isPharmacyCleared && isLabCleared && isNursingCleared && isOtCleared && isBillingCleared;
-
-            void showPendingItemsDialog(String stageTitle, List<dynamic> pendingList, String notes) {
-              showDialog(
-                context: ctx,
-                builder: (pCtx) => AlertDialog(
-                  backgroundColor: Colors.white,
-                  surfaceTintColor: Colors.white,
-                  title: Row(
-                    children: [
-                      const Icon(Icons.info_outline, color: AppTheme.primaryColor),
-                      const SizedBox(width: 8),
-                      Text(stageTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    ],
-                  ),
-                  content: SizedBox(
-                    width: 440,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(notes, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
-                        const SizedBox(height: 14),
-                        if (pendingList.isEmpty)
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(8)),
-                            child: const Row(
-                              children: [
-                                Icon(Icons.check_circle, color: Color(0xFF059669), size: 18),
-                                SizedBox(width: 8),
-                                Text('All items in this clearance stage are verified!', style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 13)),
-                              ],
-                            ),
-                          )
-                        else ...[
-                          const Text('Pending Action Items:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height: 8),
-                          Flexible(
-                            child: ListView.separated(
-                              shrinkWrap: true,
-                              itemCount: pendingList.length,
-                              separatorBuilder: (_, _) => const Divider(height: 12),
-                              itemBuilder: (_, idx) {
-                                final item = pendingList[idx];
-                                return Row(
-                                  children: [
-                                    const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 16),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        item is Map ? '${item['name'] ?? item['test_name'] ?? 'Item'} (${item['status'] ?? 'Pending'})' : item.toString(),
-                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          )
-                        ]
-                      ],
-                    ),
-                  ),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(pCtx), child: const Text('Close')),
-                  ],
-                ),
-              );
-            }
-
-            final bool isMobileDialog = MediaQuery.of(sheetCtx).size.width < 900;
-
-            final card1 = _buildClearanceItemCard(
-              title: '1. Pharmacy',
-              statusText: isPharmacyCleared ? 'Cleared' : '${pharmacyClr['pending_count'] ?? 0} Pending',
-              isCleared: isPharmacyCleared,
-              onTap: () => showPendingItemsDialog('Pharmacy Clearance Details', pharmacyClr['pending_items'] ?? [], pharmacyClr['summary'] ?? ''),
-            );
-            final card2 = _buildClearanceItemCard(
-              title: '2. Lab Tests',
-              statusText: isLabCleared ? 'Cleared' : '${labClr['pending_count'] ?? 0} Pending',
-              isCleared: isLabCleared,
-              onTap: () => showPendingItemsDialog('Laboratory Clearance Details', labClr['pending_items'] ?? [], labClr['summary'] ?? ''),
-            );
-            final card3 = _buildClearanceItemCard(
-              title: '3. Nursing',
-              statusText: isNursingCleared ? 'Cleared' : 'Pending',
-              isCleared: isNursingCleared,
-              onTap: () => showPendingItemsDialog('Nursing Clearance Details', nursingClr['pending_items'] ?? [], nursingClr['summary'] ?? ''),
-            );
-            final card4 = _buildClearanceItemCard(
-              title: '4. OT & Surgery',
-              statusText: isOtCleared ? 'Cleared' : '${otClr['pending_count'] ?? 0} Pending',
-              isCleared: isOtCleared,
-              onTap: () => showPendingItemsDialog('OT & Surgical Clearance Details', otClr['pending_items'] ?? [], otClr['summary'] ?? ''),
-            );
-            final card5 = _buildClearanceItemCard(
-              title: '5. Final Billing',
-              statusText: isBillingCleared ? 'Settled' : '₹${remainingBalance.toStringAsFixed(0)} Due',
-              isCleared: isBillingCleared,
-              onTap: () => showPendingItemsDialog('Billing Clearance Details', isBillingCleared ? [] : ['Outstanding Balance: ₹${remainingBalance.toStringAsFixed(2)}'], billingClr['summary'] ?? ''),
-            );
-
-            final List<Widget> leftFolioSections = [
-
-                            // 1. Room Accommodation Charges Card
-                            _buildFolioSectionCard(
-                              title: 'Room / Accommodation Charges',
-                              icon: Icons.hotel,
-                              color: const Color(0xFF0284C7),
-                              subtotal: double.tryParse((roomCharges['subtotal'] ?? 0).toString()) ?? 0.0,
-                              children: [
-                                for (var item in roomItems)
-                                  _buildFolioItemRow(
-                                    isMobile: isMobileDialog,
-                                    name: item['item_name'] ?? 'Bed Charge',
-                                    details: item['details'] ?? '',
-                                    qty: item['quantity'] ?? bedDays,
-                                    price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
-                                    subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // 2. Nursing Services Card
-                            _buildFolioSectionCard(
-                              title: 'Inpatient Nursing Care Services',
-                              icon: Icons.health_and_safety,
-                              color: const Color(0xFF059669),
-                              subtotal: double.tryParse((nursingServices['subtotal'] ?? 0).toString()) ?? 0.0,
-                              children: [
-                                for (var item in nursingItems)
-                                  _buildFolioItemRow(
-                                    isMobile: isMobileDialog,
-                                    name: item['item_name'] ?? 'Nursing Care',
-                                    details: item['details'] ?? '',
-                                    qty: item['quantity'] ?? bedDays,
-                                    price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
-                                    subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // 3. Physician Clinical Rounds Card
-                            _buildFolioSectionCard(
-                              title: 'Physician Rounds & Consultations',
-                              icon: Icons.person_search_outlined,
-                              color: const Color(0xFF6366F1),
-                              subtotal: double.tryParse((doctorRounds['subtotal'] ?? 0).toString()) ?? 0.0,
-                              children: [
-                                for (var item in doctorItems)
-                                  _buildFolioItemRow(
-                                    isMobile: isMobileDialog,
-                                    name: item['item_name'] ?? 'Doctor Round',
-                                    details: item['details'] ?? '',
-                                    qty: item['quantity'] ?? 1,
-                                    price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
-                                    subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // 4. Pharmacy & Inpatient Medications Card
-                            _buildFolioSectionCard(
-                              title: 'Prescriptions & Pharmacy Items (${pharmacyItemsList.length})',
-                              icon: Icons.medication_outlined,
-                              color: const Color(0xFF8B5CF6),
-                              subtotal: double.tryParse((pharmacyItems['subtotal'] ?? 0).toString()) ?? 0.0,
-                              children: [
-                                if (pharmacyItemsList.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 8.0),
-                                    child: Text('No pharmacy items recorded during this stay.', style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic)),
-                                  )
-                                else
-                                  for (var item in pharmacyItemsList)
-                                    _buildFolioItemRow(
-                                      isMobile: isMobileDialog,
-                                      name: item['item_name'] ?? 'Medicine',
-                                      details: item['details'] ?? '',
-                                      qty: item['quantity'] ?? 1,
-                                      price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
-                                      subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
-                                      badge: item['pharmacy_status'] ?? 'Dispensed',
-                                      badgeColor: (item['pharmacy_status'] == 'Dispensed' || item['pharmacy_status'] == 'Completed') ? const Color(0xFF059669) : Colors.orange,
-                                    ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // 5. Diagnostic Laboratory Investigations Card
-                            _buildFolioSectionCard(
-                              title: 'Diagnostic & Lab Investigations (${labItemsList.length})',
-                              icon: Icons.biotech_outlined,
-                              color: const Color(0xFFD97706),
-                              subtotal: double.tryParse((labInvestigations['subtotal'] ?? 0).toString()) ?? 0.0,
-                              children: [
-                                if (labItemsList.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 8.0),
-                                    child: Text('No lab investigations recorded during this stay.', style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic)),
-                                  )
-                                else
-                                  for (var item in labItemsList)
-                                    _buildFolioItemRow(
-                                      isMobile: isMobileDialog,
-                                      name: item['item_name'] ?? 'Investigation',
-                                      details: item['details'] ?? '',
-                                      qty: item['quantity'] ?? 1,
-                                      price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
-                                      subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
-                                      badge: item['status'] ?? 'Report Ready',
-                                      badgeColor: ['Completed', 'Report Ready', 'Approved'].contains(item['status']) ? const Color(0xFF059669) : Colors.orange,
-                                    ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // 5. Operation Theatre & Surgical Charges Card
-                            if (otItemsList.isNotEmpty || otCasesList.isNotEmpty) ...[
-                              _buildFolioSectionCard(
-                                title: 'Operation Theatre & Surgical Charges',
-                                icon: Icons.medical_services_outlined,
-                                color: const Color(0xFF0284C7),
-                                subtotal: double.tryParse((otCharges['subtotal'] ?? 0).toString()) ?? 0.0,
-                                children: [
-                                  for (var c in otCasesList)
-                                    Container(
-                                      margin: const EdgeInsets.only(bottom: 8),
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF0F9FF),
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(color: const Color(0xFFBAE6FD)),
-                                      ),
-                                      child: isMobileDialog
-                                          ? Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    const Icon(Icons.emergency_outlined, size: 16, color: Color(0xFF0284C7)),
-                                                    const SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: Text(
-                                                        '${c['case_number'] ?? 'OT Case'}: ${c['surgery_type'] ?? 'Surgery'}',
-                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0369A1)),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                    Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                      decoration: BoxDecoration(
-                                                        color: c['is_billed'] == true ? Colors.grey.shade200 : const Color(0xFFDCFCE7),
-                                                        borderRadius: BorderRadius.circular(4),
-                                                      ),
-                                                      child: Text(
-                                                        c['is_billed'] == true ? 'Already Billed' : 'Ready for Folio',
-                                                        style: TextStyle(
-                                                          fontSize: 10,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: c['is_billed'] == true ? Colors.grey.shade700 : const Color(0xFF15803D),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'Theatre: ${c['theatre_name'] ?? '-'} • Lead Surgeon: Dr. ${c['lead_surgeon'] ?? '-'}${c['anaesthetist'] != null ? ' • Anaesthetist: Dr. ' + c['anaesthetist'] : ''}',
-                                                  style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
-                                                ),
-                                                if (c['is_billed'] != true) ...[
-                                                  const SizedBox(height: 6),
-                                                  Align(
-                                                    alignment: Alignment.centerRight,
-                                                    child: OutlinedButton.icon(
-                                                      icon: const Icon(Icons.edit_note, size: 14),
-                                                      label: const Text('Edit Fees', style: TextStyle(fontSize: 11)),
-                                                      style: OutlinedButton.styleFrom(
-                                                        foregroundColor: const Color(0xFF0284C7),
-                                                        side: const BorderSide(color: Color(0xFF0284C7)),
-                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                        minimumSize: Size.zero,
-                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                      ),
-                                                      onPressed: () {
-                                                        _showEditOtCaseFeesDialog(c, onUpdated: () {
-                                                          fetchSummary();
-                                                        });
-                                                      },
-                                                    ),
-                                                  ),
-                                                ],
-                                              ],
-                                            )
-                                          : Row(
-                                              children: [
-                                                const Icon(Icons.emergency_outlined, size: 16, color: Color(0xFF0284C7)),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                        '${c['case_number'] ?? 'OT Case'}: ${c['surgery_type'] ?? 'Surgery'}',
-                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0369A1)),
-                                                      ),
-                                                      Text(
-                                                        'Theatre: ${c['theatre_name'] ?? '-'} • Lead Surgeon: Dr. ${c['lead_surgeon'] ?? '-'}${c['anaesthetist'] != null ? ' • Anaesthetist: Dr. ' + c['anaesthetist'] : ''}',
-                                                        style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: c['is_billed'] == true ? Colors.grey.shade200 : const Color(0xFFDCFCE7),
-                                                    borderRadius: BorderRadius.circular(4),
-                                                  ),
-                                                  child: Text(
-                                                    c['is_billed'] == true ? 'Already Billed' : 'Ready for Folio',
-                                                    style: TextStyle(
-                                                      fontSize: 10,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: c['is_billed'] == true ? Colors.grey.shade700 : const Color(0xFF15803D),
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (c['is_billed'] != true) ...[
-                                                  const SizedBox(width: 8),
-                                                  OutlinedButton.icon(
-                                                    icon: const Icon(Icons.edit_note, size: 14),
-                                                    label: const Text('Edit Fees', style: TextStyle(fontSize: 11)),
-                                                    style: OutlinedButton.styleFrom(
-                                                      foregroundColor: const Color(0xFF0284C7),
-                                                      side: const BorderSide(color: Color(0xFF0284C7)),
-                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                      minimumSize: Size.zero,
-                                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                                    ),
-                                                    onPressed: () {
-                                                      _showEditOtCaseFeesDialog(c, onUpdated: () {
-                                                        fetchSummary();
-                                                      });
-                                                    },
-                                                  ),
-                                                ],
-                                              ],
-                                            ),
-                                    ),
-                                  if (otItemsList.isEmpty)
-                                    const Padding(
-                                      padding: EdgeInsets.symmetric(vertical: 4.0),
-                                      child: Text('No itemized OT charges recorded for this case.', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                    )
-                                  else
-                                    for (var item in otItemsList)
-                                      _buildFolioItemRow(
-                                        isMobile: isMobileDialog,
-                                        name: item['item_name'] ?? 'OT Charge',
-                                        details: item['details'] ?? '',
-                                        qty: item['quantity'] ?? 1,
-                                        price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
-                                        subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
-                                        badge: item['category'] ?? 'OT',
-                                        badgeColor: item['category'] == 'Surgical Implants'
-                                            ? Colors.purple
-                                            : (item['category'] == 'Surgical Consumables' ? Colors.teal : const Color(0xFF0284C7)),
-                                      ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                            ],
-
-                            // 6. Procedures, Consumables & Custom Items Card
-                            _buildFolioSectionCard(
-                              title: 'Procedures, Consumables & Additional Services',
-                              icon: Icons.healing_outlined,
-                              color: const Color(0xFF475569),
-                              subtotal: double.tryParse((otherCharges['subtotal'] ?? 0).toString()) ?? 0.0,
-                              children: [
-                                // Inline adder form
-                                Container(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(color: const Color(0xFFF1F7FB), borderRadius: BorderRadius.circular(10)),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 3,
-                                        child: CustomDropdownSearch(
-                                          label: '',
-                                          hint: 'Add Service or Consumable',
-                                          value: selectedSvcId,
-                                          dropdownMap: {
-                                            for (var s in _catalogServices.where((x) => x['category'] != 'OP'))
-                                              s['id'].toString(): '${s['name']} (₹${s['price']})'
-                                          },
-                                          onChanged: (val) {
-                                            if (val != null) {
-                                              final sObj = _catalogServices.firstWhere((x) => x['id'].toString() == val);
-                                              setSheetState(() {
-                                                selectedSvcId = val;
-                                                ipSvcPriceCtrl.text = sObj['price'].toString();
-                                              });
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      SizedBox(
-                                        width: 80,
-                                        height: 48,
-                                        child: TextFormField(
-                                          controller: ipSvcPriceCtrl,
-                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                          decoration: const InputDecoration(hintText: 'Price', contentPadding: EdgeInsets.symmetric(horizontal: 8)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      SizedBox(
-                                        width: 60,
-                                        height: 48,
-                                        child: TextFormField(
-                                          controller: ipSvcQtyCtrl,
-                                          keyboardType: TextInputType.number,
-                                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                          decoration: const InputDecoration(hintText: 'Qty', contentPadding: EdgeInsets.symmetric(horizontal: 8)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      IconButton(
-                                        icon: const Icon(Icons.add_circle, color: AppTheme.secondaryColor, size: 28),
-                                        onPressed: () async {
-                                          if (selectedSvcId == null) return;
-                                          final double pr = double.tryParse(ipSvcPriceCtrl.text) ?? 0.0;
-                                          final int qt = int.tryParse(ipSvcQtyCtrl.text) ?? 1;
-                                          final sObj = _catalogServices.firstWhere((x) => x['id'].toString() == selectedSvcId);
-
-                                          try {
-                                            int invoiceId;
-                                            if (activeInvoice == null) {
-                                              final newInv = await _billingCtrl.createInvoice(
-                                                patientId: admission['patient_id'],
-                                                admissionType: 'IP',
-                                                admissionId: admissionId,
-                                                items: [
-                                                  {
-                                                    'service_id': sObj['id'],
-                                                    'item_name': sObj['name'],
-                                                    'quantity': qt,
-                                                    'unit_price': pr
-                                                  }
-                                                ],
-                                                discount: 0
-                                              );
-                                              invoiceId = newInv['id'];
-                                            } else {
-                                              invoiceId = activeInvoice!['id'];
-                                              await _billingCtrl.addInvoiceItem(
-                                                invoiceId: invoiceId,
-                                                itemName: sObj['name'],
-                                                unitPrice: pr,
-                                                quantity: qt,
-                                                serviceId: sObj['id'],
-                                              );
-                                            }
-
-                                            setSheetState(() {
-                                              selectedSvcId = null;
-                                              ipSvcPriceCtrl.clear();
-                                              ipSvcQtyCtrl.text = '1';
-                                            });
-
-                                            await fetchSummary();
-                                          } catch (e) {
-                                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error adding item: $e'), backgroundColor: Colors.red));
-                                          }
-                                        },
-                                      )
-                                    ],
-                                  ),
-                                ),
-
-                                if (otherItemsList.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 4.0),
-                                    child: Text('No additional consumables or procedures added.', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                  )
-                                else
-                                  for (var item in otherItemsList)
-                                    ListTile(
-                                      dense: true,
-                                      contentPadding: EdgeInsets.zero,
-                                      title: Text(item['item_name'] ?? 'Item', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                                      subtitle: Text('${item['quantity']} x ₹${double.parse((item['unit_price'] ?? 0).toString()).toStringAsFixed(2)}'),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text('₹${double.parse((item['subtotal'] ?? 0).toString()).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                          if (item['id'] != null)
-                                            IconButton(
-                                              icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                              onPressed: () async {
-                                                try {
-                                                  await _billingCtrl.deleteInvoiceItem(item['id']);
-                                                  await fetchSummary();
-                                                } catch (e) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                                                }
-                                              },
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                              ],
-                            ),
-
-            ];
-
-            final List<Widget> rightSummaryWidgets = [
-
-                            // Consolidated Folio Summary Breakdown Card
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFE2E8F0)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Consolidated Folio Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
-                                  const SizedBox(height: 12),
-                                  _buildSummaryRow('Room Accommodation (${bedDays}d)', double.tryParse((roomCharges['subtotal'] ?? 0).toString()) ?? 0.0),
-                                  const SizedBox(height: 6),
-                                  _buildSummaryRow('Inpatient Nursing Care', double.tryParse((nursingServices['subtotal'] ?? 0).toString()) ?? 0.0),
-                                  const SizedBox(height: 6),
-                                  _buildSummaryRow('Physician Rounds', double.tryParse((doctorRounds['subtotal'] ?? 0).toString()) ?? 0.0),
-                                  const SizedBox(height: 6),
-                                  _buildSummaryRow('Pharmacy & Prescriptions', double.tryParse((pharmacyItems['subtotal'] ?? 0).toString()) ?? 0.0),
-                                  const SizedBox(height: 6),
-                                  _buildSummaryRow('Diagnostic Labs', double.tryParse((labInvestigations['subtotal'] ?? 0).toString()) ?? 0.0),
-                                  const SizedBox(height: 6),
-                                  _buildSummaryRow('Consumables & Procedures', double.tryParse((otherCharges['subtotal'] ?? 0).toString()) ?? 0.0),
-                                  const Divider(height: 18),
-                                  _buildSummaryRow('Gross Folio Total', grossFolioTotal, isBold: true),
-                                  const SizedBox(height: 6),
-                                  _buildSummaryRow('Discounts', folioDiscount, color: Colors.redAccent),
-                                  const Divider(height: 18),
-                                  _buildSummaryRow('Net Folio Bill', netFolioTotal, isBold: true, color: AppTheme.primaryColor),
-                                  const SizedBox(height: 6),
-                                  _buildSummaryRow('Advances & Deposits Paid', totalAdvancesPaid, color: const Color(0xFF059669)),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-
-                            // Advance Deposits Section
-                            const Text('Advances & Deposits Paid', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 42,
-                                    child: TextFormField(
-                                      controller: depositAmtCtrl,
-                                      keyboardType: TextInputType.number,
-                                      decoration: const InputDecoration(hintText: 'Enter Deposit (₹)', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                ElevatedButton(
-                                  onPressed: () async {
-                                    final double amt = double.tryParse(depositAmtCtrl.text) ?? 0;
-                                    if (amt <= 0) return;
-                                    try {
-                                      int invoiceId;
-                                      if (activeInvoice == null) {
-                                        final newInv = await _billingCtrl.createInvoice(
-                                          patientId: admission['patient_id'],
-                                          admissionType: 'IP',
-                                          admissionId: admissionId,
-                                          items: [],
-                                          discount: 0
-                                        );
-                                        invoiceId = newInv['id'];
-                                      } else {
-                                        invoiceId = activeInvoice!['id'];
-                                      }
-
-                                      await _billingCtrl.recordPayment(
-                                        invoiceId: invoiceId,
-                                        amount: amt,
-                                        paymentMode: 'Cash'
-                                      );
-
-                                      depositAmtCtrl.clear();
-                                      await fetchSummary();
-                                    } catch (e) {
-                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 14)),
-                                  child: const Text('Add Deposit'),
-                                )
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            if (advancesPaid.isEmpty)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 6.0),
-                                child: Center(child: Text('No advance deposits recorded.', style: TextStyle(color: Colors.grey.shade400, fontSize: 12))),
-                              )
-                            else
-                              Container(
-                                constraints: const BoxConstraints(maxHeight: 100),
-                                child: ListView.builder(
-                                  shrinkWrap: true,
-                                  itemCount: advancesPaid.length,
-                                  itemBuilder: (payCtx, index) {
-                                    final pay = advancesPaid[index];
-                                    final date = DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.parse(pay['payment_date']).toLocal());
-                                    return Padding(
-                                      padding: const EdgeInsets.symmetric(vertical: 3.0),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text('₹${double.parse(pay['amount'].toString()).toStringAsFixed(2)} (${pay['payment_mode']})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                                          Text(date, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            const Divider(),
-                            const SizedBox(height: 6),
-
-                            // Remaining Balance Due Pill
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: remainingBalance > 0 ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: remainingBalance > 0 ? const Color(0xFFFECACA) : const Color(0xFFA7F3D0)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Expanded(
-                                    child: Text('Remaining Balance Due:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B))),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '₹${remainingBalance.toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                      color: remainingBalance > 0 ? const Color(0xFFDC2626) : const Color(0xFF059669),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Settle & Structured Discharge Action Button
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton.icon(
-                                icon: const Icon(Icons.assignment_turned_in_outlined, size: 18),
-                                label: const Text('Proceed to Structured Discharge & Settle', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.primaryColor,
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                ),
-                                onPressed: () {
-                                  if (ctx.mounted) Navigator.of(ctx).pop();
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    if (mounted) {
-                                      _openFinalDischargePanel(
-                                        admissionId: admissionId,
-                                        balance: remainingBalance,
-                                        clearances: clearances,
-                                        unifiedFolio: unifiedFolio,
-                                        clinicalData: clinicalData,
-                                        otherItems: otherItemsList,
-                                        oldDiscount: folioDiscount,
-                                      );
-                                    }
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-
-            ];
-
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              insetPadding: isMobileDialog
-                  ? const EdgeInsets.symmetric(horizontal: 10, vertical: 14)
-                  : const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
-              titlePadding: isMobileDialog
-                  ? const EdgeInsets.fromLTRB(16, 16, 16, 10)
-                  : const EdgeInsets.fromLTRB(24, 20, 20, 12),
-              contentPadding: isMobileDialog
-                  ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
-                  : const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.receipt_long, color: AppTheme.primaryColor, size: 22),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Unified Inpatient Folio — ${admission['patient_name'] ?? 'Patient'}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: isMobileDialog ? 15 : 18,
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'UHID: ${admission['patient_display_id'] ?? '—'}  •  Bed: ${bedDetails['bed_number'] ?? '—'} (${bedDetails['ward_type'] ?? 'Ward'})  •  Doctor: ${admission['doctor_name'] ?? 'Attending Clinician'}',
-                              style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        onPressed: () => Navigator.pop(ctx),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // ─── CLEARANCE STAGES BAR ─────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          alignment: WrapAlignment.spaceBetween,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            const Text('Discharge Clearance Workflow:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF475569))),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: allClearancesPassed ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: allClearancesPassed ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A)),
-                              ),
-                              child: Text(
-                                allClearancesPassed ? 'All Clearances Verified ✓' : 'Clearances Pending Review ⚠️',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: allClearancesPassed ? const Color(0xFF065F46) : const Color(0xFF92400E),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        isMobileDialog
-                            ? Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(child: card1),
-                                      const SizedBox(width: 8),
-                                      Expanded(child: card2),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Expanded(child: card3),
-                                      const SizedBox(width: 8),
-                                      Expanded(child: card4),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: card5,
-                                  ),
-                                ],
-                              )
-                            : Row(
-                                children: [
-                                  Expanded(child: card1),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: card2),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: card3),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: card4),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: card5),
-                                ],
-                              ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: isMobileDialog ? double.maxFinite : 1040,
-                height: MediaQuery.of(sheetCtx).size.height * 0.82,
-                child: isMobileDialog
-                    ? SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ...leftFolioSections,
-                            const SizedBox(height: 16),
-                            const Divider(thickness: 1.5, color: Color(0xFFE2E8F0)),
-                            const SizedBox(height: 16),
-                            ...rightSummaryWidgets,
-                          ],
-                        ),
-                      )
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 6,
-                            child: SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: leftFolioSections,
-                              ),
-                            ),
-                          ),
-                          const VerticalDivider(width: 32),
-                          Expanded(
-                            flex: 4,
-                            child: SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: rightSummaryWidgets,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            );
-          },
+    try {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogCtx) => _IpdWorksheetDialogWidget(
+          admissionId: admissionId,
+          parentState: this,
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error displaying worksheet: $e'), backgroundColor: Colors.red),
         );
-      },
-    );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningWorksheet = false);
+      }
+    }
   }
 
   Widget _buildClearanceItemCard({
@@ -8651,5 +7726,1062 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
         ],
       ),
     );
+  }
+}
+
+
+class _IpdWorksheetDialogWidget extends StatefulWidget {
+  final int admissionId;
+  final _BillingManagementViewState parentState;
+
+  const _IpdWorksheetDialogWidget({
+    required this.admissionId,
+    required this.parentState,
+  });
+
+  @override
+  State<_IpdWorksheetDialogWidget> createState() => _IpdWorksheetDialogWidgetState();
+}
+
+class _IpdWorksheetDialogWidgetState extends State<_IpdWorksheetDialogWidget> {
+  bool _loading = true;
+  String? _errorMessage;
+
+  Map<String, dynamic> admission = {};
+  Map<String, dynamic> bedDetails = {};
+  Map<String, dynamic> clearances = {};
+  Map<String, dynamic> unifiedFolio = {};
+  Map<String, dynamic> clinicalData = {};
+  Map<String, dynamic>? activeInvoice;
+  List<Map<String, dynamic>> advancesPaid = [];
+
+  final TextEditingController ipSvcPriceCtrl = TextEditingController();
+  final TextEditingController depositAmtCtrl = TextEditingController();
+  final TextEditingController ipSvcQtyCtrl = TextEditingController(text: '1');
+  String? selectedSvcId;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSummary();
+  }
+
+  @override
+  void dispose() {
+    ipSvcPriceCtrl.dispose();
+    depositAmtCtrl.dispose();
+    ipSvcQtyCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchSummary() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final summary = await widget.parentState._billingCtrl.fetchIpdBillingSummary(widget.admissionId);
+      if (mounted) {
+        setState(() {
+          admission = Map<String, dynamic>.from(summary['admission'] ?? {});
+          bedDetails = Map<String, dynamic>.from(summary['bed_details'] ?? {});
+          clearances = Map<String, dynamic>.from(summary['clearances'] ?? {});
+          unifiedFolio = Map<String, dynamic>.from(summary['unified_folio'] ?? {});
+          clinicalData = Map<String, dynamic>.from(summary['clinical_discharge_data'] ?? {});
+          activeInvoice = summary['invoice'] != null ? Map<String, dynamic>.from(summary['invoice']) : null;
+          advancesPaid = List<Map<String, dynamic>>.from(summary['payments'] ?? []);
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceAll('Exception: ', '');
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading && admission.isEmpty) {
+      return AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: const SizedBox(
+          height: 120,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Assembling Unified Inpatient Folio...', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.primaryColor)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_errorMessage != null && admission.isEmpty) {
+      return AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Error Assembling Folio', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Text('Failed to load inpatient billing folio: $_errorMessage'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: _fetchSummary,
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+            child: const Text('Retry'),
+          ),
+        ],
+      );
+    }
+
+            // Calculation Logic from Unified Folio Totals
+            final folioTotals = (unifiedFolio['totals'] as Map<String, dynamic>?) ?? {};
+            final int bedDays = bedDetails['days'] as int? ?? (folioTotals['bed_days'] as int? ?? 1);
+            final double grossFolioTotal = double.tryParse((folioTotals['gross_total'] ?? 0).toString()) ?? 0.0;
+            final double folioDiscount = double.tryParse((folioTotals['discount'] ?? 0).toString()) ?? 0.0;
+            final double netFolioTotal = double.tryParse((folioTotals['net_total'] ?? 0).toString()) ?? (grossFolioTotal - folioDiscount);
+            final double totalAdvancesPaid = double.tryParse((folioTotals['advance_paid'] ?? 0).toString()) ?? 0.0;
+            final double remainingBalance = double.tryParse((folioTotals['balance_due'] ?? 0).toString()) ?? math.max(0.0, netFolioTotal - totalAdvancesPaid);
+
+            final roomCharges = (unifiedFolio['room_charges'] as Map<String, dynamic>?) ?? {};
+            final nursingServices = (unifiedFolio['nursing_services'] as Map<String, dynamic>?) ?? {};
+            final doctorRounds = (unifiedFolio['doctor_rounds'] as Map<String, dynamic>?) ?? {};
+            final pharmacyItems = (unifiedFolio['pharmacy_items'] as Map<String, dynamic>?) ?? {};
+            final labInvestigations = (unifiedFolio['lab_investigations'] as Map<String, dynamic>?) ?? {};
+            final otCharges = (unifiedFolio['ot_charges'] as Map<String, dynamic>?) ?? {};
+            final otherCharges = (unifiedFolio['other_charges'] as Map<String, dynamic>?) ?? {};
+
+            final roomItems = List<Map<String, dynamic>>.from(roomCharges['items'] ?? []);
+            final nursingItems = List<Map<String, dynamic>>.from(nursingServices['items'] ?? []);
+            final doctorItems = List<Map<String, dynamic>>.from(doctorRounds['items'] ?? []);
+            final pharmacyItemsList = List<Map<String, dynamic>>.from(pharmacyItems['items'] ?? []);
+            final labItemsList = List<Map<String, dynamic>>.from(labInvestigations['items'] ?? []);
+            final otItemsList = List<Map<String, dynamic>>.from(otCharges['items'] ?? []);
+            final otCasesList = List<Map<String, dynamic>>.from(otCharges['cases'] ?? []);
+            final otherItemsList = List<Map<String, dynamic>>.from(otherCharges['items'] ?? []);
+
+            final pharmacyClr = (clearances['pharmacy'] as Map<String, dynamic>?) ?? {};
+            final labClr = (clearances['lab'] as Map<String, dynamic>?) ?? {};
+            final nursingClr = (clearances['nursing'] as Map<String, dynamic>?) ?? {};
+            final otClr = (clearances['ot'] as Map<String, dynamic>?) ?? {};
+            final billingClr = (clearances['billing'] as Map<String, dynamic>?) ?? {};
+
+            final bool isPharmacyCleared = pharmacyClr['is_cleared'] == true;
+            final bool isLabCleared = labClr['is_cleared'] == true;
+            final bool isNursingCleared = nursingClr['is_cleared'] == true;
+            final bool isOtCleared = otClr['is_cleared'] == true;
+            final bool isBillingCleared = billingClr['is_cleared'] == true;
+            final bool allClearancesPassed = isPharmacyCleared && isLabCleared && isNursingCleared && isOtCleared && isBillingCleared;
+
+            void showPendingItemsDialog(String stageTitle, List<dynamic> pendingList, String notes) {
+              showDialog(
+                context: context,
+                builder: (pCtx) => AlertDialog(
+                  backgroundColor: Colors.white,
+                  surfaceTintColor: Colors.white,
+                  title: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: AppTheme.primaryColor),
+                      const SizedBox(width: 8),
+                      Text(stageTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                  content: SizedBox(
+                    width: 440,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(notes, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor)),
+                        const SizedBox(height: 14),
+                        if (pendingList.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(8)),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.check_circle, color: Color(0xFF059669), size: 18),
+                                SizedBox(width: 8),
+                                Text('All items in this clearance stage are verified!', style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold, fontSize: 13)),
+                              ],
+                            ),
+                          )
+                        else ...[
+                          const Text('Pending Action Items:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          const SizedBox(height: 8),
+                          Flexible(
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: pendingList.length,
+                              separatorBuilder: (_, _) => const Divider(height: 12),
+                              itemBuilder: (_, idx) {
+                                final item = pendingList[idx];
+                                return Row(
+                                  children: [
+                                    const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 16),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        item is Map ? '${item['name'] ?? item['test_name'] ?? 'Item'} (${item['status'] ?? 'Pending'})' : item.toString(),
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          )
+                        ]
+                      ],
+                    ),
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(pCtx), child: const Text('Close')),
+                  ],
+                ),
+              );
+            }
+
+            final bool isMobileDialog = MediaQuery.of(context).size.width < 900;
+
+            final card1 = widget.parentState._buildClearanceItemCard(
+              title: '1. Pharmacy',
+              statusText: isPharmacyCleared ? 'Cleared' : '${pharmacyClr['pending_count'] ?? 0} Pending',
+              isCleared: isPharmacyCleared,
+              onTap: () => showPendingItemsDialog('Pharmacy Clearance Details', pharmacyClr['pending_items'] ?? [], pharmacyClr['summary'] ?? ''),
+            );
+            final card2 = widget.parentState._buildClearanceItemCard(
+              title: '2. Lab Tests',
+              statusText: isLabCleared ? 'Cleared' : '${labClr['pending_count'] ?? 0} Pending',
+              isCleared: isLabCleared,
+              onTap: () => showPendingItemsDialog('Laboratory Clearance Details', labClr['pending_items'] ?? [], labClr['summary'] ?? ''),
+            );
+            final card3 = widget.parentState._buildClearanceItemCard(
+              title: '3. Nursing',
+              statusText: isNursingCleared ? 'Cleared' : 'Pending',
+              isCleared: isNursingCleared,
+              onTap: () => showPendingItemsDialog('Nursing Clearance Details', nursingClr['pending_items'] ?? [], nursingClr['summary'] ?? ''),
+            );
+            final card4 = widget.parentState._buildClearanceItemCard(
+              title: '4. OT & Surgery',
+              statusText: isOtCleared ? 'Cleared' : '${otClr['pending_count'] ?? 0} Pending',
+              isCleared: isOtCleared,
+              onTap: () => showPendingItemsDialog('OT & Surgical Clearance Details', otClr['pending_items'] ?? [], otClr['summary'] ?? ''),
+            );
+            final card5 = widget.parentState._buildClearanceItemCard(
+              title: '5. Final Billing',
+              statusText: isBillingCleared ? 'Settled' : '₹${remainingBalance.toStringAsFixed(0)} Due',
+              isCleared: isBillingCleared,
+              onTap: () => showPendingItemsDialog('Billing Clearance Details', isBillingCleared ? [] : ['Outstanding Balance: ₹${remainingBalance.toStringAsFixed(2)}'], billingClr['summary'] ?? ''),
+            );
+
+            final List<Widget> leftFolioSections = [
+
+                            // 1. Room Accommodation Charges Card
+                            widget.parentState._buildFolioSectionCard(
+                              title: 'Room / Accommodation Charges',
+                              icon: Icons.hotel,
+                              color: const Color(0xFF0284C7),
+                              subtotal: double.tryParse((roomCharges['subtotal'] ?? 0).toString()) ?? 0.0,
+                              children: [
+                                for (var item in roomItems)
+                                  widget.parentState._buildFolioItemRow(
+                                    isMobile: isMobileDialog,
+                                    name: item['item_name'] ?? 'Bed Charge',
+                                    details: item['details'] ?? '',
+                                    qty: item['quantity'] ?? bedDays,
+                                    price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
+                                    subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 2. Nursing Services Card
+                            widget.parentState._buildFolioSectionCard(
+                              title: 'Inpatient Nursing Care Services',
+                              icon: Icons.health_and_safety,
+                              color: const Color(0xFF059669),
+                              subtotal: double.tryParse((nursingServices['subtotal'] ?? 0).toString()) ?? 0.0,
+                              children: [
+                                for (var item in nursingItems)
+                                  widget.parentState._buildFolioItemRow(
+                                    isMobile: isMobileDialog,
+                                    name: item['item_name'] ?? 'Nursing Care',
+                                    details: item['details'] ?? '',
+                                    qty: item['quantity'] ?? bedDays,
+                                    price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
+                                    subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 3. Physician Clinical Rounds Card
+                            widget.parentState._buildFolioSectionCard(
+                              title: 'Physician Rounds & Consultations',
+                              icon: Icons.person_search_outlined,
+                              color: const Color(0xFF6366F1),
+                              subtotal: double.tryParse((doctorRounds['subtotal'] ?? 0).toString()) ?? 0.0,
+                              children: [
+                                for (var item in doctorItems)
+                                  widget.parentState._buildFolioItemRow(
+                                    isMobile: isMobileDialog,
+                                    name: item['item_name'] ?? 'Doctor Round',
+                                    details: item['details'] ?? '',
+                                    qty: item['quantity'] ?? 1,
+                                    price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
+                                    subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 4. Pharmacy & Inpatient Medications Card
+                            widget.parentState._buildFolioSectionCard(
+                              title: 'Prescriptions & Pharmacy Items (${pharmacyItemsList.length})',
+                              icon: Icons.medication_outlined,
+                              color: const Color(0xFF8B5CF6),
+                              subtotal: double.tryParse((pharmacyItems['subtotal'] ?? 0).toString()) ?? 0.0,
+                              children: [
+                                if (pharmacyItemsList.isEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                                    child: Text('No pharmacy items recorded during this stay.', style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic)),
+                                  )
+                                else
+                                  for (var item in pharmacyItemsList)
+                                    widget.parentState._buildFolioItemRow(
+                                      isMobile: isMobileDialog,
+                                      name: item['item_name'] ?? 'Medicine',
+                                      details: item['details'] ?? '',
+                                      qty: item['quantity'] ?? 1,
+                                      price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
+                                      subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
+                                      badge: item['pharmacy_status'] ?? 'Dispensed',
+                                      badgeColor: (item['pharmacy_status'] == 'Dispensed' || item['pharmacy_status'] == 'Completed') ? const Color(0xFF059669) : Colors.orange,
+                                    ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 5. Diagnostic Laboratory Investigations Card
+                            widget.parentState._buildFolioSectionCard(
+                              title: 'Diagnostic & Lab Investigations (${labItemsList.length})',
+                              icon: Icons.biotech_outlined,
+                              color: const Color(0xFFD97706),
+                              subtotal: double.tryParse((labInvestigations['subtotal'] ?? 0).toString()) ?? 0.0,
+                              children: [
+                                if (labItemsList.isEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8.0),
+                                    child: Text('No lab investigations recorded during this stay.', style: TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic)),
+                                  )
+                                else
+                                  for (var item in labItemsList)
+                                    widget.parentState._buildFolioItemRow(
+                                      isMobile: isMobileDialog,
+                                      name: item['item_name'] ?? 'Investigation',
+                                      details: item['details'] ?? '',
+                                      qty: item['quantity'] ?? 1,
+                                      price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
+                                      subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
+                                      badge: item['status'] ?? 'Report Ready',
+                                      badgeColor: ['Completed', 'Report Ready', 'Approved'].contains(item['status']) ? const Color(0xFF059669) : Colors.orange,
+                                    ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            // 5. Operation Theatre & Surgical Charges Card
+                            if (otItemsList.isNotEmpty || otCasesList.isNotEmpty) ...[
+                              widget.parentState._buildFolioSectionCard(
+                                title: 'Operation Theatre & Surgical Charges',
+                                icon: Icons.medical_services_outlined,
+                                color: const Color(0xFF0284C7),
+                                subtotal: double.tryParse((otCharges['subtotal'] ?? 0).toString()) ?? 0.0,
+                                children: [
+                                  for (var c in otCasesList)
+                                    Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF0F9FF),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: const Color(0xFFBAE6FD)),
+                                      ),
+                                      child: isMobileDialog
+                                          ? Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    const Icon(Icons.emergency_outlined, size: 16, color: Color(0xFF0284C7)),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: Text(
+                                                        '${c['case_number'] ?? 'OT Case'}: ${c['surgery_type'] ?? 'Surgery'}',
+                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0369A1)),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: c['is_billed'] == true ? Colors.grey.shade200 : const Color(0xFFDCFCE7),
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                      child: Text(
+                                                        c['is_billed'] == true ? 'Already Billed' : 'Ready for Folio',
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: c['is_billed'] == true ? Colors.grey.shade700 : const Color(0xFF15803D),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  'Theatre: ${c['theatre_name'] ?? '-'} • Lead Surgeon: Dr. ${c['lead_surgeon'] ?? '-'}${c['anaesthetist'] != null ? ' • Anaesthetist: Dr. ' + c['anaesthetist'] : ''}',
+                                                  style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                                                ),
+                                                if (c['is_billed'] != true) ...[
+                                                  const SizedBox(height: 6),
+                                                  Align(
+                                                    alignment: Alignment.centerRight,
+                                                    child: OutlinedButton.icon(
+                                                      icon: const Icon(Icons.edit_note, size: 14),
+                                                      label: const Text('Edit Fees', style: TextStyle(fontSize: 11)),
+                                                      style: OutlinedButton.styleFrom(
+                                                        foregroundColor: const Color(0xFF0284C7),
+                                                        side: const BorderSide(color: Color(0xFF0284C7)),
+                                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                        minimumSize: Size.zero,
+                                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                      ),
+                                                      onPressed: () {
+                                                        widget.parentState._showEditOtCaseFeesDialog(c, onUpdated: () {
+                                                          _fetchSummary();
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            )
+                                          : Row(
+                                              children: [
+                                                const Icon(Icons.emergency_outlined, size: 16, color: Color(0xFF0284C7)),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        '${c['case_number'] ?? 'OT Case'}: ${c['surgery_type'] ?? 'Surgery'}',
+                                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF0369A1)),
+                                                      ),
+                                                      Text(
+                                                        'Theatre: ${c['theatre_name'] ?? '-'} • Lead Surgeon: Dr. ${c['lead_surgeon'] ?? '-'}${c['anaesthetist'] != null ? ' • Anaesthetist: Dr. ' + c['anaesthetist'] : ''}',
+                                                        style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: c['is_billed'] == true ? Colors.grey.shade200 : const Color(0xFFDCFCE7),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    c['is_billed'] == true ? 'Already Billed' : 'Ready for Folio',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: c['is_billed'] == true ? Colors.grey.shade700 : const Color(0xFF15803D),
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (c['is_billed'] != true) ...[
+                                                  const SizedBox(width: 8),
+                                                  OutlinedButton.icon(
+                                                    icon: const Icon(Icons.edit_note, size: 14),
+                                                    label: const Text('Edit Fees', style: TextStyle(fontSize: 11)),
+                                                    style: OutlinedButton.styleFrom(
+                                                      foregroundColor: const Color(0xFF0284C7),
+                                                      side: const BorderSide(color: Color(0xFF0284C7)),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                      minimumSize: Size.zero,
+                                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                                    ),
+                                                    onPressed: () {
+                                                      widget.parentState._showEditOtCaseFeesDialog(c, onUpdated: () {
+                                                        _fetchSummary();
+                                                      });
+                                                    },
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                    ),
+                                  if (otItemsList.isEmpty)
+                                    const Padding(
+                                      padding: EdgeInsets.symmetric(vertical: 4.0),
+                                      child: Text('No itemized OT charges recorded for this case.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                    )
+                                  else
+                                    for (var item in otItemsList)
+                                      widget.parentState._buildFolioItemRow(
+                                        isMobile: isMobileDialog,
+                                        name: item['item_name'] ?? 'OT Charge',
+                                        details: item['details'] ?? '',
+                                        qty: item['quantity'] ?? 1,
+                                        price: double.tryParse((item['unit_price'] ?? 0).toString()) ?? 0.0,
+                                        subtotal: double.tryParse((item['subtotal'] ?? 0).toString()) ?? 0.0,
+                                        badge: item['category'] ?? 'OT',
+                                        badgeColor: item['category'] == 'Surgical Implants'
+                                            ? Colors.purple
+                                            : (item['category'] == 'Surgical Consumables' ? Colors.teal : const Color(0xFF0284C7)),
+                                      ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                            ],
+
+                            // 6. Procedures, Consumables & Custom Items Card
+                            widget.parentState._buildFolioSectionCard(
+                              title: 'Procedures, Consumables & Additional Services',
+                              icon: Icons.healing_outlined,
+                              color: const Color(0xFF475569),
+                              subtotal: double.tryParse((otherCharges['subtotal'] ?? 0).toString()) ?? 0.0,
+                              children: [
+                                // Inline adder form
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(color: const Color(0xFFF1F7FB), borderRadius: BorderRadius.circular(10)),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 3,
+                                        child: CustomDropdownSearch(
+                                          label: '',
+                                          hint: 'Add Service or Consumable',
+                                          value: selectedSvcId,
+                                          dropdownMap: {
+                                            for (var s in widget.parentState._catalogServices.where((x) => x['category'] != 'OP'))
+                                              s['id'].toString(): '${s['name']} (₹${s['price']})'
+                                          },
+                                          onChanged: (val) {
+                                            if (val != null) {
+                                              final sObj = widget.parentState._catalogServices.firstWhere((x) => x['id'].toString() == val);
+                                              setState(() {
+                                                selectedSvcId = val;
+                                                ipSvcPriceCtrl.text = sObj['price'].toString();
+                                              });
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        width: 80,
+                                        height: 48,
+                                        child: TextFormField(
+                                          controller: ipSvcPriceCtrl,
+                                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                          decoration: const InputDecoration(hintText: 'Price', contentPadding: EdgeInsets.symmetric(horizontal: 8)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      SizedBox(
+                                        width: 60,
+                                        height: 48,
+                                        child: TextFormField(
+                                          controller: ipSvcQtyCtrl,
+                                          keyboardType: TextInputType.number,
+                                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                          decoration: const InputDecoration(hintText: 'Qty', contentPadding: EdgeInsets.symmetric(horizontal: 8)),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      IconButton(
+                                        icon: const Icon(Icons.add_circle, color: AppTheme.secondaryColor, size: 28),
+                                        onPressed: () async {
+                                          if (selectedSvcId == null) return;
+                                          final double pr = double.tryParse(ipSvcPriceCtrl.text) ?? 0.0;
+                                          final int qt = int.tryParse(ipSvcQtyCtrl.text) ?? 1;
+                                          final sObj = widget.parentState._catalogServices.firstWhere((x) => x['id'].toString() == selectedSvcId);
+
+                                          try {
+                                            int invoiceId;
+                                            if (activeInvoice == null) {
+                                              final newInv = await widget.parentState._billingCtrl.createInvoice(
+                                                patientId: admission['patient_id'],
+                                                admissionType: 'IP',
+                                                admissionId: widget.admissionId,
+                                                items: [
+                                                  {
+                                                    'service_id': sObj['id'],
+                                                    'item_name': sObj['name'],
+                                                    'quantity': qt,
+                                                    'unit_price': pr
+                                                  }
+                                                ],
+                                                discount: 0
+                                              );
+                                              invoiceId = newInv['id'];
+                                            } else {
+                                              invoiceId = activeInvoice!['id'];
+                                              await widget.parentState._billingCtrl.addInvoiceItem(
+                                                invoiceId: invoiceId,
+                                                itemName: sObj['name'],
+                                                unitPrice: pr,
+                                                quantity: qt,
+                                                serviceId: sObj['id'],
+                                              );
+                                            }
+
+                                            setState(() {
+                                              selectedSvcId = null;
+                                              ipSvcPriceCtrl.clear();
+                                              ipSvcQtyCtrl.text = '1';
+                                            });
+
+                                            await _fetchSummary();
+                                          } catch (e) {
+                                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error adding item: $e'), backgroundColor: Colors.red));
+                                          }
+                                        },
+                                      )
+                                    ],
+                                  ),
+                                ),
+
+                                if (otherItemsList.isEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 4.0),
+                                    child: Text('No additional consumables or procedures added.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                  )
+                                else
+                                  for (var item in otherItemsList)
+                                    ListTile(
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      title: Text(item['item_name'] ?? 'Item', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                      subtitle: Text('${item['quantity']} x ₹${double.parse((item['unit_price'] ?? 0).toString()).toStringAsFixed(2)}'),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text('₹${double.parse((item['subtotal'] ?? 0).toString()).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                          if (item['id'] != null)
+                                            IconButton(
+                                              icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                              onPressed: () async {
+                                                try {
+                                                  await widget.parentState._billingCtrl.deleteInvoiceItem(item['id']);
+                                                  await _fetchSummary();
+                                                } catch (e) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                                                }
+                                              },
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                              ],
+                            ),
+
+            ];
+
+            final List<Widget> rightSummaryWidgets = [
+
+                            // Consolidated Folio Summary Breakdown Card
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Consolidated Folio Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor)),
+                                  const SizedBox(height: 12),
+                                  widget.parentState._buildSummaryRow('Room Accommodation (${bedDays}d)', double.tryParse((roomCharges['subtotal'] ?? 0).toString()) ?? 0.0),
+                                  const SizedBox(height: 6),
+                                  widget.parentState._buildSummaryRow('Inpatient Nursing Care', double.tryParse((nursingServices['subtotal'] ?? 0).toString()) ?? 0.0),
+                                  const SizedBox(height: 6),
+                                  widget.parentState._buildSummaryRow('Physician Rounds', double.tryParse((doctorRounds['subtotal'] ?? 0).toString()) ?? 0.0),
+                                  const SizedBox(height: 6),
+                                  widget.parentState._buildSummaryRow('Pharmacy & Prescriptions', double.tryParse((pharmacyItems['subtotal'] ?? 0).toString()) ?? 0.0),
+                                  const SizedBox(height: 6),
+                                  widget.parentState._buildSummaryRow('Diagnostic Labs', double.tryParse((labInvestigations['subtotal'] ?? 0).toString()) ?? 0.0),
+                                  const SizedBox(height: 6),
+                                  widget.parentState._buildSummaryRow('Consumables & Procedures', double.tryParse((otherCharges['subtotal'] ?? 0).toString()) ?? 0.0),
+                                  const Divider(height: 18),
+                                  widget.parentState._buildSummaryRow('Gross Folio Total', grossFolioTotal, isBold: true),
+                                  const SizedBox(height: 6),
+                                  widget.parentState._buildSummaryRow('Discounts', folioDiscount, color: Colors.redAccent),
+                                  const Divider(height: 18),
+                                  widget.parentState._buildSummaryRow('Net Folio Bill', netFolioTotal, isBold: true, color: AppTheme.primaryColor),
+                                  const SizedBox(height: 6),
+                                  widget.parentState._buildSummaryRow('Advances & Deposits Paid', totalAdvancesPaid, color: const Color(0xFF059669)),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Advance Deposits Section
+                            const Text('Advances & Deposits Paid', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 42,
+                                    child: TextFormField(
+                                      controller: depositAmtCtrl,
+                                      keyboardType: TextInputType.number,
+                                      decoration: const InputDecoration(hintText: 'Enter Deposit (₹)', contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    final double amt = double.tryParse(depositAmtCtrl.text) ?? 0;
+                                    if (amt <= 0) return;
+                                    try {
+                                      int invoiceId;
+                                      if (activeInvoice == null) {
+                                        final newInv = await widget.parentState._billingCtrl.createInvoice(
+                                          patientId: admission['patient_id'],
+                                          admissionType: 'IP',
+                                          admissionId: widget.admissionId,
+                                          items: [],
+                                          discount: 0
+                                        );
+                                        invoiceId = newInv['id'];
+                                      } else {
+                                        invoiceId = activeInvoice!['id'];
+                                      }
+
+                                      await widget.parentState._billingCtrl.recordPayment(
+                                        invoiceId: invoiceId,
+                                        amount: amt,
+                                        paymentMode: 'Cash'
+                                      );
+
+                                      depositAmtCtrl.clear();
+                                      await _fetchSummary();
+                                    } catch (e) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
+                                    }
+                                  },
+                                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white, elevation: 0, padding: const EdgeInsets.symmetric(horizontal: 14)),
+                                  child: const Text('Add Deposit'),
+                                )
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            if (advancesPaid.isEmpty)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 6.0),
+                                child: Center(child: Text('No advance deposits recorded.', style: TextStyle(color: Colors.grey.shade400, fontSize: 12))),
+                              )
+                            else
+                              Container(
+                                constraints: const BoxConstraints(maxHeight: 100),
+                                child: ListView.builder(
+                                  shrinkWrap: true,
+                                  itemCount: advancesPaid.length,
+                                  itemBuilder: (payCtx, index) {
+                                    final pay = advancesPaid[index];
+                                    final date = DateFormat('dd-MM-yyyy hh:mm a').format(DateTime.parse(pay['payment_date']).toLocal());
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 3.0),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text('₹${double.parse(pay['amount'].toString()).toStringAsFixed(2)} (${pay['payment_mode']})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                          Text(date, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            const Divider(),
+                            const SizedBox(height: 6),
+
+                            // Remaining Balance Due Pill
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: remainingBalance > 0 ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: remainingBalance > 0 ? const Color(0xFFFECACA) : const Color(0xFFA7F3D0)),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Expanded(
+                                    child: Text('Remaining Balance Due:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF1E293B))),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '₹${remainingBalance.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                      color: remainingBalance > 0 ? const Color(0xFFDC2626) : const Color(0xFF059669),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+
+                            // Settle & Structured Discharge Action Button
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.assignment_turned_in_outlined, size: 18),
+                                label: const Text('Proceed to Structured Discharge & Settle', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                                onPressed: () {
+                                  Navigator.of(context).pop();
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (mounted) {
+                                      widget.parentState._openFinalDischargePanel(
+                                        admissionId: widget.admissionId,
+                                        balance: remainingBalance,
+                                        clearances: clearances,
+                                        unifiedFolio: unifiedFolio,
+                                        clinicalData: clinicalData,
+                                        otherItems: otherItemsList,
+                                        oldDiscount: folioDiscount,
+                                      );
+                                    }
+                                  });
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+            ];
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              insetPadding: isMobileDialog
+                  ? const EdgeInsets.symmetric(horizontal: 10, vertical: 14)
+                  : const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+              titlePadding: isMobileDialog
+                  ? const EdgeInsets.fromLTRB(16, 16, 16, 10)
+                  : const EdgeInsets.fromLTRB(24, 20, 20, 12),
+              contentPadding: isMobileDialog
+                  ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+                  : const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.receipt_long, color: AppTheme.primaryColor, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Unified Inpatient Folio — ${admission['patient_name'] ?? 'Patient'}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: isMobileDialog ? 15 : 18,
+                                color: AppTheme.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'UHID: ${admission['patient_display_id'] ?? '—'}  •  Bed: ${bedDetails['bed_number'] ?? '—'} (${bedDetails['ward_type'] ?? 'Ward'})  •  Doctor: ${admission['doctor_name'] ?? 'Attending Clinician'}',
+                              style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // ─── CLEARANCE STAGES BAR ─────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            const Text('Discharge Clearance Workflow:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF475569))),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: allClearancesPassed ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: allClearancesPassed ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A)),
+                              ),
+                              child: Text(
+                                allClearancesPassed ? 'All Clearances Verified ✓' : 'Clearances Pending Review ⚠️',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: allClearancesPassed ? const Color(0xFF065F46) : const Color(0xFF92400E),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        isMobileDialog
+                            ? Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(child: card1),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: card2),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(child: card3),
+                                      const SizedBox(width: 8),
+                                      Expanded(child: card4),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: card5,
+                                  ),
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(child: card1),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: card2),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: card3),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: card4),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: card5),
+                                ],
+                              ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: isMobileDialog ? double.maxFinite : 1040,
+                height: MediaQuery.of(context).size.height * 0.82,
+                child: isMobileDialog
+                    ? SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ...leftFolioSections,
+                            const SizedBox(height: 16),
+                            const Divider(thickness: 1.5, color: Color(0xFFE2E8F0)),
+                            const SizedBox(height: 16),
+                            ...rightSummaryWidgets,
+                          ],
+                        ),
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: leftFolioSections,
+                              ),
+                            ),
+                          ),
+                          const VerticalDivider(width: 32),
+                          Expanded(
+                            flex: 4,
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: rightSummaryWidgets,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            );
   }
 }
