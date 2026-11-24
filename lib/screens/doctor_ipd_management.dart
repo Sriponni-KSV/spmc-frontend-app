@@ -2919,9 +2919,14 @@ class _DoctorIPDManagementScreenState extends State<DoctorIPDManagementScreen>
                         ),
                         const SizedBox(height: 10),
                         CustomDropdownSearch(
-                          label: '',
-                          hint: 'Select Available Bed',
+                          label: 'Available Beds',
+                          hint: (selectedWardType != null && availableBeds.isEmpty)
+                              ? 'No beds available in the selected ward.'
+                              : 'Select Available Bed',
                           value: selectedBedNumber,
+                          emptyMessage: (selectedWardType != null && availableBeds.isEmpty)
+                              ? 'No beds available in the selected ward.'
+                              : (selectedWardType == null ? 'Please select a ward first' : 'No beds available in the selected ward.'),
                           dropdownItems: availableBeds,
                           validator: (val) {
                             if (val == null || val.isEmpty) {

@@ -175,10 +175,11 @@ class _FrontDeskAdmissionCounterViewState
 
   Widget _buildStatsRow(bool isMobile) {
     final emergencyCount = _pendingRequests.where((r) {
-      final prio = (r['triage_priority'] ?? '').toString().toLowerCase();
+      final isEmg = r['is_emergency'] == true || r['is_emergency'] == 'true' || r['is_emergency'] == 1;
+      final prio = (r['priority'] ?? r['triage_priority'] ?? '').toString().toLowerCase();
       final reason = (r['reason_for_admission'] ?? '').toString().toUpperCase();
       final bed = (r['bed_type_requirement'] ?? '').toString().toUpperCase();
-      return prio == 'emergency' || reason.contains('[EMERGENCY') || bed == 'ICU';
+      return isEmg || prio == 'emergency' || reason.contains('[EMERGENCY') || bed == 'ICU';
     }).length;
 
     if (isMobile) {
@@ -464,7 +465,11 @@ class _FrontDeskAdmissionCounterViewState
       }
     } catch (_) {}
 
-    final bool isEmergency = (req['triage_priority'] ?? '').toString().toLowerCase() == 'emergency' ||
+    final bool isEmergency = req['is_emergency'] == true ||
+        req['is_emergency'] == 'true' ||
+        req['is_emergency'] == 1 ||
+        (req['priority'] ?? '').toString().toLowerCase() == 'emergency' ||
+        (req['triage_priority'] ?? '').toString().toLowerCase() == 'emergency' ||
         (req['reason_for_admission'] ?? '').toString().toUpperCase().contains('[EMERGENCY') ||
         (req['bed_type_requirement'] ?? '').toString().toUpperCase() == 'ICU';
 
@@ -800,7 +805,11 @@ class _FrontDeskAdmissionCounterViewState
     bool documentsVerified = false;
     String? dialogError;
 
-    final bool isEmergency = (req['triage_priority'] ?? '').toString().toLowerCase() == 'emergency' ||
+    final bool isEmergency = req['is_emergency'] == true ||
+        req['is_emergency'] == 'true' ||
+        req['is_emergency'] == 1 ||
+        (req['priority'] ?? '').toString().toLowerCase() == 'emergency' ||
+        (req['triage_priority'] ?? '').toString().toLowerCase() == 'emergency' ||
         (req['reason_for_admission'] ?? '').toString().toUpperCase().contains('[EMERGENCY') ||
         (req['bed_type_requirement'] ?? '').toString().toUpperCase() == 'ICU';
 
@@ -981,7 +990,7 @@ class _FrontDeskAdmissionCounterViewState
                                value: selectedBedNumber,
                                emptyMessage: (selectedWardType != null && availableBeds.isEmpty)
                                    ? 'No beds available in the selected ward.'
-                                   : null,
+                                   : (selectedWardType == null ? 'Please select a ward first' : 'No beds available in the selected ward.'),
                                dropdownMap: {
                                  for (var bed in availableBeds)
                                    bed: 'Bed $bed',

@@ -5664,37 +5664,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 750) {
-          // 2x2 grid on mobile & small screens
-          final cardWidth = math.max(0.0, (constraints.maxWidth - 12) / 2);
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: statItems
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
-          );
-        } else if (constraints.maxWidth < 1100) {
-          // 2x2 grid on tablets and small screens
-          final cardWidth = math.max(0.0, (constraints.maxWidth - 16) / 2);
-          return Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: statItems
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
-          );
-        } else {
-          // 4 in a row on wide desktop
-          final cardWidth = math.max(0.0, (constraints.maxWidth - (16 * 3)) / 4);
-          return Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: statItems
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
+        if (constraints.maxWidth < 650) {
+          // Compact horizontally scrollable single row on mobile
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: statItems.asMap().entries.map((entry) {
+                final isLast = entry.key == statItems.length - 1;
+                return Padding(
+                  padding: EdgeInsets.only(right: isLast ? 0 : 10),
+                  child: SizedBox(
+                    width: 165,
+                    child: entry.value,
+                  ),
+                );
+              }).toList(),
+            ),
           );
         }
+
+        // Small cards in one row on desktop and tablet
+        return Row(
+          children: [
+            Expanded(child: statItems[0]),
+            const SizedBox(width: 12),
+            Expanded(child: statItems[1]),
+            const SizedBox(width: 12),
+            Expanded(child: statItems[2]),
+            const SizedBox(width: 12),
+            Expanded(child: statItems[3]),
+          ],
+        );
       },
     );
   }
@@ -6559,34 +6560,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 750) {
-          final cardWidth = math.max(0.0, (constraints.maxWidth - 12) / 2);
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: statCards
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
-          );
-        } else if (constraints.maxWidth < 1100) {
-          final cardWidth = math.max(0.0, (constraints.maxWidth - 16) / 2);
-          return Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: statCards
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
-          );
-        } else {
-          final cardWidth = math.max(0.0, (constraints.maxWidth - (16 * 3)) / 4);
-          return Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: statCards
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
+        if (constraints.maxWidth < 650) {
+          // Compact horizontally scrollable single row on mobile
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: statCards.asMap().entries.map((entry) {
+                final isLast = entry.key == statCards.length - 1;
+                return Padding(
+                  padding: EdgeInsets.only(right: isLast ? 0 : 10),
+                  child: SizedBox(
+                    width: 165,
+                    child: entry.value,
+                  ),
+                );
+              }).toList(),
+            ),
           );
         }
+
+        // Small cards in one row on desktop and tablet
+        return Row(
+          children: [
+            Expanded(child: statCards[0]),
+            const SizedBox(width: 12),
+            Expanded(child: statCards[1]),
+            const SizedBox(width: 12),
+            Expanded(child: statCards[2]),
+            const SizedBox(width: 12),
+            Expanded(child: statCards[3]),
+          ],
+        );
       },
     );
   }

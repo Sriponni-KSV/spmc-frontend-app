@@ -5823,67 +5823,933 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     String nurseName,
     int rosterId, {
     bool isReadOnly = false,
+    String? ward,
+    Map<String, dynamic>? shift,
   }) {
     final avatarColors = AppTheme.getAvatarColors(nurseName);
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: isReadOnly
-            ? const Color(0xFFF1F5F9)
-            : AppTheme.primaryColor.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isReadOnly
-              ? Colors.grey.shade300
-              : AppTheme.primaryColor.withOpacity(0.2),
+    return Tooltip(
+      message: isReadOnly
+          ? nurseName
+          : 'Click to manage daily shifts or substitute single-day leave',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: (!isReadOnly && ward != null && shift != null)
+              ? () => _showSlotDaysManagementDialog(ward, shift, rosterId)
+              : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: isReadOnly
+                  ? const Color(0xFFF1F5F9)
+                  : AppTheme.primaryColor.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isReadOnly
+                    ? Colors.grey.shade300
+                    : AppTheme.primaryColor.withOpacity(0.2),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 11,
+                  backgroundColor:
+                      isReadOnly ? Colors.grey.shade400 : avatarColors['bg'],
+                  child: Text(
+                    nurseName.isNotEmpty
+                        ? nurseName.substring(0, 1).toUpperCase()
+                        : 'N',
+                    style: TextStyle(
+                      color: isReadOnly ? Colors.white : avatarColors['text'],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 9,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    nurseName,
+                    style: TextStyle(
+                      color: isReadOnly
+                          ? AppTheme.textPrimaryColor
+                          : AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (!isReadOnly) ...[
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () {
+                      if (ward != null && shift != null) {
+                        _showSlotActionOptionsDialog(
+                            ward, shift, rosterId, nurseName);
+                      } else {
+                        _deleteRosterEntry(rosterId);
+                      }
+                    },
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: Icon(
+                        Icons.cancel,
+                        size: 14,
+                        color: Colors.redAccent.shade400,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircleAvatar(
-            radius: 11,
-            backgroundColor: isReadOnly ? Colors.grey.shade400 : avatarColors['bg'],
-            child: Text(
-              nurseName.isNotEmpty
-                  ? nurseName.substring(0, 1).toUpperCase()
-                  : 'N',
-              style: TextStyle(
-                color: isReadOnly ? Colors.white : avatarColors['text'],
-                fontWeight: FontWeight.bold,
-                fontSize: 9,
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              nurseName,
-              style: TextStyle(
-                color: isReadOnly
-                    ? AppTheme.textPrimaryColor
-                    : AppTheme.primaryColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (!isReadOnly) ...[
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: () => _deleteRosterEntry(rosterId),
-              child: Icon(
-                Icons.cancel,
-                size: 14,
-                color: Colors.redAccent.shade400,
+    );
+  }
+
+  void _showSlotActionOptionsDialog(
+    String ward,
+    Map<String, dynamic> shift,
+    int rosterId,
+    String nurseName,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.edit_calendar_rounded,
+                color: AppTheme.primaryColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Manage $ward Ward (${shift['name'] ?? 'Shift'})',
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
           ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$nurseName is assigned to this slot for the week.',
+              style: const TextStyle(
+                  fontSize: 13, color: AppTheme.textPrimaryColor),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Choose an option:',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textSecondaryColor),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.3)),
+              ),
+              tileColor: AppTheme.primaryColor.withOpacity(0.04),
+              leading: const Icon(Icons.event_repeat_rounded,
+                  color: AppTheme.primaryColor),
+              title: const Text('Manage Single Day (Leave / Substitution)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              subtitle: const Text(
+                  'Substitute nurse or mark leave for a specific day only without resetting the full week',
+                  style: TextStyle(fontSize: 11)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showSlotDaysManagementDialog(ward, shift, rosterId);
+              },
+            ),
+            const SizedBox(height: 8),
+            ListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: Colors.red.shade200),
+              ),
+              tileColor: Colors.red.shade50.withOpacity(0.4),
+              leading: const Icon(Icons.delete_sweep_rounded,
+                  color: Colors.redAccent),
+              title: const Text('Clear Entire Week',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.redAccent)),
+              subtitle: const Text(
+                  'Removes nurse assignment across all 7 days of this week',
+                  style: TextStyle(fontSize: 11)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _deleteRosterEntry(rosterId);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
         ],
       ),
     );
+  }
+
+  void _showSlotDaysManagementDialog(
+    String ward,
+    Map<String, dynamic> shift,
+    int rosterId,
+  ) {
+    final shiftId = shift['id'];
+    final shiftName = shift['name'] ?? 'Shift';
+    final weekStartStr = DateFormat('dd MMM').format(_selectedRosterWeekStart);
+    final weekEndStr = DateFormat('dd MMM yyyy')
+        .format(_selectedRosterWeekStart.add(const Duration(days: 6)));
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (stfCtx, setStfState) {
+            final days = List.generate(
+                7, (i) => _selectedRosterWeekStart.add(Duration(days: i)));
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.calendar_view_week_rounded,
+                        color: AppTheme.primaryColor, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '$ward Ward - $shiftName',
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'Weekly Roster: $weekStartStr - $weekEndStr',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryColor,
+                              fontWeight: FontWeight.normal),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 520,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline,
+                                size: 16, color: AppTheme.primaryColor),
+                            const SizedBox(width: 8),
+                            const Expanded(
+                              child: Text(
+                                'Manage daily assignments below. Substituting or unassigning a nurse on a single day (e.g. for leave) preserves the rest of the week.',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textPrimaryColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ...days.map((dayDate) {
+                        final dateStr =
+                            DateFormat('yyyy-MM-dd').format(dayDate);
+                        final dayName = DateFormat('EEEE').format(dayDate);
+                        final displayDate =
+                            DateFormat('dd MMM').format(dayDate);
+
+                        final dayAlloc = _rosters.firstWhere(
+                          (r) =>
+                              r['ward_type'] == ward &&
+                              r['shift_id'] == shiftId &&
+                              (r['allocation_date']
+                                      ?.toString()
+                                      .startsWith(dateStr) ??
+                                  false),
+                          orElse: () => {},
+                        );
+
+                        final bool hasAlloc = dayAlloc.isNotEmpty;
+                        final String nurseName = hasAlloc
+                            ? (dayAlloc['nurse_name'] ?? 'Assigned')
+                            : '';
+                        final avatarColors =
+                            hasAlloc ? AppTheme.getAvatarColors(nurseName) : null;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: hasAlloc ? Colors.white : Colors.grey.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: hasAlloc
+                                  ? Colors.grey.shade200
+                                  : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 110,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      dayName,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13),
+                                    ),
+                                    Text(
+                                      displayDate,
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: hasAlloc
+                                    ? Row(
+                                        children: [
+                                          CircleAvatar(
+                                            radius: 12,
+                                            backgroundColor:
+                                                avatarColors?['bg'] ??
+                                                    AppTheme.primaryColor
+                                                        .withOpacity(0.1),
+                                            child: Text(
+                                              nurseName.isNotEmpty
+                                                  ? nurseName
+                                                      .substring(0, 1)
+                                                      .toUpperCase()
+                                                  : 'N',
+                                              style: TextStyle(
+                                                color: avatarColors?['text'] ??
+                                                    AppTheme.primaryColor,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              nurseName,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 13),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: Colors.amber.shade50,
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              border: Border.all(
+                                                  color: Colors.amber.shade200),
+                                            ),
+                                            child: Text(
+                                              'On Leave / Unassigned',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.amber.shade900,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                              if (!_isPastRosterWeek) ...[
+                                if (hasAlloc) ...[
+                                  IconButton(
+                                    icon: const Icon(Icons.swap_horiz_rounded,
+                                        size: 18, color: AppTheme.primaryColor),
+                                    tooltip:
+                                        'Substitute Nurse (Single-Day Leave)',
+                                    onPressed: () async {
+                                      final updated =
+                                          await _showSingleDaySubstitutionDialog(
+                                        ward,
+                                        shift,
+                                        dayDate,
+                                        currentAlloc: dayAlloc,
+                                      );
+                                      if (updated == true && dialogCtx.mounted) {
+                                        setStfState(() {});
+                                      }
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(
+                                        Icons.person_off_outlined,
+                                        size: 18,
+                                        color: Colors.redAccent),
+                                    tooltip:
+                                        'Mark Leave (Unassign Day Only)',
+                                    onPressed: () async {
+                                      final removed =
+                                          await _unassignSingleDayAllocation(
+                                        dayAlloc['id'],
+                                        '$dayName ($displayDate)',
+                                        nurseName,
+                                      );
+                                      if (removed == true && dialogCtx.mounted) {
+                                        setStfState(() {});
+                                      }
+                                    },
+                                  ),
+                                ] else ...[
+                                  TextButton.icon(
+                                    icon: const Icon(
+                                        Icons.person_add_alt_1_rounded,
+                                        size: 15),
+                                    label: const Text('Assign',
+                                        style: TextStyle(fontSize: 12)),
+                                    onPressed: () async {
+                                      final updated =
+                                          await _showSingleDaySubstitutionDialog(
+                                        ward,
+                                        shift,
+                                        dayDate,
+                                        currentAlloc: null,
+                                      );
+                                      if (updated == true && dialogCtx.mounted) {
+                                        setStfState(() {});
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ],
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                if (!_isPastRosterWeek)
+                  TextButton.icon(
+                    icon: const Icon(Icons.delete_sweep_rounded,
+                        color: Colors.redAccent, size: 16),
+                    label: const Text('Clear Entire Week',
+                        style: TextStyle(color: Colors.redAccent)),
+                    onPressed: () {
+                      Navigator.pop(dialogCtx);
+                      _deleteRosterEntry(rosterId);
+                    },
+                  ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  style: AppTheme.primaryButton,
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<bool?> _showSingleDaySubstitutionDialog(
+    String ward,
+    Map<String, dynamic> shift,
+    DateTime date, {
+    Map<String, dynamic>? currentAlloc,
+  }) async {
+    final shiftId = shift['id'];
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+    final displayDate = DateFormat('EEEE, dd MMM yyyy').format(date);
+    final String currentNurseName =
+        currentAlloc != null ? (currentAlloc['nurse_name'] ?? 'None') : 'None';
+
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        String searchQuery = '';
+        String? dialogError;
+        bool isSaving = false;
+        int? savingNurseId;
+
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            final filteredNurses = _nurses.where((n) {
+              return n.fullname
+                  .toLowerCase()
+                  .contains(searchQuery.toLowerCase());
+            }).toList();
+
+            return AlertDialog(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  const Icon(Icons.swap_horiz_rounded,
+                      color: AppTheme.primaryColor),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          currentAlloc != null
+                              ? 'Substitute Nurse (Leave Replacement)'
+                              : 'Assign Single-Day Shift',
+                          style: const TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          '$ward Ward - ${shift['name'] ?? 'Shift'} | $displayDate',
+                          style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryColor,
+                              fontWeight: FontWeight.normal),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 420,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (currentAlloc != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_outline,
+                                size: 16, color: Colors.amber.shade900),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Current Nurse on Leave: $currentNurseName. Select a replacement nurse for $displayDate.',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.amber.shade900,
+                                    fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (dialogError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppTheme.dangerColor.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                              color: AppTheme.dangerColor.withOpacity(0.4)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.error_outline,
+                                size: 18, color: AppTheme.dangerColor),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                dialogError!,
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.dangerColor),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    TextField(
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: 'Search replacement nurse...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide:
+                              const BorderSide(color: AppTheme.primaryColor),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        setDialogState(() {
+                          searchQuery = val;
+                          dialogError = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    if (filteredNurses.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Text(
+                          'No nurses found',
+                          style: TextStyle(
+                              color: Colors.grey.shade500, fontSize: 13),
+                        ),
+                      )
+                    else
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 260),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: filteredNurses.length,
+                          itemBuilder: (listCtx, index) {
+                            final nurse = filteredNurses[index];
+                            final avatarColors =
+                                AppTheme.getAvatarColors(nurse.fullname);
+
+                            // Check conflict on this specific date
+                            final conflict = _allocations.firstWhere(
+                              (a) =>
+                                  a['nurse_id']?.toString() ==
+                                      nurse.id.toString() &&
+                                  (a['allocation_date']
+                                          ?.toString()
+                                          .startsWith(dateStr) ??
+                                      false) &&
+                                  !(a['ward_type']?.toString().toLowerCase() ==
+                                          ward.toLowerCase() &&
+                                      a['shift_id']?.toString() ==
+                                          shiftId.toString()),
+                              orElse: () => {},
+                            );
+                            final bool hasConflict = conflict.isNotEmpty;
+                            final bool isCurrent = currentAlloc != null &&
+                                currentAlloc['nurse_id']?.toString() ==
+                                    nurse.id.toString();
+
+                            return Card(
+                              elevation: 0,
+                              color: hasConflict
+                                  ? AppTheme.dangerColor.withOpacity(0.04)
+                                  : isCurrent
+                                      ? Colors.grey.shade100
+                                      : Colors.transparent,
+                              margin: const EdgeInsets.only(bottom: 6),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: isSaving || isCurrent
+                                    ? null
+                                    : () async {
+                                        if (hasConflict) {
+                                          setDialogState(() {
+                                            dialogError =
+                                                '${nurse.fullname} is already assigned to ${conflict['ward_type']} Ward (${conflict['shift_name']}) on $dateStr. A staff member cannot be assigned to multiple shifts on the same day.';
+                                          });
+                                          return;
+                                        }
+
+                                        setDialogState(() {
+                                          isSaving = true;
+                                          savingNurseId = nurse.id;
+                                          dialogError = null;
+                                        });
+
+                                        try {
+                                          await _shiftCtrl.createAllocation(
+                                              nurse.id,
+                                              shiftId,
+                                              ward,
+                                              dateStr);
+                                          if (dialogCtx.mounted) {
+                                            Navigator.pop(dialogCtx, true);
+                                          }
+                                          await _loadShiftData();
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              SnackBar(
+                                                content: Text(
+                                                  'Successfully assigned ${nurse.fullname} for $displayDate. Remaining weekly schedule preserved.',
+                                                ),
+                                                backgroundColor: Colors.green,
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          final cleanMsg = e
+                                              .toString()
+                                              .replaceAll('Exception: ', '')
+                                              .replaceAll('Error: ', '')
+                                              .trim();
+                                          if (dialogCtx.mounted) {
+                                            setDialogState(() {
+                                              isSaving = false;
+                                              savingNurseId = null;
+                                              dialogError = cleanMsg.isNotEmpty
+                                                  ? cleanMsg
+                                                  : 'Failed to substitute nurse.';
+                                            });
+                                          }
+                                        }
+                                      },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 14,
+                                        backgroundColor: avatarColors['bg'],
+                                        child: Text(
+                                          nurse.fullname.isNotEmpty
+                                              ? nurse.fullname[0].toUpperCase()
+                                              : 'N',
+                                          style: TextStyle(
+                                            color: avatarColors['text'],
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              nurse.fullname,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                                color: hasConflict
+                                                    ? AppTheme.dangerColor
+                                                    : isCurrent
+                                                        ? Colors.grey.shade600
+                                                        : AppTheme
+                                                            .textPrimaryColor,
+                                              ),
+                                            ),
+                                            if (isCurrent)
+                                              const Text(
+                                                'Currently assigned (on leave)',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: Colors.grey),
+                                              )
+                                            else if (hasConflict)
+                                              Text(
+                                                'Busy: ${conflict['ward_type']} Ward (${conflict['shift_name']})',
+                                                style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color:
+                                                        AppTheme.dangerColor),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (isSaving &&
+                                          savingNurseId == nurse.id)
+                                        const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2),
+                                        )
+                                      else if (!hasConflict && !isCurrent)
+                                        const Icon(
+                                          Icons.check_circle_outline,
+                                          color: AppTheme.primaryColor,
+                                          size: 18,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isSaving
+                      ? null
+                      : () => Navigator.pop(dialogCtx, false),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<bool?> _unassignSingleDayAllocation(
+    int allocId,
+    String displayDate,
+    String nurseName,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Mark Single-Day Leave'),
+        content: Text(
+          'Unassign $nurseName for $displayDate?\n\nThis will remove the shift allocation for this single day only. All other days of this week will remain intact.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: AppTheme.dangerButton,
+            child: const Text('Confirm Leave'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await _shiftCtrl.deleteAllocation(allocId);
+        setState(() {
+          _allocations.removeWhere((a) => a['id'] == allocId);
+          _rosters.removeWhere((r) => r['id'] == allocId);
+        });
+        await _loadRosterData();
+        final allocs = await _shiftCtrl.fetchAllocations();
+        if (mounted) {
+          setState(
+              () => _allocations = List<Map<String, dynamic>>.from(allocs));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Single-day leave marked for $nurseName ($displayDate). Remaining weekly schedule preserved.',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        return true;
+      } catch (e) {
+        if (mounted) {
+          final cleanMsg = e.toString().replaceAll('Exception: ', '').trim();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(cleanMsg.isNotEmpty ? cleanMsg : 'Error marking leave.'),
+              backgroundColor: AppTheme.dangerColor,
+            ),
+          );
+        }
+      }
+    }
+    return false;
+  }
+
+  void _showSubstituteNurseDialog(Map<String, dynamic> alloc) {
+    final ward = alloc['ward_type']?.toString() ?? 'General';
+    final shiftId = alloc['shift_id'];
+    final shift = _shifts.firstWhere(
+      (s) => s['id'] == shiftId,
+      orElse: () => {
+        'id': shiftId,
+        'name': alloc['shift_name'] ?? 'Shift',
+      },
+    );
+    final allocDateStr = alloc['allocation_date']?.toString() ?? '';
+    DateTime date = DateTime.now();
+    try {
+      if (allocDateStr.isNotEmpty) {
+        date = DateTime.parse(allocDateStr);
+      }
+    } catch (_) {}
+
+    _showSingleDaySubstitutionDialog(ward, shift, date, currentAlloc: alloc);
   }
 
   Widget _buildAssignNurseButton(
@@ -7270,7 +8136,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       alignment: Alignment.center,
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       child: hasAssignment
-                          ? _buildAssignedNurseChip(nurseName, roster['id'])
+                          ? _buildAssignedNurseChip(
+                              nurseName,
+                              roster['id'],
+                              ward: ward,
+                              shift: shift,
+                            )
                           : _buildAssignNurseButton(ward, shift['id']),
                     ),
                   );
@@ -7325,7 +8196,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                     ),
                     hasAssignment
-                        ? _buildAssignedNurseChip(nurseName, roster['id'])
+                        ? _buildAssignedNurseChip(
+                            nurseName,
+                            roster['id'],
+                            ward: ward,
+                            shift: shift,
+                          )
                         : SizedBox(
                             width: 140,
                             child: _buildAssignNurseButton(ward, shift['id']),
@@ -8348,14 +9224,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                       ),
                                     ),
                                     DataCell(
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          color: Colors.redAccent,
-                                          size: 18,
-                                        ),
-                                        onPressed: () =>
-                                            _deleteAllocation(alloc['id']),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.swap_horiz_rounded,
+                                              color: AppTheme.primaryColor,
+                                              size: 19,
+                                            ),
+                                            tooltip:
+                                                'Substitute Nurse (Leave Replacement)',
+                                            onPressed: () =>
+                                                _showSubstituteNurseDialog(
+                                                    alloc),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                              color: Colors.redAccent,
+                                              size: 18,
+                                            ),
+                                            tooltip:
+                                                'Remove Single-Day Allocation',
+                                            onPressed: () =>
+                                                _deleteAllocation(alloc['id']),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
@@ -9584,7 +10479,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         content: const SizedBox(
           width: 440,
           child: Text(
-            'Are you sure you want to delete this nurse shift allocation?',
+            'Are you sure you want to delete this nurse shift allocation? If part of a weekly roster, only this single day will be removed and the remaining days will be preserved.',
             softWrap: true,
           ),
         ),
@@ -9608,10 +10503,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         if (mounted) {
           setState(() {
             _allocations.removeWhere((a) => a['id'] == id);
+            _rosters.removeWhere((r) => r['id'] == id);
           });
           _loadShiftData();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Allocation deleted successfully!')),
+            const SnackBar(
+              content: Text(
+                  'Allocation removed successfully! Remaining weekly roster preserved.'),
+              backgroundColor: Colors.green,
+            ),
           );
         }
       } catch (e) {

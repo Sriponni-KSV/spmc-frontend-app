@@ -29,17 +29,94 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
   bool _isLoading = true;
   String? _error;
   String _selectedCategory = 'All';
+  String _foodStockFilter = 'All';
   OverlayEntry? _currentTopBanner;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
   String get baseUrl => ApiEndpoints.baseUrl;
 
+  void _applySearch(String query) {
+    _searchController.text = query;
+    _searchController.selection = TextSelection.fromPosition(
+      TextPosition(offset: query.length),
+    );
+    setState(() {
+      _searchQuery = query;
+    });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _searchQuery = '';
+    });
+  }
+
+  Widget _buildHeaderSearchBar() {
+    return SizedBox(
+      height: 44,
+      child: TextField(
+        controller: _searchController,
+        onChanged: (val) {
+          setState(() {
+            _searchQuery = val;
+          });
+        },
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        decoration: InputDecoration(
+          isDense: true,
+          filled: true,
+          fillColor: Colors.white,
+          hintText: widget.isFoodStockOnly
+              ? 'Search food stock items (e.g. Rice)...'
+              : 'Search inventory items by name...',
+          hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+          prefixIcon: Icon(
+            Icons.search,
+            size: 20,
+            color: _searchQuery.isNotEmpty ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+          ),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18, color: AppTheme.textSecondaryColor),
+                  tooltip: 'Clear search',
+                  onPressed: _clearSearch,
+                )
+              : null,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: _searchQuery.isNotEmpty ? AppTheme.primaryColor : AppTheme.borderColor,
+              width: 1.0,
+            ),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(
+              color: _searchQuery.isNotEmpty ? AppTheme.primaryColor : AppTheme.borderColor,
+              width: 1.0,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(
+              color: AppTheme.primaryColor,
+              width: 1.4,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     if (widget.isFoodStockOnly) {
       _selectedCategory = 'Food Stock';
+      _foodStockFilter = 'All';
     }
     _loadInventoryData();
   }
@@ -1549,11 +1626,36 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
     }
   }
 
+  Widget _buildFoodFilterChip(String filterVal, String label) {
+    final isSelected = _foodStockFilter == filterVal;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8.0),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: isSelected,
+        showCheckmark: false,
+        selectedColor: AppTheme.primaryColor,
+        backgroundColor: Colors.white,
+        side: BorderSide(
+          color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+        ),
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : AppTheme.textSecondaryColor,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          fontSize: 12,
+        ),
+        onSelected: (val) {
+          if (val) setState(() => _foodStockFilter = filterVal);
+        },
+      ),
+    );
+  }
+
   Widget _buildLeftColumn(List<dynamic> filteredItems) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.isFoodStockOnly)
+        if (widget.isFoodStockOnly) ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 16.0),
             child: Wrap(
@@ -1565,8 +1667,8 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                 _buildFoodStatBadge(Icons.hourglass_bottom, Colors.orange, 'Expiring Soon', '${_expiringItems.length}'),
               ],
             ),
-          )
-        else
+          ),
+        ] else ...[
           // Filter row
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -1577,46 +1679,109 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                   .map((cat) {
                 final isSelected = _selectedCategory == cat;
                 return Padding(
-                padding: const EdgeInsets.only(right: 8.0),
-                child: ChoiceChip(
-                  label: Text(cat),
-                  selected: isSelected,
-                  showCheckmark: false,
-                  selectedColor: AppTheme.primaryColor,
-                  backgroundColor: Colors.white,
-                  side: BorderSide(
-                    color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ChoiceChip(
+                    label: Text(cat),
+                    selected: isSelected,
+                    showCheckmark: false,
+                    selectedColor: AppTheme.primaryColor,
+                    backgroundColor: Colors.white,
+                    side: BorderSide(
+                      color: isSelected ? AppTheme.primaryColor : AppTheme.borderColor,
+                    ),
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : AppTheme.textSecondaryColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                    onSelected: (val) {
+                      if (val) setState(() => _selectedCategory = cat);
+                    },
                   ),
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : AppTheme.textSecondaryColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                  onSelected: (val) {
-                    if (val) setState(() => _selectedCategory = cat);
-                  },
-                ),
-              );
-            }).toList(),
+                );
+              }).toList(),
+            ),
           ),
-        ),
-        const SizedBox(height: 20),
+          const SizedBox(height: 16),
+        ],
 
-        // Search bar
-        Container(
-          margin: const EdgeInsets.only(bottom: 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.borderColor),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
+        // Section Header: Dedicated Inventory Catalog Title & Counter
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  widget.isFoodStockOnly ? Icons.restaurant_menu_rounded : Icons.inventory_2_outlined,
+                  color: AppTheme.primaryColor,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  widget.isFoodStockOnly ? 'Food Stock Inventory' : 'Stock Items',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _searchQuery.isNotEmpty
+                        ? AppTheme.primaryColor.withValues(alpha: 0.1)
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _searchQuery.isNotEmpty
+                          ? AppTheme.primaryColor.withValues(alpha: 0.3)
+                          : Colors.grey.shade300,
+                    ),
+                  ),
+                  child: Text(
+                    _searchQuery.isNotEmpty
+                        ? 'Showing ${filteredItems.length} of ${_items.length} items'
+                        : '${_items.length} items',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: _searchQuery.isNotEmpty
+                          ? AppTheme.primaryColor
+                          : AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_searchQuery.isNotEmpty)
+              TextButton.icon(
+                onPressed: _clearSearch,
+                icon: const Icon(Icons.close, size: 14, color: AppTheme.dangerColor),
+                label: const Text(
+                  'Clear Filter',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.dangerColor),
+                ),
               ),
-            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Status Filter Chips for Food Stock (All, In Stock, Low Stock, Expiring Soon)
+        if (widget.isFoodStockOnly) ...[
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildFoodFilterChip('All', 'All (${_items.length})'),
+                _buildFoodFilterChip('In Stock', 'In Stock'),
+                _buildFoodFilterChip('Low Stock', 'Low Stock (${_lowStockItems.length})'),
+                _buildFoodFilterChip('Expiring Soon', 'Expiring Soon (${_expiringItems.length})'),
+              ],
+            ),
           ),
+          const SizedBox(height: 12),
+        ],
+
+        // Dedicated Inventory Search Bar
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
           child: TextField(
             controller: _searchController,
             onChanged: (val) {
@@ -1624,28 +1789,99 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                 _searchQuery = val;
               });
             },
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
             decoration: InputDecoration(
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white,
               hintText: widget.isFoodStockOnly
-                  ? 'Search food items by name, category (e.g. Rice, Milk)...'
+                  ? 'Search food items by name (e.g. Rice), unit, category...'
                   : 'Search items by name, category, or unit...',
               hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-              prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.textSecondaryColor),
+              prefixIcon: Icon(
+                Icons.search,
+                size: 20,
+                color: _searchQuery.isNotEmpty ? AppTheme.primaryColor : AppTheme.textSecondaryColor,
+              ),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, size: 18, color: AppTheme.textSecondaryColor),
-                      onPressed: () {
-                        setState(() {
-                          _searchController.clear();
-                          _searchQuery = '';
-                        });
-                      },
+                      tooltip: 'Clear search',
+                      onPressed: _clearSearch,
                     )
                   : null,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: _searchQuery.isNotEmpty ? AppTheme.primaryColor : AppTheme.borderColor,
+                  width: 1.0,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: _searchQuery.isNotEmpty ? AppTheme.primaryColor : AppTheme.borderColor,
+                  width: 1.0,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: AppTheme.primaryColor,
+                  width: 1.4,
+                ),
+              ),
             ),
           ),
         ),
+
+        // Quick keyword tags for food items when search is empty
+        if (widget.isFoodStockOnly && _searchQuery.isEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14.0),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                const Text(
+                  'Quick Search:',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor),
+                ),
+                ...['Rice', 'Wheat', 'Milk', 'Oil', 'Sugar', 'Dal'].map((keyword) {
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => _applySearch(keyword),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.primaryColor.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.search, size: 11, color: AppTheme.primaryColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            keyword,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
 
         // Items custom card list
         if (filteredItems.isEmpty)
@@ -1660,14 +1896,39 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
             child: Center(
               child: Column(
                 children: [
-                  const Icon(Icons.search_off_rounded, color: Colors.grey, size: 48),
+                  Icon(
+                    _searchQuery.isNotEmpty ? Icons.search_off_rounded : Icons.inventory_2_outlined,
+                    color: _searchQuery.isNotEmpty ? AppTheme.primaryColor : Colors.grey,
+                    size: 48,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     _searchQuery.isNotEmpty
-                        ? 'No inventory items found matching "$_searchQuery".'
-                        : 'No inventory items found in this category.',
-                    style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+                        ? 'No ${widget.isFoodStockOnly ? 'food stock' : 'inventory'} items found matching "$_searchQuery".'
+                        : 'No ${widget.isFoodStockOnly ? 'food stock' : 'inventory'} items found in this category.',
+                    style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 14),
+                    textAlign: TextAlign.center,
                   ),
+                  if (_searchQuery.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Check the spelling or try searching for another keyword (e.g. "Rice", "Milk").',
+                      style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: _clearSearch,
+                      icon: const Icon(Icons.clear, size: 16),
+                      label: const Text('Clear Search & Show All'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -2754,6 +3015,27 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
       if (!widget.isFoodStockOnly && _selectedCategory != 'All') {
         if (i['category'] != _selectedCategory) return false;
       }
+      if (widget.isFoodStockOnly && _foodStockFilter != 'All') {
+        final qty = (i['quantity'] is num)
+            ? i['quantity']
+            : (int.tryParse(i['quantity']?.toString() ?? '0') ?? 0);
+        final thresh = (i['threshold'] is num)
+            ? i['threshold']
+            : (int.tryParse(i['threshold']?.toString() ?? '10') ?? 10);
+        if (_foodStockFilter == 'In Stock' && qty <= 0) return false;
+        if (_foodStockFilter == 'Low Stock' && qty > thresh) return false;
+        if (_foodStockFilter == 'Expiring Soon') {
+          final expStr = i['expiry_date']?.toString();
+          if (expStr == null || expStr.isEmpty) return false;
+          try {
+            final expDate = DateTime.parse(expStr);
+            final days = expDate.difference(DateTime.now()).inDays;
+            if (days < 0 || days > 30) return false;
+          } catch (_) {
+            return false;
+          }
+        }
+      }
       if (query.isNotEmpty) {
         final name = (i['name'] ?? '').toString().toLowerCase();
         final cat = (i['category'] ?? '').toString().toLowerCase();
@@ -2791,7 +3073,9 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                       subtitle,
                       style: AppTheme.pageSubtitleStyle(context, isMobile: true),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
+                    _buildHeaderSearchBar(),
+                    const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
@@ -2834,6 +3118,11 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
                       ),
                     ),
                     const SizedBox(width: 16),
+                    SizedBox(
+                      width: 320,
+                      child: _buildHeaderSearchBar(),
+                    ),
+                    const SizedBox(width: 12),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: widget.isFoodStockOnly ? AppTheme.primaryColor : AppTheme.logoRed,
