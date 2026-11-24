@@ -170,6 +170,10 @@ class AppRouter {
               !currentUser.hasPermission('manage_users')) {
             return AppRoutes.adminDashboard;
           }
+          if (path == AppRoutes.adminPatients &&
+              !currentUser.hasPermission('view_patients')) {
+            return AppRoutes.adminDashboard;
+          }
           if (path == AppRoutes.adminSettings &&
               !currentUser.hasPermission('manage_rbac')) {
             return AppRoutes.adminDashboard;
@@ -178,8 +182,24 @@ class AppRouter {
               !currentUser.hasPermission('book_appointment')) {
             return AppRoutes.adminDashboard;
           }
+          if (path == AppRoutes.adminOpd &&
+              !currentUser.hasPermission('opd_assistance')) {
+            return AppRoutes.adminDashboard;
+          }
+          if (path == AppRoutes.adminIpd &&
+              !currentUser.hasPermission('ipd_doctor_rounds')) {
+            return AppRoutes.adminDashboard;
+          }
+          if (path == AppRoutes.adminOt &&
+              !currentUser.hasPermission('ot_surgeries')) {
+            return AppRoutes.adminDashboard;
+          }
           if (path == AppRoutes.adminShifts &&
               !currentUser.hasPermission('manage_shifts')) {
+            return AppRoutes.adminDashboard;
+          }
+          if (path == AppRoutes.adminBilling &&
+              !currentUser.hasPermission('op_billing')) {
             return AppRoutes.adminDashboard;
           }
           if (path == AppRoutes.adminHomeVisits &&
@@ -212,6 +232,24 @@ class AppRouter {
               !currentUser.hasPermission('book_appointment')) {
             return AppRoutes.nurseDashboard;
           }
+          if (path == AppRoutes.nurseOpd &&
+              !currentUser.hasPermission('opd_assistance')) {
+            return AppRoutes.nurseDashboard;
+          }
+          if (path == AppRoutes.nurseIpd &&
+              !currentUser.hasPermission('ipd_nursing_care') &&
+              !currentUser.hasPermission('ipd_admission_counter')) {
+            return AppRoutes.nurseDashboard;
+          }
+          if (path == AppRoutes.nurseOt &&
+              !currentUser.hasPermission('ot_nursing_consumables') &&
+              !currentUser.hasPermission('ot_who_checklist')) {
+            return AppRoutes.nurseDashboard;
+          }
+          if (path == AppRoutes.nurseHomeVisits &&
+              !currentUser.hasPermission('home_visit_care')) {
+            return AppRoutes.nurseDashboard;
+          }
           if (path == AppRoutes.nurseIpdMonitoring) {
             if (state.extra != null && state.extra is Map) {
               _lastKnownNurseIpdAdmission = Map<String, dynamic>.from(
@@ -238,8 +276,7 @@ class AppRouter {
             return AppRoutes.doctorDashboard;
           }
           if (path == AppRoutes.doctorLabReports &&
-              !currentUser.hasPermission('view_lab_reports') &&
-              !isDoctor) {
+              !currentUser.hasPermission('view_lab_reports')) {
             return AppRoutes.doctorDashboard;
           }
           if (path == AppRoutes.doctorPatientRegistry &&
@@ -258,9 +295,12 @@ class AppRouter {
           }
           if (path == AppRoutes.doctorOt &&
               !currentUser.hasPermission('ot_surgeries') &&
-              !currentUser.hasPermission('ot_anaesthesia_pac') &&
-              !currentUser.hasPermission('ot_who_checklist') &&
-              !isDoctor) {
+              !currentUser.hasPermission('ot_anaesthesia_pac')) {
+            return AppRoutes.doctorDashboard;
+          }
+          if (path == AppRoutes.doctorDictation &&
+              !currentUser.hasPermission('ot_surgeries') &&
+              !currentUser.hasPermission('ot_anaesthesia_pac')) {
             return AppRoutes.doctorDashboard;
           }
           if ((path == AppRoutes.doctorDictation ||

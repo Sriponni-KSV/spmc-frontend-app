@@ -417,20 +417,17 @@ class _AdminSpecializationsCatalogViewState
                 children: [
                   AppTheme.tableHeaderCell(
                     context: context,
-                    label: '#',
-                    icon: Icons.tag,
+                    label: 'S.No',
                     flex: 1,
                   ),
                   AppTheme.tableHeaderCell(
                     context: context,
                     label: 'Specialization / Medical Department',
-                    icon: Icons.medical_services_outlined,
                     flex: 8,
                   ),
                   AppTheme.tableHeaderCell(
                     context: context,
                     label: 'Actions',
-                    icon: Icons.settings_outlined,
                     flex: 2,
                     textAlign: TextAlign.center,
                     mainAxisAlignment: MainAxisAlignment.center,

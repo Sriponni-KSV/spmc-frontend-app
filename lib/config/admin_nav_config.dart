@@ -98,7 +98,7 @@ class AdminNavConfig {
   static const bool showCarriedKitItems = true;
   static const bool showIpdBeds = true;
   static const bool showBillingServices = true;
-  static const bool showLabTestsMaster = false;
+  static const bool showLabTestsMaster = true;
   static const bool showSpecializationsMaster = false;
   static const bool showDbInitialization = false;
   static const bool showDepartments = true;
@@ -197,16 +197,14 @@ class AdminNavConfig {
       ),
     ];
 
-    final bool isAdmin = user?.role == 'Admin' ||
-        user?.role == 'Super Admin' ||
-        user?.role == 'Supervisor';
+    final bool isSuperAdmin = user?.role == 'Super Admin';
 
     return allItems.where((item) {
       if (!item.isVisible) return false;
       if (item.requiredRole != null && user?.role != item.requiredRole) {
         return false;
       }
-      if (isAdmin) return true;
+      if (isSuperAdmin) return true;
       if (item.permissionRequired != null) {
         if (item.permissionRequired == 'opd_assistance') {
           return (user?.hasPermission('opd_assistance') ?? false) ||
