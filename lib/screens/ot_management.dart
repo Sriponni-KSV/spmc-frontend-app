@@ -235,6 +235,23 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   List<PatientModel> _patients = [];
   List<Map<String, dynamic>> _beds = [];
   bool _isLoadingBeds = false;
+  List<Map<String, dynamic>> _loadedTheatres = [];
+
+  List<String> get _availableOtRooms {
+    if (_loadedTheatres.isNotEmpty) {
+      final list = <String>[];
+      for (final t in _loadedTheatres) {
+        final code = t['theatre_code']?.toString();
+        final name = t['theatre_name']?.toString();
+        final label = (name != null && name.isNotEmpty) ? name : (code ?? '');
+        if (label.isNotEmpty && !list.contains(label)) {
+          list.add(label);
+        }
+      }
+      if (list.isNotEmpty) return list;
+    }
+    return const ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+  }
   List<UserModel> _doctors = [];
   List<UserModel> _anaesthetists = [];
   List<UserModel> _nurses = [];
@@ -548,6 +565,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         _adminController.fetchStaff(role: 'Nurse'),
         _otController.fetchOtStats(),
         _ipdController.fetchBeds(),
+        _otController.fetchTheatres(),
       ]);
       if (mounted) {
         _patients = results[0] as List<PatientModel>;
@@ -557,6 +575,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         _nurses = results[4] as List<UserModel>;
         final stats = results[5] as Map<String, dynamic>;
         _beds = results[6] as List<Map<String, dynamic>>;
+        _loadedTheatres = results[7] as List<Map<String, dynamic>>;
 
         final now = DateTime.now();
         final localTodayCases = fetchedCases.where((c) {
@@ -779,7 +798,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     setState(() {
       _selectedCase = otCase;
       _populateControllersForCase(otCase);
-      _showPipelineSidebar = true;
+      _showPipelineSidebar = !widget.isMobile;
     });
   }
 
@@ -932,6 +951,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       _slotStartTime.hour,
       _slotStartTime.minute,
     );
+    if (_isPastDateTime(_selectedDate, _slotStartTime)) {
+      AppNotification.showError(
+        context,
+        'Cannot schedule surgery for past time (${_formatTimeOfDay(_slotStartTime)}) on today\'s date. Please select a current or future time.',
+        atTop: true,
+      );
+      return;
+    }
     final DateTime? endDateTime = _slotEndTime != null
         ? DateTime(
             _selectedDate.year,
@@ -1265,6 +1292,18 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     return '$hour:$min $period';
   }
 
+  bool _isPastDateTime(DateTime date, TimeOfDay time) {
+    final now = DateTime.now();
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    if (!isToday) {
+      final dateOnly = DateTime(date.year, date.month, date.day);
+      final todayOnly = DateTime(now.year, now.month, now.day);
+      return dateOnly.isBefore(todayOnly);
+    }
+    final target = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    return target.isBefore(now.subtract(const Duration(minutes: 1)));
+  }
+
   void _confirmScheduling(OtCase otCase) async {
     if (_selectedOtRoom == null || _selectedOtRoom!.trim().isEmpty) {
       AppNotification.showError(context, 'Please select an OT Room.', atTop: true);
@@ -1296,6 +1335,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       _slotStartTime.hour,
       _slotStartTime.minute,
     );
+    if (_isPastDateTime(existingDate, _slotStartTime)) {
+      AppNotification.showError(
+        context,
+        'Cannot schedule surgery for past time (${_formatTimeOfDay(_slotStartTime)}) on today\'s date. Please select a current or future time.',
+        atTop: true,
+      );
+      return;
+    }
     final DateTime? endDateTime = _slotEndTime != null
         ? DateTime(
             existingDate.year,
@@ -2823,6 +2870,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           _previousTab = _activeTab;
           _selectedCase = selectedCase;
           _populateControllersForCase(selectedCase);
+          _showPipelineSidebar = !widget.isMobile;
           _activeTab = 1; // Open workflow in Active cases
         });
       },
@@ -2877,7 +2925,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     int? excludeDbId,
     String? excludeCaseId,
   }) {
-    const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+    final allRooms = _availableOtRooms;
     final proposedStart = DateTime(
       date.year,
       date.month,
@@ -3164,35 +3212,35 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         children: [
           // Header
           Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Row(
+            padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
+            child: widget.isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryColor.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.event_note, color: AppTheme.primaryColor, size: 20),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryColor.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.event_note, color: AppTheme.primaryColor, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Row(
                               children: [
-                                const Text(
-                                  'Scheduled Surgeries & Theatre Pipeline',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                                const Flexible(
+                                  child: Text(
+                                    'Scheduled Surgeries',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimaryColor),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: AppTheme.primaryColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
@@ -3204,38 +3252,112 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Live scheduled cases, procedure timings, room assignments, and surgical teams',
-                              style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Live scheduled cases, procedure timings & room assignments',
+                        style: TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryColor),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _previousTab = _activeTab;
+                              _resetScheduleSurgeryForm();
+                              _activeTab = 3; // Schedule Surgery
+                            });
+                          },
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Schedule Surgery'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryColor.withOpacity(0.08),
+                              ),
+                              child: const Icon(Icons.event_note, color: AppTheme.primaryColor, size: 20),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Flexible(
+                                        child: Text(
+                                          'Scheduled Surgeries & Theatre Pipeline',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          '${scheduledCases.length}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.primaryColor),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  const Text(
+                                    'Live scheduled cases, procedure timings, room assignments, and surgical teams',
+                                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _previousTab = _activeTab;
+                            _resetScheduleSurgeryForm();
+                            _activeTab = 3; // Schedule Surgery
+                          });
+                        },
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Schedule Surgery'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryColor,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _previousTab = _activeTab;
-                      _resetScheduleSurgeryForm();
-                      _activeTab = 3; // Schedule Surgery
-                    });
-                  },
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Schedule Surgery'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  ),
-                ),
-              ],
-            ),
           ),
           const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
 
@@ -3279,6 +3401,201 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 ),
               ),
             )
+          else if (widget.isMobile)
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(12),
+              itemCount: scheduledCases.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, idx) {
+                final c = scheduledCases[idx];
+                final dt = c.scheduledStartTime ?? c.surgeryDateTime;
+                final isToday = dt != null && dt.year == now.year && dt.month == now.month && dt.day == now.day;
+                final dateStr = dt != null
+                    ? (isToday ? 'Today' : DateFormat('dd/MM/yyyy').format(dt))
+                    : 'Unscheduled';
+                final slotStr = c.surgerySlot ?? (dt != null ? _formatTimeOfDay(TimeOfDay.fromDateTime(dt)) : '');
+                final isEmergency = (c.priority ?? '').toLowerCase() == 'emergency';
+                final isCaseDone = c.status == 'OT Case Closed' || c.status == 'Surgery Completed' || c.status == 'Completed';
+                final progress = _calculateCaseProgress(c);
+                final statusLabel = isCaseDone
+                    ? 'COMPLETED'
+                    : (c.status == 'Surgery In Progress'
+                        ? 'IN PROGRESS'
+                        : c.status.toUpperCase());
+                final badgeColor = isCaseDone ? Colors.green : _getStatusColor(c.status);
+
+                return Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      _selectOtCase(c);
+                      setState(() {
+                        _previousTab = _activeTab;
+                        _openedFromLiveDashboard = true;
+                        _showPipelineSidebar = false;
+                        _activeTab = 1;
+                      });
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_today_outlined, size: 13, color: isToday ? AppTheme.primaryColor : const Color(0xFF64748B)),
+                              const SizedBox(width: 4),
+                              Text(
+                                dateStr,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: isToday ? AppTheme.primaryColor : AppTheme.textPrimaryColor,
+                                ),
+                              ),
+                              if (slotStr.isNotEmpty) ...[
+                                const Text(' • ', style: TextStyle(color: Color(0xFF94A3B8))),
+                                Flexible(
+                                  child: Text(
+                                    slotStr,
+                                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: isEmergency ? const Color(0xFFFEE2E2) : const Color(0xFFF0FDF4),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  c.priority ?? 'Elective',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10,
+                                    color: isEmergency ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 16, thickness: 1, color: Color(0xFFF1F5F9)),
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                child: Text(
+                                  c.patientName.trim().isNotEmpty ? c.patientName.trim()[0].toUpperCase() : 'P',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      c.patientName.isNotEmpty ? c.patientName : 'Unnamed Patient',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${c.patientId.isNotEmpty ? c.patientId : '-'} • ${c.age > 0 ? '${c.age}y ' : ''}${c.gender}',
+                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEFF6FF),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.meeting_room_outlined, size: 12, color: Color(0xFF1D4ED8)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      c.otRoom ?? 'Unassigned',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF1D4ED8)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              const Icon(Icons.medical_services_outlined, size: 13, color: Color(0xFF64748B)),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  c.surgeryType ?? 'General Surgery',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF334155)),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Text(
+                                'Dr. ${c.leadSurgeon ?? c.surgeon ?? "TBD"}',
+                                style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: badgeColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: badgeColor.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  statusLabel,
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: badgeColor),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(3),
+                                  child: LinearProgressIndicator(
+                                    value: progress,
+                                    minHeight: 5,
+                                    color: badgeColor,
+                                    backgroundColor: badgeColor.withOpacity(0.12),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(Icons.chevron_right, size: 18, color: AppTheme.primaryColor),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            )
           else
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -3315,6 +3632,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                     final isEmergency = (c.priority ?? '').toLowerCase() == 'emergency';
 
                     return DataRow(
+                      onSelectChanged: (_) {
+                        _selectOtCase(c);
+                        setState(() {
+                          _previousTab = _activeTab;
+                          _openedFromLiveDashboard = true;
+                          _showPipelineSidebar = false;
+                          _activeTab = 1;
+                        });
+                      },
                       cells: [
                         // Date & Time
                         DataCell(
@@ -3706,190 +4032,214 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               child: isOccupied
-                  ? SingleChildScrollView(
-                      physics: const NeverScrollableScrollPhysics(),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            activeInRoom.patientName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${activeInRoom.age} yrs • ${activeInRoom.gender} • Blood: ${activeInRoom.bloodGroup}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryColor),
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const Icon(Icons.healing, size: 12, color: AppTheme.textSecondaryColor),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  activeInRoom.surgeryType ?? '',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Icon(Icons.person, size: 12, color: AppTheme.textSecondaryColor),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Surgeon: ${activeInRoom.surgeon ?? 'TBD'}',
-                                  style: const TextStyle(fontSize: 11, color: AppTheme.textPrimaryColor),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          // Progress Bar representing case completion
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Surgery Progress', style: TextStyle(fontSize: 9.5, color: AppTheme.textSecondaryColor)),
-                              Text(
-                                '${(progressVal * 100).toInt()}%',
-                                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              value: progressVal,
-                              color: color,
-                              backgroundColor: color.withOpacity(0.1),
-                              minHeight: 5,
+                  ? InkWell(
+                      onTap: () {
+                        _selectOtCase(activeInRoom);
+                        setState(() {
+                          _previousTab = _activeTab;
+                          _openedFromLiveDashboard = true;
+                          _showPipelineSidebar = false;
+                          _activeTab = 1;
+                        });
+                      },
+                      child: SingleChildScrollView(
+                        physics: const NeverScrollableScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              activeInRoom.patientName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryColor),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          InkWell(
-                            onTap: () {
-                              _selectOtCase(activeInRoom);
-                              setState(() {
-                                _previousTab = _activeTab;
-                                _openedFromLiveDashboard = true;
-                                _activeTab = 1; // Go to active patients registry
-                              });
-                            },
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
+                            const SizedBox(height: 2),
+                            Text(
+                              '${activeInRoom.age} yrs • ${activeInRoom.gender} • Blood: ${activeInRoom.bloodGroup}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryColor),
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
                               children: [
-                                Text(
-                                  'View Live Workflow Board',
-                                  style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 11),
+                                const Icon(Icons.healing, size: 12, color: AppTheme.textSecondaryColor),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    activeInRoom.surgeryType ?? '',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                                SizedBox(width: 4),
-                                Icon(Icons.arrow_forward, size: 11, color: AppTheme.primaryColor),
                               ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.person, size: 12, color: AppTheme.textSecondaryColor),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Surgeon: ${activeInRoom.surgeon ?? 'TBD'}',
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.textPrimaryColor),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            // Progress Bar representing case completion
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Surgery Progress', style: TextStyle(fontSize: 9.5, color: AppTheme.textSecondaryColor)),
+                                Text(
+                                  '${(progressVal * 100).toInt()}%',
+                                  style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: progressVal,
+                                color: color,
+                                backgroundColor: color.withOpacity(0.1),
+                                minHeight: 5,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: () {
+                                _selectOtCase(activeInRoom);
+                                setState(() {
+                                  _previousTab = _activeTab;
+                                  _openedFromLiveDashboard = true;
+                                  _showPipelineSidebar = false;
+                                  _activeTab = 1; // Go to active patients registry
+                                });
+                              },
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'View Live Workflow Board',
+                                    style: TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold, fontSize: 11),
+                                  ),
+                                  SizedBox(width: 4),
+                                  Icon(Icons.arrow_forward, size: 11, color: AppTheme.primaryColor),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   : (hasScheduled
-                      ? SingleChildScrollView(
-                          physics: const NeverScrollableScrollPhysics(),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                scheduledInRoom!.patientName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${scheduledInRoom.age > 0 ? '${scheduledInRoom.age} yrs • ' : ''}${scheduledInRoom.gender} • Blood: ${scheduledInRoom.bloodGroup.isNotEmpty ? scheduledInRoom.bloodGroup : '-'}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryColor),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  const Icon(Icons.healing, size: 12, color: Color(0xFF0284C7)),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      scheduledInRoom.surgeryType ?? 'Surgery',
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0284C7)),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(Icons.access_time, size: 12, color: AppTheme.textSecondaryColor),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Slot: ${scheduledInRoom.surgerySlot ?? (scheduledInRoom.scheduledStartTime != null ? _formatTimeOfDay(TimeOfDay.fromDateTime(scheduledInRoom.scheduledStartTime!)) : 'Scheduled')}',
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.textPrimaryColor),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(Icons.person, size: 12, color: AppTheme.textSecondaryColor),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      'Surgeon: ${scheduledInRoom.leadSurgeon ?? scheduledInRoom.surgeon ?? 'TBD'}',
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              InkWell(
-                                onTap: () {
-                                  _selectOtCase(scheduledInRoom);
-                                  setState(() {
-                                    _previousTab = _activeTab;
-                                    _openedFromLiveDashboard = true;
-                                    _activeTab = 1; // Go to active workflow
-                                  });
-                                },
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
+                      ? InkWell(
+                          onTap: () {
+                            _selectOtCase(scheduledInRoom!);
+                            setState(() {
+                              _previousTab = _activeTab;
+                              _openedFromLiveDashboard = true;
+                              _showPipelineSidebar = false;
+                              _activeTab = 1;
+                            });
+                          },
+                          child: SingleChildScrollView(
+                            physics: const NeverScrollableScrollPhysics(),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  scheduledInRoom!.patientName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.textPrimaryColor),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${scheduledInRoom.age > 0 ? '${scheduledInRoom.age} yrs • ' : ''}${scheduledInRoom.gender} • Blood: ${scheduledInRoom.bloodGroup.isNotEmpty ? scheduledInRoom.bloodGroup : '-'}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 10.5, color: AppTheme.textSecondaryColor),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
                                   children: [
-                                    Text(
-                                      'View Scheduled Case',
-                                      style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold, fontSize: 11),
+                                    const Icon(Icons.healing, size: 12, color: Color(0xFF0284C7)),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        scheduledInRoom.surgeryType ?? 'Surgery',
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF0284C7)),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                    SizedBox(width: 4),
-                                    Icon(Icons.arrow_forward, size: 11, color: Color(0xFF0284C7)),
                                   ],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.access_time, size: 12, color: AppTheme.textSecondaryColor),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Slot: ${scheduledInRoom.surgerySlot ?? (scheduledInRoom.scheduledStartTime != null ? _formatTimeOfDay(TimeOfDay.fromDateTime(scheduledInRoom.scheduledStartTime!)) : 'Scheduled')}',
+                                        style: const TextStyle(fontSize: 11, color: AppTheme.textPrimaryColor),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.person, size: 12, color: AppTheme.textSecondaryColor),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Surgeon: ${scheduledInRoom.leadSurgeon ?? scheduledInRoom.surgeon ?? 'TBD'}',
+                                        style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                InkWell(
+                                  onTap: () {
+                                    _selectOtCase(scheduledInRoom);
+                                    setState(() {
+                                      _previousTab = _activeTab;
+                                      _openedFromLiveDashboard = true;
+                                      _showPipelineSidebar = false;
+                                      _activeTab = 1; // Go to active workflow
+                                    });
+                                  },
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'View Scheduled Case',
+                                        style: TextStyle(color: Color(0xFF0284C7), fontWeight: FontWeight.bold, fontSize: 11),
+                                      ),
+                                      SizedBox(width: 4),
+                                      Icon(Icons.arrow_forward, size: 11, color: Color(0xFF0284C7)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         )
                       : Column(
@@ -4649,50 +4999,8 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     );
 
     if (widget.isMobile) {
-      if (_selectedCase != null && !_showPipelineSidebar) {
-        return Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.primaryColor),
-                    onPressed: () {
-                      setState(() {
-                        _selectedCase = null;
-                        _showPipelineSidebar = true;
-                      });
-                    },
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _selectedCase!.patientName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Color(0xFF0F172A)),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          '${_selectedCase!.surgeryType ?? "Surgery"} • ${_selectedCase!.patientId}',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(child: _buildCaseWorkflowDetails(_selectedCase!)),
-          ],
-        );
+      if (_selectedCase != null) {
+        return _buildCaseWorkflowDetails(_selectedCase!);
       }
       return masterPane;
     }
@@ -5079,50 +5387,8 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     );
 
     if (widget.isMobile) {
-      if (_selectedCase != null && !_showPipelineSidebar) {
-        return Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.primaryColor),
-                    onPressed: () {
-                      setState(() {
-                        _selectedCase = null;
-                        _showPipelineSidebar = true;
-                      });
-                    },
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _selectedCase!.patientName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Color(0xFF0F172A)),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          '${_selectedCase!.surgeryType ?? "Surgery"} • ${_selectedCase!.patientId}',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(child: _buildCaseWorkflowDetails(_selectedCase!)),
-          ],
-        );
+      if (_selectedCase != null) {
+        return _buildCaseWorkflowDetails(_selectedCase!);
       }
       return masterPane;
     }
@@ -5272,9 +5538,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       InkWell(
                         onTap: () {
                           setState(() {
+                            _showPipelineSidebar = true;
                             if (_openedFromLiveDashboard) {
                               _selectedCase = null;
-                              _activeTab = 0;
+                              _activeTab = _previousTab;
                               _openedFromLiveDashboard = false;
                             } else {
                               _selectedCase = null;
@@ -7922,7 +8189,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   // ── SCHEDULING FORM: OT Room Dropdown + Time Pickers + Nurse Multi-Select ──
   Widget _buildSchedulingForm(OtCase otCase) {
-    const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+    final allRooms = List<String>.from(_availableOtRooms);
+    if (otCase.otRoom != null && otCase.otRoom!.isNotEmpty && !allRooms.contains(otCase.otRoom)) {
+      allRooms.insert(0, otCase.otRoom!);
+    }
     final caseDate = otCase.surgeryDateTime ?? DateTime.now();
     final occupiedRooms = _getOccupiedRoomsForSlot(
       date: caseDate,
@@ -7979,12 +8249,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, size: 12, color: Colors.orange.shade700),
-                const SizedBox(width: 4),
-                Text(
-                  'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
-                  style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+                Icon(Icons.info_outline, size: 13, color: Colors.orange.shade700),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
+                    style: TextStyle(fontSize: 11, color: Colors.orange.shade700, height: 1.25),
+                  ),
                 ),
               ],
             ),
@@ -8005,7 +8278,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                         initialTime: _slotStartTime,
                         helpText: 'Select Surgery Start Time',
                       );
-                      if (picked != null) setState(() => _slotStartTime = picked);
+                      if (picked != null) {
+                        if (_isPastDateTime(caseDate, picked)) {
+                          AppNotification.showError(
+                            context,
+                            'Cannot select past time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a current or future time.',
+                            atTop: true,
+                          );
+                          return;
+                        }
+                        setState(() => _slotStartTime = picked);
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -8044,7 +8327,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                         initialTime: _slotEndTime ?? TimeOfDay(hour: (_slotStartTime.hour + 2) % 24, minute: _slotStartTime.minute),
                         helpText: 'Select Surgery End Time (Optional)',
                       );
-                      if (picked != null) setState(() => _slotEndTime = picked);
+                      if (picked != null) {
+                        if (_isPastDateTime(caseDate, picked)) {
+                          AppNotification.showError(
+                            context,
+                            'Cannot select past end time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a future time.',
+                            atTop: true,
+                          );
+                          return;
+                        }
+                        setState(() => _slotEndTime = picked);
+                      }
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -8100,7 +8393,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           initialTime: _slotStartTime,
                           helpText: 'Select Surgery Start Time',
                         );
-                        if (picked != null) setState(() => _slotStartTime = picked);
+                        if (picked != null) {
+                          if (_isPastDateTime(caseDate, picked)) {
+                            AppNotification.showError(
+                              context,
+                              'Cannot select past time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a current or future time.',
+                              atTop: true,
+                            );
+                            return;
+                          }
+                          setState(() => _slotStartTime = picked);
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -8142,7 +8445,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                           initialTime: _slotEndTime ?? TimeOfDay(hour: (_slotStartTime.hour + 2) % 24, minute: _slotStartTime.minute),
                           helpText: 'Select Surgery End Time (Optional)',
                         );
-                        if (picked != null) setState(() => _slotEndTime = picked);
+                        if (picked != null) {
+                          if (_isPastDateTime(caseDate, picked)) {
+                            AppNotification.showError(
+                              context,
+                              'Cannot select past end time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a future time.',
+                              atTop: true,
+                            );
+                            return;
+                          }
+                          setState(() => _slotEndTime = picked);
+                        }
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
@@ -8253,7 +8566,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               children: [
                 Icon(Icons.info_outline, size: 16, color: AppTheme.textSecondaryColor),
                 SizedBox(width: 8),
-                Text('No nurses found in database.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12.5)),
+                Expanded(
+                  child: Text('No nurses found in database.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12.5)),
+                ),
               ],
             ),
           )
@@ -8584,7 +8899,13 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             ElevatedButton.icon(
               onPressed: () {
                 setState(() {
+                  _previousTab = _activeTab;
                   _activeTab = 2; // Switch to Completed Cases tab
+                  _showPipelineSidebar = true;
+                  _openedFromLiveDashboard = false;
+                  if (widget.isMobile) {
+                    _selectedCase = null; // Display Completed Cases registry list on mobile
+                  }
                 });
               },
               icon: const Icon(Icons.inventory_2_outlined),
@@ -10852,34 +11173,16 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
                         bool matchesDest = false;
                         if (_selectedTransferDest == 'Recovery Room') {
-                          matchesDest = wLower.contains('recovery') ||
-                                        wLower.contains('pacu') ||
-                                        bUpper.startsWith('RR') ||
-                                        bUpper.startsWith('REC') ||
-                                        bUpper.startsWith('PACU');
+                          matchesDest = wLower.contains('recovery') || wLower.contains('pacu') || bUpper.startsWith('RR') || bUpper.startsWith('REC');
                         } else if (_selectedTransferDest == 'ICU') {
-                          matchesDest = (wardType == 'ICU' || wLower.contains('icu')) &&
-                                        !wLower.contains('recovery') &&
-                                        !bUpper.startsWith('RR');
+                          matchesDest = wLower.contains('icu') || bUpper.startsWith('ICU');
                         } else if (_selectedTransferDest == 'Ward') {
-                          matchesDest = (wardType == 'General' ||
-                                         wardType == 'Semi-Private' ||
-                                         wardType == 'Private' ||
-                                         wLower.contains('ward')) &&
-                                        !wLower.contains('icu') &&
-                                        !wLower.contains('recovery') &&
-                                        !bUpper.startsWith('RR') &&
-                                        !bUpper.startsWith('ICU');
+                          matchesDest = !wLower.contains('recovery') && !wLower.contains('pacu') && !wLower.contains('icu') && !bUpper.startsWith('RR') && !bUpper.startsWith('ICU');
                         }
 
-                        if (matchesDest && (status == 'Available' || bedNum == currentBed)) {
+                        if (matchesDest && (status == 'Available' || status == 'Vacant' || status == 'Unoccupied')) {
                           availableBedNumbers.add(bedNum);
                         }
-                      }
-
-                      // Dedicated Recovery Room beds if none yet in DB
-                      if (_selectedTransferDest == 'Recovery Room' && availableBedNumbers.isEmpty) {
-                        availableBedNumbers = ['RR-01', 'RR-02', 'RR-03', 'RR-04', 'RR-05'];
                       }
 
                       if (currentBed.isNotEmpty && !availableBedNumbers.contains(currentBed)) {
@@ -12583,7 +12886,7 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   }
 
   List<Widget> _buildSchedulingParametersChildren() {
-    const allRooms = ['OT 1', 'OT 2', 'OT 3', 'Emergency OT'];
+    final allRooms = _availableOtRooms;
     final occupiedRooms = _getOccupiedRoomsForSlot(
       date: _selectedDate,
       startTime: _slotStartTime,
@@ -12628,12 +12931,15 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info_outline, size: 12, color: Colors.orange.shade700),
-              const SizedBox(width: 4),
-              Text(
-                'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
-                style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+              Icon(Icons.info_outline, size: 13, color: Colors.orange.shade700),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
+                  style: TextStyle(fontSize: 11, color: Colors.orange.shade700, height: 1.25),
+                ),
               ),
             ],
           ),
@@ -12654,6 +12960,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   helpText: 'Select Surgery Start Time',
                 );
                 if (picked != null) {
+                  if (_isPastDateTime(_selectedDate, picked)) {
+                    AppNotification.showError(
+                      context,
+                      'Cannot select past time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a current or future time.',
+                      atTop: true,
+                    );
+                    return;
+                  }
                   final sMin = picked.hour * 60 + picked.minute;
                   if (_slotEndTime != null) {
                     final eMin = _slotEndTime!.hour * 60 + _slotEndTime!.minute;
@@ -12682,15 +12996,17 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   children: [
                     const Icon(Icons.play_circle_outline, size: 18, color: AppTheme.primaryColor),
                     const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Start Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
-                        Text(
-                          _formatTimeOfDay(_slotStartTime),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Start Time', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor)),
+                          Text(
+                            _formatTimeOfDay(_slotStartTime),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -12707,6 +13023,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                   helpText: 'Select Surgery End Time (Optional)',
                 );
                 if (picked != null) {
+                  if (_isPastDateTime(_selectedDate, picked)) {
+                    AppNotification.showError(
+                      context,
+                      'Cannot select past end time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a future time.',
+                      atTop: true,
+                    );
+                    return;
+                  }
                   final sMin = _slotStartTime.hour * 60 + _slotStartTime.minute;
                   final eMin = picked.hour * 60 + picked.minute;
                   if (eMin <= sMin) {
@@ -12827,7 +13151,9 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             children: [
               Icon(Icons.info_outline, size: 16, color: AppTheme.textSecondaryColor),
               SizedBox(width: 8),
-              Text('No nurses found in database.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12.5)),
+              Expanded(
+                child: Text('No nurses found in database.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 12.5)),
+              ),
             ],
           ),
         )
@@ -13031,7 +13357,20 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 firstDate: DateTime.now(),
                 lastDate: DateTime.now().add(const Duration(days: 365)),
               );
-              if (picked != null) setState(() => _selectedDate = picked);
+              if (picked != null) {
+                setState(() {
+                  _selectedDate = picked;
+                  if (_isPastDateTime(picked, _slotStartTime)) {
+                    final now = DateTime.now();
+                    final nextHour = TimeOfDay(hour: (now.hour + 1) % 24, minute: 0);
+                    _slotStartTime = nextHour;
+                    _selectedTime = nextHour;
+                    if (_slotEndTime != null) {
+                      _slotEndTime = TimeOfDay(hour: (nextHour.hour + 2) % 24, minute: 0);
+                    }
+                  }
+                });
+              }
             },
           ),
         ),
@@ -13050,6 +13389,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 initialTime: _selectedTime,
               );
               if (picked != null) {
+                if (_isPastDateTime(_selectedDate, picked)) {
+                  AppNotification.showError(
+                    context,
+                    'Cannot select past time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a current or future time.',
+                    atTop: true,
+                  );
+                  return;
+                }
                 setState(() {
                   _selectedTime = picked;
                   _slotStartTime = picked;
@@ -13077,7 +13424,20 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       firstDate: DateTime.now(),
                       lastDate: DateTime.now().add(const Duration(days: 365)),
                     );
-                    if (picked != null) setState(() => _selectedDate = picked);
+                    if (picked != null) {
+                      setState(() {
+                        _selectedDate = picked;
+                        if (_isPastDateTime(picked, _slotStartTime)) {
+                          final now = DateTime.now();
+                          final nextHour = TimeOfDay(hour: (now.hour + 1) % 24, minute: 0);
+                          _slotStartTime = nextHour;
+                          _selectedTime = nextHour;
+                          if (_slotEndTime != null) {
+                            _slotEndTime = TimeOfDay(hour: (nextHour.hour + 2) % 24, minute: 0);
+                          }
+                        }
+                      });
+                    }
                   },
                 ),
               ),
@@ -13098,6 +13458,14 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                       initialTime: _selectedTime,
                     );
                     if (picked != null) {
+                      if (_isPastDateTime(_selectedDate, picked)) {
+                        AppNotification.showError(
+                          context,
+                          'Cannot select past time (${_formatTimeOfDay(picked)}) on today\'s date. Please select a current or future time.',
+                          atTop: true,
+                        );
+                        return;
+                      }
                       setState(() {
                         _selectedTime = picked;
                         _slotStartTime = picked;

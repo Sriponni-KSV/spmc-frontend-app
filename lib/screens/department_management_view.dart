@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
 import '../controllers/department_controller.dart';
 import '../models/department_model.dart';
+import '../widgets/custom_dropdown_search.dart';
 
 class DepartmentManagementView extends StatefulWidget {
   final bool isMobile;
@@ -120,14 +121,34 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
                 const SizedBox(height: 18),
 
                 // ─── QUICK METRICS STATS ───────────────────────────────────────
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 10,
-                  children: [
-                    _buildStatCard('Total Departments', allDepts.length.toString(), Icons.domain_rounded, const Color(0xFF0284C7)),
-                    _buildStatCard('Active Departments', activeCount.toString(), Icons.check_circle_outline_rounded, const Color(0xFF16A34A)),
-                    _buildStatCard('Inactive / Archived', inactiveCount.toString(), Icons.pause_circle_outline_rounded, const Color(0xFF64748B)),
-                  ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final double cardWidth;
+                    if (constraints.maxWidth < 600) {
+                      cardWidth = (constraints.maxWidth - 10) / 2;
+                    } else {
+                      cardWidth = (constraints.maxWidth - 24) / 3;
+                    }
+
+                    return Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        SizedBox(
+                          width: cardWidth.clamp(130.0, 360.0),
+                          child: _buildStatCard('Total Departments', allDepts.length.toString(), Icons.domain_rounded, const Color(0xFF0284C7)),
+                        ),
+                        SizedBox(
+                          width: cardWidth.clamp(130.0, 360.0),
+                          child: _buildStatCard('Active Departments', activeCount.toString(), Icons.check_circle_outline_rounded, const Color(0xFF16A34A)),
+                        ),
+                        SizedBox(
+                          width: cardWidth.clamp(130.0, 360.0),
+                          child: _buildStatCard('Inactive / Archived', inactiveCount.toString(), Icons.pause_circle_outline_rounded, const Color(0xFF64748B)),
+                        ),
+                      ],
+                    );
+                  },
                 ),
                 const SizedBox(height: 18),
 
@@ -318,8 +339,7 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
 
   Widget _buildStatCard(String label, String value, IconData icon, Color color) {
     return Container(
-      width: 220,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -328,21 +348,27 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(9),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: color, size: 22),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: color)),
+                Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: color)),
                 const SizedBox(height: 2),
-                Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -781,17 +807,12 @@ class _DepartmentManagementViewState extends State<DepartmentManagementView> {
 
                         const Text('Status', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, color: Color(0xFF334155))),
                         const SizedBox(height: 6),
-                        DropdownButtonFormField<String>(
-                          initialValue: status,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(),
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 'Active', child: Text('Active')),
-                            DropdownMenuItem(value: 'Inactive', child: Text('Inactive')),
-                          ],
+                        CustomDropdownSearch(
+                          label: '',
+                          hint: 'Select status',
+                          value: status,
+                          dropdownItems: const ['Active', 'Inactive'],
+                          height: 44,
                           onChanged: (v) {
                             if (v != null) setDlgState(() => status = v);
                           },
