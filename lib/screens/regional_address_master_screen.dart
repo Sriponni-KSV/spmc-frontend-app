@@ -199,11 +199,6 @@ class _RegionalAddressMasterScreenState extends State<RegionalAddressMasterScree
               ],
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Maintains standardized Tamil Nadu districts, including Namakkal, Salem and Erode, along with PIN codes. These pre-seeded lookup values are used in patient registration forms.',
-              style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.35),
-            ),
-            const SizedBox(height: 8),
           ],
         );
 
