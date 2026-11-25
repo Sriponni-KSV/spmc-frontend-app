@@ -1,4 +1,3 @@
-import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -46,6 +45,7 @@ class _NurseProfileViewState extends State<NurseProfileView> {
       final FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        withData: true,
       );
 
       if (result != null && result.files.isNotEmpty) {
@@ -64,11 +64,6 @@ class _NurseProfileViewState extends State<NurseProfileView> {
         }
 
         List<int>? fileBytes = file.bytes;
-
-        // Fallback for mobile devices where file.bytes can be null
-        if (fileBytes == null && file.path != null) {
-          fileBytes = io.File(file.path!).readAsBytesSync();
-        }
 
         if (fileBytes != null) {
           final bytesCount = fileBytes.length;
