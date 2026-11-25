@@ -1528,7 +1528,7 @@ class _AddConsumableDialogState extends State<_AddConsumableDialog> {
         'category': _itemCategory,
         'batch_number': _batchCtrl.text.trim().isNotEmpty
             ? _batchCtrl.text.trim()
-            : null,
+            : 'LOT-SPMC-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch % 100000}',
         'deduct_inventory': _deductInventory && _selectedInventoryItem != null,
         'inventory_item_id': _selectedInventoryItem?['id'],
         'cost_per_unit': double.tryParse(_costCtrl.text.trim()) ?? 0.0,

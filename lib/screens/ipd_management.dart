@@ -53,6 +53,8 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   List<Map<String, dynamic>> _allWardsShiftData = [];
   int _dischargeSummarySubTab = 0; // 0 = Active Inpatients, 1 = Discharged History
   List<Map<String, dynamic>> _activeIcuAlerts = [];
+  final TextEditingController _admissionsSearchController = TextEditingController();
+  String _admissionsSearchQuery = '';
 
   @override
   void initState() {
@@ -87,6 +89,7 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
 
   @override
   void dispose() {
+    _admissionsSearchController.dispose();
     if (_tabControllerReady) {
       _tabController.dispose();
     }
@@ -566,182 +569,273 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         Icons.hotel_class_outlined,
       );
     }
-    return ListView.builder(
-      padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
-      itemCount: active.length,
-      itemBuilder: (context, index) {
-        final adm = active[index];
-        final dateStr = DateFormat(
-          'dd/MM/yyyy HH:mm',
-        ).format(DateTime.parse(adm['admission_date']).toLocal());
 
-        final String rawReason = adm['reason_for_admission'] ?? '';
-        String? assignedNurse;
-        if (rawReason.startsWith('[Assigned Nurse: ')) {
-          final endIdx = rawReason.indexOf(']');
-          if (endIdx != -1) {
-            assignedNurse = rawReason.substring(17, endIdx);
-          }
-        }
-        if (assignedNurse == null || assignedNurse.trim().isEmpty) {
-          final wardShift = _allWardsShiftData.firstWhere(
-            (w) => w['ward_type']?.toString().toLowerCase() == adm['ward_type']?.toString().toLowerCase(),
-            orElse: () => {},
-          );
-          final wardNurse = wardShift['assigned_nurse']?.toString();
-          if (wardNurse != null && wardNurse.isNotEmpty && wardNurse != 'None' && wardNurse != 'Not Assigned') {
-            assignedNurse = wardNurse;
-          }
-        }
+    final query = _admissionsSearchQuery.toLowerCase().trim();
+    final filtered = query.isEmpty
+        ? active
+        : active.where((a) {
+            final name = (a['patient_name'] ?? '').toString().toLowerCase();
+            final uhid = (a['uhid'] ?? a['patient_id'] ?? '').toString().toLowerCase();
+            final bed = (a['bed_number'] ?? '').toString().toLowerCase();
+            final ward = (a['ward_type'] ?? '').toString().toLowerCase();
+            return name.contains(query) || uhid.contains(query) || bed.contains(query) || ward.contains(query);
+          }).toList();
 
-        return Card(
-          elevation: 0,
-          margin: const EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey.shade200),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Responsive Patient Search Box
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            widget.isMobile ? 16 : 24,
+            widget.isMobile ? 12 : 16,
+            widget.isMobile ? 16 : 24,
+            0,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: widget.isMobile
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                            child: Text(
-                              adm['patient_name']?[0].toUpperCase() ?? 'P',
-                              style: const TextStyle(
-                                color: AppTheme.primaryColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  adm['patient_name'] ?? 'Unknown',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Bed: ${adm['bed_number']} (${adm['ward_type']})',
-                                  style: const TextStyle(
-                                    color: AppTheme.textSecondaryColor,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Admitted: $dateStr',
-                        style: const TextStyle(
-                          color: AppTheme.textSecondaryColor,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Treating Doctor: ${adm['doctor_name']}${adm['doctor_display_id'] != null && adm['doctor_display_id'].toString().isNotEmpty ? ' (${adm['doctor_display_id']})' : ''}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (assignedNurse != null) ...[
-                        const SizedBox(height: 6),
-                        _buildAssignedNurseBadge(assignedNurse),
-                      ],
-                      if (isDoctor || isNurse) ...[
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: TextField(
+              controller: _admissionsSearchController,
+              onChanged: (val) {
+                setState(() {
+                  _admissionsSearchQuery = val;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search admitted patient by name, patient ID, bed, ward...',
+                hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.primaryColor),
+                suffixIcon: _admissionsSearchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18, color: Colors.grey),
+                        onPressed: () {
+                          _admissionsSearchController.clear();
+                          setState(() => _admissionsSearchQuery = '');
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: filtered.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
                         const SizedBox(height: 12),
-                        const Divider(),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            if (isDoctor)
-                              ..._buildDoctorAdmissionActions(adm)
-                            else if (isNurse)
-                              ..._buildNurseAdmissionActions(adm),
-                          ],
+                        Text(
+                          'No admitted patients found matching "$_admissionsSearchQuery"',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Try searching with another patient name, UHID, or bed number.',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                          textAlign: TextAlign.center,
                         ),
                       ],
-                    ],
-                  )
-                : Row(
-                    children: [
-                      CircleAvatar(
-                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
-                        child: Text(
-                          adm['patient_name']?[0].toUpperCase() ?? 'P',
-                          style: const TextStyle(
-                            color: AppTheme.primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              adm['patient_name'] ?? 'Unknown',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Bed: ${adm['bed_number']} (${adm['ward_type']}) • Admitted: $dateStr',
-                              style: const TextStyle(
-                                color: AppTheme.textSecondaryColor,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Treating Doctor: ${adm['doctor_name']}${adm['doctor_display_id'] != null && adm['doctor_display_id'].toString().isNotEmpty ? ' (${adm['doctor_display_id']})' : ''}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (assignedNurse != null) ...[
-                              const SizedBox(height: 6),
-                              _buildAssignedNurseBadge(assignedNurse),
-                            ],
-                          ],
-                        ),
-                      ),
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          if (isDoctor)
-                            ..._buildDoctorAdmissionActions(adm)
-                          else if (isNurse)
-                            ..._buildNurseAdmissionActions(adm),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
-          ),
-        );
-      },
+                )
+              : ListView.builder(
+                  padding: EdgeInsets.all(widget.isMobile ? 16 : 24),
+                  itemCount: filtered.length,
+                  itemBuilder: (context, index) {
+                    final adm = filtered[index];
+                    final dateStr = DateFormat(
+                      'dd/MM/yyyy HH:mm',
+                    ).format(DateTime.parse(adm['admission_date']).toLocal());
+
+                    final String rawReason = adm['reason_for_admission'] ?? '';
+                    String? assignedNurse;
+                    if (rawReason.startsWith('[Assigned Nurse: ')) {
+                      final endIdx = rawReason.indexOf(']');
+                      if (endIdx != -1) {
+                        assignedNurse = rawReason.substring(17, endIdx);
+                      }
+                    }
+                    if (assignedNurse == null || assignedNurse.trim().isEmpty) {
+                      final wardShift = _allWardsShiftData.firstWhere(
+                        (w) => w['ward_type']?.toString().toLowerCase() == adm['ward_type']?.toString().toLowerCase(),
+                        orElse: () => {},
+                      );
+                      final wardNurse = wardShift['assigned_nurse']?.toString();
+                      if (wardNurse != null && wardNurse.isNotEmpty && wardNurse != 'None' && wardNurse != 'Not Assigned') {
+                        assignedNurse = wardNurse;
+                      }
+                    }
+
+                    return Card(
+                      elevation: 0,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.grey.shade200),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: widget.isMobile
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                        child: Text(
+                                          adm['patient_name']?[0].toUpperCase() ?? 'P',
+                                          style: const TextStyle(
+                                            color: AppTheme.primaryColor,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              adm['patient_name'] ?? 'Unknown',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              'Bed: ${adm['bed_number']} (${adm['ward_type']})',
+                                              style: const TextStyle(
+                                                color: AppTheme.textSecondaryColor,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'Admitted: $dateStr',
+                                    style: const TextStyle(
+                                      color: AppTheme.textSecondaryColor,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Treating Doctor: ${adm['doctor_name']}${adm['doctor_display_id'] != null && adm['doctor_display_id'].toString().isNotEmpty ? ' (${adm['doctor_display_id']})' : ''}',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  if (assignedNurse != null) ...[
+                                    const SizedBox(height: 6),
+                                    _buildAssignedNurseBadge(assignedNurse),
+                                  ],
+                                  if (isDoctor || isNurse) ...[
+                                    const SizedBox(height: 12),
+                                    const Divider(),
+                                    const SizedBox(height: 8),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: [
+                                        if (isDoctor)
+                                          ..._buildDoctorAdmissionActions(adm)
+                                        else if (isNurse)
+                                          ..._buildNurseAdmissionActions(adm),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              )
+                            : Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+                                    child: Text(
+                                      adm['patient_name']?[0].toUpperCase() ?? 'P',
+                                      style: const TextStyle(
+                                        color: AppTheme.primaryColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          adm['patient_name'] ?? 'Unknown',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Bed: ${adm['bed_number']} (${adm['ward_type']}) • Admitted: $dateStr',
+                                          style: const TextStyle(
+                                            color: AppTheme.textSecondaryColor,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Treating Doctor: ${adm['doctor_name']}${adm['doctor_display_id'] != null && adm['doctor_display_id'].toString().isNotEmpty ? ' (${adm['doctor_display_id']})' : ''}',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        if (assignedNurse != null) ...[
+                                          const SizedBox(height: 6),
+                                          _buildAssignedNurseBadge(assignedNurse),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  Wrap(
+                                    spacing: 8,
+                                    children: [
+                                      if (isDoctor)
+                                        ..._buildDoctorAdmissionActions(adm)
+                                      else if (isNurse)
+                                        ..._buildNurseAdmissionActions(adm),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 
@@ -2960,13 +3054,16 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                           ),
                           const SizedBox(height: 8),
                           CustomDropdownSearch(
-                            label: '',
+                            label: 'Available Beds',
                             hint: selectedWardType == null
                                 ? 'Select ward first'
                                 : availableBeds.isEmpty
-                                ? 'No beds available in this ward'
+                                ? 'No beds available in the selected ward.'
                                 : 'Select bed',
                             value: selectedBedNumber,
+                            emptyMessage: selectedWardType == null
+                                ? 'Please select a ward first'
+                                : 'No beds available in the selected ward.',
                             dropdownMap: {
                               for (var b in availableBeds) b: 'Bed $b',
                             },
@@ -3362,9 +3459,14 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                         ),
                         const SizedBox(height: 10),
                         CustomDropdownSearch(
-                          label: '',
-                          hint: 'Select Available Bed',
+                          label: 'Available Beds',
+                          hint: (selectedWardType != null && availableBeds.isEmpty)
+                              ? 'No beds available in the selected ward.'
+                              : 'Select Available Bed',
                           value: selectedBedNumber,
+                          emptyMessage: (selectedWardType != null && availableBeds.isEmpty)
+                              ? 'No beds available in the selected ward.'
+                              : (selectedWardType == null ? 'Please select a ward first' : 'No beds available in the selected ward.'),
                           dropdownItems: availableBeds,
                           validator: (val) {
                             if (val == null || val.isEmpty) {

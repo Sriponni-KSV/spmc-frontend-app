@@ -1,6 +1,7 @@
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../widgets/discharge_summary_preview_dialog.dart';
 
 void printHospitalReceipt({
   required BuildContext context,
@@ -476,20 +477,38 @@ void printHospitalReceipt({
     </html>
     ''';
 
-    final blob = html.Blob([htmlContent], 'text/html');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final printWin = html.window.open(url, '_blank');
-    if (printWin == null) {
-      // If popup blocked, fallback to direct page print or alert
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please allow popups to open the clean printable receipt.',
-          ),
-          backgroundColor: Color(0xFFE53E3E),
-        ),
-      );
+    final existingIframe = html.document.getElementById('__spmc_print_frame__');
+    if (existingIframe != null) {
+      existingIframe.remove();
     }
+
+    final iframe = html.IFrameElement()
+      ..id = '__spmc_print_frame__'
+      ..style.position = 'fixed'
+      ..style.right = '0'
+      ..style.bottom = '0'
+      ..style.width = '0'
+      ..style.height = '0'
+      ..style.border = '0'
+      ..srcdoc = htmlContent;
+    html.document.body?.append(iframe);
+
+    try {
+      final dynamic doc = (iframe as dynamic).contentDocument ??
+          (iframe as dynamic).contentWindow?.document;
+      if (doc != null) {
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+      }
+    } catch (_) {}
+
+    Future.delayed(const Duration(milliseconds: 250), () {
+      try {
+        (iframe.contentWindow as dynamic)?.focus();
+        (iframe.contentWindow as dynamic)?.print();
+      } catch (_) {}
+    });
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -500,7 +519,31 @@ void printHospitalReceipt({
   }
 }
 
+/// In-page print preview entrypoint: opens the high-fidelity printable page preview dialog
+/// directly on the same page, allowing reviewing before printing without opening extra tabs.
 void printDischargeSummary({
+  required BuildContext context,
+  required Map<String, dynamic> admission,
+  required String finalDiagnosis,
+  required String treatmentSummary,
+  required String medicationPlan,
+  String? dischargeInstructions,
+  String? followUpDate,
+}) {
+  DischargeSummaryPreviewDialog.show(
+    context,
+    admission: admission,
+    finalDiagnosis: finalDiagnosis,
+    treatmentSummary: treatmentSummary,
+    medicationPlan: medicationPlan,
+    dischargeInstructions: dischargeInstructions,
+    followUpDate: followUpDate,
+  );
+}
+
+/// Triggers clean iframe-based printing of the Discharge Summary HTML document
+/// directly to the browser / OS print dialog without opening any new tab.
+void triggerDischargeSummaryHtmlPrint({
   required BuildContext context,
   required Map<String, dynamic> admission,
   required String finalDiagnosis,
@@ -653,19 +696,38 @@ void printDischargeSummary({
     </html>
     ''';
 
-    final blob = html.Blob([htmlContent], 'text/html');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-    final printWin = html.window.open(url, '_blank');
-    if (printWin == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please allow popups to open the clean printable discharge summary.',
-          ),
-          backgroundColor: Color(0xFFE53E3E),
-        ),
-      );
+    final existingIframe = html.document.getElementById('__spmc_print_frame__');
+    if (existingIframe != null) {
+      existingIframe.remove();
     }
+
+    final iframe = html.IFrameElement()
+      ..id = '__spmc_print_frame__'
+      ..style.position = 'fixed'
+      ..style.right = '0'
+      ..style.bottom = '0'
+      ..style.width = '0'
+      ..style.height = '0'
+      ..style.border = '0'
+      ..srcdoc = htmlContent;
+    html.document.body?.append(iframe);
+
+    try {
+      final dynamic doc = (iframe as dynamic).contentDocument ??
+          (iframe as dynamic).contentWindow?.document;
+      if (doc != null) {
+        doc.open();
+        doc.write(htmlContent);
+        doc.close();
+      }
+    } catch (_) {}
+
+    Future.delayed(const Duration(milliseconds: 250), () {
+      try {
+        (iframe.contentWindow as dynamic)?.focus();
+        (iframe.contentWindow as dynamic)?.print();
+      } catch (_) {}
+    });
   } catch (e) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -369,6 +369,8 @@ class _AdminDbInitializationViewState extends State<AdminDbInitializationView> {
               _buildMetricChip('Carried Kit Items', counts['kit_items_master'] ?? 0, Icons.inventory_outlined, Colors.brown),
               _buildMetricChip('Lab Test Master', counts['lab_test_master'] ?? 0, Icons.biotech_outlined, Colors.cyan),
               _buildMetricChip('Specializations', counts['doctor_specializations'] ?? 0, Icons.medical_services_outlined, Colors.green),
+              _buildMetricChip('Districts Master', counts['districts'] ?? 0, Icons.location_city_outlined, Colors.indigo),
+              _buildMetricChip('PIN Codes Master', counts['pincodes'] ?? 0, Icons.markunread_mailbox_outlined, Colors.deepPurple),
               _buildMetricChip('Registered Users', counts['users'] ?? 0, Icons.people_outline, Colors.blueGrey),
               _buildMetricChip('Patients Directory', counts['patients'] ?? 0, Icons.sick_outlined, Colors.pink),
             ],

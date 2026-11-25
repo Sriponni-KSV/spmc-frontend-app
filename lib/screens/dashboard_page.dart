@@ -18,6 +18,7 @@ import '../models/appointment_model.dart';
 import 'new_consultation.dart';
 import '../utils/date_formatter.dart';
 import '../utils/logout_helper.dart';
+import '../services/token_service.dart';
 import '../widgets/user_profile_dialog.dart';
 import '../widgets/access_denied_widget.dart';
 import 'doctor_ipd_management.dart';
@@ -27,6 +28,7 @@ import '../controllers/ot_controller.dart';
 import '../controllers/lab_controller.dart';
 import '../controllers/notification_controller.dart';
 import '../config/doctor_nav_config.dart';
+import '../utils/sidebar_state.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 import '../widgets/consultation_documents_view.dart';
@@ -261,6 +263,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _notificationsTimer = Timer.periodic(const Duration(seconds: 6), (timer) {
       _fetchNotifications();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final user = Provider.of<AuthProvider>(context).user;
+    if (user != null && _doctorAppointments.isEmpty && !_isLoading) {
+      _fetchDoctorData();
+    }
   }
 
   @override
@@ -598,16 +609,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isDoctorMatch(AppointmentModel appt, UserModel? user) {
     if (user == null) return false;
     if (user.role == 'Admin' || user.role == 'Super Admin') return true;
-    if (appt.doctorId != null && user.id != null && appt.doctorId == user.id) {
+
+    // 1. Direct ID match (check numeric and string, both id and user.id)
+    if (appt.doctorId != null && user.id != 0) {
+      if (appt.doctorId == user.id || appt.doctorId.toString() == user.id.toString()) {
+        return true;
+      }
+    }
+
+    // 2. Doctor display ID / staffUniqueId match (case-insensitive, trimmed)
+    final apptDocDisp = appt.doctorDisplayId?.trim().toLowerCase();
+    final userStaffId = user.staffUniqueId?.trim().toLowerCase();
+    if (apptDocDisp != null && apptDocDisp.isNotEmpty && userStaffId != null && userStaffId.isNotEmpty) {
+      if (apptDocDisp == userStaffId) return true;
+    }
+
+    // 3. Name matching via helper
+    if (_isDoctorNameMatch(appt.doctorName, user)) {
       return true;
     }
-    if (appt.doctorDisplayId != null &&
-        appt.doctorDisplayId!.isNotEmpty &&
-        user.staffUniqueId != null &&
-        user.staffUniqueId!.isNotEmpty) {
-      if (appt.doctorDisplayId == user.staffUniqueId) return true;
+
+    // 4. Substring fallback on doctor name
+    final docNameLower = appt.doctorName.trim().toLowerCase();
+    final userRawName = (user.rawFullname ?? user.fullname).trim().toLowerCase();
+    if (docNameLower.isNotEmpty && userRawName.isNotEmpty) {
+      if (docNameLower.contains(userRawName) || userRawName.contains(docNameLower)) {
+        return true;
+      }
     }
-    return _isDoctorNameMatch(appt.doctorName, user);
+
+    return false;
   }
 
   bool _isDoctorNameMatch(dynamic docName, UserModel? user) {
@@ -618,21 +649,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (sDoc.isEmpty) return false;
 
     String clean(String s) {
-      s = s.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
-      if (s.startsWith('dr.')) s = s.substring(3).trim();
-      if (s.startsWith('dr ')) s = s.substring(2).trim();
-      if (s.contains(' - ')) s = s.split(' - ')[0].trim();
-      return s;
+      return s
+          .toLowerCase()
+          .replaceAll(RegExp(r'\b(dr|doctor|prof|mr|mrs|ms)\b\.?', caseSensitive: false), ' ')
+          .replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
     }
 
     final cDoc = clean(sDoc);
     final cUser = clean(user.rawFullname ?? user.fullname);
     if (cDoc.isEmpty || cUser.isEmpty) return false;
-    return cDoc == cUser || cDoc.contains(cUser) || cUser.contains(cDoc);
+    if (cDoc == cUser || cDoc.contains(cUser) || cUser.contains(cDoc)) return true;
+
+    // Check individual significant word tokens (e.g. "Gayathri" matching "Dr. Gayathri" or "Gayathri Dr")
+    final docWords = cDoc.split(RegExp(r'\s+')).where((w) => w.length >= 3).toSet();
+    final userWords = cUser.split(RegExp(r'\s+')).where((w) => w.length >= 3).toSet();
+    return docWords.intersection(userWords).isNotEmpty;
   }
 
   bool _isSameDay(String apptDateStr, DateTime date) {
     try {
+      final trimmed = apptDateStr.trim().toLowerCase();
+      if (trimmed == 'today' || trimmed.startsWith('today')) {
+        final now = DateTime.now();
+        return date.year == now.year && date.month == now.month && date.day == now.day;
+      }
       final dt = DateFormatter.toDateTime(apptDateStr);
       if (dt != null) {
         return dt.year == date.year && dt.month == date.month && dt.day == date.day;
@@ -640,6 +682,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final cleanAppt = apptDateStr.replaceAll('-', '/').trim();
       final target = DateFormat('dd/MM/yyyy').format(date);
       if (cleanAppt == target || cleanAppt.startsWith(target)) return true;
+
+      final targetDb = DateFormat('yyyy/MM/dd').format(date);
+      if (cleanAppt == targetDb || cleanAppt.startsWith(targetDb)) return true;
 
       // Fallback parse
       final parts = cleanAppt.split('/');
@@ -668,13 +713,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _fetchDoctorData() async {
     if (!mounted) return;
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    UserModel? user = Provider.of<AuthProvider>(context, listen: false).user;
     if (user == null) {
-      if (mounted) setState(() => _isLoading = false);
-      return;
+      try {
+        final cachedUser = await TokenService.getUser();
+        if (cachedUser != null) {
+          user = UserModel.fromJson(jsonDecode(cachedUser));
+        }
+      } catch (_) {}
     }
 
-    if (user.role == 'Anaesthetist') {
+    if (user != null && user.role == 'Anaesthetist') {
       if (!mounted) return;
       setState(() => _isLoading = true);
       try {
@@ -692,8 +741,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
-    if (!user.hasPermission('book_appointment')) {
-      debugPrint('[_fetchDoctorData] Bypassing fetch: user lacks book_appointment permission');
+    final role = user?.role.toLowerCase() ?? '';
+    final isAllowed = role == 'doctor' ||
+        role == 'admin' ||
+        role == 'super admin' ||
+        (user?.hasPermission('conduct_consultations') ?? false) ||
+        (user?.hasPermission('view_appointment') ?? false) ||
+        (user?.hasPermission('book_appointment') ?? false);
+
+    if (user != null && !isAllowed) {
+      debugPrint('[_fetchDoctorData] Bypassing fetch: user lacks doctor dashboard access');
       if (mounted) {
         setState(() => _isLoading = false);
       }
@@ -703,15 +760,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final user = Provider.of<AuthProvider>(context, listen: false).user;
       final allAppointments = await _appointmentController.fetchAppointments();
+      final currentUser = Provider.of<AuthProvider>(context, listen: false).user ?? user;
 
       if (mounted) {
         setState(() {
           _doctorAppointments = allAppointments.where((appt) {
-            return _isDoctorMatch(appt, user);
+            return _isDoctorMatch(appt, currentUser);
           }).toList();
           _isLoading = false;
+
+          // If there are no appointments for today, but the doctor has appointments on other dates,
+          // auto-reset _selectedDate to null so all records are immediately displayed!
+          final hasTodayAppts = _doctorAppointments.any((a) => _isSameDay(a.appointmentDate, DateTime.now()));
+          if (!hasTodayAppts && _doctorAppointments.isNotEmpty && _selectedDate != null) {
+            _selectedDate = null;
+          }
         });
       }
 
@@ -959,22 +1023,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ? _buildAnaesthetistDashboardView(isMobile)
             : _buildDashboardView(isMobile);
       case 1:
-        if ((user?.hasPermission('conduct_consultations') ?? false) || isDoctor) {
+        if (user?.hasPermission('conduct_consultations') ?? false) {
           return _buildConsultationsView(isMobile);
         }
         return const AccessDeniedWidget();
       case 2:
         return _buildProfileView(isMobile);
       case 3:
-        if ((user?.hasPermission('ipd_doctor_rounds') ?? false) || isDoctor) {
+        if (user?.hasPermission('ipd_doctor_rounds') ?? false) {
           return DoctorIPDManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 4:
         if ((user?.hasPermission('ot_surgeries') ?? false) ||
             (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
-            (user?.hasPermission('ot_who_checklist') ?? false) ||
-            isDoctor) {
+            (user?.hasPermission('ot_who_checklist') ?? false)) {
           return OTManagementScreen(
             isMobile: isMobile,
             initialSelectedCase: _otInitialSelectedCase,
@@ -984,8 +1047,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const AccessDeniedWidget();
       case 5:
         if ((user?.hasPermission('ot_surgeries') ?? false) ||
-            (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
-            isDoctor) {
+            (user?.hasPermission('ot_anaesthesia_pac') ?? false)) {
           return OTManagementScreen(
             isMobile: isMobile,
             initialSelectedCase: _otInitialSelectedCase,
@@ -994,12 +1056,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 6:
-        if ((user?.hasPermission('view_lab_reports') ?? false) || isDoctor) {
+        if (user?.hasPermission('view_lab_reports') ?? false) {
           return _buildLabReportsView(isMobile);
         }
         return const AccessDeniedWidget();
       case 7:
-        if ((user?.hasPermission('view_patients') ?? false) || isDoctor) {
+        if (user?.hasPermission('view_patients') ?? false) {
           return PatientsView(
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
@@ -1012,7 +1074,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 8:
-        if ((user?.hasPermission('book_appointment') ?? false) || isDoctor) {
+        if (user?.hasPermission('book_appointment') ?? false) {
           return const AppointmentsView();
         }
         return const AccessDeniedWidget();
@@ -4846,146 +4908,318 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSidebar(bool isMobile) {
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final user = Provider.of<AuthProvider>(context).user;
     final isAnaesthetist = user?.role == 'Anaesthetist';
     final isDoctor = user?.role == 'Doctor' || isAnaesthetist;
     final isDark = AppTheme.isDark(context);
 
-    return Container(
-      width: 275,
-      margin: const EdgeInsets.fromLTRB(16, 16, 8, 16),
-      decoration: BoxDecoration(
-        color: AppTheme.getCardColor(context),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppTheme.getBorderColor(context)),
-        boxShadow: isDark
-            ? []
-            : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-      ),
-      child: Column(
-        children: [
-          // Logo Section
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Image.asset(
-              'assets/image/full_logo.png',
-              width: 110,
-              height: 90,
-            ),
-          ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: SidebarState.isCollapsed,
+      builder: (context, isSidebarCollapsed, _) {
+        final effectiveCollapsed = isMobile ? false : isSidebarCollapsed;
+        final width = isMobile ? double.infinity : (effectiveCollapsed ? 76.0 : 275.0);
 
-          // Navigation Items (Scrollable Area driven by DoctorNavConfig)
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: DoctorNavConfig.getVisibleNavItems(user)
-                    .map(
-                      (item) => _buildSidebarItem(
-                        item.index,
-                        item.icon,
-                        item.label,
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeInOut,
+          width: width,
+          margin: isMobile
+              ? EdgeInsets.zero
+              : (effectiveCollapsed
+                  ? const EdgeInsets.fromLTRB(10, 16, 6, 16)
+                  : const EdgeInsets.fromLTRB(16, 16, 8, 16)),
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(20),
+            border: isMobile ? null : Border.all(color: AppTheme.getBorderColor(context)),
+            boxShadow: isDark || isMobile
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.06),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+          ),
+          child: ClipRect(
+            child: LayoutBuilder(
+              builder: (context, sidebarBox) {
+                final showCollapsed = effectiveCollapsed || (!isMobile && sidebarBox.maxWidth < 210);
+
+                return Column(
+                  children: [
+                    // Brand Header
+                    Container(
+                      constraints: const BoxConstraints(minHeight: 70),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: showCollapsed ? 8 : 16,
+                        vertical: 12,
                       ),
-                    )
-                    .toList(),
-              ),
-            ),
-          ),
-
-          // User Profile Footer
-          Container(
-            decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: AppTheme.getBorderColor(context), width: 1)),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: user == null
-                ? const SizedBox.shrink()
-                : Consumer<AuthProvider>(
-                    builder: (context, auth, _) {
-                      final user = auth.user;
-                      if (user == null) return const SizedBox.shrink();
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => UserProfileDialog.show(context, user),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: AppTheme.primaryColor,
-                                    radius: 18,
-                                    child: Text(
-                                      (user.rawFullname ?? user.fullname).isNotEmpty
-                                          ? (user.rawFullname ?? user.fullname)[0].toUpperCase()
-                                          : '?',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+                      decoration: BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppTheme.getBorderColor(context).withOpacity(0.6),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      child: showCollapsed
+                          ? Center(
+                              child: Tooltip(
+                                message: 'Expand Sidebar',
+                                preferBelow: false,
+                                child: InkWell(
+                                  onTap: () => SidebarState.setCollapsed(false),
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(4.0),
+                                    child: Image.asset(
+                                      'assets/image/sriPonniLogo.png',
+                                      width: 34,
+                                      height: 34,
+                                      errorBuilder: (_, __, ___) => const Icon(
+                                        Icons.local_hospital_rounded,
+                                        color: AppTheme.primaryColor,
+                                        size: 28,
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          user.rawFullname ?? user.fullname,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                            color: AppTheme.getTextPrimaryColor(context),
-                                          ),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        Text(
-                                          context.translateRole(user.role),
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: AppTheme.getTextSecondaryColor(context),
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
+                                ),
+                              ),
+                            )
+                          : Row(
+                              children: [
+                                Expanded(
+                                  child: Center(
+                                    child: Image.asset(
+                                      'assets/image/full_logo.png',
+                                      width: 110,
+                                      height: 80,
+                                      fit: BoxFit.contain,
                                     ),
                                   ),
-                                ],
+                                ),
+                                if (!isMobile)
+                                  IconButton(
+                                    onPressed: () => SidebarState.setCollapsed(true),
+                                    tooltip: 'Collapse Sidebar',
+                                    icon: Icon(
+                                      Icons.chevron_left_rounded,
+                                      color: AppTheme.getTextSecondaryColor(context),
+                                      size: 20,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                              ],
+                            ),
+                    ),
+
+                    // Navigation Items (Scrollable Area driven by DoctorNavConfig)
+                    Expanded(
+                      child: ListView(
+                        physics: const ClampingScrollPhysics(),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: showCollapsed ? 4 : 0,
+                          vertical: 10,
+                        ),
+                        children: DoctorNavConfig.getVisibleNavItems(user)
+                            .map(
+                              (item) => _buildSidebarItem(
+                                item.index,
+                                item.icon,
+                                item.label,
+                                isMobile: isMobile,
+                                isCollapsed: showCollapsed,
                               ),
+                            )
+                            .toList(),
+                      ),
+                    ),
+
+                    // Expand button when collapsed on desktop
+                    if (showCollapsed && !isMobile)
+                      Container(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border(
+                            top: BorderSide(
+                              color: AppTheme.getBorderColor(context).withOpacity(0.6),
                             ),
                           ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.logout,
-                              size: 18,
-                              color: AppTheme.getTextSecondaryColor(context),
+                        ),
+                        child: Center(
+                          child: IconButton(
+                            onPressed: () => SidebarState.setCollapsed(false),
+                            tooltip: 'Expand Sidebar',
+                            visualDensity: VisualDensity.compact,
+                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                            icon: const Icon(
+                              Icons.chevron_right_rounded,
+                              color: AppTheme.primaryColor,
                             ),
-                            onPressed: () async {
-                              if (_activeAppointment != null) {
-                                final canLeave = await _confirmLeaveConsultation();
-                                if (!canLeave) return;
-                              }
-                              LogoutHelper.showLogoutConfirmation(
-                                context,
-                                auth,
-                              );
-                            },
                           ),
-                        ],
-                      );
-                    },
-                  ),
+                        ),
+                      ),
+
+                    // User Profile Footer
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(
+                            color: AppTheme.getBorderColor(context),
+                            width: 1,
+                          ),
+                        ),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: showCollapsed ? 8 : 16,
+                        vertical: 14,
+                      ),
+                      child: user == null
+                          ? const SizedBox.shrink()
+                          : Consumer<AuthProvider>(
+                              builder: (context, auth, _) {
+                                final user = auth.user;
+                                if (user == null) return const SizedBox.shrink();
+
+                                if (showCollapsed) {
+                                  return Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Tooltip(
+                                        message: '${user.rawFullname ?? user.fullname} (${context.translateRole(user.role)})',
+                                        preferBelow: false,
+                                        child: InkWell(
+                                          onTap: () => UserProfileDialog.show(context, user),
+                                          borderRadius: BorderRadius.circular(18),
+                                          child: CircleAvatar(
+                                            backgroundColor: AppTheme.primaryColor,
+                                            radius: 18,
+                                            child: Text(
+                                              (user.rawFullname ?? user.fullname).isNotEmpty
+                                                  ? (user.rawFullname ?? user.fullname)[0].toUpperCase()
+                                                  : '?',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Tooltip(
+                                        message: 'Logout',
+                                        preferBelow: false,
+                                        child: IconButton(
+                                          icon: Icon(
+                                            Icons.logout,
+                                            size: 18,
+                                            color: AppTheme.getTextSecondaryColor(context),
+                                          ),
+                                          visualDensity: VisualDensity.compact,
+                                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                          padding: EdgeInsets.zero,
+                                          onPressed: () async {
+                                            if (_activeAppointment != null) {
+                                              final canLeave = await _confirmLeaveConsultation();
+                                              if (!canLeave) return;
+                                            }
+                                            LogoutHelper.showLogoutConfirmation(
+                                              context,
+                                              auth,
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }
+
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () => UserProfileDialog.show(context, user),
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Row(
+                                          children: [
+                                            CircleAvatar(
+                                              backgroundColor: AppTheme.primaryColor,
+                                              radius: 18,
+                                              child: Text(
+                                                (user.rawFullname ?? user.fullname).isNotEmpty
+                                                    ? (user.rawFullname ?? user.fullname)[0].toUpperCase()
+                                                    : '?',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    user.rawFullname ?? user.fullname,
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.w600,
+                                                      fontSize: 13,
+                                                      color: AppTheme.getTextPrimaryColor(context),
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  Text(
+                                                    context.translateRole(user.role),
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: AppTheme.getTextSecondaryColor(context),
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.logout,
+                                        size: 18,
+                                        color: AppTheme.getTextSecondaryColor(context),
+                                      ),
+                                      onPressed: () async {
+                                        if (_activeAppointment != null) {
+                                          final canLeave = await _confirmLeaveConsultation();
+                                          if (!canLeave) return;
+                                        }
+                                        LogoutHelper.showLogoutConfirmation(
+                                          context,
+                                          auth,
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -5058,7 +5292,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return label;
   }
 
-  Widget _buildSidebarItem(int index, IconData icon, String label) {
+  Widget _buildSidebarItem(int index, IconData icon, String label, {bool isMobile = false, bool isCollapsed = false}) {
     final displayLabel = _translateDoctorLabel(label);
     bool isSelected = _selectedIndex == index;
     final user = Provider.of<AuthProvider>(context, listen: false).user;
@@ -5075,6 +5309,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return InkWell(
       onTap: () async {
+        if (isMobile) {
+          Navigator.of(context).pop();
+        }
         if (!hasTimings) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -5136,36 +5373,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
           fontWeight: FontWeight.w500,
         ),
         child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
-              size: 20,
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Text(
-                _translateDoctorLabel(label),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
-                  fontSize: 15,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          duration: const Duration(milliseconds: 180),
+          margin: EdgeInsets.symmetric(
+            horizontal: isCollapsed ? 8 : 12,
+            vertical: isCollapsed ? 3 : 2,
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: isCollapsed ? 0 : 14,
+            vertical: isCollapsed ? 10 : 11,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: isCollapsed
+              ? Center(
+                  child: Icon(
+                    icon,
+                    color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                    size: 20,
+                  ),
+                )
+              : Row(
+                  children: [
+                    Icon(
+                      icon,
+                      color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        displayLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
+                          fontSize: 15,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-          ],
         ),
-      ),
       ),
     );
   }
@@ -5357,9 +5608,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             a.status.toLowerCase() != 'cancelled')
         .length;
     final int confirmedCount = _doctorAppointments
-        .where((a) =>
-            a.status.toLowerCase() == 'confirmed' ||
-            a.status.toLowerCase() == 'scheduled')
+        .where((a) {
+          final s = a.status.toLowerCase();
+          return s == 'confirmed' ||
+              s == 'scheduled' ||
+              s == 'waiting' ||
+              s == 'booked' ||
+              s == 'pending' ||
+              s == 'checked in' ||
+              s == 'checked-in' ||
+              s == 'arrived';
+        })
         .length;
     final int totalAppointments = _doctorAppointments
         .where((a) => a.status.toLowerCase() != 'cancelled')
@@ -5405,37 +5664,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 750) {
-          // 2x2 grid on mobile & small screens
-          final cardWidth = math.max(0.0, (constraints.maxWidth - 12) / 2);
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: statItems
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
-          );
-        } else if (constraints.maxWidth < 1100) {
-          // 2x2 grid on tablets and small screens
-          final cardWidth = math.max(0.0, (constraints.maxWidth - 16) / 2);
-          return Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: statItems
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
-          );
-        } else {
-          // 4 in a row on wide desktop
-          final cardWidth = math.max(0.0, (constraints.maxWidth - (16 * 3)) / 4);
-          return Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: statItems
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
+        if (constraints.maxWidth < 650) {
+          // Compact horizontally scrollable single row on mobile
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: statItems.asMap().entries.map((entry) {
+                final isLast = entry.key == statItems.length - 1;
+                return Padding(
+                  padding: EdgeInsets.only(right: isLast ? 0 : 10),
+                  child: SizedBox(
+                    width: 165,
+                    child: entry.value,
+                  ),
+                );
+              }).toList(),
+            ),
           );
         }
+
+        // Small cards in one row on desktop and tablet
+        return Row(
+          children: [
+            Expanded(child: statItems[0]),
+            const SizedBox(width: 12),
+            Expanded(child: statItems[1]),
+            const SizedBox(width: 12),
+            Expanded(child: statItems[2]),
+            const SizedBox(width: 12),
+            Expanded(child: statItems[3]),
+          ],
+        );
       },
     );
   }
@@ -5464,8 +5724,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // If a specific date is selected, show all statuses. 
       // If we are viewing all dates, only display active statuses.
       if (_selectedDate == null) {
-        final status = a.status;
-        if (status != 'Confirmed' && status != 'Waiting' && status != 'In Consultation') {
+        final status = a.status.toLowerCase().trim();
+        if (status != 'confirmed' &&
+            status != 'waiting' &&
+            status != 'in consultation' &&
+            status != 'checked in' &&
+            status != 'checked-in' &&
+            status != 'scheduled' &&
+            status != 'booked' &&
+            status != 'pending' &&
+            status != 'arrived') {
           return false;
         }
       }
@@ -5778,9 +6046,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   ),
                                 ),
                                 if (_selectedDate != null)
-                                  TextButton(
+                                  ElevatedButton.icon(
                                     onPressed: () => setState(() => _selectedDate = null),
-                                    child: const Text('View All Records'),
+                                    icon: const Icon(Icons.list_alt, size: 16),
+                                    label: Text(
+                                      _doctorAppointments.isNotEmpty
+                                          ? 'View All Appointments (${_doctorAppointments.length})'
+                                          : 'View All Records',
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryColor,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    ),
                                   ),
                               ],
                             ),
@@ -5950,7 +6228,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return InkWell(
       onTap: () async {
-        if (appt.status == 'Waiting') {
+        if (appt.status == 'Waiting' ||
+            appt.status == 'Confirmed' ||
+            appt.status == 'Checked In' ||
+            appt.status == 'Checked-in' ||
+            appt.status == 'Scheduled' ||
+            appt.status == 'Booked' ||
+            appt.status == 'Pending' ||
+            appt.status == 'Arrived' ||
+            appt.status == 'Admitted') {
           await _startConsultation(appt);
         } else if (appt.status == 'In Consultation') {
           _resumeConsultation(appt);
@@ -6130,7 +6416,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               flex: 3,
               child: Align(
                 alignment: Alignment.center,
-                child: (appt.status == 'Waiting' || appt.status == 'Confirmed' || appt.status == 'Checked In' || appt.status == 'Admitted' || appt.status == 'Scheduled')
+                child: (appt.status == 'Waiting' ||
+                        appt.status == 'Confirmed' ||
+                        appt.status == 'Checked In' ||
+                        appt.status == 'Checked-in' ||
+                        appt.status == 'Admitted' ||
+                        appt.status == 'Scheduled' ||
+                        appt.status == 'Booked' ||
+                        appt.status == 'Pending' ||
+                        appt.status == 'Arrived')
                     ? ElevatedButton.icon(
                         onPressed: () => _startConsultation(appt),
                         style: ElevatedButton.styleFrom(
@@ -6266,34 +6560,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth < 750) {
-          final cardWidth = math.max(0.0, (constraints.maxWidth - 12) / 2);
-          return Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: statCards
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
-          );
-        } else if (constraints.maxWidth < 1100) {
-          final cardWidth = math.max(0.0, (constraints.maxWidth - 16) / 2);
-          return Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: statCards
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
-          );
-        } else {
-          final cardWidth = math.max(0.0, (constraints.maxWidth - (16 * 3)) / 4);
-          return Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: statCards
-                .map((card) => SizedBox(width: cardWidth, child: card))
-                .toList(),
+        if (constraints.maxWidth < 650) {
+          // Compact horizontally scrollable single row on mobile
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: statCards.asMap().entries.map((entry) {
+                final isLast = entry.key == statCards.length - 1;
+                return Padding(
+                  padding: EdgeInsets.only(right: isLast ? 0 : 10),
+                  child: SizedBox(
+                    width: 165,
+                    child: entry.value,
+                  ),
+                );
+              }).toList(),
+            ),
           );
         }
+
+        // Small cards in one row on desktop and tablet
+        return Row(
+          children: [
+            Expanded(child: statCards[0]),
+            const SizedBox(width: 12),
+            Expanded(child: statCards[1]),
+            const SizedBox(width: 12),
+            Expanded(child: statCards[2]),
+            const SizedBox(width: 12),
+            Expanded(child: statCards[3]),
+          ],
+        );
       },
     );
   }

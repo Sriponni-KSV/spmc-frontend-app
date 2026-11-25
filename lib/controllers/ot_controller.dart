@@ -136,10 +136,11 @@ class OtController {
     }
   }
 
-  /// Fetch all Operation Theatres
-  Future<List<Map<String, dynamic>>> fetchTheatres() async {
+  /// Fetch Operation Theatres (active & operational by default for scheduling)
+  Future<List<Map<String, dynamic>>> fetchTheatres({bool includeInactive = false}) async {
     try {
-      final response = await ApiService.get('$baseUrl/ot/theatres');
+      final uri = includeInactive ? '$baseUrl/ot/theatres?include_inactive=true' : '$baseUrl/ot/theatres';
+      final response = await ApiService.get(uri);
       if (response.statusCode != 200) {
         throw Exception('Failed to fetch OT theatres');
       }
@@ -191,7 +192,7 @@ class OtController {
 
   /// Update WHO Surgical Safety Checklist (Sign-In, Time-Out, Sign-Out)
   Future<OtCase> updateWhoChecklist(
-    int caseDbId, {
+    dynamic caseDbId, {
     required String stage, // 'sign_in', 'time_out', 'sign_out'
     required Map<String, dynamic> checklistData,
     required String updatedBy,
@@ -218,7 +219,7 @@ class OtController {
 
   /// Update Pre-Anaesthetic Checkup (PAC) assessment & mandatory clearance
   Future<OtCase> updatePacClearance(
-    int caseDbId, {
+    dynamic caseDbId, {
     required String pacStatus, // 'Cleared', 'High Risk Clearance', 'Deferred', 'Rejected', 'Pending'
     required Map<String, dynamic> pacDetails,
     required String pacClearedBy,

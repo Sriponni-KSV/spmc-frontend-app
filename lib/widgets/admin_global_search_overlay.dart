@@ -49,6 +49,75 @@ class _AdminGlobalSearchOverlayState extends State<AdminGlobalSearchOverlay> {
 
   static const List<AdminModuleItem> _allModules = [
     AdminModuleItem(
+      title: 'Regional Address Master',
+      category: 'Master Catalog',
+      route: AppRoutes.adminRegionalAddress,
+      index: 24,
+      icon: Icons.map_rounded,
+      keywords: [
+        'regional address',
+        'address master',
+        'district master',
+        'districts',
+        'pincode',
+        'pincodes',
+        'pin code',
+        'tamil nadu',
+        'post office',
+        'namakkal',
+        'salem',
+        'erode',
+        'coimbatore',
+        'chennai',
+        'karur',
+      ],
+      description: 'Manage Tamil Nadu districts, India Post PIN codes, and regional lookup data',
+    ),
+    AdminModuleItem(
+      title: 'Nurse Shift Master',
+      category: 'Master Catalog',
+      route: AppRoutes.adminNurseShifts,
+      index: 23,
+      icon: Icons.schedule_rounded,
+      keywords: [
+        'nurse shift',
+        'nurse shifts',
+        'shift master',
+        'shifts',
+        'duty roster',
+        'morning shift',
+        'evening shift',
+        'night shift',
+        'shift timings',
+        'mor',
+        'eve',
+        'nig',
+        'nurse schedule',
+      ],
+      description: 'Manage nurse shifts, shift codes, timings, break durations and roster availability',
+    ),
+    AdminModuleItem(
+      title: 'Operation Theatres Master',
+      category: 'Master Catalog',
+      route: AppRoutes.adminOperationTheatres,
+      index: 22,
+      icon: Icons.meeting_room_rounded,
+      keywords: [
+        'operation theatre',
+        'operation theatres',
+        'theatre',
+        'theatres',
+        'ot master',
+        'ot room',
+        'major ot',
+        'minor ot',
+        'mot',
+        'surgical suite',
+        'surgery rooms',
+      ],
+      description: 'Manage surgical operation theatres, suites, status and availability',
+    ),
+    AdminModuleItem(
       title: 'Department Master',
       category: 'Master Catalog',
       route: AppRoutes.adminDepartments,
@@ -578,9 +647,12 @@ class _AdminGlobalSearchOverlayState extends State<AdminGlobalSearchOverlay> {
           ),
           title: Row(
             children: [
-              Text(
-                module.title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+              Expanded(
+                child: Text(
+                  module.title,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               const SizedBox(width: 8),
               Container(
@@ -598,15 +670,18 @@ class _AdminGlobalSearchOverlayState extends State<AdminGlobalSearchOverlay> {
             ],
           ),
           subtitle: Padding(
-            padding: const EdgeInsets.only(top: 2),
+            padding: const EdgeInsets.only(top: 3),
             child: Text(
               module.description,
-              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
-              maxLines: 1,
+              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, height: 1.25),
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppTheme.primaryColor),
+          trailing: const Padding(
+            padding: EdgeInsets.only(left: 6),
+            child: Icon(Icons.arrow_forward_ios_rounded, size: 13, color: AppTheme.primaryColor),
+          ),
           onTap: () {
             widget.onNavigate(module.route, module.index);
           },
@@ -642,9 +717,12 @@ class _AdminGlobalSearchOverlayState extends State<AdminGlobalSearchOverlay> {
           ),
           title: Row(
             children: [
-              Text(
-                name,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryColor),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               const SizedBox(width: 8),
               Container(

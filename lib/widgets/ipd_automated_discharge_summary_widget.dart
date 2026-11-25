@@ -354,14 +354,14 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
             const SizedBox(height: 30),
 
             // Action Buttons
-            if (!widget.isAlreadyDischarged)
-              SizedBox(
-                width: double.infinity,
-                child: Wrap(
-                  alignment: WrapAlignment.end,
-                  spacing: 12,
-                  runSpacing: 10,
-                  children: [
+            SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 12,
+                runSpacing: 10,
+                children: [
+                  if (!widget.isAlreadyDischarged) ...[
                     OutlinedButton.icon(
                       icon: const Icon(Icons.refresh, size: 16),
                       label: const Text('Reset Form'),
@@ -372,6 +372,17 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
                         _medPlanCtrl.clear();
                         _followUpCtrl.clear();
                       },
+                    ),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.print_outlined, size: 16),
+                      label: const Text('Preview & Print'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: const BorderSide(color: AppTheme.primaryColor),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: _showPrintableReportDialog,
                     ),
                     ElevatedButton.icon(
                       icon: _isSubmitting
@@ -386,9 +397,22 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
                       ),
                       onPressed: _isSubmitting ? null : _submitFinalDischarge,
                     ),
+                  ] else ...[
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.print_outlined, size: 16),
+                      label: const Text('Preview & Print'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: _showPrintableReportDialog,
+                    ),
                   ],
-                ),
+                ],
               ),
+            ),
           ],
         ),
       ),
@@ -455,244 +479,14 @@ class _IpdAutomatedDischargeSummaryWidgetState extends State<IpdAutomatedDischar
   // ─── Printable Summary Report Sheet ──────────────────────────────────────
 
   void _showPrintableReportDialog() {
-    final adm = widget.admission;
-    final patientName = (adm['patient_name'] ?? 'Patient').toString();
-    final patientDisplayId = (adm['patient_display_id'] ?? adm['patient_id'] ?? '--').toString();
-    final ageGender = '${adm['patient_age'] ?? '--'} yrs / ${adm['patient_gender'] ?? '--'}';
-    String admDate = '--';
-    if (adm['admission_date'] != null) {
-      final parsed = DateTime.tryParse(adm['admission_date'].toString());
-      if (parsed != null) {
-        admDate = DateFormat('dd/MM/yyyy hh:mm a').format(parsed.toLocal());
-      } else {
-        admDate = adm['admission_date'].toString();
-      }
-    }
-    final dischDate = DateFormat('dd/MM/yyyy hh:mm a').format(DateTime.now());
-    final doctor = (adm['doctor_name'] ?? 'Consultant').toString();
-    final bedNum = (adm['bed_number'] ?? '--').toString();
-    final ward = (adm['ward_type'] ?? 'General Ward').toString();
-
-    showDialog(
+    printDischargeSummary(
       context: context,
-      builder: (modalCtx) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: Container(
-            width: 800,
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(modalCtx).size.height * 0.90),
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              children: [
-                // Modal Top Bar
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Official Discharge Summary Document',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.print, size: 16),
-                      label: const Text('Print Document'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                      ),
-                      onPressed: () {
-                        printDischargeSummary(
-                          context: context,
-                          admission: widget.admission,
-                          finalDiagnosis: _finalDiagCtrl.text,
-                          treatmentSummary: _treatmentSumCtrl.text,
-                          medicationPlan: _medPlanCtrl.text,
-                          dischargeInstructions: _followUpCtrl.text,
-                          followUpDate: _followUpCtrl.text,
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(modalCtx)),
-                  ],
-                ),
-                const Divider(height: 20),
-
-                // Printable Content
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Hospital Letterhead
-                          Center(
-                            child: Column(
-                              children: [
-                                Text(
-                                  'SRI PONNI MEDICAL CENTER',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryColor, letterSpacing: 1.1),
-                                ),
-                                const SizedBox(height: 3),
-                                Text(
-                                  'Inpatient Department • Comprehensive Discharge Summary',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Govt Reg No: SPMC-TN-2026 • Phone: +91 44 2833 4455',
-                                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Divider(height: 24, thickness: 1.5),
-
-                          // Patient Demographics Box
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.grey.shade300),
-                            ),
-                            child: Column(
-                              children: [
-                                Row(
-                                  children: [
-                                    _buildDocCell('Patient Name:', patientName, flex: 2),
-                                    _buildDocCell('UHID / ID:', patientDisplayId, flex: 1),
-                                    _buildDocCell('Age / Sex:', ageGender, flex: 1),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    _buildDocCell('Admission Date:', admDate, flex: 2),
-                                    _buildDocCell('Discharge Date:', dischDate, flex: 2),
-                                    _buildDocCell('Bed / Ward:', 'Bed $bedNum ($ward)', flex: 1),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    _buildDocCell('Attending Consultant:', 'Dr. $doctor', flex: 2),
-                                    _buildDocCell('Department:', adm['department'] ?? 'General Medicine', flex: 2),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-
-                          // Document Sections
-                          _buildReportSectionTitle('FINAL DIAGNOSIS'),
-                          Text(_finalDiagCtrl.text.isNotEmpty ? _finalDiagCtrl.text : '--', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                          const SizedBox(height: 14),
-
-                          _buildReportSectionTitle('HOSPITAL COURSE & CLINICAL SUMMARY'),
-                          Text(_treatmentSumCtrl.text.isNotEmpty ? _treatmentSumCtrl.text : '--', style: const TextStyle(fontSize: 12, height: 1.45)),
-                          const SizedBox(height: 14),
-
-                          _buildReportSectionTitle('DISCHARGE MEDICATIONS & INSTRUCTIONS'),
-                          Text(_medPlanCtrl.text.isNotEmpty ? _medPlanCtrl.text : '--', style: const TextStyle(fontSize: 12, height: 1.45)),
-                          const SizedBox(height: 14),
-
-                          if (_followUpCtrl.text.isNotEmpty) ...[
-                            _buildReportSectionTitle('FOLLOW-UP ADVICE'),
-                            Text(_followUpCtrl.text, style: const TextStyle(fontSize: 12, height: 1.45)),
-                            const SizedBox(height: 14),
-                          ],
-
-                          if (_aggregatedData != null) ...[
-                            _buildReportSectionTitle('CLINICAL RECORDS SYNTHESIZED'),
-                            Text(
-                              'Synthesized from ${(_aggregatedData!['progress_notes'] ?? _aggregatedData!['soap_rounds'])?.length ?? 0} Daily Doctor Rounds, ${_aggregatedData!['lab_orders']?.length ?? 0} Laboratory Investigations, ${(_aggregatedData!['ot_cases'] ?? _aggregatedData!['surgical_cases'])?.length ?? 0} Surgical Cases, and Inpatient MAR records.',
-                              style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey.shade600),
-                            ),
-                            const SizedBox(height: 14),
-                          ],
-
-                          const SizedBox(height: 30),
-                          const Divider(height: 1),
-                          const SizedBox(height: 20),
-
-                          // Doctor Signature Section
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Prepared by: Clinical Nursing Team', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                                    Text('Hospital Seal & Verification', style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text('Dr. $doctor', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold), textAlign: TextAlign.right),
-                                    const SizedBox(height: 2),
-                                    Text('Attending Inpatient Physician', style: TextStyle(fontSize: 11, color: Colors.grey.shade600), textAlign: TextAlign.right),
-                                    const SizedBox(height: 2),
-                                    Text('Signature & Registration Stamp', style: TextStyle(fontSize: 10, color: Colors.grey.shade500), textAlign: TextAlign.right),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDocCell(String label, String value, {int flex = 1}) {
-    return Expanded(
-      flex: flex,
-      child: RichText(
-        text: TextSpan(
-          text: '$label ',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.grey.shade700),
-          children: [
-            TextSpan(
-              text: value,
-              style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.black87),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildReportSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        title,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor, letterSpacing: 0.5),
-      ),
+      admission: widget.admission,
+      finalDiagnosis: _finalDiagCtrl.text,
+      treatmentSummary: _treatmentSumCtrl.text,
+      medicationPlan: _medPlanCtrl.text,
+      dischargeInstructions: _followUpCtrl.text,
+      followUpDate: _followUpCtrl.text,
     );
   }
 }

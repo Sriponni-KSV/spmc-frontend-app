@@ -741,18 +741,32 @@ class _OtTheatreCalendarWidgetState extends State<OtTheatreCalendarWidget> {
                           ),
                           child: const Text('TODAY', style: TextStyle(fontSize: 8, color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
-                      IconButton(
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-                        icon: const Icon(Icons.schedule, size: 15, color: AppTheme.primaryColor),
-                        tooltip: 'View Hour Timeline for this day',
-                        onPressed: () {
+                      InkWell(
+                        onTap: () {
                           setState(() {
                             _selectedDate = day;
                             _viewMode = OtCalendarViewMode.daily;
                           });
                         },
+                        borderRadius: BorderRadius.circular(4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.schedule, size: 11, color: AppTheme.primaryColor),
+                              SizedBox(width: 3),
+                              Text(
+                                'Timeline',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ],
                   ),

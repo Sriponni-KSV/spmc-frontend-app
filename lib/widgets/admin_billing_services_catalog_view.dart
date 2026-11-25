@@ -544,45 +544,60 @@ class _AdminBillingServicesCatalogViewState
               decoration: AppTheme.tableHeaderDecoration(context),
               child: Row(
                 children: [
-                  AppTheme.tableHeaderCell(
-                    context: context,
-                    label: '#',
-                    icon: Icons.tag,
-                    flex: 1,
+                  SizedBox(
+                    width: 64,
+                    child: AppTheme.tableHeaderCell(
+                      context: context,
+                      label: 'S.No',
+                      flex: 0,
+                    ),
                   ),
-                  AppTheme.tableHeaderCell(
-                    context: context,
-                    label: 'Service Name',
-                    icon: Icons.receipt_long_outlined,
+                  Expanded(
+                    flex: 3,
+                    child: AppTheme.tableHeaderCell(
+                      context: context,
+                      label: 'Service Name',
+                      flex: 0,
+                      padding: const EdgeInsets.only(right: 8),
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: AppTheme.tableHeaderCell(
+                      context: context,
+                      label: 'Category',
+                      flex: 0,
+                      textAlign: TextAlign.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 2,
+                    child: AppTheme.tableHeaderCell(
+                      context: context,
+                      label: 'Price (₹)',
+                      flex: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                  ),
+                  Expanded(
                     flex: 4,
+                    child: AppTheme.tableHeaderCell(
+                      context: context,
+                      label: 'Description',
+                      flex: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                    ),
                   ),
-                  AppTheme.tableHeaderCell(
-                    context: context,
-                    label: 'Category',
-                    icon: Icons.category_outlined,
-                    flex: 2,
-                  ),
-                  AppTheme.tableHeaderCell(
-                    context: context,
-                    label: 'Price (₹)',
-                    icon: Icons.currency_rupee,
-                    flex: 2,
-                    textAlign: TextAlign.right,
-                    mainAxisAlignment: MainAxisAlignment.end,
-                  ),
-                  AppTheme.tableHeaderCell(
-                    context: context,
-                    label: 'Description',
-                    icon: Icons.description_outlined,
-                    flex: 4,
-                  ),
-                  AppTheme.tableHeaderCell(
-                    context: context,
-                    label: 'Actions',
-                    icon: Icons.settings_outlined,
-                    flex: 2,
-                    textAlign: TextAlign.center,
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  SizedBox(
+                    width: 96,
+                    child: AppTheme.tableHeaderCell(
+                      context: context,
+                      label: 'Actions',
+                      flex: 0,
+                      textAlign: TextAlign.center,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                    ),
                   ),
                 ],
               ),
@@ -611,45 +626,52 @@ class _AdminBillingServicesCatalogViewState
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     child: Row(
                       children: [
-                        Expanded(
-                          flex: 1,
+                        SizedBox(
+                          width: 64,
                           child: Text(
                             '$sNo',
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                           ),
                         ),
                         Expanded(
-                          flex: 4,
-                          child: Text(
-                            item['name']?.toString() ?? '--',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: badgeColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
+                          flex: 3,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 8),
                             child: Text(
-                              category,
-                              style: TextStyle(
-                                color: badgeColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                              ),
-                              textAlign: TextAlign.center,
+                              item['name']?.toString() ?? '--',
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                             ),
                           ),
                         ),
                         Expanded(
                           flex: 2,
-                          child: Text(
-                            '₹${price.toStringAsFixed(2)}',
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: badgeColor.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                category,
+                                style: TextStyle(
+                                  color: badgeColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              '₹${price.toStringAsFixed(2)}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryColor),
+                            ),
                           ),
                         ),
                         Expanded(
@@ -664,8 +686,8 @@ class _AdminBillingServicesCatalogViewState
                             ),
                           ),
                         ),
-                        Expanded(
-                          flex: 2,
+                        SizedBox(
+                          width: 96,
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

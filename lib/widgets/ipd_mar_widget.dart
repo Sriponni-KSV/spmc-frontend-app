@@ -224,7 +224,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
     final dateStr = DateFormat('EEE, dd MMM yyyy').format(_selectedDate);
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(widget.isMobile ? 12 : 18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -251,8 +251,8 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                   children: [
                     Text(
                       context.tr('emar_title', fallback: 'Inpatient Medication Administration Record (eMAR)'),
-                      style: const TextStyle(
-                        fontSize: 16,
+                      style: TextStyle(
+                        fontSize: widget.isMobile ? 14 : 16,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textPrimaryColor,
                       ),
@@ -260,7 +260,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                     const SizedBox(height: 2),
                     Text(
                       'Signed Nurse: ${widget.currentNurseName} • 5 Rights Verification Active',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                      style: TextStyle(fontSize: widget.isMobile ? 11 : 12, color: AppTheme.textSecondaryColor),
                     ),
                   ],
                 ),
@@ -273,7 +273,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // Date Selector & View Switcher
           widget.isMobile
@@ -368,20 +368,23 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
 
   Widget _buildTabSwitcher() {
     return Container(
+      width: widget.isMobile ? double.infinity : null,
       decoration: BoxDecoration(
         color: const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.all(3),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildTabBtn(MarViewTab.matrix, 'Schedule Matrix', Icons.grid_on_rounded),
-            _buildTabBtn(MarViewTab.history, 'Audit & History Log', Icons.history_rounded),
-          ],
-        ),
+      child: Row(
+        mainAxisSize: widget.isMobile ? MainAxisSize.max : MainAxisSize.min,
+        children: [
+          widget.isMobile
+              ? Expanded(child: _buildTabBtn(MarViewTab.matrix, 'Schedule Matrix', Icons.grid_on_rounded))
+              : _buildTabBtn(MarViewTab.matrix, 'Schedule Matrix', Icons.grid_on_rounded),
+          if (widget.isMobile) const SizedBox(width: 4),
+          widget.isMobile
+              ? Expanded(child: _buildTabBtn(MarViewTab.history, 'History Log', Icons.history_rounded))
+              : _buildTabBtn(MarViewTab.history, 'Audit & History Log', Icons.history_rounded),
+        ],
       ),
     );
   }
@@ -393,6 +396,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
       borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
+        alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
@@ -403,6 +407,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 14, color: isSelected ? AppTheme.primaryColor : AppTheme.textSecondaryColor),
             const SizedBox(width: 6),
@@ -426,7 +431,7 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
     if (prescriptions.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 60),
+        padding: EdgeInsets.symmetric(vertical: widget.isMobile ? 24 : 60, horizontal: 16),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -434,16 +439,17 @@ class _IpdMarWidgetState extends State<IpdMarWidget> {
         ),
         child: Column(
           children: [
-            Icon(Icons.medication_outlined, size: 60, color: Colors.grey.shade400),
-            const SizedBox(height: 14),
-            const Text(
+            Icon(Icons.medication_outlined, size: widget.isMobile ? 36 : 60, color: Colors.grey.shade400),
+            const SizedBox(height: 12),
+            Text(
               'No active inpatient prescriptions',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+              style: TextStyle(fontSize: widget.isMobile ? 14 : 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Physician prescriptions will appear here formatted into scheduled administration slots.',
-              style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: widget.isMobile ? 11 : 13, color: AppTheme.textSecondaryColor),
             ),
           ],
         ),
