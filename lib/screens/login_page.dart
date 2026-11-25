@@ -35,6 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isOverlayForPassword = false;
   bool _showAllAccountsInPasswordOverlay = false;
   List<SavedAccount> _savedAccounts = [];
+  bool _isDisposed = false;
 
   bool _obscurePassword = true;
 
@@ -60,17 +61,19 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onEmailTextChanged() {
-    if (mounted) {
+    if (!_isDisposed && mounted) {
       setState(() {});
     }
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _emailFocus.removeListener(_onEmailFocusChanged);
     _passwordFocus.removeListener(_onPasswordFocusChanged);
     _emailController.removeListener(_onEmailTextChanged);
-    _hideSavedAccountsOverlay();
+    _savedAccountsOverlay?.remove();
+    _savedAccountsOverlay = null;
     _emailController.dispose();
     _passwordController.dispose();
     _emailFocus.dispose();
@@ -102,7 +105,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } else {
       Future.delayed(const Duration(milliseconds: 250), () {
-        if (mounted && !_emailFocus.hasFocus && !_passwordFocus.hasFocus && _savedAccountsOverlay != null) {
+        if (!_isDisposed && mounted && !_emailFocus.hasFocus && !_passwordFocus.hasFocus && _savedAccountsOverlay != null) {
           _hideSavedAccountsOverlay();
         }
       });
@@ -120,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } else {
       Future.delayed(const Duration(milliseconds: 250), () {
-        if (mounted && !_passwordFocus.hasFocus && !_emailFocus.hasFocus && _savedAccountsOverlay != null) {
+        if (!_isDisposed && mounted && !_passwordFocus.hasFocus && !_emailFocus.hasFocus && _savedAccountsOverlay != null) {
           _hideSavedAccountsOverlay();
         }
       });
@@ -422,11 +425,11 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {});
   }
 
-  void _hideSavedAccountsOverlay() {
+  void _hideSavedAccountsOverlay({bool notify = true}) {
     _savedAccountsOverlay?.remove();
     _savedAccountsOverlay = null;
     _showAllAccountsInPasswordOverlay = false;
-    if (mounted) {
+    if (notify && !_isDisposed && mounted) {
       setState(() {});
     }
   }

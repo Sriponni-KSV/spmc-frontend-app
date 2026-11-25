@@ -204,33 +204,6 @@ class _RegionalAddressMasterScreenState extends State<RegionalAddressMasterScree
               style: TextStyle(fontSize: 13, color: Color(0xFF64748B), height: 1.35),
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                _buildHeaderBadge(
-                  icon: Icons.storage_rounded,
-                  label: 'Tables: districts, pincodes',
-                  bgColor: const Color(0xFFF1F5F9),
-                  textColor: const Color(0xFF334155),
-                  borderColor: const Color(0xFFCBD5E1),
-                ),
-                _buildHeaderBadge(
-                  icon: Icons.hub_rounded,
-                  label: 'Type: System Lookup / Pre-seeded Data',
-                  bgColor: const Color(0xFFEFF6FF),
-                  textColor: const Color(0xFF1D4ED8),
-                  borderColor: const Color(0xFFBFDBFE),
-                ),
-                _buildHeaderBadge(
-                  icon: Icons.account_tree_rounded,
-                  label: 'Location: System Database → DB Seeds / Lookup',
-                  bgColor: const Color(0xFFF0FDF4),
-                  textColor: const Color(0xFF15803D),
-                  borderColor: const Color(0xFFBBF7D0),
-                ),
-              ],
-            ),
           ],
         );
 
@@ -1028,13 +1001,15 @@ class _RegionalAddressMasterScreenState extends State<RegionalAddressMasterScree
               final districtDropdown = SizedBox(
                 width: isVeryNarrow ? double.infinity : 200,
                 child: CustomDropdownSearch(
-                  label: 'Filter by District',
-                  hint: 'Select district',
+                  label: '',
+                  hint: 'Filter by District',
                   dropdownItems: districtOptions,
                   value: _pincodeDistrictFilter,
                   height: 40,
+                  hintFontSize: 12.5,
                   fillColor: const Color(0xFFF8FAFC),
-                  borderColor: const Color(0xFFCBD5E1),
+                  borderColor: const Color(0xFFE2E8F0),
+                  borderWidth: 1.0,
                   onChanged: (val) {
                     setState(() {
                       _pincodeDistrictFilter = val ?? 'All Districts';
@@ -1074,6 +1049,7 @@ class _RegionalAddressMasterScreenState extends State<RegionalAddressMasterScree
               }
 
               return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   searchField,
                   const SizedBox(width: 10),
