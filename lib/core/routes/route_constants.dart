@@ -30,7 +30,8 @@ class AppRoutes {
   static const String adminHomeVisits = '/admin/home-visits';
   static const String adminHomeVisitSummary = '/admin/home-visits/summary/:id';
   static const String adminMedicationCatalog = '/admin/medication-catalog';
-  static const String adminHomeVisitConsumables = '/admin/home-visit-consumables';
+  static const String adminHomeVisitConsumables =
+      '/admin/home-visit-consumables';
   static const String adminCarriedKitItems = '/admin/carried-kit-items';
   static const String adminIpdBeds = '/admin/ipd-beds';
   static const String adminBillingServices = '/admin/billing-services';
@@ -38,7 +39,9 @@ class AppRoutes {
   static const String adminSpecializations = '/admin/specializations-master';
   static const String adminDbInitialization = '/admin/db-initialization';
   static const String adminDepartments = '/admin/departments';
-
+  static const String adminOperationTheatres = '/admin/operation-theatres';
+  static const String adminNurseShifts = '/admin/nurse-shifts';
+  static const String adminRegionalAddress = '/admin/regional-address';
 
   // Nurse Routes
   static const String nurseDashboard = '/nurse/dashboard';

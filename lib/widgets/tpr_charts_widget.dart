@@ -726,30 +726,48 @@ class _TprChartsWidgetState extends State<TprChartsWidget> {
   Widget _buildEmptyVitals() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 60),
+      padding: EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: widget.isMobile ? 18 : 40,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        boxShadow: AppTheme.cardShadow,
         border: Border.all(color: AppTheme.borderColor),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.monitor_heart_outlined, size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          const Text(
-            'No TPR or Vitals recordings logged yet',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
+          Icon(
+            Icons.monitor_heart_outlined,
+            size: widget.isMobile ? 32 : 54,
+            color: Colors.grey.shade400,
           ),
-          const SizedBox(height: 6),
-          const Text(
+          const SizedBox(height: 10),
+          Text(
+            'No TPR or Vitals recordings logged yet',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: widget.isMobile ? 14 : 16,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.textPrimaryColor,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
             'Record patient vitals to generate real-time graphical TPR trend charts',
-            style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: widget.isMobile ? 11 : 13,
+              color: AppTheme.textSecondaryColor,
+            ),
           ),
           if (widget.onLogVitalsPressed != null) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             ElevatedButton.icon(
               onPressed: widget.onLogVitalsPressed,
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add, size: 16),
               label: const Text('Record Patient Vitals'),
               style: AppTheme.primaryButton,
             ),

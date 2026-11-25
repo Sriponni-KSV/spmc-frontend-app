@@ -467,6 +467,22 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
               'Attending: Dr. ${widget.currentDoctorName}',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             );
+            String? validateSoapContent(String? val, {required String fieldName, required bool isRequired}) {
+              if (val == null || val.trim().isEmpty) {
+                if (isRequired) return '$fieldName is required';
+                return null;
+              }
+              final text = val.trim();
+              final lettersOnly = text.replaceAll(RegExp(r'[^a-zA-Z]'), '');
+              if (lettersOnly.isEmpty) {
+                return '$fieldName must contain meaningful text and cannot contain only special characters or numbers.';
+              }
+              if (lettersOnly.length < 2) {
+                return '$fieldName must contain meaningful clinical text (at least 2 letters).';
+              }
+              return null;
+            }
+
             bool isDirty() {
               return subjCtrl.text.trim().isNotEmpty ||
                   objCtrl.text.trim() != initialObj.trim() ||
@@ -636,11 +652,13 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           decoration: InputDecoration(
                             hintText: 'e.g. Patient feels better, slept well, pain decreased (score $painScore/10), tolerated oral breakfast without nausea...',
+                            errorMaxLines: 3,
+                            errorStyle: const TextStyle(fontSize: 11, height: 1.25),
                             filled: true,
                             fillColor: const Color(0xFFF1F5F9),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                           ),
-                          validator: (val) => (val == null || val.trim().isEmpty) ? 'Subjective observations are required' : null,
+                          validator: (val) => validateSoapContent(val, fieldName: 'Subjective observations', isRequired: true),
                         ),
                         const SizedBox(height: 14),
 
@@ -650,12 +668,16 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                         TextFormField(
                           controller: objCtrl,
                           maxLines: 3,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           decoration: InputDecoration(
                             hintText: 'e.g. Conscious, oriented, afebrile. CVS: S1 S2 heard. RS: Clear. Abdomen: Soft, dressing intact...',
+                            errorMaxLines: 3,
+                            errorStyle: const TextStyle(fontSize: 11, height: 1.25),
                             filled: true,
                             fillColor: const Color(0xFFF1F5F9),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                           ),
+                          validator: (val) => validateSoapContent(val, fieldName: 'Objective observations', isRequired: false),
                         ),
                         const SizedBox(height: 14),
 
@@ -668,11 +690,13 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                           autovalidateMode: AutovalidateMode.onUserInteraction,
                           decoration: InputDecoration(
                             hintText: 'e.g. Post-op Day 2 resolving satisfactorily; Hemodynamically stable; Sepsis responding well to IV antibiotics...',
+                            errorMaxLines: 3,
+                            errorStyle: const TextStyle(fontSize: 11, height: 1.25),
                             filled: true,
                             fillColor: const Color(0xFFF1F5F9),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                           ),
-                          validator: (val) => (val == null || val.trim().isEmpty) ? 'Clinical assessment is required' : null,
+                          validator: (val) => validateSoapContent(val, fieldName: 'Clinical assessment', isRequired: true),
                         ),
                         const SizedBox(height: 14),
 
@@ -682,12 +706,16 @@ class _IpdDoctorRoundsSoapWidgetState extends State<IpdDoctorRoundsSoapWidget> {
                         TextFormField(
                           controller: planCtrl,
                           maxLines: 2,
+                          autovalidateMode: AutovalidateMode.onUserInteraction,
                           decoration: InputDecoration(
                             hintText: 'e.g. Step down IV analgesics to oral; check repeat CBC in evening; start soft oral diet; encourage ambulation; planned discharge in 24h...',
+                            errorMaxLines: 3,
+                            errorStyle: const TextStyle(fontSize: 11, height: 1.25),
                             filled: true,
                             fillColor: const Color(0xFFF1F5F9),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                           ),
+                          validator: (val) => validateSoapContent(val, fieldName: 'Plan', isRequired: false),
                         ),
                         const SizedBox(height: 24),
 

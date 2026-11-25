@@ -30,6 +30,7 @@ class AuthProvider extends ChangeNotifier {
             await TokenService.saveUser(jsonEncode(_user!.toJson()));
             notifyListeners();
           }
+          startPermissionWatcher();
         } on UnauthorizedSessionException {
           // Token is expired or unauthorized -> log out cleanly so user can log in
           await logout();
@@ -50,6 +51,22 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String? get errorCode => _errorCode;
+
+  Timer? _permissionRefreshTimer;
+
+  void startPermissionWatcher() {
+    _permissionRefreshTimer?.cancel();
+    _permissionRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (_user != null) {
+        refreshPermissions();
+      }
+    });
+  }
+
+  void stopPermissionWatcher() {
+    _permissionRefreshTimer?.cancel();
+    _permissionRefreshTimer = null;
+  }
 
   Future<void> refreshPermissions() async {
     if (_user == null) return;
@@ -112,6 +129,7 @@ class AuthProvider extends ChangeNotifier {
       if (user != null) {
         _user = user;
         await TokenService.saveUser(jsonEncode(user.toJson()));
+        startPermissionWatcher();
         _isLoading = false;
         notifyListeners();
         return true;
@@ -188,6 +206,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    stopPermissionWatcher();
     UnsavedChangesHelper.clear();
     await TokenService.deleteToken();
     await TokenService.deleteUser();
@@ -207,5 +226,11 @@ class AuthProvider extends ChangeNotifier {
       TokenService.saveUser(jsonEncode(_user!.toJson()));
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    stopPermissionWatcher();
+    super.dispose();
   }
 }

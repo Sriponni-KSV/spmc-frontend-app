@@ -29,6 +29,10 @@ class CustomDropdownSearch extends StatefulWidget {
   final bool readOnly;
   final int? maxLength;
   final List<TextInputFormatter>? inputFormatters;
+  final String? emptyMessage;
+  final Set<String>? disabledKeys;
+  final String? disabledItemMessage;
+  final AutovalidateMode? autovalidateMode;
 
   const CustomDropdownSearch({
     super.key,
@@ -54,6 +58,10 @@ class CustomDropdownSearch extends StatefulWidget {
     this.readOnly = false,
     this.maxLength = 60,
     this.inputFormatters,
+    this.emptyMessage,
+    this.disabledKeys,
+    this.disabledItemMessage,
+    this.autovalidateMode,
   });
 
   static bool get isOpen =>
@@ -254,10 +262,14 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
         if (_filteredItems.isNotEmpty &&
             _highlightedIndex >= 0 &&
             _highlightedIndex < _filteredItems.length) {
+          final item = _filteredItems[_highlightedIndex];
+          if (widget.disabledKeys?.contains(item.key) == true) {
+            return KeyEventResult.handled;
+          }
           if (_fieldKey.currentState != null) {
             _selectItem(
               _fieldKey.currentState!,
-              _filteredItems[_highlightedIndex],
+              item,
             );
           }
           return KeyEventResult.handled;
@@ -557,16 +569,30 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                   : Container(
                                       padding: const EdgeInsets.all(16),
                                       alignment: Alignment.center,
-                                      child: Text(
-                                        context.tr(
-                                          'no_matching_items_found',
-                                          fallback: 'No matching items found',
-                                        ),
-                                        style: TextStyle(
-                                          fontFamily: 'Inter',
-                                          color: AppTheme.isDark(context) ? AppTheme.darkTextSecondaryColor : Colors.grey.shade500,
-                                          fontSize: 13,
-                                        ),
+                                      child: Builder(
+                                        builder: (context) {
+                                          String effectiveEmpty = widget.emptyMessage ?? '';
+                                          if (effectiveEmpty.isEmpty) {
+                                            final contextText = '${widget.label} ${widget.hint ?? ''}'.toLowerCase();
+                                            if (_allEntries.isEmpty && (contextText.contains('bed') || contextText.contains('ward'))) {
+                                              effectiveEmpty = 'No beds available in the selected ward.';
+                                            } else {
+                                              effectiveEmpty = context.tr(
+                                                'no_matching_items_found',
+                                                fallback: 'No matching items found',
+                                              );
+                                            }
+                                          }
+                                          return Text(
+                                            effectiveEmpty,
+                                            style: TextStyle(
+                                              fontFamily: 'Inter',
+                                              color: AppTheme.isDark(context) ? AppTheme.darkTextSecondaryColor : Colors.grey.shade500,
+                                              fontSize: 13,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          );
+                                        },
                                       ),
                                     ))
                               : Listener(
@@ -593,6 +619,8 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                             index == _highlightedIndex;
                                         final isSelected =
                                             entry.key == widget.value;
+                                        final bool isDisabled =
+                                            widget.disabledKeys?.contains(entry.key) ?? false;
 
                                         return Material(
                                           color: Colors.transparent,
@@ -600,6 +628,19 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                             splashFactory:
                                                 NoSplash.splashFactory,
                                             onTap: () {
+                                              if (isDisabled) {
+                                                final msg = widget.disabledItemMessage ??
+                                                    '${entry.key} is occupied and unavailable for conflicting schedules.';
+                                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  SnackBar(
+                                                    content: Text(msg),
+                                                    backgroundColor: Colors.red.shade700,
+                                                    duration: const Duration(seconds: 3),
+                                                  ),
+                                                );
+                                                return;
+                                              }
                                               if (_fieldKey.currentState !=
                                                   null) {
                                                 _selectItem(
@@ -618,31 +659,57 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                               decoration: BoxDecoration(
                                                 borderRadius:
                                                     BorderRadius.circular(6),
-                                                color: isSelected
-                                                    ? AppTheme.primaryColor.withOpacity(0.12)
-                                                    : (isHighlighted
-                                                        ? (AppTheme.isDark(context) ? Colors.white.withOpacity(0.06) : Colors.grey.shade100)
-                                                        : Colors.transparent),
+                                                color: isDisabled
+                                                    ? Colors.red.shade50.withOpacity(0.4)
+                                                    : (isSelected
+                                                        ? AppTheme.primaryColor.withOpacity(0.12)
+                                                        : (isHighlighted
+                                                            ? (AppTheme.isDark(context) ? Colors.white.withOpacity(0.06) : Colors.grey.shade100)
+                                                            : Colors.transparent)),
                                               ),
                                               child: Row(
                                                 children: [
+                                                  if (isDisabled)
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(right: 6),
+                                                      child: Icon(Icons.block, size: 14, color: Colors.red.shade600),
+                                                    ),
                                                   Expanded(
                                                     child: Text(
                                                       entry.value,
                                                       style:
                                                           TextStyle(
                                                         fontFamily: 'Inter',
-                                                        color: isSelected
-                                                            ? AppTheme.primaryColor
-                                                            : (AppTheme.isDark(context) ? AppTheme.darkTextPrimaryColor : Colors.black87),
+                                                        color: isDisabled
+                                                            ? Colors.red.shade700
+                                                            : (isSelected
+                                                                ? AppTheme.primaryColor
+                                                                : (AppTheme.isDark(context) ? AppTheme.darkTextPrimaryColor : Colors.black87)),
                                                         fontSize: 14,
-                                                        fontWeight: isSelected
+                                                        fontWeight: isSelected || isDisabled
                                                             ? FontWeight.w600
                                                             : FontWeight.w400,
                                                       ),
                                                     ),
                                                   ),
-                                                  if (isSelected)
+                                                  if (isDisabled)
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.red.shade100,
+                                                        borderRadius: BorderRadius.circular(4),
+                                                        border: Border.all(color: Colors.red.shade300),
+                                                      ),
+                                                      child: const Text(
+                                                        'Occupied',
+                                                        style: TextStyle(
+                                                          color: Colors.red,
+                                                          fontSize: 10,
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    )
+                                                  else if (isSelected)
                                                     const Icon(
                                                       Icons.check,
                                                       size: 16,
@@ -782,7 +849,7 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
             child: FormField<String>(
               key: _fieldKey,
               initialValue: widget.value,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
+              autovalidateMode: widget.autovalidateMode ?? AutovalidateMode.onUserInteraction,
               validator: (val) {
                 if (!widget.allowFreeText) {
                   final rawText = _textEditingController.text.trim();

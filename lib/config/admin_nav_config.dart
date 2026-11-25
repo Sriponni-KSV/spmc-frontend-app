@@ -97,11 +97,14 @@ class AdminNavConfig {
   static const bool showHomeVisitConsumables = true;
   static const bool showCarriedKitItems = true;
   static const bool showIpdBeds = true;
-  static const bool showBillingServices = false;
-  static const bool showLabTestsMaster = false;
+  static const bool showBillingServices = true;
+  static const bool showLabTestsMaster = true;
   static const bool showSpecializationsMaster = false;
   static const bool showDbInitialization = false;
   static const bool showDepartments = true;
+  static const bool showOperationTheatres = true;
+  static const bool showNurseShifts = true;
+  static const bool showRegionalAddress = true;
 
   // =========================================================================
   // HELPER METHODS TO FILTER AND RETURN ACTIVE MENU ITEMS
@@ -194,16 +197,14 @@ class AdminNavConfig {
       ),
     ];
 
-    final bool isAdmin = user?.role == 'Admin' ||
-        user?.role == 'Super Admin' ||
-        user?.role == 'Supervisor';
+    final bool isSuperAdmin = user?.role == 'Super Admin';
 
     return allItems.where((item) {
       if (!item.isVisible) return false;
       if (item.requiredRole != null && user?.role != item.requiredRole) {
         return false;
       }
-      if (isAdmin) return true;
+      if (isSuperAdmin) return true;
       if (item.permissionRequired != null) {
         if (item.permissionRequired == 'opd_assistance') {
           return (user?.hasPermission('opd_assistance') ?? false) ||
@@ -292,6 +293,24 @@ class AdminNavConfig {
         icon: Icons.apartment_rounded,
         label: 'Department Master',
         isVisible: showDepartments,
+      ),
+      const AdminCatalogSubItem(
+        index: 22,
+        icon: Icons.meeting_room_rounded,
+        label: 'Operation Theatres Master',
+        isVisible: showOperationTheatres,
+      ),
+      const AdminCatalogSubItem(
+        index: 23,
+        icon: Icons.schedule_rounded,
+        label: 'Nurse Shift Master',
+        isVisible: showNurseShifts,
+      ),
+      const AdminCatalogSubItem(
+        index: 24,
+        icon: Icons.map_rounded,
+        label: 'Regional Address Master',
+        isVisible: showRegionalAddress,
       ),
     ];
 

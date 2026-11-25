@@ -12,7 +12,7 @@ class ApiEndpoints {
       'https://spmc-backend.onrender.com/api';
 
   /// Default local backend port
-  static const String defaultLocalPort = '3000';
+  static const String defaultLocalPort = '3001';
 
   /// Optional compile-time environment override (--dart-define=BASE_URL=...)
   static const String environmentBaseUrl = String.fromEnvironment(

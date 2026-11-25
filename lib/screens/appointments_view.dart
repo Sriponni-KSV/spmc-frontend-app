@@ -3878,7 +3878,13 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                         ),
                       ),
                     if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
-                        appt.status == 'Waiting')
+                        (appt.status == 'Waiting' ||
+                         appt.status == 'Confirmed' ||
+                         appt.status == 'Scheduled' ||
+                         appt.status == 'Booked' ||
+                         appt.status == 'Checked In' ||
+                         appt.status == 'Checked-in' ||
+                         appt.status == 'Arrived'))
                       ElevatedButton.icon(
                         onPressed: () => _startConsultation(appt),
                         icon: const Icon(Icons.play_arrow_rounded, size: 14, color: Colors.white),
@@ -4576,7 +4582,13 @@ class _AppointmentsViewState extends State<AppointmentsView> {
                     ),
                   ],
                   if (Provider.of<AuthProvider>(context, listen: false).user?.role.toLowerCase() != 'nurse' &&
-                      status == 'Waiting') ...[
+                      (status == 'Waiting' ||
+                       status == 'Confirmed' ||
+                       status == 'Scheduled' ||
+                       status == 'Booked' ||
+                       status == 'Checked In' ||
+                       status == 'Checked-in' ||
+                       status == 'Arrived')) ...[
                     _buildActionLabel(
                       Icons.play_arrow_outlined,
                       'Start Consult',

@@ -28,6 +28,7 @@ import '../services/live_speech_service.dart';
 import '../data/icd10_data.dart';
 import '../services/clinical_safety_service.dart';
 import '../services/consultation_template_service.dart';
+import '../widgets/bed_room_request_dialog.dart';
 import '../widgets/patient_history_timeline.dart';
 
 class NewConsultationView extends StatefulWidget {
@@ -2009,316 +2010,18 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       return;
     }
 
-    bool isSubmitting = false;
-    final TextEditingController reasonController = TextEditingController();
-    final TextEditingController diagnosisController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setD) {
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.local_hospital_outlined,
-                      color: AppTheme.primaryColor,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Request IPD Admission',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                          ),
-                        ),
-                        Text(
-                          _currentAppointment.patientName,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: AppTheme.textSecondaryColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: 460,
-                child: Form(
-                  key: formKey,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Info banner
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.blue.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: Colors.blue.shade600,
-                                size: 16,
-                              ),
-                              const SizedBox(width: 8),
-                              const Expanded(
-                                child: Text(
-                                  'Admission request will be sent to the Front Desk for verification and processing.',
-                                  style: TextStyle(fontSize: 12),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-
-                        // ── Reason ──
-                        const Text(
-                          'Reason for Admission',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: reasonController,
-                          maxLines: 3,
-                          maxLength: 100,
-                          autovalidateMode: AutovalidateMode.onUserInteraction,
-                          decoration: InputDecoration(
-                            hintText:
-                                'Enter medical reason for IPD admission...',
-                            hintStyle: TextStyle(
-                              color: Colors.grey.shade400,
-                              fontSize: 12,
-                            ),
-                            counterText: '',
-                            filled: true,
-                            fillColor: AppTheme.backgroundColor,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: AppTheme.dangerColor,
-                              ),
-                            ),
-                            focusedErrorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: AppTheme.dangerColor,
-                              ),
-                            ),
-                          ),
-                          validator: (v) {
-                            final val = v?.trim() ?? '';
-                            if (val.isEmpty) return null; // Not required!
-                            if (RegExp(r'[^a-zA-Z0-9\s.,/#\-\(\):;]').hasMatch(val)) {
-                              return 'Invalid special characters. Only letters, numbers and .,/#-():; are allowed';
-                            }
-                            if (!RegExp(r'[a-zA-Z]').hasMatch(val)) {
-                              return 'Reason must contain at least one letter';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-
-                        // ── Diagnosis ──
-                        const Text(
-                          'Diagnosis / Provisional Diagnosis',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: diagnosisController,
-                          maxLines: 2,
-                          maxLength: 100,
-                          autovalidateMode: AutovalidateMode.onUserInteraction,
-                          decoration: InputDecoration(
-                            hintText:
-                                'e.g. Acute Appendicitis, Type 2 Diabetes...',
-                            hintStyle: TextStyle(
-                              color: Colors.grey.shade400,
-                              fontSize: 12,
-                            ),
-                            counterText: '',
-                            filled: true,
-                            fillColor: AppTheme.backgroundColor,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: Color(0xFFE2E8F0),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: AppTheme.primaryColor,
-                              ),
-                            ),
-                            errorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: AppTheme.dangerColor,
-                              ),
-                            ),
-                            focusedErrorBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
-                              borderSide: const BorderSide(
-                                color: AppTheme.dangerColor,
-                              ),
-                            ),
-                          ),
-                          validator: (v) {
-                            final val = v?.trim() ?? '';
-                            if (val.isEmpty) return null;
-                            if (RegExp(r'[^a-zA-Z0-9\s.,/#\-\(\):;]').hasMatch(val)) {
-                              return 'Invalid special characters. Only letters, numbers and .,/#-():; are allowed';
-                            }
-                            if (!RegExp(r'[a-zA-Z]').hasMatch(val)) {
-                              return 'Diagnosis must contain at least one letter';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              actions: [
-                OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: AppTheme.cancelButton,
-                  child: const Text('Cancel'),
-                ),
-                StatefulBuilder(
-                  builder: (ctx2, setBtn) => ElevatedButton.icon(
-                    icon: isSubmitting
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.send_outlined,
-                            size: 16,
-                            color: Colors.white,
-                          ),
-                    label: Text(
-                      isSubmitting ? 'Submitting...' : 'Send Request',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.dangerColor,
-                      minimumSize: const Size(130, 48),
-                    ),
-                    onPressed: isSubmitting
-                        ? null
-                        : () async {
-                            if (!formKey.currentState!.validate()) return;
-                            setBtn(() => isSubmitting = true);
-                            // Capture context-dependent objects before async gap
-                            final nav = Navigator.of(ctx);
-                            final messenger = ScaffoldMessenger.of(context);
-                            try {
-                              await _ipdController.createPendingAdmission({
-                                'patient_id': _currentAppointment.patientId,
-                                'appointment_id': _currentAppointment.id,
-                                'doctor_name': _currentAppointment.doctorName,
-                                'reason_for_admission': reasonController.text
-                                    .trim(),
-                                'diagnosis': diagnosisController.text.trim(),
-                              });
-                              nav.pop();
-                              messenger.showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Admission request sent to Front Desk',
-                                  ),
-                                  backgroundColor: Colors.green,
-                                ),
-                              );
-                              if (mounted) {
-                                setState(() {
-                                  _currentAppointment = _currentAppointment
-                                      .copyWith(status: 'Admission Requested');
-                                });
-                              }
-                            } catch (e) {
-                              setBtn(() => isSubmitting = false);
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text('Error: $e'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          },
-                  ),
-                ),
-              ],
+    BedRoomRequestDialog.show(
+      context,
+      patientId: _currentAppointment.patientId,
+      patientName: _currentAppointment.patientName,
+      onSuccess: () {
+        if (mounted) {
+          setState(() {
+            _currentAppointment = _currentAppointment.copyWith(
+              status: 'Admission Requested',
             );
-          },
-        );
+          });
+        }
       },
     );
   }
@@ -3004,7 +2707,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
             actions: [
               OutlinedButton(
                 onPressed: () {
-                  ModalHistoryHelper.skipNextHistoryBack();
                   Navigator.of(ctx).pop(false);
                 },
                 style: AppTheme.cancelButton,
@@ -3070,7 +2772,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         actions: [
           OutlinedButton(
             onPressed: () {
-              ModalHistoryHelper.skipNextHistoryBack();
               Navigator.of(context).pop(0);
             },
             style: AppTheme.outlinedButton,

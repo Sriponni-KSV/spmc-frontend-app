@@ -21,7 +21,13 @@ Future<void> main() async {
   usePathUrlStrategy(); // Clean URL paths without hashes (#)
   try {
     await dotenv.load(fileName: ".env");
-  } catch (_) {}
+  } catch (_) {
+    try {
+      await dotenv.load(fileName: "assets/.env");
+    } catch (_) {}
+  }
+
+  debugPrint('[SPMC] Active API Endpoint: ${ApiEndpoints.baseUrl}');
 
   final authProvider = AuthProvider();
   await authProvider.initializeSession(); // Restore session prior to rendering

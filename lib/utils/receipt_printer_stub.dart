@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/discharge_summary_preview_dialog.dart';
 
 void printHospitalReceipt({
   required BuildContext context,
@@ -14,6 +15,26 @@ void printHospitalReceipt({
 }
 
 void printDischargeSummary({
+  required BuildContext context,
+  required Map<String, dynamic> admission,
+  required String finalDiagnosis,
+  required String treatmentSummary,
+  required String medicationPlan,
+  String? dischargeInstructions,
+  String? followUpDate,
+}) {
+  DischargeSummaryPreviewDialog.show(
+    context,
+    admission: admission,
+    finalDiagnosis: finalDiagnosis,
+    treatmentSummary: treatmentSummary,
+    medicationPlan: medicationPlan,
+    dischargeInstructions: dischargeInstructions,
+    followUpDate: followUpDate,
+  );
+}
+
+void triggerDischargeSummaryHtmlPrint({
   required BuildContext context,
   required Map<String, dynamic> admission,
   required String finalDiagnosis,

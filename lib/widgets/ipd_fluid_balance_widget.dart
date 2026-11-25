@@ -305,9 +305,22 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
 
   Widget _buildShiftBreakdownAndAlerts(double totalIntake, double totalOutput, double netBalance) {
     final shiftSummary = widget.summary['shift_summary'] as Map<String, dynamic>? ?? {};
-    final morning = shiftSummary['Morning'] as Map<String, dynamic>? ?? {};
-    final afternoon = shiftSummary['Afternoon'] as Map<String, dynamic>? ?? {};
-    final night = shiftSummary['Night'] as Map<String, dynamic>? ?? {};
+
+    Map<String, dynamic> findShiftData(String key) {
+      if (shiftSummary.containsKey(key)) {
+        return shiftSummary[key] as Map<String, dynamic>? ?? {};
+      }
+      for (final entry in shiftSummary.entries) {
+        if (entry.key.toLowerCase().contains(key.toLowerCase())) {
+          return entry.value as Map<String, dynamic>? ?? {};
+        }
+      }
+      return {};
+    }
+
+    final morning = findShiftData('Morning');
+    final afternoon = findShiftData('Afternoon');
+    final night = findShiftData('Night');
 
     // Oliguria check: total output < 400 mL across 24h
     final bool isOliguria = totalOutput > 0 && totalOutput < 400;
@@ -858,24 +871,26 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
     String entryType = 'Intake'; // or 'Output'
     String category = 'Oral Fluids';
     String route = 'Oral';
-    String shift = 'Morning';
     final volumeCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    // Initial shift based on current time
-    final curHour = DateTime.now().hour;
-    if (curHour >= 6 && curHour < 14) {
-      shift = 'Morning';
-    } else if (curHour >= 14 && curHour < 21) {
-      shift = 'Afternoon';
-    } else {
-      shift = 'Night';
+    DateTime entryDate = DateTime.now();
+    TimeOfDay entryTime = TimeOfDay.now();
+
+    String calculateShiftFromTime(TimeOfDay tod) {
+      final h = tod.hour;
+      if (h >= 8 && h < 14) return 'Morning';
+      if (h >= 14 && h < 20) return 'Afternoon';
+      return 'Night';
     }
+
+    String shift = calculateShiftFromTime(entryTime);
     final initialEntryType = entryType;
     final initialCategory = category;
     final initialRoute = route;
     final initialShift = shift;
+    final initialEntryTime = entryTime;
 
     final intakePresets = [
       {'name': 'Water 100ml', 'vol': '100', 'cat': 'Oral Fluids', 'route': 'Oral'},
@@ -911,7 +926,8 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                   entryType != initialEntryType ||
                   category != initialCategory ||
                   route != initialRoute ||
-                  shift != initialShift;
+                  shift != initialShift ||
+                  entryTime != initialEntryTime;
             }
 
             return PopScope(
@@ -920,12 +936,16 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                 if (didPop) return;
                 DiscardDialogHelper.handleCancelOrDismiss(modalCtx, isDirty: isDirty());
               },
-              child: Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              child: Container(
-                width: 520,
-                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-                padding: const EdgeInsets.all(24),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final bool isMobileDialog = widget.isMobile || MediaQuery.of(context).size.width < 600;
+                  return Dialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    insetPadding: EdgeInsets.symmetric(horizontal: isMobileDialog ? 12 : 40, vertical: 24),
+                    child: Container(
+                      width: isMobileDialog ? double.infinity : 520,
+                      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.90),
+                      padding: EdgeInsets.all(isMobileDialog ? 16 : 24),
                 child: Form(
                   key: formKey,
                   child: SingleChildScrollView(
@@ -1092,113 +1112,282 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                         ),
                         const SizedBox(height: 14),
 
-                        // Category & Route Row
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: CustomDropdownSearch(
-                                label: 'Category',
-                                hint: 'Select Category',
-                                value: category,
-                                requiredMark: true,
-                                dropdownItems: isIntake
-                                    ? const [
-                                        'Oral Fluids',
-                                        'IV Fluids',
-                                        'Blood Products',
-                                        'Enteral/Tube Feed',
-                                        'Medication Infusion',
-                                        'Other Intake',
-                                      ]
-                                    : const [
-                                        'Urine Output',
-                                        'Vomitus',
-                                        'Stool',
-                                        'Drains',
-                                        'Gastric Aspirate',
-                                        'Other Output',
-                                      ],
-                                onChanged: (val) {
-                                  if (val != null) setModalState(() => category = val);
-                                },
-                                validator: (val) => val == null || val.isEmpty ? 'Category is required' : null,
+                        // Category & Route (stacked on mobile, row on desktop)
+                        if (isMobileDialog) ...[
+                          CustomDropdownSearch(
+                            label: 'Category',
+                            hint: 'Select Category',
+                            value: category,
+                            requiredMark: true,
+                            dropdownItems: isIntake
+                                ? const [
+                                    'Oral Fluids',
+                                    'IV Fluids',
+                                    'Blood Products',
+                                    'Enteral/Tube Feed',
+                                    'Medication Infusion',
+                                    'Other Intake',
+                                  ]
+                                : const [
+                                    'Urine Output',
+                                    'Vomitus',
+                                    'Stool',
+                                    'Drains',
+                                    'Gastric Aspirate',
+                                    'Other Output',
+                                  ],
+                            onChanged: (val) {
+                              if (val != null) setModalState(() => category = val);
+                            },
+                            validator: (val) => val == null || val.isEmpty ? 'Category is required' : null,
+                          ),
+                          const SizedBox(height: 12),
+                          CustomDropdownSearch(
+                            label: 'Route',
+                            hint: 'Select Route',
+                            value: route,
+                            dropdownItems: isIntake
+                                ? const [
+                                    'Oral',
+                                    'IV Line',
+                                    'Central Line',
+                                    'Ryle Tube',
+                                    'PEG Tube',
+                                    'Blood Line',
+                                  ]
+                                : const [
+                                    'Voided',
+                                    'Foley Catheter',
+                                    'Oral/Gastric',
+                                    'Rectal',
+                                    'Abdominal Drain',
+                                    'Chest Drain',
+                                  ],
+                            onChanged: (val) {
+                              if (val != null) setModalState(() => route = val);
+                            },
+                          ),
+                        ] else ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: CustomDropdownSearch(
+                                  label: 'Category',
+                                  hint: 'Select Category',
+                                  value: category,
+                                  requiredMark: true,
+                                  dropdownItems: isIntake
+                                      ? const [
+                                          'Oral Fluids',
+                                          'IV Fluids',
+                                          'Blood Products',
+                                          'Enteral/Tube Feed',
+                                          'Medication Infusion',
+                                          'Other Intake',
+                                        ]
+                                      : const [
+                                          'Urine Output',
+                                          'Vomitus',
+                                          'Stool',
+                                          'Drains',
+                                          'Gastric Aspirate',
+                                          'Other Output',
+                                        ],
+                                  onChanged: (val) {
+                                    if (val != null) setModalState(() => category = val);
+                                  },
+                                  validator: (val) => val == null || val.isEmpty ? 'Category is required' : null,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: CustomDropdownSearch(
-                                label: 'Route',
-                                hint: 'Select Route',
-                                value: route,
-                                dropdownItems: isIntake
-                                    ? const [
-                                        'Oral',
-                                        'IV Line',
-                                        'Central Line',
-                                        'Ryle Tube',
-                                        'PEG Tube',
-                                        'Blood Line',
-                                      ]
-                                    : const [
-                                        'Voided',
-                                        'Foley Catheter',
-                                        'Oral/Gastric',
-                                        'Rectal',
-                                        'Abdominal Drain',
-                                        'Chest Drain',
-                                      ],
-                                onChanged: (val) {
-                                  if (val != null) setModalState(() => route = val);
-                                },
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: CustomDropdownSearch(
+                                  label: 'Route',
+                                  hint: 'Select Route',
+                                  value: route,
+                                  dropdownItems: isIntake
+                                      ? const [
+                                          'Oral',
+                                          'IV Line',
+                                          'Central Line',
+                                          'Ryle Tube',
+                                          'PEG Tube',
+                                          'Blood Line',
+                                        ]
+                                      : const [
+                                          'Voided',
+                                          'Foley Catheter',
+                                          'Oral/Gastric',
+                                          'Rectal',
+                                          'Abdominal Drain',
+                                          'Chest Drain',
+                                        ],
+                                  onChanged: (val) {
+                                    if (val != null) setModalState(() => route = val);
+                                  },
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                         const SizedBox(height: 16),
 
-                        // Shift & Description
-                        Row(
+                        // Entry Time & Shift Selection (stacked on mobile to avoid truncation)
+                        if (isMobileDialog) ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text('Entry Time', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  Text(' *', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              InkWell(
+                                onTap: () async {
+                                  final picked = await showTimePicker(
+                                    context: dialogCtx,
+                                    initialTime: entryTime,
+                                  );
+                                  if (picked != null) {
+                                    setModalState(() {
+                                      entryTime = picked;
+                                      shift = calculateShiftFromTime(picked);
+                                    });
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        entryTime.format(context),
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+                                      ),
+                                      const Icon(Icons.access_time_rounded, size: 18, color: AppTheme.primaryColor),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          CustomDropdownSearch(
+                            label: 'Shift (Auto-assigned by Time)',
+                            hint: 'Select Shift',
+                            value: shift,
+                            requiredMark: true,
+                            dropdownItems: const ['Morning', 'Afternoon', 'Night'],
+                            dropdownMap: const {
+                              'Morning': 'Morning (08:00 - 14:00)',
+                              'Afternoon': 'Afternoon (14:00 - 20:00)',
+                              'Night': 'Night (20:00 - 08:00)',
+                            },
+                            onChanged: (val) {
+                              if (val != null) setModalState(() => shift = val);
+                            },
+                            validator: (val) => val == null || val.isEmpty ? 'Shift is required' : null,
+                          ),
+                        ] else ...[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Text('Entry Time', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                        Text(' *', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    InkWell(
+                                      onTap: () async {
+                                        final picked = await showTimePicker(
+                                          context: dialogCtx,
+                                          initialTime: entryTime,
+                                        );
+                                        if (picked != null) {
+                                          setModalState(() {
+                                            entryTime = picked;
+                                            shift = calculateShiftFromTime(picked);
+                                          });
+                                        }
+                                      },
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF1F5F9),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(color: Colors.grey.shade300),
+                                        ),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              entryTime.format(context),
+                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+                                            ),
+                                            const Icon(Icons.access_time_rounded, size: 18, color: AppTheme.primaryColor),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 3,
+                                child: CustomDropdownSearch(
+                                  label: 'Shift (Auto-assigned by Time)',
+                                  hint: 'Select Shift',
+                                  value: shift,
+                                  requiredMark: true,
+                                  dropdownItems: const ['Morning', 'Afternoon', 'Night'],
+                                  dropdownMap: const {
+                                    'Morning': 'Morning (08:00 - 14:00)',
+                                    'Afternoon': 'Afternoon (14:00 - 20:00)',
+                                    'Night': 'Night (20:00 - 08:00)',
+                                  },
+                                  onChanged: (val) {
+                                    if (val != null) setModalState(() => shift = val);
+                                  },
+                                  validator: (val) => val == null || val.isEmpty ? 'Shift is required' : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+
+                        // Notes / Description
+                        Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              flex: 2,
-                              child: CustomDropdownSearch(
-                                label: 'Shift',
-                                hint: 'Select Shift',
-                                value: shift,
-                                requiredMark: true,
-                                dropdownItems: const ['Morning', 'Afternoon', 'Night'],
-                                dropdownMap: const {
-                                  'Morning': 'Morning (08-14h)',
-                                  'Afternoon': 'Afternoon (14-20h)',
-                                  'Night': 'Night (20-08h)',
-                                },
-                                onChanged: (val) {
-                                  if (val != null) setModalState(() => shift = val);
-                                },
-                                validator: (val) => val == null || val.isEmpty ? 'Shift is required' : null,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 3,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Notes / Description', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 6),
-                                  TextFormField(
-                                    controller: descCtrl,
-                                    decoration: InputDecoration(
-                                      hintText: 'e.g. Pale amber, Clear...',
-                                      filled: true,
-                                      fillColor: const Color(0xFFF1F5F9),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                                    ),
-                                  ),
-                                ],
+                            const Text('Notes / Description', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 6),
+                            TextFormField(
+                              controller: descCtrl,
+                              decoration: InputDecoration(
+                                hintText: 'e.g. Pale amber, Clear...',
+                                filled: true,
+                                fillColor: const Color(0xFFF1F5F9),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                               ),
                             ),
                           ],
@@ -1227,6 +1416,14 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                                 final vol = double.parse(volumeCtrl.text.trim());
                                 Navigator.of(modalCtx).pop();
 
+                                final recordedDateTime = DateTime(
+                                  entryDate.year,
+                                  entryDate.month,
+                                  entryDate.day,
+                                  entryTime.hour,
+                                  entryTime.minute,
+                                );
+
                                 await widget.onAddFluidLog(
                                   entryType: entryType,
                                   category: category,
@@ -1234,7 +1431,7 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                                   route: route,
                                   fluidDescription: descCtrl.text.trim(),
                                   shift: shift,
-                                  recordedAt: DateTime.now(),
+                                  recordedAt: recordedDateTime,
                                 );
                               },
                               child: Text('Save ${isIntake ? 'Intake' : 'Output'}'),
@@ -1246,13 +1443,15 @@ class _IpdFluidBalanceWidgetState extends State<IpdFluidBalanceWidget>
                   ),
                 ),
               ),
-            ),
             );
           },
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+},
+);
+}
 
   void _confirmDeleteLog(int logId) {
     showDialog(
