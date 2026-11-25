@@ -157,6 +157,13 @@ class _BedRoomRequestDialogState extends State<BedRoomRequestDialog> {
     final requesterName = authProvider.user?.fullname ?? 'Clinician';
     final userRole = authProvider.user?.role ?? 'Doctor';
 
+    final String emgDetails = _emergencyDetailsController.text.trim();
+    String reason = _reasonController.text.trim();
+    if (_isEmergency) {
+      final prefix = emgDetails.isNotEmpty ? '[EMERGENCY: $emgDetails]' : '[EMERGENCY]';
+      reason = reason.isNotEmpty ? '$prefix $reason' : prefix;
+    }
+
     return _ipdController.createPendingAdmission({
       'patient_id': _selectedPatientId,
       'doctor_name': userRole.toLowerCase().contains('nurse')
@@ -166,9 +173,10 @@ class _BedRoomRequestDialogState extends State<BedRoomRequestDialog> {
       'bed_type': _selectedBedType,
       'is_emergency': _isEmergency,
       'priority': _isEmergency ? 'Emergency' : 'Normal',
-      'emergency_details': _isEmergency ? _emergencyDetailsController.text.trim() : null,
+      'triage_priority': _isEmergency ? 'Emergency' : 'Normal',
+      'emergency_details': _isEmergency ? (emgDetails.isNotEmpty ? emgDetails : 'Urgent bed allocation required') : null,
       'diagnosis': _diagnosisController.text.trim(),
-      'reason_for_admission': _reasonController.text.trim(),
+      'reason_for_admission': reason,
     }).then((_) {
       if (!mounted) return;
       Navigator.of(context).pop(true);

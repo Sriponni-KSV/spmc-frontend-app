@@ -35,6 +35,7 @@ class StatCard extends StatefulWidget {
   final IconData icon;
   final Color color;
   final bool isMobile;
+  final bool isSmall;
 
   const StatCard({
     Key? key,
@@ -44,6 +45,7 @@ class StatCard extends StatefulWidget {
     required this.icon,
     required this.color,
     required this.isMobile,
+    this.isSmall = true,
   }) : super(key: key);
 
   @override
@@ -66,16 +68,19 @@ class _StatCardState extends State<StatCard> {
       onExit: (_) => setState(() => _isHovered = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.all(widget.isMobile ? 14 : 20),
+        padding: EdgeInsets.symmetric(
+          horizontal: widget.isSmall ? 14 : (widget.isMobile ? 14 : 20),
+          vertical: widget.isSmall ? 10 : (widget.isMobile ? 14 : 20),
+        ),
         decoration: BoxDecoration(
           color: cardBg,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(widget.isSmall ? 12 : 14),
           boxShadow: [
             BoxShadow(
               color: _isHovered
                   ? widget.color.withOpacity(0.12)
                   : (isDark ? Colors.black.withOpacity(0.2) : Colors.black.withOpacity(0.04)),
-              blurRadius: _isHovered ? 16 : 6,
+              blurRadius: _isHovered ? 14 : 5,
               offset: const Offset(0, 2),
             ),
           ],
@@ -87,20 +92,25 @@ class _StatCardState extends State<StatCard> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: EdgeInsets.all(widget.isMobile ? 7 : 9),
+              padding: EdgeInsets.all(widget.isSmall ? 6 : (widget.isMobile ? 7 : 9)),
               decoration: BoxDecoration(
                 color: widget.color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(widget.isSmall ? 8 : 10),
               ),
-              child: Icon(widget.icon, color: widget.color, size: widget.isMobile ? 18 : 20),
+              child: Icon(
+                widget.icon,
+                color: widget.color,
+                size: widget.isSmall ? 16 : (widget.isMobile ? 18 : 20),
+              ),
             ),
-            SizedBox(height: widget.isMobile ? 10 : 14),
+            SizedBox(height: widget.isSmall ? 6 : (widget.isMobile ? 10 : 14)),
             Text(
               widget.value,
               style: TextStyle(
-                fontSize: widget.isMobile ? 22 : 26,
+                fontSize: widget.isSmall ? 19 : (widget.isMobile ? 22 : 26),
                 fontWeight: FontWeight.w800,
                 color: textColor,
                 letterSpacing: -0.5,
@@ -108,12 +118,12 @@ class _StatCardState extends State<StatCard> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
             Text(
               widget.title,
               style: TextStyle(
                 color: subTextColor,
-                fontSize: widget.isMobile ? 11 : 12,
+                fontSize: widget.isSmall ? 11.5 : (widget.isMobile ? 11 : 12),
                 fontWeight: FontWeight.w500,
               ),
               maxLines: 1,

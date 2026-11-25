@@ -3054,13 +3054,16 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                           ),
                           const SizedBox(height: 8),
                           CustomDropdownSearch(
-                            label: '',
+                            label: 'Available Beds',
                             hint: selectedWardType == null
                                 ? 'Select ward first'
                                 : availableBeds.isEmpty
-                                ? 'No beds available in this ward'
+                                ? 'No beds available in the selected ward.'
                                 : 'Select bed',
                             value: selectedBedNumber,
+                            emptyMessage: selectedWardType == null
+                                ? 'Please select a ward first'
+                                : 'No beds available in the selected ward.',
                             dropdownMap: {
                               for (var b in availableBeds) b: 'Bed $b',
                             },
@@ -3456,9 +3459,14 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
                         ),
                         const SizedBox(height: 10),
                         CustomDropdownSearch(
-                          label: '',
-                          hint: 'Select Available Bed',
+                          label: 'Available Beds',
+                          hint: (selectedWardType != null && availableBeds.isEmpty)
+                              ? 'No beds available in the selected ward.'
+                              : 'Select Available Bed',
                           value: selectedBedNumber,
+                          emptyMessage: (selectedWardType != null && availableBeds.isEmpty)
+                              ? 'No beds available in the selected ward.'
+                              : (selectedWardType == null ? 'Please select a ward first' : 'No beds available in the selected ward.'),
                           dropdownItems: availableBeds,
                           validator: (val) {
                             if (val == null || val.isEmpty) {

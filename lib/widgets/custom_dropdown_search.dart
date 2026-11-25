@@ -569,18 +569,30 @@ class _CustomDropdownSearchState extends State<CustomDropdownSearch>
                                   : Container(
                                       padding: const EdgeInsets.all(16),
                                       alignment: Alignment.center,
-                                      child: Text(
-                                        widget.emptyMessage ??
-                                            context.tr(
-                                              'no_matching_items_found',
-                                              fallback: 'No matching items found',
+                                      child: Builder(
+                                        builder: (context) {
+                                          String effectiveEmpty = widget.emptyMessage ?? '';
+                                          if (effectiveEmpty.isEmpty) {
+                                            final contextText = '${widget.label} ${widget.hint ?? ''}'.toLowerCase();
+                                            if (_allEntries.isEmpty && (contextText.contains('bed') || contextText.contains('ward'))) {
+                                              effectiveEmpty = 'No beds available in the selected ward.';
+                                            } else {
+                                              effectiveEmpty = context.tr(
+                                                'no_matching_items_found',
+                                                fallback: 'No matching items found',
+                                              );
+                                            }
+                                          }
+                                          return Text(
+                                            effectiveEmpty,
+                                            style: TextStyle(
+                                              fontFamily: 'Inter',
+                                              color: AppTheme.isDark(context) ? AppTheme.darkTextSecondaryColor : Colors.grey.shade500,
+                                              fontSize: 13,
                                             ),
-                                        style: TextStyle(
-                                          fontFamily: 'Inter',
-                                          color: AppTheme.isDark(context) ? AppTheme.darkTextSecondaryColor : Colors.grey.shade500,
-                                          fontSize: 13,
-                                        ),
-                                        textAlign: TextAlign.center,
+                                            textAlign: TextAlign.center,
+                                          );
+                                        },
                                       ),
                                     ))
                               : Listener(
