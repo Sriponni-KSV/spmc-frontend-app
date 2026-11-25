@@ -1,6 +1,5 @@
 import 'dart:async' show TimeoutException;
 import 'dart:convert';
-import 'dart:io' show SocketException;
 import 'package:http/http.dart' as http;
 import '../exceptions/network_exception.dart';
 import 'token_service.dart';
@@ -63,7 +62,7 @@ class ApiService {
     final msg = e.toString().toLowerCase();
 
     // True no-internet signals
-    if (e is SocketException ||
+    if (msg.contains('socketexception') ||
         msg.contains('failed to fetch') ||      // Flutter Web / CORS / offline
         msg.contains('network is unreachable') ||
         msg.contains('failed host lookup') ||   // DNS failure

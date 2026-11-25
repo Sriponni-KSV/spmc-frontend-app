@@ -21,7 +21,6 @@ import '../services/media_service.dart';
 import '../widgets/document_view_dialog.dart';
 import '../widgets/consultation_documents_view.dart';
 import '../utils/unsaved_changes_helper.dart';
-import 'dart:io' as io;
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/live_speech_service.dart';
@@ -189,6 +188,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
       final FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        withData: true,
       );
 
       if (result != null && result.files.isNotEmpty) {
@@ -211,11 +211,6 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         }
 
         List<int>? fileBytes = file.bytes;
-        
-        // Fallback for mobile devices where file.bytes can be null
-        if (fileBytes == null && file.path != null) {
-          fileBytes = io.File(file.path!).readAsBytesSync();
-        }
 
         if (fileBytes != null) {
           final bytesCount = fileBytes.length;
