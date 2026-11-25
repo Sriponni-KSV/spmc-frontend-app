@@ -208,22 +208,22 @@ class AdminNavConfig {
       if (item.permissionRequired != null) {
         if (item.permissionRequired == 'opd_assistance') {
           return (user?.hasPermission('opd_assistance') ?? false) ||
-                 (user?.hasPermission('conduct_consultations') ?? false);
+              (user?.hasPermission('conduct_consultations') ?? false);
         }
         if (item.permissionRequired == 'ipd_doctor_rounds') {
           return (user?.hasPermission('ipd_doctor_rounds') ?? false) ||
-                 (user?.hasPermission('ipd_nursing_care') ?? false) ||
-                 (user?.hasPermission('ipd_admission_counter') ?? false);
+              (user?.hasPermission('ipd_nursing_care') ?? false) ||
+              (user?.hasPermission('ipd_admission_counter') ?? false);
         }
         if (item.permissionRequired == 'ot_surgeries') {
           return (user?.hasPermission('ot_surgeries') ?? false) ||
-                 (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
-                 (user?.hasPermission('ot_who_checklist') ?? false) ||
-                 (user?.hasPermission('ot_nursing_consumables') ?? false);
+              (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
+              (user?.hasPermission('ot_who_checklist') ?? false) ||
+              (user?.hasPermission('ot_nursing_consumables') ?? false);
         }
         if (item.permissionRequired == 'op_billing') {
           return (user?.hasPermission('op_billing') ?? false) ||
-                 (user?.hasPermission('ipd_billing_settlement') ?? false);
+              (user?.hasPermission('ipd_billing_settlement') ?? false);
         }
         return user?.hasPermission(item.permissionRequired!) ?? false;
       }
@@ -317,3 +317,6 @@ class AdminNavConfig {
     return subItems.where((item) => item.isVisible).toList();
   }
 }
+
+
+// Dummy commit
