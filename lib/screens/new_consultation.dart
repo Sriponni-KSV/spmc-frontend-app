@@ -2767,6 +2767,7 @@ class _NewConsultationViewState extends State<NewConsultationView> {
         actions: [
           OutlinedButton(
             onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
               Navigator.of(context).pop(0);
             },
             style: AppTheme.outlinedButton,

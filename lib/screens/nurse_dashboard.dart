@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -1754,6 +1755,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           AppTheme.alertTextColor,
           'Pending Handover: ${pendingHandovers.length} incoming handover(s) require review & acknowledgement',
           'Action Required',
+          onTap: () => _changePage(6),
         ),
       );
     }
@@ -1774,6 +1776,12 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               : AppTheme.getTextSecondaryColor(context),
           title,
           timeStr,
+          onTap: () {
+            if (isUnread) {
+              _notificationCtrl.markAsRead(n['id']).then((_) => _fetchNotifications());
+            }
+            _handleNurseNotificationTap(n);
+          },
         ),
       );
     }
@@ -1970,6 +1978,14 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
                           AppTheme.infoColor,
                           title,
                           timeStr,
+                          onTap: () {
+                            ModalHistoryHelper.skipNextHistoryBack();
+                            Navigator.of(ctx).pop();
+                            if (n['is_read'] != true) {
+                              _notificationCtrl.markAsRead(n['id']).then((_) => _fetchNotifications());
+                            }
+                            _handleNurseNotificationTap(n);
+                          },
                         ),
                       );
                     }),
@@ -1986,8 +2002,71 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     );
   }
 
-  Widget _buildAlertItem(Color bg, Color textColor, String text, String time) {
-    return Container(
+  void _handleNurseNotificationTap(Map<String, dynamic> n) {
+    final type = (n['type'] ?? '').toString();
+    final title = (n['title'] ?? '').toString().toLowerCase();
+    final message = (n['message'] ?? '').toString().toLowerCase();
+
+    Map<String, dynamic> metadata = {};
+    if (n['metadata'] != null) {
+      if (n['metadata'] is Map) {
+        metadata = Map<String, dynamic>.from(n['metadata']);
+      } else if (n['metadata'] is String) {
+        try {
+          metadata = jsonDecode(n['metadata']);
+        } catch (_) {}
+      }
+    }
+
+    if (type == 'ICUAlert' ||
+        title.contains('icu') ||
+        title.contains('critical alert') ||
+        title.contains('vital') ||
+        message.contains('vitals') ||
+        message.contains('icu')) {
+      if (metadata.containsKey('admission_id') && metadata['admission_id'] != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            context.go(AppRoutes.nurseIpdMonitoring, extra: metadata);
+          }
+        });
+      } else {
+        _changePage(6); // IPD
+      }
+      return;
+    }
+
+    if (type.toLowerCase().contains('ot') ||
+        title.contains('ot') ||
+        title.contains('surgery') ||
+        message.contains('surgery')) {
+      _changePage(7); // OT
+      return;
+    }
+
+    if (type.toLowerCase().contains('home') ||
+        title.contains('home visit') ||
+        title.contains('home care')) {
+      _changePage(9); // Home visits
+      return;
+    }
+
+    if (title.contains('handover') || message.contains('handover')) {
+      _changePage(6); // IPD handovers
+      return;
+    }
+
+    if (title.contains('triage') || title.contains('opd') || message.contains('vitals')) {
+      _changePage(5); // OPD vitals
+      return;
+    }
+
+    // Default: IPD
+    _changePage(6);
+  }
+
+  Widget _buildAlertItem(Color bg, Color textColor, String text, String time, {VoidCallback? onTap}) {
+    final content = Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: bg,
@@ -2019,9 +2098,23 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
               ],
             ),
           ),
+          if (onTap != null)
+            Icon(Icons.chevron_right, size: 18, color: textColor.withOpacity(0.6)),
         ],
       ),
     );
+
+    if (onTap != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: content,
+        ),
+      );
+    }
+    return content;
   }
 
   Widget _buildRecentPatients() {
