@@ -30,6 +30,11 @@ class AppRouter {
 
   static Map<String, dynamic>? _lastKnownDoctorIpdAdmission;
   static Map<String, dynamic>? _lastKnownNurseIpdAdmission;
+  static AppointmentModel? _lastKnownDoctorAppointment;
+
+  static void clearLastKnownDoctorAppointment() {
+    _lastKnownDoctorAppointment = null;
+  }
 
   static PatientModel? _parsePatient(dynamic extra) {
     if (extra == null) return null;
@@ -308,13 +313,21 @@ class AppRouter {
               userRole == 'Anaesthetist') {
             return AppRoutes.dashboard;
           }
-          if (path == AppRoutes.doctorDashboardConsultation &&
-              state.extra == null) {
-            return AppRoutes.doctorDashboard;
+          if (path == AppRoutes.doctorDashboardConsultation) {
+            final appt = _parseAppointment(state.extra);
+            if (appt != null) {
+              _lastKnownDoctorAppointment = appt;
+            } else if (_lastKnownDoctorAppointment == null) {
+              return AppRoutes.doctorDashboard;
+            }
           }
-          if (path == AppRoutes.doctorConsultationsEdit &&
-              state.extra == null) {
-            return AppRoutes.doctorPatients;
+          if (path == AppRoutes.doctorConsultationsEdit) {
+            final appt = _parseAppointment(state.extra);
+            if (appt != null) {
+              _lastKnownDoctorAppointment = appt;
+            } else if (_lastKnownDoctorAppointment == null) {
+              return AppRoutes.doctorPatients;
+            }
           }
           if (path == AppRoutes.doctorIpdMonitoring) {
             if (state.extra != null && state.extra is Map) {
@@ -927,7 +940,8 @@ class AppRouter {
             key: const ValueKey('doctor_dashboard_consultation'),
             child: DashboardScreen(
               initialIndex: 0,
-              activeAppointment: _parseAppointment(state.extra),
+              activeAppointment:
+                  _parseAppointment(state.extra) ?? _lastKnownDoctorAppointment,
             ),
           ),
         ),
@@ -937,7 +951,8 @@ class AppRouter {
             key: const ValueKey('doctor_consultations_edit'),
             child: DashboardScreen(
               initialIndex: 1,
-              activeAppointment: _parseAppointment(state.extra),
+              activeAppointment:
+                  _parseAppointment(state.extra) ?? _lastKnownDoctorAppointment,
             ),
           ),
         ),

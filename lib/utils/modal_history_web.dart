@@ -8,17 +8,32 @@ class ModalHistoryHelper {
   static final List<Route<dynamic>> _popupRoutes = [];
   static int _pushedHistoryCount = 0;
   static bool _isHandlingPopState = false;
-  static bool _isIgnoringPopState = false;
+  static int _ignorePopStateCount = 0;
   static bool _skipNextBack = false;
   static bool _initialized = false;
   static GlobalKey<NavigatorState>? _navigatorKey;
+
+  static bool _isValidModalRoute(Route<dynamic> route) {
+    if (route is PageRoute) return false;
+    final lowerName = route.runtimeType.toString().toLowerCase();
+    if (lowerName.contains('dropdown') ||
+        lowerName.contains('popupmenu') ||
+        lowerName.contains('menu') ||
+        lowerName.contains('tooltip')) {
+      return false;
+    }
+    return route is RawDialogRoute ||
+        route is DialogRoute ||
+        lowerName.contains('dialog') ||
+        lowerName.contains('bottomsheet');
+  }
 
   static void initialize(GlobalKey<NavigatorState> navigatorKey) {
     _navigatorKey = navigatorKey;
     _popupRoutes.clear();
     _pushedHistoryCount = 0;
     _isHandlingPopState = false;
-    _isIgnoringPopState = false;
+    _ignorePopStateCount = 0;
     _skipNextBack = false;
 
     if (_initialized) return;
@@ -33,8 +48,8 @@ class ModalHistoryHelper {
     } catch (_) {}
 
     html.window.addEventListener('popstate', (html.Event event) {
-      if (_isIgnoringPopState) {
-        _isIgnoringPopState = false;
+      if (_ignorePopStateCount > 0) {
+        _ignorePopStateCount--;
         return;
       }
 
@@ -94,10 +109,11 @@ class ModalHistoryHelper {
     _pushedHistoryCount = 0;
     _skipNextBack = false;
     _isHandlingPopState = false;
-    _isIgnoringPopState = false;
+    _ignorePopStateCount = 0;
   }
 
   static void onPopupPushed(Route<dynamic> route) {
+    if (!_isValidModalRoute(route)) return;
     _popupRoutes.add(route);
     if (!_isHandlingPopState) {
       try {
@@ -118,6 +134,7 @@ class ModalHistoryHelper {
   }
 
   static void onPopupPopped(Route<dynamic> route) {
+    if (!_isValidModalRoute(route)) return;
     _popupRoutes.remove(route);
 
     if (_isHandlingPopState) {
@@ -132,14 +149,16 @@ class ModalHistoryHelper {
 
     if (_pushedHistoryCount > 0) {
       _pushedHistoryCount--;
-      _isIgnoringPopState = true;
+      _ignorePopStateCount++;
       try {
         html.window.history.back();
       } catch (_) {
-        _isIgnoringPopState = false;
+        if (_ignorePopStateCount > 0) _ignorePopStateCount--;
       }
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _isIgnoringPopState = false;
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (_ignorePopStateCount > 0) {
+          _ignorePopStateCount--;
+        }
       });
     }
   }

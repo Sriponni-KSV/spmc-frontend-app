@@ -459,65 +459,35 @@ class _BedRoomRequestDialogState extends State<BedRoomRequestDialog> {
                         children: [
                           // Ward / Room Type
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text.rich(
-                                  TextSpan(
-                                    text: 'Required Ward / Room',
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                    children: [
-                                      TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                DropdownButtonFormField<String>(
-                                  value: _selectedWardType,
-                                  decoration: _inputDecoration('Ward / Room'),
-                                  items: _wardOptions.map((w) {
-                                    return DropdownMenuItem(
-                                      value: w,
-                                      child: Text('$w Ward', style: const TextStyle(fontSize: 13)),
-                                    );
-                                  }).toList(),
-                                  onChanged: (val) {
-                                    if (val != null) setState(() => _selectedWardType = val);
-                                  },
-                                ),
-                              ],
+                            child: CustomDropdownSearch(
+                              label: 'Required Ward / Room',
+                              requiredMark: true,
+                              hint: 'Select Ward / Room',
+                              value: _selectedWardType,
+                              dropdownMap: {
+                                for (var w in _wardOptions) w: '$w Ward',
+                              },
+                              onChanged: (val) {
+                                if (val != null) setState(() => _selectedWardType = val);
+                              },
+                              validator: (val) =>
+                                  (val == null || val.isEmpty) ? 'Please select ward / room' : null,
                             ),
                           ),
                           const SizedBox(width: 12),
                           // Bed Type
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text.rich(
-                                  TextSpan(
-                                    text: 'Required Bed Type',
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                    children: [
-                                      TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                DropdownButtonFormField<String>(
-                                  value: _selectedBedType,
-                                  decoration: _inputDecoration('Bed Type'),
-                                  items: _bedTypeOptions.map((b) {
-                                    return DropdownMenuItem(
-                                      value: b,
-                                      child: Text(b, style: const TextStyle(fontSize: 13)),
-                                    );
-                                  }).toList(),
-                                  onChanged: (val) {
-                                    if (val != null) setState(() => _selectedBedType = val);
-                                  },
-                                ),
-                              ],
+                            child: CustomDropdownSearch(
+                              label: 'Required Bed Type',
+                              requiredMark: true,
+                              hint: 'Select Bed Type',
+                              value: _selectedBedType,
+                              dropdownItems: _bedTypeOptions,
+                              onChanged: (val) {
+                                if (val != null) setState(() => _selectedBedType = val);
+                              },
+                              validator: (val) =>
+                                  (val == null || val.isEmpty) ? 'Please select bed type' : null,
                             ),
                           ),
                         ],
