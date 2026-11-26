@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../core/routes/route_constants.dart';
+import '../core/routes/app_router.dart';
 import '../utils/app_theme.dart';
 import '../models/user_model.dart';
 import '../providers/auth_provider.dart';
@@ -568,16 +569,108 @@ class _DashboardScreenState extends State<DashboardScreen> {
               )
             : null,
         onTap: () {
+          ModalHistoryHelper.skipNextHistoryBack();
           Navigator.pop(context); // Close dialog
           if (isUnread) {
             NotificationController().markAsRead(n['id']).then((_) => _fetchNotifications());
           }
-          setState(() {
-            _selectedIndex = 6; // Redirect to Lab Reports tab
-          });
+          _handleDoctorNotificationTap(n);
         },
       ),
     );
+  }
+
+  void _handleDoctorNotificationTap(Map<String, dynamic> n) {
+    final type = (n['type'] ?? '').toString();
+    final title = (n['title'] ?? '').toString().toLowerCase();
+    final message = (n['message'] ?? '').toString().toLowerCase();
+
+    Map<String, dynamic> metadata = {};
+    if (n['metadata'] != null) {
+      if (n['metadata'] is Map) {
+        metadata = Map<String, dynamic>.from(n['metadata']);
+      } else if (n['metadata'] is String) {
+        try {
+          metadata = jsonDecode(n['metadata']);
+        } catch (_) {}
+      }
+    }
+
+    // ICU / Vitals Alert -> IPD Monitoring or IPD tab
+    if (type == 'ICUAlert' ||
+        title.contains('icu') ||
+        title.contains('critical alert') ||
+        title.contains('vital') ||
+        message.contains('vitals') ||
+        message.contains('icu')) {
+      if (metadata.containsKey('admission_id') && metadata['admission_id'] != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            context.go(AppRoutes.doctorIpdMonitoring, extra: metadata);
+          }
+        });
+      } else {
+        setState(() {
+          _selectedIndex = 3; // IPD Management
+        });
+      }
+      return;
+    }
+
+    // Lab Alerts -> Lab Reports tab with search filter
+    if (type == 'LabCompleted' ||
+        type.toLowerCase().contains('lab') ||
+        title.contains('lab') ||
+        message.contains('lab')) {
+      final patientName = metadata['patient_name']?.toString() ??
+          metadata['patient_display_id']?.toString();
+      setState(() {
+        if (patientName != null && patientName.isNotEmpty) {
+          _labSearchQuery = patientName;
+        }
+        _selectedIndex = 6; // Laboratory
+      });
+      return;
+    }
+
+    // OT / Surgery Alerts -> OT Management
+    if (type.toLowerCase().contains('ot') ||
+        title.contains('ot') ||
+        title.contains('surgery') ||
+        message.contains('surgery') ||
+        message.contains('operation')) {
+      setState(() {
+        _selectedIndex = 4; // OT Management
+      });
+      return;
+    }
+
+    // Home Visit Alerts -> Home Visit Care
+    if (type.toLowerCase().contains('home') ||
+        title.contains('home visit') ||
+        title.contains('home care') ||
+        message.contains('home visit')) {
+      setState(() {
+        _selectedIndex = 7;
+      });
+      return;
+    }
+
+    // Consultation / Appointment Alerts -> Dashboard / Appointments
+    if (type.toLowerCase().contains('appointment') ||
+        title.contains('appointment') ||
+        message.contains('appointment') ||
+        title.contains('consultation')) {
+      setState(() {
+        _selectedIndex = 0;
+      });
+      return;
+    }
+
+    // Default fallback
+    setState(() {
+      _selectedIndex = 0;
+    });
   }
 
   void _showSearchOverlay() {
@@ -994,6 +1087,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onBack: () async {
           // Fetch fresh data BEFORE navigating so mounted checks inside them still pass
           if (mounted) {
+            AppRouter.clearLastKnownDoctorAppointment();
             setState(() => _activeAppointment = null);
             // Await all refreshes before navigating so status is up-to-date
             await Future.wait([
@@ -1023,19 +1117,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ? _buildAnaesthetistDashboardView(isMobile)
             : _buildDashboardView(isMobile);
       case 1:
-        if (user?.hasPermission('conduct_consultations') ?? false) {
+        if (isDoctor || (user?.hasPermission('conduct_consultations') ?? false)) {
           return _buildConsultationsView(isMobile);
         }
         return const AccessDeniedWidget();
       case 2:
         return _buildProfileView(isMobile);
       case 3:
-        if (user?.hasPermission('ipd_doctor_rounds') ?? false) {
+        if (isDoctor || (user?.hasPermission('ipd_doctor_rounds') ?? false)) {
           return DoctorIPDManagementScreen(isMobile: isMobile);
         }
         return const AccessDeniedWidget();
       case 4:
-        if ((user?.hasPermission('ot_surgeries') ?? false) ||
+        if (isDoctor ||
+            (user?.hasPermission('ot_surgeries') ?? false) ||
             (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
             (user?.hasPermission('ot_who_checklist') ?? false)) {
           return OTManagementScreen(
@@ -1046,7 +1141,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 5:
-        if ((user?.hasPermission('ot_surgeries') ?? false) ||
+        if (isDoctor ||
+            (user?.hasPermission('ot_surgeries') ?? false) ||
             (user?.hasPermission('ot_anaesthesia_pac') ?? false)) {
           return OTManagementScreen(
             isMobile: isMobile,
@@ -1056,12 +1152,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 6:
-        if (user?.hasPermission('view_lab_reports') ?? false) {
+        if (isDoctor || (user?.hasPermission('view_lab_reports') ?? false)) {
           return _buildLabReportsView(isMobile);
         }
         return const AccessDeniedWidget();
       case 7:
-        if (user?.hasPermission('view_patients') ?? false) {
+        if (isDoctor || (user?.hasPermission('view_patients') ?? false)) {
           return PatientsView(
             patients: _dbPatients,
             isLoading: _isLoadingPatients,
@@ -1074,7 +1170,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         return const AccessDeniedWidget();
       case 8:
-        if (user?.hasPermission('book_appointment') ?? false) {
+        if (isDoctor || (user?.hasPermission('book_appointment') ?? false)) {
           return const AppointmentsView();
         }
         return const AccessDeniedWidget();
@@ -5247,7 +5343,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         actions: [
           OutlinedButton(
-            onPressed: () => Navigator.of(ctx).pop(0), // Cancel / Stay
+            onPressed: () {
+              ModalHistoryHelper.skipNextHistoryBack();
+              Navigator.of(ctx).pop(0); // Cancel / Stay
+            },
             style: AppTheme.outlinedButton,
             child: const Text('Stay on Consultation'),
           ),
@@ -5270,6 +5369,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       } catch (_) {}
       UnsavedChangesHelper.clear();
       if (mounted) {
+        AppRouter.clearLastKnownDoctorAppointment();
         setState(() {
           _activeAppointment = null;
         });
@@ -5496,38 +5596,57 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // Notification Bell (rendered when space allows)
             if (width >= 320)
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _notifications.any((n) => n['is_read'] == false)
-                          ? Icons.notifications_active_outlined
-                          : Icons.notifications_none_outlined,
-                      color: _notifications.any((n) => n['is_read'] == false)
-                          ? AppTheme.logoRed
-                          : AppTheme.textSecondaryColor,
-                    ),
-                    onPressed: _showNotificationsOverlay,
-                    tooltip: 'Notifications',
-                  ),
-                  if (_notifications.any((n) => n['is_read'] == false))
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
+              Builder(
+                builder: (context) {
+                  final unreadCount = _notifications.where((n) => n['is_read'] == false).length;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          unreadCount > 0
+                              ? Icons.notifications_active_outlined
+                              : Icons.notifications_none_outlined,
+                          color: unreadCount > 0
+                              ? AppTheme.logoRed
+                              : AppTheme.textSecondaryColor,
                         ),
-                        constraints: const BoxConstraints(
-                          minWidth: 10,
-                          minHeight: 10,
-                        ),
+                        onPressed: _showNotificationsOverlay,
+                        tooltip: 'Notifications',
                       ),
-                    ),
-                ],
+                      if (unreadCount > 0)
+                        Positioned(
+                          right: 4,
+                          top: 4,
+                          child: IgnorePointer(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppTheme.dangerColor,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              constraints: const BoxConstraints(
+                                minWidth: 18,
+                                minHeight: 18,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  unreadCount > 99 ? '99+' : '$unreadCount',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.0,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
               ),
 
             // Help & Share on larger screens

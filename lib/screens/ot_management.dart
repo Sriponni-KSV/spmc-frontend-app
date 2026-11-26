@@ -309,8 +309,8 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
   final _diagnosisController = TextEditingController();
   String _selectedSurgeryType = 'Laparoscopic Cholecystectomy';
   String _selectedPriority = 'Elective';
-  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 9, minute: 0);
+  DateTime _selectedDate = DateTime.now();
+  TimeOfDay _selectedTime = TimeOfDay(hour: (DateTime.now().hour + 1) % 24, minute: 0);
   final _surgeonController = TextEditingController();
   final _assistantSurgeonController = TextEditingController();
   final _anaesthetistController = TextEditingController();
@@ -320,8 +320,8 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   // Scheduling Step State
   String? _selectedOtRoom; // Dropdown selection
-  TimeOfDay _slotStartTime = const TimeOfDay(hour: 9, minute: 0);
-  TimeOfDay? _slotEndTime; // Optional end time slot
+  TimeOfDay _slotStartTime = TimeOfDay(hour: (DateTime.now().hour + 1) % 24, minute: 0);
+  TimeOfDay? _slotEndTime = TimeOfDay(hour: (DateTime.now().hour + 2) % 24, minute: 30); // Optional end time slot
   List<String> _selectedNurseNames = []; // Multi-select nurse names
   List<String> _currentConflicts = [];
   bool _isCheckingConflicts = false;
@@ -987,9 +987,13 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       endTime: _slotEndTime,
     );
     if (_selectedOtRoom != null && occupiedRooms.contains(_selectedOtRoom)) {
+      final ac = _getActiveSurgeryCase(_selectedOtRoom!);
+      final msg = ac != null
+          ? 'Conflict: OT Room [$_selectedOtRoom] currently has a patient undergoing surgery (${ac.patientName} - ${ac.status}). The same OT room cannot be assigned to overlapping surgeries. Please select an available OT room.'
+          : 'Conflict: OT Room [$_selectedOtRoom] is already assigned to an overlapping surgery. The same OT room cannot be assigned to overlapping surgeries. Please select an available OT room.';
       AppNotification.showError(
         context,
-        'Conflict: OT Room [$_selectedOtRoom] is already assigned to an overlapping surgery. The same OT room cannot be assigned to overlapping surgeries. Please select an available OT room.',
+        msg,
         atTop: true,
       );
       return;
@@ -1253,8 +1257,11 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     _selectedBloodGroup = 'O+';
     _selectedSurgeryType = 'General Surgery';
     _selectedPriority = 'Elective';
-    _slotStartTime = const TimeOfDay(hour: 9, minute: 0);
-    _slotEndTime = null;
+    _selectedDate = DateTime.now();
+    final now = DateTime.now();
+    _slotStartTime = TimeOfDay(hour: (now.hour + 1) % 24, minute: 0);
+    _selectedTime = _slotStartTime;
+    _slotEndTime = TimeOfDay(hour: (now.hour + 2) % 24, minute: 30);
     _patientNameController.clear();
     _ageController.clear();
     _diagnosisController.clear();
@@ -1362,9 +1369,13 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
       excludeCaseId: otCase.id,
     );
     if (occupiedRooms.contains(_selectedOtRoom)) {
+      final ac = _getActiveSurgeryCase(_selectedOtRoom!);
+      final msg = ac != null
+          ? 'Conflict: OT Room [$_selectedOtRoom] currently has a patient undergoing surgery (${ac.patientName} - ${ac.status}). The same OT room cannot be assigned to overlapping surgeries. Please select an available OT room.'
+          : 'Conflict: OT Room [$_selectedOtRoom] is already assigned to an overlapping surgery. The same OT room cannot be assigned to overlapping surgeries. Please select an available OT room.';
       AppNotification.showError(
         context,
-        'Conflict: OT Room [$_selectedOtRoom] is already assigned to an overlapping surgery. The same OT room cannot be assigned to overlapping surgeries. Please select an available OT room.',
+        msg,
         atTop: true,
       );
       return;
@@ -2895,31 +2906,79 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   bool _matchesRoom(OtCase c, String targetCode, String targetName) {
     final raw = c.otRoom ?? '';
-    if (raw.trim().isEmpty) return false;
+    final caseTheatreName = c.theatreName ?? '';
+    String loadedCode = '';
+    String loadedName = '';
+    if (c.theatreId != null && _loadedTheatres.isNotEmpty) {
+      final t = _loadedTheatres.firstWhere(
+        (th) => th['id'] == c.theatreId || th['id']?.toString() == c.theatreId?.toString(),
+        orElse: () => {},
+      );
+      if (t.isNotEmpty) {
+        loadedCode = t['theatre_code']?.toString() ?? '';
+        loadedName = t['theatre_name']?.toString() ?? '';
+      }
+    }
+
+    final caseStrings = [raw, caseTheatreName, loadedCode, loadedName]
+        .where((s) => s.trim().isNotEmpty)
+        .toList();
+    if (caseStrings.isEmpty) return false;
 
     final isTargetEmergency = targetCode.toLowerCase().contains('emerg') || targetName.toLowerCase().contains('emerg');
-    final isCaseEmergency = raw.toLowerCase().contains('emerg');
+    final isCaseEmergency = caseStrings.any((s) => s.toLowerCase().contains('emerg'));
     if (isTargetEmergency || isCaseEmergency) {
       return isTargetEmergency && isCaseEmergency;
     }
 
     final numRegex = RegExp(r'\d+');
-    final caseNumMatch = numRegex.firstMatch(raw);
     final targetCodeNumMatch = numRegex.firstMatch(targetCode);
     final targetNameNumMatch = numRegex.firstMatch(targetName);
-
-    final String? caseNum = caseNumMatch?.group(0);
     final String? targetNum = targetCodeNumMatch?.group(0) ?? targetNameNumMatch?.group(0);
 
-    if (caseNum != null && targetNum != null) {
-      return caseNum == targetNum;
+    if (targetNum != null) {
+      for (final cs in caseStrings) {
+        final caseNumMatch = numRegex.firstMatch(cs);
+        if (caseNumMatch?.group(0) == targetNum) {
+          return true;
+        }
+      }
     }
 
-    final norm = (String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '').replaceAll('room', '');
-    final cRoom = norm(raw);
+    final norm = (String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '').replaceAll('room', '').replaceAll('theatre', '');
     final tCode = norm(targetCode);
     final tName = norm(targetName);
-    return cRoom == tCode || cRoom == tName || cRoom.contains(tCode) || tCode.contains(cRoom) || cRoom.contains(tName) || tName.contains(cRoom);
+
+    for (final cs in caseStrings) {
+      final cNorm = norm(cs);
+      if (cNorm.isEmpty) continue;
+      if (cNorm == tCode || cNorm == tName) return true;
+      if (tCode.isNotEmpty && (cNorm.contains(tCode) || tCode.contains(cNorm))) return true;
+      if (tName.isNotEmpty && (cNorm.contains(tName) || tName.contains(cNorm))) return true;
+    }
+
+    return false;
+  }
+
+  OtCase? _getActiveSurgeryCase(String room) {
+    for (final c in _otCases) {
+      if (c.status == 'OT Case Closed' ||
+          c.status == 'Surgery Completed' ||
+          c.status == 'Cancelled' ||
+          c.status == 'Rejected' ||
+          c.status == 'OT Requested') {
+        continue;
+      }
+      final s = c.status.toLowerCase().trim();
+      final isInSurgery = s == 'patient in ot' ||
+                          s == 'surgery in progress' ||
+                          s.contains('in progress') ||
+                          s.contains('patient in ot');
+      if (isInSurgery && _matchesRoom(c, room, room)) {
+        return c;
+      }
+    }
+    return null;
   }
 
   Set<String> _getOccupiedRoomsForSlot({
@@ -2952,8 +3011,22 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
     final now = DateTime.now();
     final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    final isTodayOrPast = isToday || date.isBefore(DateTime(now.year, now.month, now.day));
 
     return allRooms.where((room) {
+      // 1. If this room currently has a patient undergoing surgery, and scheduling for today/current date:
+      final activeCase = _getActiveSurgeryCase(room);
+      if (activeCase != null) {
+        if (excludeDbId != null && activeCase.dbId == excludeDbId) {
+          // excluded
+        } else if (excludeCaseId != null && activeCase.id == excludeCaseId) {
+          // excluded
+        } else if (isTodayOrPast) {
+          return true;
+        }
+      }
+
+      // 2. Check scheduled cases overlap
       return _otCases.any((c) {
         if (excludeDbId != null && c.dbId == excludeDbId) return false;
         if (excludeCaseId != null && c.id == excludeCaseId) return false;
@@ -2969,8 +3042,13 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
           return false;
         }
 
-        // Live active surgery occupying theatre room right now (if scheduling for today)
-        if (isToday && (c.status == 'Patient In OT' || c.status == 'Surgery In Progress')) {
+        // Live active surgery occupying theatre room right now
+        final s = c.status.toLowerCase().trim();
+        final isInSurgery = s == 'patient in ot' ||
+                            s == 'surgery in progress' ||
+                            s.contains('in progress') ||
+                            s.contains('patient in ot');
+        if (isInSurgery && isTodayOrPast) {
           return true;
         }
 
@@ -8224,7 +8302,11 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
     if (otCase.otRoom != null && otCase.otRoom!.isNotEmpty && !allRooms.contains(otCase.otRoom)) {
       allRooms.insert(0, otCase.otRoom!);
     }
-    final caseDate = otCase.surgeryDateTime ?? DateTime.now();
+    final now = DateTime.now();
+    final caseDate = (otCase.surgeryDateTime != null && !otCase.surgeryDateTime!.isBefore(DateTime(now.year, now.month, now.day)))
+        ? otCase.surgeryDateTime!
+        : now;
+    final isCaseToday = caseDate.year == now.year && caseDate.month == now.month && caseDate.day == now.day;
     final occupiedRooms = _getOccupiedRoomsForSlot(
       date: caseDate,
       startTime: _slotStartTime,
@@ -8257,15 +8339,25 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               : null,
           dropdownMap: {
             for (var room in allRooms)
-              room: occupiedRooms.contains(room) ? '$room (Occupied)' : '$room (Available)'
+              room: () {
+                final ac = _getActiveSurgeryCase(room);
+                if (ac != null && (isCaseToday || occupiedRooms.contains(room))) {
+                  return '$room (In Surgery - Occupied)';
+                }
+                return occupiedRooms.contains(room) ? '$room (Occupied)' : '$room (Available)';
+              }()
           },
           disabledKeys: occupiedRooms,
-          disabledItemMessage: 'This OT room is already assigned to an overlapping surgery and cannot be selected. Please choose an available room.',
+          disabledItemMessage: 'This OT room currently has a patient undergoing surgery (or is booked for an overlapping surgery) and cannot be selected. Please choose an available room.',
           validator: (val) {
             if (val == null || val.trim().isEmpty) {
               return 'Please select an OT Room';
             }
             if (occupiedRooms.contains(val)) {
+              final ac = _getActiveSurgeryCase(val);
+              if (ac != null && (isCaseToday || !caseDate.isAfter(DateTime.now()))) {
+                return '$val currently has a patient undergoing surgery (${ac.patientName} - ${ac.status}). The same OT room cannot be assigned while surgery is in progress.';
+              }
               return '$val is already booked for an overlapping surgery. The same OT room cannot be assigned to overlapping surgeries.';
             }
             return null;
@@ -8286,7 +8378,13 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 const SizedBox(width: 5),
                 Expanded(
                   child: Text(
-                    'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
+                    'Unavailable during this slot: ${occupiedRooms.map((r) {
+                      final ac = _getActiveSurgeryCase(r);
+                      if (ac != null && (isCaseToday || !caseDate.isAfter(DateTime.now()))) {
+                        return '$r (In Surgery: ${ac.patientName})';
+                      }
+                      return '$r (Occupied)';
+                    }).join(', ')}',
                     style: TextStyle(fontSize: 11, color: Colors.orange.shade700, height: 1.25),
                   ),
                 ),
@@ -12918,6 +13016,10 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
 
   List<Widget> _buildSchedulingParametersChildren() {
     final allRooms = _availableOtRooms;
+    final now = DateTime.now();
+    final isSelectedDateToday = _selectedDate.year == now.year &&
+                                _selectedDate.month == now.month &&
+                                _selectedDate.day == now.day;
     final occupiedRooms = _getOccupiedRoomsForSlot(
       date: _selectedDate,
       startTime: _slotStartTime,
@@ -12939,15 +13041,25 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
             : null,
         dropdownMap: {
           for (var room in allRooms)
-            room: occupiedRooms.contains(room) ? '$room (Occupied)' : '$room (Available)'
+            room: () {
+              final ac = _getActiveSurgeryCase(room);
+              if (ac != null && (isSelectedDateToday || occupiedRooms.contains(room))) {
+                return '$room (In Surgery - Occupied)';
+              }
+              return occupiedRooms.contains(room) ? '$room (Occupied)' : '$room (Available)';
+            }()
         },
         disabledKeys: occupiedRooms,
-        disabledItemMessage: 'This OT room is already assigned to an overlapping surgery and cannot be selected. Please choose an available room.',
+        disabledItemMessage: 'This OT room currently has a patient undergoing surgery (or is booked for an overlapping surgery) and cannot be selected. Please choose an available room.',
         validator: (val) {
           if (val == null || val.trim().isEmpty) {
             return 'Please select an OT Room';
           }
           if (occupiedRooms.contains(val)) {
+            final ac = _getActiveSurgeryCase(val);
+            if (ac != null && (isSelectedDateToday || !_selectedDate.isAfter(DateTime.now()))) {
+              return '$val currently has a patient undergoing surgery (${ac.patientName} - ${ac.status}). The same OT room cannot be assigned while surgery is in progress.';
+            }
             return '$val is already booked for an overlapping surgery. The same OT room cannot be assigned to overlapping surgeries.';
           }
           return null;
@@ -12968,7 +13080,13 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
               const SizedBox(width: 5),
               Expanded(
                 child: Text(
-                  'Booked/Occupied during this slot: ${occupiedRooms.join(', ')}',
+                  'Unavailable during this slot: ${occupiedRooms.map((r) {
+                    final ac = _getActiveSurgeryCase(r);
+                    if (ac != null && (isSelectedDateToday || !_selectedDate.isAfter(DateTime.now()))) {
+                      return '$r (In Surgery: ${ac.patientName})';
+                    }
+                    return '$r (Occupied)';
+                  }).join(', ')}',
                   style: TextStyle(fontSize: 11, color: Colors.orange.shade700, height: 1.25),
                 ),
               ),

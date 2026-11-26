@@ -1,5 +1,5 @@
 {
-  "buildCommand": "bash vercel_build.sh",
+  "buildCommand": "tr -d '\\r' < vercel_build.sh | bash",
   "outputDirectory": "build/web",
   "installCommand": "echo skip",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]

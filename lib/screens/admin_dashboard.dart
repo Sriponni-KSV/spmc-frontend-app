@@ -6824,7 +6824,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }) {
     if (isReadOnly) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
           color: const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(20),
@@ -6835,16 +6835,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           children: [
             Icon(
               Icons.lock_outline,
-              size: 13,
+              size: 12,
               color: Colors.grey.shade500,
             ),
-            const SizedBox(width: 4),
-            Text(
-              'Locked',
-              style: TextStyle(
-                color: Colors.grey.shade500,
-                fontWeight: FontWeight.w600,
-                fontSize: 11,
+            const SizedBox(width: 3),
+            Flexible(
+              child: Text(
+                'Locked',
+                style: TextStyle(
+                  color: Colors.grey.shade500,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -6864,7 +6867,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             gap: 3.0,
           ),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
               borderRadius: BorderRadius.circular(20),
@@ -6874,16 +6877,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               children: [
                 Icon(
                   Icons.add,
-                  size: 14,
+                  size: 13,
                   color: AppTheme.primaryColor.withOpacity(0.7),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  'Assign Nurse',
-                  style: TextStyle(
-                    color: AppTheme.primaryColor.withOpacity(0.8),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
+                const SizedBox(width: 3),
+                Flexible(
+                  child: Text(
+                    'Assign',
+                    style: TextStyle(
+                      color: AppTheme.primaryColor.withOpacity(0.8),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
               ],
@@ -8364,43 +8371,61 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              shift['name'] ?? '',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                shift['name'] ?? '',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Timings: ${_formatTo12Hour(shift['start_time'])} - ${_formatTo12Hour(shift['end_time'])}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.textSecondaryColor,
+                              const SizedBox(height: 4),
+                              Text(
+                                'Timings: ${_formatTo12Hour(shift['start_time'])} - ${_formatTo12Hour(shift['end_time'])}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
                               icon: const Icon(
                                 Icons.edit_outlined,
-                                size: 18,
+                                size: 16,
                                 color: AppTheme.primaryColor,
                               ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Edit Shift',
                               onPressed: () => _showShiftDialog(shift),
                             ),
+                            const SizedBox(width: 4),
                             IconButton(
                               icon: const Icon(
                                 Icons.delete_outline,
-                                size: 18,
+                                size: 16,
                                 color: Colors.redAccent,
                               ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                              visualDensity: VisualDensity.compact,
+                              tooltip: 'Delete Shift',
                               onPressed: () => _deleteShift(shift['id']),
                             ),
                           ],
