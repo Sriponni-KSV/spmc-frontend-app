@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +18,8 @@ import '../widgets/access_denied_widget.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 import '../utils/discard_dialog_helper.dart';
+import '../controllers/notification_controller.dart';
+import '../widgets/notifications_dialog.dart';
 
 class LabDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -29,13 +32,15 @@ class LabDashboardScreen extends StatefulWidget {
 class _LabDashboardScreenState extends State<LabDashboardScreen> {
   int _selectedIndex = 0;
   final LabController _labController = LabController();
-  
+  final NotificationController _notificationController =
+      NotificationController();
+
   // Dashboard & Requests state
   List<Map<String, dynamic>> _labRequests = [];
   Map<String, dynamic> _stats = {
     'pending_count': 0,
     'collected_count': 0,
-    'completed_today_count': 0
+    'completed_today_count': 0,
   };
   bool _isLoadingRequests = false;
   bool _isLoadingStats = false;
@@ -44,6 +49,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
   List<Map<String, dynamic>> _technicians = [];
   List<Map<String, dynamic>> _machines = [];
   bool _isLoadingResources = false;
+  List<Map<String, dynamic>> _notifications = [];
+  bool _isLoadingNotifications = false;
+  Timer? _notificationsTimer;
 
   // Search & Filters
   final TextEditingController _searchController = TextEditingController();
@@ -55,6 +63,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     super.initState();
     _selectedIndex = widget.initialIndex;
     _fetchData();
+    _notificationsTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      _fetchNotifications(refreshOrdersOnNew: true);
+    });
   }
 
   @override
@@ -69,6 +80,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
 
   @override
   void dispose() {
+    _notificationsTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -78,7 +90,44 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       _fetchRequests(),
       _fetchStats(),
       _fetchResources(),
+      _fetchNotifications(),
     ]);
+  }
+
+  Future<void> _fetchNotifications({
+    VoidCallback? onCompleted,
+    bool refreshOrdersOnNew = false,
+  }) async {
+    if (_isLoadingNotifications) return;
+    _isLoadingNotifications = true;
+    try {
+      final list = await _notificationController.fetchNotifications();
+      if (mounted) {
+        final previousCount = _notifications.length;
+        final previousUnread = _notifications
+            .where((n) => n['is_read'] != true)
+            .length;
+        final newUnread = list.where((n) => n['is_read'] != true).length;
+        final hasNewNotification =
+            list.length > previousCount || newUnread > previousUnread;
+
+        setState(() {
+          _notifications = list;
+          _isLoadingNotifications = false;
+        });
+        if (refreshOrdersOnNew && hasNewNotification) {
+          _fetchRequests();
+          _fetchStats();
+        }
+        onCompleted?.call();
+      }
+    } catch (e) {
+      debugPrint('Error fetching lab notifications: $e');
+      if (mounted) {
+        setState(() => _isLoadingNotifications = false);
+        onCompleted?.call();
+      }
+    }
   }
 
   Future<void> _fetchResources() async {
@@ -205,7 +254,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
-      drawer: isMobile ? Drawer(child: _buildSidebar(context, isMobile: true)) : null,
+      drawer: isMobile
+          ? Drawer(child: _buildSidebar(context, isMobile: true))
+          : null,
       body: Row(
         children: [
           if (!isMobile) _buildSidebar(context, isMobile: false),
@@ -229,7 +280,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       valueListenable: SidebarState.isCollapsed,
       builder: (context, isSidebarCollapsed, _) {
         final effectiveCollapsed = isMobile ? false : isSidebarCollapsed;
-        final width = isMobile ? double.infinity : (effectiveCollapsed ? 76.0 : 275.0);
+        final width = isMobile
+            ? double.infinity
+            : (effectiveCollapsed ? 76.0 : 275.0);
 
         return Consumer<AuthProvider>(
           builder: (context, auth, _) {
@@ -241,12 +294,16 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               margin: isMobile
                   ? EdgeInsets.zero
                   : (effectiveCollapsed
-                      ? const EdgeInsets.fromLTRB(10, 16, 6, 16)
-                      : const EdgeInsets.fromLTRB(16, 16, 8, 16)),
+                        ? const EdgeInsets.fromLTRB(10, 16, 6, 16)
+                        : const EdgeInsets.fromLTRB(16, 16, 8, 16)),
               decoration: BoxDecoration(
                 color: AppTheme.getCardColor(context),
-                borderRadius: isMobile ? BorderRadius.zero : BorderRadius.circular(20),
-                border: isMobile ? null : Border.all(color: AppTheme.getBorderColor(context)),
+                borderRadius: isMobile
+                    ? BorderRadius.zero
+                    : BorderRadius.circular(20),
+                border: isMobile
+                    ? null
+                    : Border.all(color: AppTheme.getBorderColor(context)),
                 boxShadow: isDark || isMobile
                     ? []
                     : [
@@ -260,7 +317,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               child: ClipRect(
                 child: LayoutBuilder(
                   builder: (context, sidebarBox) {
-                    final showCollapsed = effectiveCollapsed || (!isMobile && sidebarBox.maxWidth < 210);
+                    final showCollapsed =
+                        effectiveCollapsed ||
+                        (!isMobile && sidebarBox.maxWidth < 210);
 
                     return Column(
                       children: [
@@ -274,7 +333,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                           decoration: BoxDecoration(
                             border: Border(
                               bottom: BorderSide(
-                                color: AppTheme.getBorderColor(context).withOpacity(0.6),
+                                color: AppTheme.getBorderColor(
+                                  context,
+                                ).withOpacity(0.6),
                                 width: 1,
                               ),
                             ),
@@ -285,7 +346,8 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                     message: 'Expand Sidebar',
                                     preferBelow: false,
                                     child: InkWell(
-                                      onTap: () => SidebarState.setCollapsed(false),
+                                      onTap: () =>
+                                          SidebarState.setCollapsed(false),
                                       borderRadius: BorderRadius.circular(10),
                                       child: Padding(
                                         padding: const EdgeInsets.all(4.0),
@@ -293,11 +355,12 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                           'assets/image/sriPonniLogo.png',
                                           width: 34,
                                           height: 34,
-                                          errorBuilder: (_, __, ___) => const Icon(
-                                            Icons.local_hospital_rounded,
-                                            color: AppTheme.primaryColor,
-                                            size: 28,
-                                          ),
+                                          errorBuilder: (_, __, ___) =>
+                                              const Icon(
+                                                Icons.local_hospital_rounded,
+                                                color: AppTheme.primaryColor,
+                                                size: 28,
+                                              ),
                                         ),
                                       ),
                                     ),
@@ -317,15 +380,21 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                     ),
                                     if (!isMobile)
                                       IconButton(
-                                        onPressed: () => SidebarState.setCollapsed(true),
+                                        onPressed: () =>
+                                            SidebarState.setCollapsed(true),
                                         tooltip: 'Collapse Sidebar',
                                         icon: Icon(
                                           Icons.chevron_left_rounded,
-                                          color: AppTheme.getTextSecondaryColor(context),
+                                          color: AppTheme.getTextSecondaryColor(
+                                            context,
+                                          ),
                                           size: 20,
                                         ),
                                         visualDensity: VisualDensity.compact,
-                                        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                        constraints: const BoxConstraints(
+                                          minWidth: 32,
+                                          minHeight: 32,
+                                        ),
                                         padding: EdgeInsets.zero,
                                       ),
                                   ],
@@ -341,15 +410,64 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                               vertical: 10,
                             ),
                             children: [
-                              _buildSidebarItem(0, Icons.dashboard_outlined, context.tr('dashboard', fallback: 'Dashboard'), isMobile: isMobile, isCollapsed: showCollapsed),
-                              if (user?.hasPermission('lab_test_processing') ?? false) ...[
-                                _buildSidebarItem(1, Icons.biotech_outlined, context.tr('pending_tests', fallback: 'Pending Tests'), isMobile: isMobile, isCollapsed: showCollapsed),
-                                _buildSidebarItem(2, Icons.fact_check_outlined, context.tr('completed_tests', fallback: 'Completed Tests'), isMobile: isMobile, isCollapsed: showCollapsed),
-                                _buildSidebarItem(4, Icons.settings_suggest_outlined, context.tr('resources', fallback: 'Resources'), isMobile: isMobile, isCollapsed: showCollapsed),
+                              _buildSidebarItem(
+                                0,
+                                Icons.dashboard_outlined,
+                                context.tr('dashboard', fallback: 'Dashboard'),
+                                isMobile: isMobile,
+                                isCollapsed: showCollapsed,
+                              ),
+                              if (user?.hasPermission('lab_test_processing') ??
+                                  false) ...[
+                                _buildSidebarItem(
+                                  1,
+                                  Icons.biotech_outlined,
+                                  context.tr(
+                                    'pending_tests',
+                                    fallback: 'Pending Tests',
+                                  ),
+                                  isMobile: isMobile,
+                                  isCollapsed: showCollapsed,
+                                ),
+                                _buildSidebarItem(
+                                  2,
+                                  Icons.fact_check_outlined,
+                                  context.tr(
+                                    'completed_tests',
+                                    fallback: 'Completed Tests',
+                                  ),
+                                  isMobile: isMobile,
+                                  isCollapsed: showCollapsed,
+                                ),
+                                _buildSidebarItem(
+                                  4,
+                                  Icons.settings_suggest_outlined,
+                                  context.tr(
+                                    'resources',
+                                    fallback: 'Resources',
+                                  ),
+                                  isMobile: isMobile,
+                                  isCollapsed: showCollapsed,
+                                ),
                               ],
                               if (user?.hasPermission('lab_billing') ?? false)
-                                _buildSidebarItem(5, Icons.receipt_long_outlined, context.tr('billing', fallback: 'Lab Billing'), isMobile: isMobile, isCollapsed: showCollapsed),
-                              _buildSidebarItem(3, Icons.person_outline, context.tr('profile', fallback: 'My Profile'), isMobile: isMobile, isCollapsed: showCollapsed),
+                                _buildSidebarItem(
+                                  5,
+                                  Icons.receipt_long_outlined,
+                                  context.tr(
+                                    'billing',
+                                    fallback: 'Lab Billing',
+                                  ),
+                                  isMobile: isMobile,
+                                  isCollapsed: showCollapsed,
+                                ),
+                              _buildSidebarItem(
+                                3,
+                                Icons.person_outline,
+                                context.tr('profile', fallback: 'My Profile'),
+                                isMobile: isMobile,
+                                isCollapsed: showCollapsed,
+                              ),
                             ],
                           ),
                         ),
@@ -361,16 +479,22 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                             decoration: BoxDecoration(
                               border: Border(
                                 top: BorderSide(
-                                  color: AppTheme.getBorderColor(context).withOpacity(0.6),
+                                  color: AppTheme.getBorderColor(
+                                    context,
+                                  ).withOpacity(0.6),
                                 ),
                               ),
                             ),
                             child: Center(
                               child: IconButton(
-                                onPressed: () => SidebarState.setCollapsed(false),
+                                onPressed: () =>
+                                    SidebarState.setCollapsed(false),
                                 tooltip: 'Expand Sidebar',
                                 visualDensity: VisualDensity.compact,
-                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                constraints: const BoxConstraints(
+                                  minWidth: 36,
+                                  minHeight: 36,
+                                ),
                                 icon: const Icon(
                                   Icons.chevron_right_rounded,
                                   color: AppTheme.primaryColor,
@@ -383,7 +507,10 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         Container(
                           decoration: BoxDecoration(
                             border: Border(
-                              top: BorderSide(color: AppTheme.getBorderColor(context), width: 1),
+                              top: BorderSide(
+                                color: AppTheme.getBorderColor(context),
+                                width: 1,
+                              ),
                             ),
                           ),
                           padding: EdgeInsets.symmetric(
@@ -393,20 +520,83 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                           child: user == null
                               ? const SizedBox.shrink()
                               : showCollapsed
-                                  ? Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Tooltip(
-                                          message: '${user.fullname} (${context.translateRole(user.role)})',
-                                          preferBelow: false,
-                                          child: InkWell(
-                                            onTap: () => UserProfileDialog.show(context, user),
-                                            borderRadius: BorderRadius.circular(18),
-                                            child: CircleAvatar(
-                                              backgroundColor: AppTheme.primaryColor,
+                              ? Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Tooltip(
+                                      message:
+                                          '${user.fullname} (${context.translateRole(user.role)})',
+                                      preferBelow: false,
+                                      child: InkWell(
+                                        onTap: () => UserProfileDialog.show(
+                                          context,
+                                          user,
+                                        ),
+                                        borderRadius: BorderRadius.circular(18),
+                                        child: CircleAvatar(
+                                          backgroundColor:
+                                              AppTheme.primaryColor,
+                                          radius: 18,
+                                          child: Text(
+                                            user.fullname.isNotEmpty
+                                                ? user.fullname[0].toUpperCase()
+                                                : '?',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Tooltip(
+                                      message: 'Logout',
+                                      preferBelow: false,
+                                      child: IconButton(
+                                        icon: Icon(
+                                          Icons.logout,
+                                          size: 18,
+                                          color: AppTheme.getTextSecondaryColor(
+                                            context,
+                                          ),
+                                        ),
+                                        visualDensity: VisualDensity.compact,
+                                        constraints: const BoxConstraints(
+                                          minWidth: 32,
+                                          minHeight: 32,
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        onPressed: () =>
+                                            LogoutHelper.showLogoutConfirmation(
+                                              context,
+                                              auth,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : Row(
+                                  children: [
+                                    Expanded(
+                                      child: InkWell(
+                                        onTap: () => UserProfileDialog.show(
+                                          context,
+                                          user,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: Row(
+                                          children: [
+                                            CircleAvatar(
+                                              backgroundColor:
+                                                  AppTheme.primaryColor,
                                               radius: 18,
                                               child: Text(
-                                                user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
+                                                user.fullname.isNotEmpty
+                                                    ? user.fullname[0]
+                                                          .toUpperCase()
+                                                    : '?',
                                                 style: const TextStyle(
                                                   color: Colors.white,
                                                   fontWeight: FontWeight.bold,
@@ -414,91 +604,63 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                                 ),
                                               ),
                                             ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Tooltip(
-                                          message: 'Logout',
-                                          preferBelow: false,
-                                          child: IconButton(
-                                            icon: Icon(
-                                              Icons.logout,
-                                              size: 18,
-                                              color: AppTheme.getTextSecondaryColor(context),
-                                            ),
-                                            visualDensity: VisualDensity.compact,
-                                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                            padding: EdgeInsets.zero,
-                                            onPressed: () => LogoutHelper.showLogoutConfirmation(
-                                              context,
-                                              auth,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : Row(
-                                      children: [
-                                        Expanded(
-                                          child: InkWell(
-                                            onTap: () => UserProfileDialog.show(context, user),
-                                            borderRadius: BorderRadius.circular(8),
-                                            child: Row(
-                                              children: [
-                                                CircleAvatar(
-                                                  backgroundColor: AppTheme.primaryColor,
-                                                  radius: 18,
-                                                  child: Text(
-                                                    user.fullname.isNotEmpty ? user.fullname[0].toUpperCase() : '?',
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontWeight: FontWeight.bold,
-                                                      fontSize: 14,
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    user.fullname,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      fontSize: 13,
+                                                      color:
+                                                          AppTheme.getTextPrimaryColor(
+                                                            context,
+                                                          ),
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                  Text(
+                                                    context.translateRole(
+                                                      user.role,
+                                                    ),
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color:
+                                                          AppTheme.getTextSecondaryColor(
+                                                            context,
+                                                          ),
+                                                      fontWeight:
+                                                          FontWeight.w600,
                                                     ),
                                                   ),
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      Text(
-                                                        user.fullname,
-                                                        style: TextStyle(
-                                                          fontWeight: FontWeight.w600,
-                                                          fontSize: 13,
-                                                          color: AppTheme.getTextPrimaryColor(context),
-                                                        ),
-                                                        overflow: TextOverflow.ellipsis,
-                                                      ),
-                                                      Text(
-                                                        context.translateRole(user.role),
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          color: AppTheme.getTextSecondaryColor(context),
-                                                          fontWeight: FontWeight.w600,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
+                                                ],
+                                              ),
                                             ),
-                                          ),
+                                          ],
                                         ),
-                                        IconButton(
-                                          icon: Icon(
-                                            Icons.logout,
-                                            size: 18,
-                                            color: AppTheme.getTextSecondaryColor(context),
-                                          ),
-                                          onPressed: () => LogoutHelper.showLogoutConfirmation(
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.logout,
+                                        size: 18,
+                                        color: AppTheme.getTextSecondaryColor(
+                                          context,
+                                        ),
+                                      ),
+                                      onPressed: () =>
+                                          LogoutHelper.showLogoutConfirmation(
                                             context,
                                             auth,
                                           ),
-                                        ),
-                                      ],
                                     ),
+                                  ],
+                                ),
                         ),
                       ],
                     );
@@ -512,7 +674,13 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     );
   }
 
-  Widget _buildSidebarItem(int index, IconData icon, String label, {bool isMobile = false, bool isCollapsed = false}) {
+  Widget _buildSidebarItem(
+    int index,
+    IconData icon,
+    String label, {
+    bool isMobile = false,
+    bool isCollapsed = false,
+  }) {
     bool isSelected = _selectedIndex == index;
     return Tooltip(
       message: label,
@@ -523,11 +691,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(8),
         boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 2)),
         ],
       ),
       textStyle: const TextStyle(
@@ -556,7 +720,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               ? Center(
                   child: Icon(
                     icon,
-                    color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                    color: isSelected
+                        ? Colors.white
+                        : AppTheme.getTextSecondaryColor(context),
                     size: 20,
                   ),
                 )
@@ -564,7 +730,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   children: [
                     Icon(
                       icon,
-                      color: isSelected ? Colors.white : AppTheme.getTextSecondaryColor(context),
+                      color: isSelected
+                          ? Colors.white
+                          : AppTheme.getTextSecondaryColor(context),
                       size: 20,
                     ),
                     const SizedBox(width: 12),
@@ -574,7 +742,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: isSelected ? Colors.white : AppTheme.getTextPrimaryColor(context),
+                          color: isSelected
+                              ? Colors.white
+                              : AppTheme.getTextPrimaryColor(context),
                           fontWeight: FontWeight.bold,
                           fontSize: 13.5,
                         ),
@@ -589,9 +759,7 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
 
   Widget _buildHeader(BuildContext context, bool isMobile) {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
+      decoration: const BoxDecoration(color: Colors.transparent),
       padding: EdgeInsets.only(
         left: isMobile ? 16 : 24,
         right: isMobile ? 16 : 24,
@@ -626,7 +794,10 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
             decoration: BoxDecoration(
               color: AppTheme.getCardColor(context),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppTheme.getBorderColor(context), width: 1.2),
+              border: Border.all(
+                color: AppTheme.getBorderColor(context),
+                width: 1.2,
+              ),
             ),
             child: const Text(
               'SPMC Laboratory Portal',
@@ -639,40 +810,10 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           ),
         ),
 
-        const SizedBox(width: 16),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Icon(
-              Icons.notifications_none_outlined,
-              color: AppTheme.getTextPrimaryColor(context),
-              size: 22,
-            ),
-            Positioned(
-              right: -2,
-              top: -2,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE53E3E),
-                  shape: BoxShape.circle,
-                ),
-                constraints: const BoxConstraints(
-                  minWidth: 14,
-                  minHeight: 14,
-                ),
-                child: const Text(
-                  '3',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
+        const SizedBox(width: 8),
+        NotificationBellButton(
+          unreadCount: NotificationsDialog.countUnread(_notifications),
+          onPressed: _showNotificationsDialog,
         ),
 
         const SizedBox(width: 16),
@@ -724,7 +865,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     final waitingTechnician = _stats['waiting_technician_count'] ?? 0;
     final waitingMachine = _stats['waiting_machine_count'] ?? 0;
 
-    final remainingTimeText = remainingMins > 0 ? _formatDuration(remainingMins as int) : 'Closed';
+    final remainingTimeText = remainingMins > 0
+        ? _formatDuration(remainingMins as int)
+        : 'Closed';
     final recentRequests = _labRequests.take(6).toList();
 
     return Column(
@@ -753,7 +896,10 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   const SizedBox(height: 4),
                   const Text(
                     'Process patient test requests and register observed details efficiently.',
-                    style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                    style: TextStyle(
+                      color: AppTheme.textSecondaryColor,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 24),
 
@@ -902,7 +1048,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppTheme.borderColor.withOpacity(0.5)),
+                      border: Border.all(
+                        color: AppTheme.borderColor.withOpacity(0.5),
+                      ),
                       boxShadow: AppTheme.cardShadow,
                     ),
                     child: Column(
@@ -913,7 +1061,11 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                           children: [
                             const Text(
                               'Recent Lab Test Orders',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor,
+                              ),
                             ),
                             TextButton(
                               onPressed: () => _changePage(1),
@@ -923,34 +1075,59 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         ),
                         const Divider(height: 24),
                         if (_isLoadingRequests)
-                          const Center(child: Padding(padding: EdgeInsets.all(24.0), child: CircularProgressIndicator()))
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24.0),
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
                         else if (_requestsError != null)
-                          Center(child: Text('Error loading requests: $_requestsError', style: const TextStyle(color: Colors.red)))
+                          Center(
+                            child: Text(
+                              'Error loading requests: $_requestsError',
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          )
                         else if (recentRequests.isEmpty)
-                          const Center(child: Padding(padding: EdgeInsets.all(24.0), child: Text('No orders found')))
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24.0),
+                              child: Text('No orders found'),
+                            ),
+                          )
                         else
                           ListView.separated(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: recentRequests.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1),
+                            separatorBuilder: (_, __) =>
+                                const Divider(height: 1),
                             itemBuilder: (context, idx) {
                               final req = recentRequests[idx];
-                              final formattedDate = _formatDate(req['created_at']);
-                              
+                              final formattedDate = _formatDate(
+                                req['created_at'],
+                              );
+
                               if (isMobile) {
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 12.0),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12.0,
+                                  ),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Expanded(
                                             child: Text(
                                               req['test_name'] ?? 'Lab Test',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
                                             ),
                                           ),
                                           _buildStatusBadge(req['status']),
@@ -959,18 +1136,29 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                       const SizedBox(height: 4),
                                       Row(
                                         children: [
-                                          const Icon(Icons.person_outline, size: 14, color: AppTheme.textSecondaryColor),
+                                          const Icon(
+                                            Icons.person_outline,
+                                            size: 14,
+                                            color: AppTheme.textSecondaryColor,
+                                          ),
                                           const SizedBox(width: 4),
                                           Expanded(
                                             child: Text(
                                               '${req['patient_name'] ?? 'Unknown'} (${req['patient_display_id'] ?? ''})',
-                                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 12,
+                                              ),
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                           ),
                                           Text(
                                             'Dr. ${req['doctor_name'] ?? ''}',
-                                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color:
+                                                  AppTheme.textSecondaryColor,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -978,7 +1166,8 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                       Wrap(
                                         spacing: 8,
                                         runSpacing: 4,
-                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        crossAxisAlignment:
+                                            WrapCrossAlignment.center,
                                         children: [
                                           Text(
                                             'Est: ${req['target_tat_minutes'] != null ? _formatDuration(req['target_tat_minutes'] is int ? req['target_tat_minutes'] as int : int.tryParse(req['target_tat_minutes']?.toString() ?? '') ?? 0) : 'Not Set'}',
@@ -989,46 +1178,85 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                             ),
                                           ),
                                           _buildPriorityBadge(req['priority']),
-                                          if (req['queue_position'] != null && req['status'] != 'Completed')
+                                          if (req['queue_position'] != null &&
+                                              req['status'] != 'Completed')
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.05), borderRadius: BorderRadius.circular(4)),
-                                              child: Text('Pos #${req['queue_position']}', style: const TextStyle(fontSize: 10, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 6,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.primaryColor
+                                                    .withOpacity(0.05),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                'Pos #${req['queue_position']}',
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  color: AppTheme.primaryColor,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
                                             ),
                                         ],
                                       ),
                                       const SizedBox(height: 8),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
                                             'Ordered: $formattedDate',
-                                            style: const TextStyle(fontSize: 10, color: AppTheme.textSecondaryColor),
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color:
+                                                  AppTheme.textSecondaryColor,
+                                            ),
                                           ),
                                           OutlinedButton(
                                             onPressed: () {
                                               if (req['status'] == 'Pending') {
-                                                _updateStatus(req['id'], 'Sample Collected');
-                                              } else if (req['status'] == 'Sample Collected') {
+                                                _updateStatus(
+                                                  req['id'],
+                                                  'Sample Collected',
+                                                );
+                                              } else if (req['status'] ==
+                                                  'Sample Collected') {
                                                 _showResultsEntryDialog(req);
                                               } else {
-                                                _selectedIndex = 2; // Move to Completed
+                                                _selectedIndex =
+                                                    2; // Move to Completed
                                                 setState(() {});
                                               }
                                             },
                                             style: OutlinedButton.styleFrom(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 6,
+                                                  ),
                                               minimumSize: Size.zero,
-                                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                              side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
+                                              tapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                              side: BorderSide(
+                                                color: AppTheme.primaryColor
+                                                    .withOpacity(0.5),
+                                              ),
                                             ),
                                             child: Text(
                                               req['status'] == 'Pending'
                                                   ? 'Collect Sample'
-                                                  : req['status'] == 'Sample Collected'
-                                                      ? 'Enter Results'
-                                                      : 'View',
-                                              style: const TextStyle(fontSize: 11),
+                                                  : req['status'] ==
+                                                        'Sample Collected'
+                                                  ? 'Enter Results'
+                                                  : 'View',
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -1039,18 +1267,24 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                               }
 
                               return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12.0,
+                                ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Expanded(
                                       flex: 2,
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             req['test_name'] ?? 'Lab Test',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
                                           ),
                                           const SizedBox(height: 2),
                                           Row(
@@ -1065,7 +1299,10 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                               ),
                                               const SizedBox(width: 6),
                                               InkWell(
-                                                onTap: () => _showEditDurationDialog(req),
+                                                onTap: () =>
+                                                    _showEditDurationDialog(
+                                                      req,
+                                                    ),
                                                 child: const Icon(
                                                   Icons.edit,
                                                   size: 12,
@@ -1077,28 +1314,76 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                           const SizedBox(height: 2),
                                           Text(
                                             'Ordered by Dr. ${req['doctor_name']}',
-                                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color:
+                                                  AppTheme.textSecondaryColor,
+                                            ),
                                           ),
                                           const SizedBox(height: 4),
                                           Row(
                                             children: [
-                                              _buildPriorityBadge(req['priority']),
-                                              if (req['queue_position'] != null && req['status'] != 'Completed') ...[
+                                              _buildPriorityBadge(
+                                                req['priority'],
+                                              ),
+                                              if (req['queue_position'] !=
+                                                      null &&
+                                                  req['status'] !=
+                                                      'Completed') ...[
                                                 const SizedBox(width: 8),
                                                 Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.05), borderRadius: BorderRadius.circular(4)),
-                                                  child: Text('Pos #${req['queue_position']}', style: const TextStyle(fontSize: 10, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.primaryColor
+                                                        .withOpacity(0.05),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          4,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    'Pos #${req['queue_position']}',
+                                                    style: const TextStyle(
+                                                      fontSize: 10,
+                                                      color:
+                                                          AppTheme.primaryColor,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
                                                 ),
                                               ],
-                                              if (req['scheduled_start_override'] != null && req['status'] != 'Completed') ...[
+                                              if (req['scheduled_start_override'] !=
+                                                      null &&
+                                                  req['status'] !=
+                                                      'Completed') ...[
                                                 const SizedBox(width: 8),
                                                 Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.blue.shade50,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          4,
+                                                        ),
+                                                  ),
                                                   child: Text(
-                                                    'Rescheduled: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}', 
-                                                    style: TextStyle(fontSize: 10, color: Colors.blue.shade700, fontWeight: FontWeight.bold)
+                                                    'Rescheduled: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color:
+                                                          Colors.blue.shade700,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
                                                   ),
                                                 ),
                                               ],
@@ -1110,41 +1395,71 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                     Expanded(
                                       flex: 2,
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             req['patient_name'] ?? 'Unknown',
-                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                            ),
                                           ),
                                           const SizedBox(height: 2),
                                           Text(
                                             req['patient_display_id'] ?? '',
-                                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color:
+                                                  AppTheme.textSecondaryColor,
+                                            ),
                                           ),
                                         ],
                                       ),
                                     ),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           const Text(
                                             'Ordered:',
-                                            style: TextStyle(fontSize: 9, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600),
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              color:
+                                                  AppTheme.textSecondaryColor,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                           Text(
                                             formattedDate,
-                                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor),
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color:
+                                                  AppTheme.textSecondaryColor,
+                                            ),
                                           ),
-                                          if (req['status'] != 'Completed' && req['estimated_completion_at'] != null) ...[
+                                          if (req['status'] != 'Completed' &&
+                                              req['estimated_completion_at'] !=
+                                                  null) ...[
                                             const SizedBox(height: 4),
                                             const Text(
                                               'Est Completion:',
-                                              style: TextStyle(fontSize: 9, color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                                              style: TextStyle(
+                                                fontSize: 9,
+                                                color: AppTheme.secondaryColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                             Text(
-                                              _formatDate(req['estimated_completion_at']),
-                                              style: const TextStyle(fontSize: 11, color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                                              _formatDate(
+                                                req['estimated_completion_at'],
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: AppTheme.secondaryColor,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ],
                                         ],
@@ -1160,24 +1475,36 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                                       child: OutlinedButton(
                                         onPressed: () {
                                           if (req['status'] == 'Pending') {
-                                            _updateStatus(req['id'], 'Sample Collected');
-                                          } else if (req['status'] == 'Sample Collected') {
+                                            _updateStatus(
+                                              req['id'],
+                                              'Sample Collected',
+                                            );
+                                          } else if (req['status'] ==
+                                              'Sample Collected') {
                                             _showResultsEntryDialog(req);
                                           } else {
-                                            _selectedIndex = 2; // Move to Completed
+                                            _selectedIndex =
+                                                2; // Move to Completed
                                             setState(() {});
                                           }
                                         },
                                         style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.5)),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 8,
+                                          ),
+                                          side: BorderSide(
+                                            color: AppTheme.primaryColor
+                                                .withOpacity(0.5),
+                                          ),
                                         ),
                                         child: Text(
                                           req['status'] == 'Pending'
                                               ? 'Collect Sample'
-                                              : req['status'] == 'Sample Collected'
-                                                  ? 'Enter Results'
-                                                  : 'View',
+                                              : req['status'] ==
+                                                    'Sample Collected'
+                                              ? 'Enter Results'
+                                              : 'View',
                                           style: const TextStyle(fontSize: 11),
                                         ),
                                       ),
@@ -1234,7 +1561,11 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     Flexible(
                       child: Text(
                         value,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, height: 1.1),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          height: 1.1,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -1243,7 +1574,11 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 const SizedBox(height: 8),
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppTheme.textSecondaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1266,12 +1601,20 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     children: [
                       Text(
                         value,
-                        style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, height: 1.1),
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          height: 1.1,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         title,
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondaryColor,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
@@ -1306,7 +1649,11 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       ),
       child: Text(
         status ?? 'Pending',
-        style: TextStyle(color: text, fontWeight: FontWeight.bold, fontSize: 11),
+        style: TextStyle(
+          color: text,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
       ),
     );
   }
@@ -1314,10 +1661,17 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
   Widget _buildRequestsView(bool isMobile, {required bool showPendingOnly}) {
     // Apply search filter and status tabs
     final filtered = _labRequests.where((req) {
-      final matchesSearch = (req['patient_name'] ?? '').toString().toLowerCase().contains(_searchQuery) ||
-                            (req['patient_display_id'] ?? '').toString().toLowerCase().contains(_searchQuery) ||
-                            (req['test_name'] ?? '').toString().toLowerCase().contains(_searchQuery);
-      
+      final matchesSearch =
+          (req['patient_name'] ?? '').toString().toLowerCase().contains(
+            _searchQuery,
+          ) ||
+          (req['patient_display_id'] ?? '').toString().toLowerCase().contains(
+            _searchQuery,
+          ) ||
+          (req['test_name'] ?? '').toString().toLowerCase().contains(
+            _searchQuery,
+          );
+
       final reqStatus = req['status'] ?? 'Pending';
       if (showPendingOnly) {
         if (reqStatus == 'Completed') return false;
@@ -1342,21 +1696,30 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               children: [
                 Text(
                   showPendingOnly ? 'Pending Tests' : 'Completed Tests',
-                  style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   showPendingOnly
                       ? 'Process and manage patient pending laboratory tests'
                       : 'History of completed laboratory tests and records',
-                  style: const TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+                  style: const TextStyle(
+                    color: AppTheme.textSecondaryColor,
+                    fontSize: 13,
+                  ),
                 ),
               ],
             ),
           ),
           // Filter Panel
           Container(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 24, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 24,
+              vertical: 12,
+            ),
             child: isMobile
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1370,13 +1733,24 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         ),
                         child: TextField(
                           controller: _searchController,
-                          onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                          onChanged: (v) =>
+                              setState(() => _searchQuery = v.toLowerCase()),
                           decoration: InputDecoration(
                             isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
                             hintText: 'Search by Patient Name, ID, or Test...',
-                            hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                            prefixIcon: const Icon(Icons.search, size: 18, color: AppTheme.textSecondaryColor),
+                            hintStyle: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              size: 18,
+                              color: AppTheme.textSecondaryColor,
+                            ),
                             suffixIcon: _searchQuery.isNotEmpty
                                 ? MouseRegion(
                                     cursor: SystemMouseCursors.click,
@@ -1427,13 +1801,25 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                           ),
                           child: TextField(
                             controller: _searchController,
-                            onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                            onChanged: (v) =>
+                                setState(() => _searchQuery = v.toLowerCase()),
                             decoration: InputDecoration(
                               isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              hintText: 'Search by Patient Name, ID, or Test...',
-                              hintStyle: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                              prefixIcon: const Icon(Icons.search, size: 16, color: AppTheme.textSecondaryColor),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              hintText:
+                                  'Search by Patient Name, ID, or Test...',
+                              hintStyle: const TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textSecondaryColor,
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.search,
+                                size: 16,
+                                color: AppTheme.textSecondaryColor,
+                              ),
                               suffixIcon: _searchQuery.isNotEmpty
                                   ? MouseRegion(
                                       cursor: SystemMouseCursors.click,
@@ -1473,22 +1859,26 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
             child: _isLoadingRequests
                 ? const Center(child: CircularProgressIndicator())
                 : filtered.isEmpty
-                    ? Center(
-                        child: Text(
-                          _searchQuery.isEmpty ? 'No requests found' : 'No matching results found',
-                          style: const TextStyle(color: AppTheme.textSecondaryColor),
-                        ),
-                      )
-                    : ListView.builder(
-                        padding: EdgeInsets.all(isMobile ? 16 : 24),
-                        itemCount: filtered.length,
-                        itemBuilder: (context, idx) {
-                          final req = filtered[idx];
-                          return showPendingOnly
-                              ? _buildPendingRequestCard(req, isMobile)
-                              : _buildCompletedRequestCard(req, isMobile);
-                        },
+                ? Center(
+                    child: Text(
+                      _searchQuery.isEmpty
+                          ? 'No requests found'
+                          : 'No matching results found',
+                      style: const TextStyle(
+                        color: AppTheme.textSecondaryColor,
                       ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: EdgeInsets.all(isMobile ? 16 : 24),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, idx) {
+                      final req = filtered[idx];
+                      return showPendingOnly
+                          ? _buildPendingRequestCard(req, isMobile)
+                          : _buildCompletedRequestCard(req, isMobile);
+                    },
+                  ),
           ),
         ],
       ),
@@ -1566,7 +1956,11 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   children: [
                     Text(
                       req['test_name'] ?? 'Lab Test',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Row(
@@ -1606,22 +2000,37 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
             children: [
               Text(
                 'Order Placement: $orderedDate',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondaryColor,
+                ),
               ),
               if (req['queue_position'] != null)
                 Text(
                   '• Queue Position: #${req['queue_position']}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               if (req['estimated_completion_at'] != null)
                 Text(
                   '• Est Completion: ${_formatDate(req['estimated_completion_at'])}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.secondaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               if (req['scheduled_start_override'] != null)
                 Text(
                   '• Rescheduled: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}',
-                  style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.blue,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
             ],
           ),
@@ -1633,25 +2042,41 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               if (req['technician_name'] != null)
                 Text(
                   'Staff: ${req['technician_name']}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textPrimaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               if (req['machine_name'] != null)
                 Text(
                   '• Machine: ${req['machine_name']}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textPrimaryColor, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textPrimaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              if (req['schedule_status'] != null && req['schedule_status'] != 'Scheduled')
+              if (req['schedule_status'] != null &&
+                  req['schedule_status'] != 'Scheduled')
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
-                    color: req['schedule_status'] == 'Waiting for Technician' ? Colors.purple.shade50 : Colors.teal.shade50,
+                    color: req['schedule_status'] == 'Waiting for Technician'
+                        ? Colors.purple.shade50
+                        : Colors.teal.shade50,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     req['schedule_status'],
                     style: TextStyle(
                       fontSize: 10,
-                      color: req['schedule_status'] == 'Waiting for Technician' ? Colors.purple.shade800 : Colors.teal.shade800,
+                      color: req['schedule_status'] == 'Waiting for Technician'
+                          ? Colors.purple.shade800
+                          : Colors.teal.shade800,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1666,20 +2091,37 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
             children: [
               Text(
                 'Requested by Dr. ${req['doctor_name']}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondaryColor,
+                ),
               ),
               _buildPriorityBadge(req['priority']),
-              if (req['delay_reason'] != null && req['delay_reason'].toString().isNotEmpty)
+              if (req['delay_reason'] != null &&
+                  req['delay_reason'].toString().isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(4)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(Icons.warning, size: 10, color: Colors.red),
                       const SizedBox(width: 4),
                       Flexible(
-                        child: Text('Delayed: ${req['delay_reason']}', style: const TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.w600)),
+                        child: Text(
+                          'Delayed: ${req['delay_reason']}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.red,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1694,13 +2136,29 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('PATIENT DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                    const Text(
+                      'PATIENT DETAILS',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(req['patient_name'] ?? 'Unknown', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(
+                      req['patient_name'] ?? 'Unknown',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       '${req['patient_display_id']} • ${req['patient_gender']} • ${req['patient_age']} years',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryColor,
+                      ),
                     ),
                   ],
                 ),
@@ -1708,13 +2166,29 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('CLINICAL INDICATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                    const Text(
+                      'CLINICAL INDICATION',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.textSecondaryColor,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text('Diagnosis: ${req['diagnosis'] ?? 'N/A'}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    Text(
+                      'Diagnosis: ${req['diagnosis'] ?? 'N/A'}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       'Symptoms: ${req['symptoms'] ?? 'N/A'}',
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryColor,
+                      ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1731,13 +2205,29 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('PATIENT DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                      const Text(
+                        'PATIENT DETAILS',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
                       const SizedBox(height: 6),
-                      Text(req['patient_name'] ?? 'Unknown', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      Text(
+                        req['patient_name'] ?? 'Unknown',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         '${req['patient_display_id']} • ${req['patient_gender']} • ${req['patient_age']} years',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondaryColor,
+                        ),
                       ),
                     ],
                   ),
@@ -1747,13 +2237,29 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('CLINICAL INDICATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
+                      const Text(
+                        'CLINICAL INDICATION',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
                       const SizedBox(height: 6),
-                      Text('Diagnosis: ${req['diagnosis'] ?? 'N/A'}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                      Text(
+                        'Diagnosis: ${req['diagnosis'] ?? 'N/A'}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         'Symptoms: ${req['symptoms'] ?? 'N/A'}',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondaryColor,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1772,15 +2278,31 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text('Priority: ', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Priority: ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(width: 4),
                     DropdownButton<String>(
                       value: req['priority'] ?? 'Normal',
                       underline: const SizedBox(),
-                      items: ['Normal', 'Urgent', 'Emergency'].map((String val) {
+                      items: ['Normal', 'Urgent', 'Emergency'].map((
+                        String val,
+                      ) {
                         return DropdownMenuItem<String>(
                           value: val,
-                          child: Text(val, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                          child: Text(
+                            val,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
                         );
                       }).toList(),
                       onChanged: (newPriority) async {
@@ -1792,12 +2314,20 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                               priority: newPriority,
                             );
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Priority updated to $newPriority'), backgroundColor: Colors.green),
+                              SnackBar(
+                                content: Text(
+                                  'Priority updated to $newPriority',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
                             );
                             _fetchData();
                           } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                              SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: Colors.red,
+                              ),
                             );
                           }
                         }
@@ -1807,20 +2337,43 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 ),
                 TextButton.icon(
                   onPressed: () => _showDelayDialog(req),
-                  icon: const Icon(Icons.pause_circle_outline, size: 16, color: AppTheme.logoRed),
-                  label: const Text('Delay / Log Issue', style: TextStyle(color: AppTheme.logoRed, fontSize: 12)),
+                  icon: const Icon(
+                    Icons.pause_circle_outline,
+                    size: 16,
+                    color: AppTheme.logoRed,
+                  ),
+                  label: const Text(
+                    'Delay / Log Issue',
+                    style: TextStyle(color: AppTheme.logoRed, fontSize: 12),
+                  ),
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
                 TextButton.icon(
                   onPressed: () => _showRescheduleDialog(req),
-                  icon: const Icon(Icons.calendar_today, size: 14, color: AppTheme.primaryColor),
-                  label: const Text('Reschedule', style: TextStyle(color: AppTheme.primaryColor, fontSize: 12)),
+                  icon: const Icon(
+                    Icons.calendar_today,
+                    size: 14,
+                    color: AppTheme.primaryColor,
+                  ),
+                  label: const Text(
+                    'Reschedule',
+                    style: TextStyle(
+                      color: AppTheme.primaryColor,
+                      fontSize: 12,
+                    ),
+                  ),
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
@@ -1832,23 +2385,48 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               width: double.infinity,
               child: !isSampleCollected
                   ? ElevatedButton.icon(
-                      onPressed: () => _updateStatus(req['id'], 'Sample Collected'),
-                      icon: const Icon(Icons.biotech, size: 16, color: Colors.white),
-                      label: const Text('Record Sample Collection', style: TextStyle(color: Colors.white)),
+                      onPressed: () =>
+                          _updateStatus(req['id'], 'Sample Collected'),
+                      icon: const Icon(
+                        Icons.biotech,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Record Sample Collection',
+                        style: TextStyle(color: Colors.white),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.secondaryColor,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     )
                   : ElevatedButton.icon(
                       onPressed: () => _showResultsEntryDialog(req),
-                      icon: const Icon(Icons.edit_note, size: 16, color: Colors.white),
-                      label: const Text('Enter Lab Results', style: TextStyle(color: Colors.white)),
+                      icon: const Icon(
+                        Icons.edit_note,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                      label: const Text(
+                        'Enter Lab Results',
+                        style: TextStyle(color: Colors.white),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.logoRed,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
             ),
@@ -1858,15 +2436,31 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               children: [
                 Row(
                   children: [
-                    const Text('Priority: ', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold)),
+                    const Text(
+                      'Priority: ',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.textSecondaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(width: 4),
                     DropdownButton<String>(
                       value: req['priority'] ?? 'Normal',
                       underline: const SizedBox(),
-                      items: ['Normal', 'Urgent', 'Emergency'].map((String val) {
+                      items: ['Normal', 'Urgent', 'Emergency'].map((
+                        String val,
+                      ) {
                         return DropdownMenuItem<String>(
                           value: val,
-                          child: Text(val, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                          child: Text(
+                            val,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
                         );
                       }).toList(),
                       onChanged: (newPriority) async {
@@ -1878,12 +2472,20 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                               priority: newPriority,
                             );
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Priority updated to $newPriority'), backgroundColor: Colors.green),
+                              SnackBar(
+                                content: Text(
+                                  'Priority updated to $newPriority',
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
                             );
                             _fetchData();
                           } catch (e) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                              SnackBar(
+                                content: Text('Error: $e'),
+                                backgroundColor: Colors.red,
+                              ),
                             );
                           }
                         }
@@ -1892,35 +2494,73 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     const SizedBox(width: 16),
                     TextButton.icon(
                       onPressed: () => _showDelayDialog(req),
-                      icon: const Icon(Icons.pause_circle_outline, size: 16, color: AppTheme.logoRed),
-                      label: const Text('Delay / Log Issue', style: TextStyle(color: AppTheme.logoRed, fontSize: 12)),
+                      icon: const Icon(
+                        Icons.pause_circle_outline,
+                        size: 16,
+                        color: AppTheme.logoRed,
+                      ),
+                      label: const Text(
+                        'Delay / Log Issue',
+                        style: TextStyle(color: AppTheme.logoRed, fontSize: 12),
+                      ),
                     ),
                     const SizedBox(width: 16),
                     TextButton.icon(
                       onPressed: () => _showRescheduleDialog(req),
-                      icon: const Icon(Icons.calendar_today, size: 14, color: AppTheme.primaryColor),
-                      label: const Text('Reschedule', style: TextStyle(color: AppTheme.primaryColor, fontSize: 12)),
+                      icon: const Icon(
+                        Icons.calendar_today,
+                        size: 14,
+                        color: AppTheme.primaryColor,
+                      ),
+                      label: const Text(
+                        'Reschedule',
+                        style: TextStyle(
+                          color: AppTheme.primaryColor,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
                   ],
                 ),
                 if (!isSampleCollected)
                   ElevatedButton.icon(
-                    onPressed: () => _updateStatus(req['id'], 'Sample Collected'),
-                    icon: const Icon(Icons.biotech, size: 16, color: Colors.white),
-                    label: const Text('Record Sample Collection', style: TextStyle(color: Colors.white)),
+                    onPressed: () =>
+                        _updateStatus(req['id'], 'Sample Collected'),
+                    icon: const Icon(
+                      Icons.biotech,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Record Sample Collection',
+                      style: TextStyle(color: Colors.white),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.secondaryColor,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                     ),
                   )
                 else
                   ElevatedButton.icon(
                     onPressed: () => _showResultsEntryDialog(req),
-                    icon: const Icon(Icons.edit_note, size: 16, color: Colors.white),
-                    label: const Text('Enter Lab Results', style: TextStyle(color: Colors.white)),
+                    icon: const Icon(
+                      Icons.edit_note,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Enter Lab Results',
+                      style: TextStyle(color: Colors.white),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.logoRed,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
                   ),
               ],
@@ -1959,7 +2599,10 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 20, vertical: 8),
+          tilePadding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 14 : 20,
+            vertical: 8,
+          ),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1971,13 +2614,21 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                       color: AppTheme.primaryColor.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.science_outlined, size: 16, color: AppTheme.primaryColor),
+                    child: const Icon(
+                      Icons.science_outlined,
+                      size: 16,
+                      color: AppTheme.primaryColor,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       req['test_name'] ?? 'Lab Test',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
                     ),
                   ),
                 ],
@@ -2004,12 +2655,19 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               children: [
                 Text(
                   'Patient: ${req['patient_name']} (${req['patient_display_id']}) • Completed: $processedDate',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondaryColor,
+                  ),
                 ),
                 if (req['actual_tat_minutes'] != null)
                   Text(
                     '• Actual TAT: ${req['actual_tat_minutes']} mins',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 if (req['completion_status'] != null)
                   _buildCompletionStatusBadge(req['completion_status']),
@@ -2047,14 +2705,21 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 if (resultsList.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: AppTheme.primaryColor.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       '${resultsList.length} Parameters',
-                      style: const TextStyle(fontSize: 11, color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -2069,7 +2734,14 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   color: AppTheme.backgroundColor,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text('No parameters registered for this test', style: TextStyle(fontStyle: FontStyle.italic, fontSize: 13, color: AppTheme.textSecondaryColor)),
+                child: const Text(
+                  'No parameters registered for this test',
+                  style: TextStyle(
+                    fontStyle: FontStyle.italic,
+                    fontSize: 13,
+                    color: AppTheme.textSecondaryColor,
+                  ),
+                ),
               )
             else if (isMobile)
               Container(
@@ -2088,15 +2760,26 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     final paramName = res['parameter']?.toString() ?? '';
                     final valStr = res['value']?.toString() ?? '';
                     final unitStr = (res['unit']?.toString() ?? '').trim();
-                    final refStr = (res['reference_range']?.toString() ?? '').trim();
-                    final fullValue = unitStr.isNotEmpty ? '$valStr $unitStr' : valStr;
+                    final refStr = (res['reference_range']?.toString() ?? '')
+                        .trim();
+                    final fullValue = unitStr.isNotEmpty
+                        ? '$valStr $unitStr'
+                        : valStr;
 
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: isEven ? Colors.white : const Color(0xFFFBFDFF),
                         border: idx < resultsList.length - 1
-                            ? const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1))
+                            ? const Border(
+                                bottom: BorderSide(
+                                  color: Color(0xFFF1F5F9),
+                                  width: 1,
+                                ),
+                              )
                             : null,
                       ),
                       child: Column(
@@ -2104,12 +2787,19 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         children: [
                           Text(
                             paramName,
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimaryColor,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.primaryColor.withOpacity(0.07),
                               borderRadius: BorderRadius.circular(6),
@@ -2127,7 +2817,10 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                             const SizedBox(height: 5),
                             Text(
                               'Reference Range: $refStr',
-                              style: const TextStyle(fontSize: 11.5, color: AppTheme.textSecondaryColor),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppTheme.textSecondaryColor,
+                              ),
                             ),
                           ],
                         ],
@@ -2155,7 +2848,11 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     TableRow(
                       decoration: BoxDecoration(
                         color: AppTheme.getTableHeadingRowColor(context),
-                        border: Border(bottom: BorderSide(color: AppTheme.getBorderColor(context))),
+                        border: Border(
+                          bottom: BorderSide(
+                            color: AppTheme.getBorderColor(context),
+                          ),
+                        ),
                       ),
                       children: [
                         AppTheme.tableRowHeaderCell(
@@ -2172,7 +2869,10 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                           context: context,
                           label: 'Unit',
                           icon: Icons.straighten_outlined,
-                          padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10.0,
+                            vertical: 10.0,
+                          ),
                         ),
                         AppTheme.tableRowHeaderCell(
                           context: context,
@@ -2187,21 +2887,40 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                       final isEven = idx % 2 == 0;
                       return TableRow(
                         decoration: BoxDecoration(
-                          color: isEven ? Colors.white : const Color(0xFFFBFDFF),
-                          border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+                          color: isEven
+                              ? Colors.white
+                              : const Color(0xFFFBFDFF),
+                          border: const Border(
+                            bottom: BorderSide(
+                              color: Color(0xFFF1F5F9),
+                              width: 1,
+                            ),
+                          ),
                         ),
                         children: [
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0,
+                              vertical: 10.0,
+                            ),
                             child: Text(
                               res['parameter'] ?? '',
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0,
+                              vertical: 8.0,
+                            ),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppTheme.primaryColor.withOpacity(0.07),
                                 borderRadius: BorderRadius.circular(6),
@@ -2217,17 +2936,30 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 10.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10.0,
+                              vertical: 10.0,
+                            ),
                             child: Text(
                               res['unit'] ?? '',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryColor,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12.0,
+                              vertical: 10.0,
+                            ),
                             child: Text(
                               res['reference_range'] ?? '',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.textSecondaryColor,
+                              ),
                             ),
                           ),
                         ],
@@ -2237,7 +2969,8 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 ),
               ),
             const SizedBox(height: 20),
-            if (req['remarks'] != null && req['remarks'].toString().isNotEmpty) ...[
+            if (req['remarks'] != null &&
+                req['remarks'].toString().isNotEmpty) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
@@ -2251,27 +2984,43 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.notes_rounded, size: 16, color: AppTheme.primaryColor),
+                        Icon(
+                          Icons.notes_rounded,
+                          size: 16,
+                          color: AppTheme.primaryColor,
+                        ),
                         SizedBox(width: 6),
                         Text(
                           'REMARKS / OBSERVATION NOTES',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor,
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 6),
                     Text(
                       req['remarks'],
-                      style: const TextStyle(fontSize: 13, color: AppTheme.textPrimaryColor, height: 1.4),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.textPrimaryColor,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
             ],
-            if (req['attachment_url'] != null && req['attachment_url'].toString().isNotEmpty) ...[
+            if (req['attachment_url'] != null &&
+                req['attachment_url'].toString().isNotEmpty) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(10),
@@ -2285,17 +3034,32 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                         color: AppTheme.logoRed.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.picture_as_pdf_rounded, size: 18, color: AppTheme.logoRed),
+                      child: const Icon(
+                        Icons.picture_as_pdf_rounded,
+                        size: 18,
+                        color: AppTheme.logoRed,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Reference Report File', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.bold)),
+                          const Text(
+                            'Reference Report File',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.textSecondaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           Text(
                             req['attachment_url'],
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.textPrimaryColor,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ],
@@ -2335,8 +3099,14 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                       backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
                       radius: 40,
                       child: Text(
-                        user?.fullname.isNotEmpty == true ? user!.fullname[0].toUpperCase() : 'L',
-                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
+                        user?.fullname.isNotEmpty == true
+                            ? user!.fullname[0].toUpperCase()
+                            : 'L',
+                        style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryColor,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 24),
@@ -2345,12 +3115,19 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                       children: [
                         Text(
                           user?.fullname ?? 'Lab Technician',
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           user?.role ?? 'Lab Technician',
-                          style: const TextStyle(fontSize: 14, color: AppTheme.logoRed, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: AppTheme.logoRed,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ],
                     ),
@@ -2359,10 +3136,26 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 const SizedBox(height: 32),
                 const Divider(),
                 const SizedBox(height: 24),
-                _buildProfileRow('Staff Unique ID', user?.staffUniqueId ?? '-', Icons.badge_outlined),
-                _buildProfileRow('Email Address', user?.email ?? '-', Icons.alternate_email),
-                _buildProfileRow('Mobile Number', user?.mobile ?? '-', Icons.phone_android_outlined),
-                _buildProfileRow('Status', user?.status ?? '-', Icons.check_circle_outline),
+                _buildProfileRow(
+                  'Staff Unique ID',
+                  user?.staffUniqueId ?? '-',
+                  Icons.badge_outlined,
+                ),
+                _buildProfileRow(
+                  'Email Address',
+                  user?.email ?? '-',
+                  Icons.alternate_email,
+                ),
+                _buildProfileRow(
+                  'Mobile Number',
+                  user?.mobile ?? '-',
+                  Icons.phone_android_outlined,
+                ),
+                _buildProfileRow(
+                  'Status',
+                  user?.status ?? '-',
+                  Icons.check_circle_outline,
+                ),
               ],
             ),
           ),
@@ -2381,9 +3174,22 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontWeight: FontWeight.w600)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.textSecondaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 2),
-              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
         ],
@@ -2392,11 +3198,13 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
   }
 
   void _showEditDurationDialog(Map<String, dynamic> req) {
-    final currentMinutes = req['target_tat_minutes'] is int 
-        ? req['target_tat_minutes'] as int 
+    final currentMinutes = req['target_tat_minutes'] is int
+        ? req['target_tat_minutes'] as int
         : int.tryParse(req['target_tat_minutes']?.toString() ?? '') ?? 0;
-        
-    final controller = TextEditingController(text: currentMinutes > 0 ? currentMinutes.toString() : '');
+
+    final controller = TextEditingController(
+      text: currentMinutes > 0 ? currentMinutes.toString() : '',
+    );
     final formKey = GlobalKey<FormState>();
     final initialDuration = controller.text;
 
@@ -2408,137 +3216,189 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           canPop: false,
           onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
-            DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: controller.text.trim() != initialDuration.trim());
+            DiscardDialogHelper.handleCancelOrDismiss(
+              ctx,
+              isDirty: controller.text.trim() != initialDuration.trim(),
+            );
           },
           child: AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: AppTheme.logoRed.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.timer_outlined, color: AppTheme.logoRed, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Edit Test Processing Duration', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text(req['test_name'] ?? '', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Row(
               children: [
-                const Text(
-                  'Set the processing time (in minutes) for this test. The estimated completion time will be automatically recalculated based on working hours, lab queue, and resource availability.',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: controller,
-                  keyboardType: TextInputType.number,
-                  maxLength: 5,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Please enter duration in minutes';
-                    }
-                    final minutes = int.tryParse(v.trim());
-                    if (minutes == null || minutes <= 0) {
-                      return 'Must be a valid positive number';
-                    }
-                    if (minutes > 99999) {
-                      return 'Duration cannot exceed 99,999 minutes';
-                    }
-                    return null;
-                  },
-                  decoration: const InputDecoration(
-                    labelText: 'Duration (Minutes)',
-                    hintText: 'e.g., 30, 60, 120',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    counterText: '',
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.logoRed.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.timer_outlined,
+                    color: AppTheme.logoRed,
+                    size: 24,
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Text('QUICK PRESETS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.textSecondaryColor)),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _presetChip(ctx, controller, '15 mins', 15),
-                    _presetChip(ctx, controller, '30 mins', 30),
-                    _presetChip(ctx, controller, '45 mins', 45),
-                    _presetChip(ctx, controller, '1 hr', 60),
-                    _presetChip(ctx, controller, '2 hrs', 120),
-                    _presetChip(ctx, controller, '4 hrs', 240),
-                    _presetChip(ctx, controller, '24 hrs', 1440),
-                  ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Edit Test Processing Duration',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        req['test_name'] ?? '',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: controller.text.trim() != initialDuration.trim()),
-              child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Set the processing time (in minutes) for this test. The estimated completion time will be automatically recalculated based on working hours, lab queue, and resource availability.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    maxLength: 5,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Please enter duration in minutes';
+                      }
+                      final minutes = int.tryParse(v.trim());
+                      if (minutes == null || minutes <= 0) {
+                        return 'Must be a valid positive number';
+                      }
+                      if (minutes > 99999) {
+                        return 'Duration cannot exceed 99,999 minutes';
+                      }
+                      return null;
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Duration (Minutes)',
+                      hintText: 'e.g., 30, 60, 120',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                      counterText: '',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'QUICK PRESETS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _presetChip(ctx, controller, '15 mins', 15),
+                      _presetChip(ctx, controller, '30 mins', 30),
+                      _presetChip(ctx, controller, '45 mins', 45),
+                      _presetChip(ctx, controller, '1 hr', 60),
+                      _presetChip(ctx, controller, '2 hrs', 120),
+                      _presetChip(ctx, controller, '4 hrs', 240),
+                      _presetChip(ctx, controller, '24 hrs', 1440),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                final newMinutes = int.parse(controller.text.trim());
-                Navigator.pop(ctx);
-                
-                try {
-                  await _labController.updateLabRequest(
-                    id: req['id'],
-                    status: req['status'],
-                    targetTatMinutes: newMinutes,
-                    processingDurationMinutes: newMinutes,
-                  );
-                  
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Estimated duration updated successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
+            actions: [
+              TextButton(
+                onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(
+                  ctx,
+                  isDirty: controller.text.trim() != initialDuration.trim(),
+                ),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: AppTheme.textSecondaryColor),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  final newMinutes = int.parse(controller.text.trim());
+                  Navigator.pop(ctx);
+
+                  try {
+                    await _labController.updateLabRequest(
+                      id: req['id'],
+                      status: req['status'],
+                      targetTatMinutes: newMinutes,
+                      processingDurationMinutes: newMinutes,
                     );
-                    _fetchData();
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Estimated duration updated successfully!',
+                          ),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                      _fetchData();
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error updating duration: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error updating duration: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.logoRed),
-              child: const Text('Save Changes', style: TextStyle(color: Colors.white)),
-            ),
-          ],
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.logoRed,
+                ),
+                child: const Text(
+                  'Save Changes',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _presetChip(BuildContext ctx, TextEditingController controller, String label, int value) {
+  Widget _presetChip(
+    BuildContext ctx,
+    TextEditingController controller,
+    String label,
+    int value,
+  ) {
     return InkWell(
       onTap: () {
         controller.text = value.toString();
@@ -2552,7 +3412,11 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         ),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.textPrimaryColor),
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimaryColor,
+          ),
         ),
       ),
     );
@@ -2565,19 +3429,28 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
         return AlertDialog(
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.white,
-          title: const Text('Manage Test Schedule', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          title: const Text(
+            'Manage Test Schedule',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                req['scheduled_start_override'] != null 
-                  ? 'Currently overridden to start on: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}'
-                  : 'Currently scheduled dynamically based on queue position.',
-                style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                req['scheduled_start_override'] != null
+                    ? 'Currently overridden to start on: ${DateFormat('dd-MMM-yyyy').format(DateTime.parse(req['scheduled_start_override']).toLocal())}'
+                    : 'Currently scheduled dynamically based on queue position.',
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.textSecondaryColor,
+                ),
               ),
               const SizedBox(height: 16),
-              const Text('Do you want to override the start date for this test? Subsequent tests will slide accordingly.', style: TextStyle(fontSize: 13)),
+              const Text(
+                'Do you want to override the start date for this test? Subsequent tests will slide accordingly.',
+                style: TextStyle(fontSize: 13),
+              ),
             ],
           ),
           actions: [
@@ -2592,22 +3465,34 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                       scheduledStartOverride: 'clear', // Clear override command
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Schedule override cleared!'), backgroundColor: Colors.green),
+                      const SnackBar(
+                        content: Text('Schedule override cleared!'),
+                        backgroundColor: Colors.green,
+                      ),
                     );
                     _fetchData();
                   } catch (e) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error clearing override: $e'), backgroundColor: Colors.red),
+                        SnackBar(
+                          content: Text('Error clearing override: $e'),
+                          backgroundColor: Colors.red,
+                        ),
                       );
                     }
                   }
                 },
-                child: const Text('Clear Override', style: TextStyle(color: Colors.red)),
+                child: const Text(
+                  'Clear Override',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: AppTheme.textSecondaryColor),
+              ),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -2632,7 +3517,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                 );
                 if (pickedDate != null && mounted) {
                   try {
-                    final String formattedDate = pickedDate.toUtc().toIso8601String();
+                    final String formattedDate = pickedDate
+                        .toUtc()
+                        .toIso8601String();
                     await _labController.updateLabRequest(
                       id: req['id'],
                       status: req['status'],
@@ -2640,7 +3527,9 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Test rescheduled to ${DateFormat('dd-MMM-yyyy').format(pickedDate)}'),
+                        content: Text(
+                          'Test rescheduled to ${DateFormat('dd-MMM-yyyy').format(pickedDate)}',
+                        ),
                         backgroundColor: Colors.green,
                       ),
                     );
@@ -2648,14 +3537,22 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                   } catch (e) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error rescheduling test: $e'), backgroundColor: Colors.red),
+                        SnackBar(
+                          content: Text('Error rescheduling test: $e'),
+                          backgroundColor: Colors.red,
+                        ),
                       );
                     }
                   }
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
-              child: const Text('Choose Date', style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+              ),
+              child: const Text(
+                'Choose Date',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
@@ -2676,81 +3573,113 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           canPop: false,
           onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
-            DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: controller.text.trim() != initialReason.trim());
+            DiscardDialogHelper.handleCancelOrDismiss(
+              ctx,
+              isDirty: controller.text.trim() != initialReason.trim(),
+            );
           },
           child: AlertDialog(
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: AppTheme.logoRed, size: 28),
-              SizedBox(width: 8),
-              Text('Log Delay / Pause Reason', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Row(
               children: [
-                const Text(
-                  'Record the reason why this test is paused or delayed (e.g. machine breakdown, queue overload). This will notify the prescribing doctor and adjust calculations.',
-                  style: TextStyle(fontSize: 13, color: AppTheme.textSecondaryColor),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: AppTheme.logoRed,
+                  size: 28,
                 ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: controller,
-                  maxLines: 3,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Please enter a delay reason';
-                    }
-                    return null;
-                  },
-                  decoration: const InputDecoration(
-                    labelText: 'Delay Reason',
-                    hintText: 'Describe the issue...',
-                    border: OutlineInputBorder(),
-                  ),
+                SizedBox(width: 8),
+                Text(
+                  'Log Delay / Pause Reason',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: controller.text.trim() != initialReason.trim()),
-              child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondaryColor)),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Record the reason why this test is paused or delayed (e.g. machine breakdown, queue overload). This will notify the prescribing doctor and adjust calculations.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.textSecondaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: controller,
+                    maxLines: 3,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Please enter a delay reason';
+                      }
+                      return null;
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Delay Reason',
+                      hintText: 'Describe the issue...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                final reason = controller.text.trim();
-                Navigator.pop(ctx);
+            actions: [
+              TextButton(
+                onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(
+                  ctx,
+                  isDirty: controller.text.trim() != initialReason.trim(),
+                ),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: AppTheme.textSecondaryColor),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (!formKey.currentState!.validate()) return;
+                  final reason = controller.text.trim();
+                  Navigator.pop(ctx);
 
-                try {
-                  await _labController.updateLabRequest(
-                    id: req['id'],
-                    status: req['status'],
-                    delayReason: reason,
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Delay reason updated successfully!'), backgroundColor: Colors.green),
-                  );
-                  _fetchData();
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error logging delay: $e'), backgroundColor: Colors.red),
+                  try {
+                    await _labController.updateLabRequest(
+                      id: req['id'],
+                      status: req['status'],
+                      delayReason: reason,
                     );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Delay reason updated successfully!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    _fetchData();
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error logging delay: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
                   }
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.logoRed),
-              child: const Text('Save Delay', style: TextStyle(color: Colors.white)),
-            ),
-          ],
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.logoRed,
+                ),
+                child: const Text(
+                  'Save Delay',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -2785,7 +3714,11 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       ),
       child: Text(
         cleanPriority,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
       ),
     );
   }
@@ -2818,7 +3751,11 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       ),
       child: Text(
         cleanStatus,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
       ),
     );
   }
@@ -2850,35 +3787,128 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       }
     } else {
       // Pre-populate fields based on test type
-      if (testName.toString().contains('Complete Blood Count') || testName.toString().contains('CBC')) {
+      if (testName.toString().contains('Complete Blood Count') ||
+          testName.toString().contains('CBC')) {
         initialFields.addAll([
-          {'parameter': 'Haemoglobin', 'value': '', 'unit': 'g/dL', 'reference_range': '13.0 - 17.0 (M), 12.0 - 16.0 (F)'},
-          {'parameter': 'WBC Count', 'value': '', 'unit': 'cells/uL', 'reference_range': '4000 - 11000'},
-          {'parameter': 'RBC Count', 'value': '', 'unit': 'million/uL', 'reference_range': '4.0 - 5.5'},
-          {'parameter': 'Platelets', 'value': '', 'unit': 'cells/uL', 'reference_range': '150000 - 450000'},
-          {'parameter': 'PCV / Hematocrit', 'value': '', 'unit': '%', 'reference_range': '36 - 50'},
+          {
+            'parameter': 'Haemoglobin',
+            'value': '',
+            'unit': 'g/dL',
+            'reference_range': '13.0 - 17.0 (M), 12.0 - 16.0 (F)',
+          },
+          {
+            'parameter': 'WBC Count',
+            'value': '',
+            'unit': 'cells/uL',
+            'reference_range': '4000 - 11000',
+          },
+          {
+            'parameter': 'RBC Count',
+            'value': '',
+            'unit': 'million/uL',
+            'reference_range': '4.0 - 5.5',
+          },
+          {
+            'parameter': 'Platelets',
+            'value': '',
+            'unit': 'cells/uL',
+            'reference_range': '150000 - 450000',
+          },
+          {
+            'parameter': 'PCV / Hematocrit',
+            'value': '',
+            'unit': '%',
+            'reference_range': '36 - 50',
+          },
         ]);
       } else if (testName.toString().contains('Lipid')) {
         initialFields.addAll([
-          {'parameter': 'Total Cholesterol', 'value': '', 'unit': 'mg/dL', 'reference_range': '< 200'},
-          {'parameter': 'Triglycerides', 'value': '', 'unit': 'mg/dL', 'reference_range': '< 150'},
-          {'parameter': 'HDL Cholesterol', 'value': '', 'unit': 'mg/dL', 'reference_range': '> 40'},
-          {'parameter': 'LDL Cholesterol', 'value': '', 'unit': 'mg/dL', 'reference_range': '< 100'},
+          {
+            'parameter': 'Total Cholesterol',
+            'value': '',
+            'unit': 'mg/dL',
+            'reference_range': '< 200',
+          },
+          {
+            'parameter': 'Triglycerides',
+            'value': '',
+            'unit': 'mg/dL',
+            'reference_range': '< 150',
+          },
+          {
+            'parameter': 'HDL Cholesterol',
+            'value': '',
+            'unit': 'mg/dL',
+            'reference_range': '> 40',
+          },
+          {
+            'parameter': 'LDL Cholesterol',
+            'value': '',
+            'unit': 'mg/dL',
+            'reference_range': '< 100',
+          },
         ]);
-      } else if (testName.toString().contains('Thyroid') || testName.toString().contains('TSH')) {
+      } else if (testName.toString().contains('Thyroid') ||
+          testName.toString().contains('TSH')) {
         initialFields.addAll([
-          {'parameter': 'TSH (Thyroid Stimulating Hormone)', 'value': '', 'unit': 'uIU/mL', 'reference_range': '0.45 - 4.5'},
-          {'parameter': 'Free T4', 'value': '', 'unit': 'ng/dL', 'reference_range': '0.8 - 1.8'},
-          {'parameter': 'Free T3', 'value': '', 'unit': 'pg/mL', 'reference_range': '2.3 - 4.2'},
+          {
+            'parameter': 'TSH (Thyroid Stimulating Hormone)',
+            'value': '',
+            'unit': 'uIU/mL',
+            'reference_range': '0.45 - 4.5',
+          },
+          {
+            'parameter': 'Free T4',
+            'value': '',
+            'unit': 'ng/dL',
+            'reference_range': '0.8 - 1.8',
+          },
+          {
+            'parameter': 'Free T3',
+            'value': '',
+            'unit': 'pg/mL',
+            'reference_range': '2.3 - 4.2',
+          },
         ]);
-      } else if (testName.toString().contains('Urinalysis') || testName.toString().contains('Urine')) {
+      } else if (testName.toString().contains('Urinalysis') ||
+          testName.toString().contains('Urine')) {
         initialFields.addAll([
-          {'parameter': 'Color', 'value': '', 'unit': '', 'reference_range': 'Pale Yellow'},
-          {'parameter': 'Appearance', 'value': '', 'unit': '', 'reference_range': 'Clear'},
-          {'parameter': 'pH', 'value': '', 'unit': '', 'reference_range': '4.5 - 8.0'},
-          {'parameter': 'Specific Gravity', 'value': '', 'unit': '', 'reference_range': '1.005 - 1.030'},
-          {'parameter': 'Protein', 'value': '', 'unit': '', 'reference_range': 'Negative'},
-          {'parameter': 'Glucose', 'value': '', 'unit': '', 'reference_range': 'Negative'},
+          {
+            'parameter': 'Color',
+            'value': '',
+            'unit': '',
+            'reference_range': 'Pale Yellow',
+          },
+          {
+            'parameter': 'Appearance',
+            'value': '',
+            'unit': '',
+            'reference_range': 'Clear',
+          },
+          {
+            'parameter': 'pH',
+            'value': '',
+            'unit': '',
+            'reference_range': '4.5 - 8.0',
+          },
+          {
+            'parameter': 'Specific Gravity',
+            'value': '',
+            'unit': '',
+            'reference_range': '1.005 - 1.030',
+          },
+          {
+            'parameter': 'Protein',
+            'value': '',
+            'unit': '',
+            'reference_range': 'Negative',
+          },
+          {
+            'parameter': 'Glucose',
+            'value': '',
+            'unit': '',
+            'reference_range': 'Negative',
+          },
         ]);
       } else if (testName.toString().toLowerCase().contains('x-ray') ||
           testName.toString().toLowerCase().contains('xray') ||
@@ -2888,16 +3918,32 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           testName.toString().toLowerCase().contains('image') ||
           testName.toString().toLowerCase().contains('usg')) {
         initialFields.addAll([
-          {'parameter': 'Radiology Finding', 'value': '', 'unit': '', 'reference_range': 'Normal'},
-          {'parameter': 'Impression', 'value': '', 'unit': '', 'reference_range': 'Normal'},
+          {
+            'parameter': 'Radiology Finding',
+            'value': '',
+            'unit': '',
+            'reference_range': 'Normal',
+          },
+          {
+            'parameter': 'Impression',
+            'value': '',
+            'unit': '',
+            'reference_range': 'Normal',
+          },
         ]);
       } else {
         // Default dynamic single field
-        initialFields.add({'parameter': 'Observation', 'value': '', 'unit': '', 'reference_range': 'Normal'});
+        initialFields.add({
+          'parameter': 'Observation',
+          'value': '',
+          'unit': '',
+          'reference_range': 'Normal',
+        });
       }
     }
 
-    final isXrayOrImage = testName.toString().toLowerCase().contains('x-ray') ||
+    final isXrayOrImage =
+        testName.toString().toLowerCase().contains('x-ray') ||
         testName.toString().toLowerCase().contains('xray') ||
         testName.toString().toLowerCase().contains('ultrasound') ||
         testName.toString().toLowerCase().contains('mri') ||
@@ -2907,9 +3953,11 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
 
     final remarksController = TextEditingController(text: req['remarks'] ?? '');
     final attachmentController = TextEditingController(
-      text: (req['attachment_url'] != null && req['attachment_url'].toString().isNotEmpty)
+      text:
+          (req['attachment_url'] != null &&
+              req['attachment_url'].toString().isNotEmpty)
           ? req['attachment_url']
-          : 'report_${req['patient_display_id'] ?? 'SPMC'}_${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}.${isXrayOrImage ? 'png' : 'pdf'}'
+          : 'report_${req['patient_display_id'] ?? 'SPMC'}_${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}.${isXrayOrImage ? 'png' : 'pdf'}',
     );
     final formKey = GlobalKey<FormState>();
     final machineName = _getMachineName(testName);
@@ -2937,485 +3985,667 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               canPop: false,
               onPopInvokedWithResult: (didPop, result) {
                 if (didPop) return;
-                DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty());
+                DiscardDialogHelper.handleCancelOrDismiss(
+                  ctx,
+                  isDirty: isDirty(),
+                );
               },
               child: AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              insetPadding: EdgeInsets.symmetric(
-                horizontal: isMobile ? 14 : 32,
-                vertical: 24,
-              ),
-              titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              actionsPadding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-                    child: const Icon(Icons.biotech_outlined, color: AppTheme.primaryColor, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Enter Test Results', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        Text('${req['test_name']} • Patient: ${req['patient_name']}', style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor)),
-                      ],
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                insetPadding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 14 : 32,
+                  vertical: 24,
+                ),
+                titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                actionsPadding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+                title: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.biotech_outlined,
+                        color: AppTheme.primaryColor,
+                        size: 24,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              content: SizedBox(
-                width: isMobile ? double.maxFinite : 650,
-                child: Form(
-                  key: formKey,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('TEST VALUES', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                            if (isMachineFetching)
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(
-                                    width: 12,
-                                    height: 12,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Connecting to $machineName...',
-                                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor, fontStyle: FontStyle.italic),
-                                  ),
-                                ],
-                              )
-                            else
-                              TextButton.icon(
-                                onPressed: () async {
-                                  final messenger = ScaffoldMessenger.of(context);
-                                  setDialogState(() {
-                                    isMachineFetching = true;
-                                  });
-                                  await Future.delayed(const Duration(seconds: 1));
-                                  _simulateMachineFetch(initialFields);
-                                  if (isXrayOrImage) {
-                                    if (testName.toString().toLowerCase().contains('ultrasound') ||
-                                        testName.toString().toLowerCase().contains('usg')) {
-                                      attachmentController.text = 'ultrasound.png';
-                                    } else {
-                                      attachmentController.text = 'chest_xray.png';
-                                    }
-                                  }
-                                  setDialogState(() {
-                                    machineFetchCount++;
-                                    isMachineFetching = false;
-                                  });
-                                  messenger.showSnackBar(
-                                    SnackBar(
-                                      content: Text('Imported results from $machineName analyzer successfully!'),
-                                      backgroundColor: Colors.green,
-                                    ),
-                                  );
-                                },
-                                style: TextButton.styleFrom(
-                                  foregroundColor: AppTheme.primaryColor,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  minimumSize: Size.zero,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                icon: const Icon(Icons.settings_input_component, size: 14),
-                                label: const Text(
-                                  'Fetch from Machine',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Enter Test Results',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            '${req['test_name']} • Patient: ${req['patient_name']}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.textSecondaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                content: SizedBox(
+                  width: isMobile ? double.maxFinite : 650,
+                  child: Form(
+                    key: formKey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'TEST VALUES',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryColor,
                                 ),
                               ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ListView.builder(
-                          key: ValueKey('list_$machineFetchCount'),
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: initialFields.length,
-                          itemBuilder: (context, fIdx) {
-                            final field = initialFields[fIdx];
-                            if (isMobile) {
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.backgroundColor,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                              if (isMachineFetching)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextFormField(
-                                            initialValue: field['parameter'],
-                                            onChanged: (v) {
-                                              field['parameter'] = v;
+                                    const SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              AppTheme.primaryColor,
+                                            ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Connecting to $machineName...',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondaryColor,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              else
+                                TextButton.icon(
+                                  onPressed: () async {
+                                    final messenger = ScaffoldMessenger.of(
+                                      context,
+                                    );
+                                    setDialogState(() {
+                                      isMachineFetching = true;
+                                    });
+                                    await Future.delayed(
+                                      const Duration(seconds: 1),
+                                    );
+                                    _simulateMachineFetch(initialFields);
+                                    if (isXrayOrImage) {
+                                      if (testName
+                                              .toString()
+                                              .toLowerCase()
+                                              .contains('ultrasound') ||
+                                          testName
+                                              .toString()
+                                              .toLowerCase()
+                                              .contains('usg')) {
+                                        attachmentController.text =
+                                            'ultrasound.png';
+                                      } else {
+                                        attachmentController.text =
+                                            'chest_xray.png';
+                                      }
+                                    }
+                                    setDialogState(() {
+                                      machineFetchCount++;
+                                      isMachineFetching = false;
+                                    });
+                                    messenger.showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Imported results from $machineName analyzer successfully!',
+                                        ),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: AppTheme.primaryColor,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.settings_input_component,
+                                    size: 14,
+                                  ),
+                                  label: const Text(
+                                    'Fetch from Machine',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          ListView.builder(
+                            key: ValueKey('list_$machineFetchCount'),
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: initialFields.length,
+                            itemBuilder: (context, fIdx) {
+                              final field = initialFields[fIdx];
+                              if (isMobile) {
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.backgroundColor,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0xFFE2E8F0),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: TextFormField(
+                                              initialValue: field['parameter'],
+                                              onChanged: (v) {
+                                                field['parameter'] = v;
+                                                setDialogState(() {});
+                                              },
+                                              maxLength: 50,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              decoration: const InputDecoration(
+                                                isDense: true,
+                                                labelText: 'Parameter',
+                                                filled: true,
+                                                fillColor: Colors.white,
+                                                border: OutlineInputBorder(),
+                                                counterText: '',
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.delete_outline,
+                                              color: AppTheme.dangerColor,
+                                              size: 20,
+                                            ),
+                                            tooltip: 'Delete Parameter',
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            onPressed: () {
+                                              initialFields.removeAt(fIdx);
                                               setDialogState(() {});
                                             },
-                                            maxLength: 50,
-                                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                            decoration: const InputDecoration(
-                                              isDense: true,
-                                              labelText: 'Parameter',
-                                              filled: true,
-                                              fillColor: Colors.white,
-                                              border: OutlineInputBorder(),
-                                              counterText: '',
-                                            ),
                                           ),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        IconButton(
-                                          icon: const Icon(Icons.delete_outline, color: AppTheme.dangerColor, size: 20),
-                                          tooltip: 'Delete Parameter',
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(),
-                                          onPressed: () {
-                                            initialFields.removeAt(fIdx);
-                                            setDialogState(() {});
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 3,
-                                          child: TextFormField(
-                                            initialValue: field['value'],
-                                            onChanged: (v) => field['value'] = v,
-                                            maxLength: _getMaxLength(field['parameter'] ?? ''),
-                                            keyboardType: _isNumericField(field['parameter'] ?? '')
-                                                ? const TextInputType.numberWithOptions(decimal: true)
-                                                : TextInputType.text,
-                                            inputFormatters: _isNumericField(field['parameter'] ?? '')
-                                                ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
-                                                : null,
-                                            validator: (v) {
-                                              if (v == null || v.trim().isEmpty) {
-                                                final param = (field['parameter'] ?? '').trim();
-                                                if (param.isEmpty || param.toLowerCase() == 'new parameter') {
-                                                  return 'Please enter value';
-                                                }
-                                                return 'Please enter $param';
-                                              }
-                                              if (_isNumericField(field['parameter'] ?? '')) {
-                                                final numValue = double.tryParse(v.trim());
-                                                if (numValue == null) {
-                                                  return 'Must be numeric';
-                                                }
-                                              }
-                                              return null;
-                                            },
-                                            style: const TextStyle(fontSize: 13),
-                                            decoration: const InputDecoration(
-                                              isDense: true,
-                                              labelText: 'Observed *',
-                                              filled: true,
-                                              fillColor: Colors.white,
-                                              border: OutlineInputBorder(),
-                                              counterText: '',
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          flex: 2,
-                                          child: TextFormField(
-                                            initialValue: field['unit'],
-                                            onChanged: (v) => field['unit'] = v,
-                                            maxLength: 20,
-                                            style: const TextStyle(fontSize: 12),
-                                            decoration: const InputDecoration(
-                                              isDense: true,
-                                              labelText: 'Unit',
-                                              filled: true,
-                                              fillColor: Colors.white,
-                                              border: OutlineInputBorder(),
-                                              counterText: '',
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    TextFormField(
-                                      initialValue: field['reference_range'],
-                                      onChanged: (v) => field['reference_range'] = v,
-                                      maxLength: 50,
-                                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-                                      decoration: const InputDecoration(
-                                        isDense: true,
-                                        labelText: 'Normal Range',
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        border: OutlineInputBorder(),
-                                        counterText: '',
+                                        ],
                                       ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 3,
+                                            child: TextFormField(
+                                              initialValue: field['value'],
+                                              onChanged: (v) =>
+                                                  field['value'] = v,
+                                              maxLength: _getMaxLength(
+                                                field['parameter'] ?? '',
+                                              ),
+                                              keyboardType:
+                                                  _isNumericField(
+                                                    field['parameter'] ?? '',
+                                                  )
+                                                  ? const TextInputType.numberWithOptions(
+                                                      decimal: true,
+                                                    )
+                                                  : TextInputType.text,
+                                              inputFormatters:
+                                                  _isNumericField(
+                                                    field['parameter'] ?? '',
+                                                  )
+                                                  ? [
+                                                      FilteringTextInputFormatter.allow(
+                                                        RegExp(r'[0-9.]'),
+                                                      ),
+                                                    ]
+                                                  : null,
+                                              validator: (v) {
+                                                if (v == null ||
+                                                    v.trim().isEmpty) {
+                                                  final param =
+                                                      (field['parameter'] ?? '')
+                                                          .trim();
+                                                  if (param.isEmpty ||
+                                                      param.toLowerCase() ==
+                                                          'new parameter') {
+                                                    return 'Please enter value';
+                                                  }
+                                                  return 'Please enter $param';
+                                                }
+                                                if (_isNumericField(
+                                                  field['parameter'] ?? '',
+                                                )) {
+                                                  final numValue =
+                                                      double.tryParse(v.trim());
+                                                  if (numValue == null) {
+                                                    return 'Must be numeric';
+                                                  }
+                                                }
+                                                return null;
+                                              },
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                              ),
+                                              decoration: const InputDecoration(
+                                                isDense: true,
+                                                labelText: 'Observed *',
+                                                filled: true,
+                                                fillColor: Colors.white,
+                                                border: OutlineInputBorder(),
+                                                counterText: '',
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            flex: 2,
+                                            child: TextFormField(
+                                              initialValue: field['unit'],
+                                              onChanged: (v) =>
+                                                  field['unit'] = v,
+                                              maxLength: 20,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                              ),
+                                              decoration: const InputDecoration(
+                                                isDense: true,
+                                                labelText: 'Unit',
+                                                filled: true,
+                                                fillColor: Colors.white,
+                                                border: OutlineInputBorder(),
+                                                counterText: '',
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      TextFormField(
+                                        initialValue: field['reference_range'],
+                                        onChanged: (v) =>
+                                            field['reference_range'] = v,
+                                        maxLength: 50,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          labelText: 'Normal Range',
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          border: OutlineInputBorder(),
+                                          counterText: '',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.backgroundColor,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: TextFormField(
+                                        initialValue: field['parameter'],
+                                        onChanged: (v) {
+                                          field['parameter'] = v;
+                                          setDialogState(() {});
+                                        },
+                                        maxLength: 50,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          labelText: 'Parameter',
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          border: OutlineInputBorder(),
+                                          counterText: '',
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 2,
+                                      child: TextFormField(
+                                        initialValue: field['value'],
+                                        onChanged: (v) => field['value'] = v,
+                                        maxLength: _getMaxLength(
+                                          field['parameter'] ?? '',
+                                        ),
+                                        keyboardType:
+                                            _isNumericField(
+                                              field['parameter'] ?? '',
+                                            )
+                                            ? const TextInputType.numberWithOptions(
+                                                decimal: true,
+                                              )
+                                            : TextInputType.text,
+                                        inputFormatters:
+                                            _isNumericField(
+                                              field['parameter'] ?? '',
+                                            )
+                                            ? [
+                                                FilteringTextInputFormatter.allow(
+                                                  RegExp(r'[0-9.]'),
+                                                ),
+                                              ]
+                                            : null,
+                                        validator: (v) {
+                                          if (v == null || v.trim().isEmpty) {
+                                            final param =
+                                                (field['parameter'] ?? '')
+                                                    .trim();
+                                            if (param.isEmpty ||
+                                                param.toLowerCase() ==
+                                                    'new parameter') {
+                                              return 'Please enter observed value';
+                                            }
+                                            return 'Please enter $param';
+                                          }
+                                          if (_isNumericField(
+                                            field['parameter'] ?? '',
+                                          )) {
+                                            final numValue = double.tryParse(
+                                              v.trim(),
+                                            );
+                                            if (numValue == null) {
+                                              return 'Must be numeric';
+                                            }
+                                          }
+                                          return null;
+                                        },
+                                        style: const TextStyle(fontSize: 13),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          labelText: 'Observed',
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          border: OutlineInputBorder(),
+                                          counterText: '',
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 1,
+                                      child: TextFormField(
+                                        initialValue: field['unit'],
+                                        onChanged: (v) => field['unit'] = v,
+                                        maxLength: 20,
+                                        style: const TextStyle(fontSize: 12),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          labelText: 'Unit',
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          border: OutlineInputBorder(),
+                                          counterText: '',
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 2,
+                                      child: TextFormField(
+                                        initialValue: field['reference_range'],
+                                        onChanged: (v) =>
+                                            field['reference_range'] = v,
+                                        maxLength: 50,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.textSecondaryColor,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          labelText: 'Normal Range',
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                          border: OutlineInputBorder(),
+                                          counterText: '',
+                                        ),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Colors.red,
+                                        size: 18,
+                                      ),
+                                      onPressed: () {
+                                        initialFields.removeAt(fIdx);
+                                        setDialogState(() {});
+                                      },
                                     ),
                                   ],
                                 ),
                               );
-                            }
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: () {
+                              initialFields.add({
+                                'parameter': 'New Parameter',
+                                'value': '',
+                                'unit': '',
+                                'reference_range': '',
+                              });
+                              setDialogState(() {});
+                            },
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Add Test Parameter Row'),
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'REMARKS & FILE REFERENCE',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: remarksController,
+                            maxLines: 2,
+                            maxLength: 250,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              labelText: 'Observation Remarks',
+                              filled: true,
+                              fillColor: AppTheme.backgroundColor,
+                              border: const OutlineInputBorder(
+                                borderSide: BorderSide.none,
+                              ),
+                              counterText: '',
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: attachmentController,
+                            maxLength: 100,
+                            decoration: InputDecoration(
+                              isDense: true,
+                              labelText: 'Attach Report Document (File Name)',
+                              filled: true,
+                              fillColor: AppTheme.backgroundColor,
+                              border: const OutlineInputBorder(
+                                borderSide: BorderSide.none,
+                              ),
+                              prefixIcon: const Icon(
+                                Icons.attach_file,
+                                size: 16,
+                              ),
+                              counterText: '',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                actions: [
+                  OutlinedButton(
+                    onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(
+                      ctx,
+                      isDirty: isDirty(),
+                    ),
+                    style: AppTheme.cancelButton,
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.logoRed,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontFamily: AppTheme.fontFamily,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () async {
+                      if (!formKey.currentState!.validate()) return;
+                      final navigator = Navigator.of(ctx);
+                      final messenger = ScaffoldMessenger.of(context);
+                      final user = Provider.of<AuthProvider>(
+                        context,
+                        listen: false,
+                      ).user;
 
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: AppTheme.backgroundColor,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 3,
-                                    child: TextFormField(
-                                      initialValue: field['parameter'],
-                                      onChanged: (v) {
-                                        field['parameter'] = v;
-                                        setDialogState(() {});
-                                      },
-                                      maxLength: 50,
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                                      decoration: const InputDecoration(
-                                        isDense: true,
-                                        labelText: 'Parameter',
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        border: OutlineInputBorder(),
-                                        counterText: '',
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    flex: 2,
-                                    child: TextFormField(
-                                      initialValue: field['value'],
-                                      onChanged: (v) => field['value'] = v,
-                                      maxLength: _getMaxLength(field['parameter'] ?? ''),
-                                      keyboardType: _isNumericField(field['parameter'] ?? '')
-                                          ? const TextInputType.numberWithOptions(decimal: true)
-                                          : TextInputType.text,
-                                      inputFormatters: _isNumericField(field['parameter'] ?? '')
-                                          ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
-                                          : null,
-                                      validator: (v) {
-                                        if (v == null || v.trim().isEmpty) {
-                                          final param = (field['parameter'] ?? '').trim();
-                                          if (param.isEmpty || param.toLowerCase() == 'new parameter') {
-                                            return 'Please enter observed value';
-                                          }
-                                          return 'Please enter $param';
-                                        }
-                                        if (_isNumericField(field['parameter'] ?? '')) {
-                                          final numValue = double.tryParse(v.trim());
-                                          if (numValue == null) {
-                                            return 'Must be numeric';
-                                          }
-                                        }
-                                        return null;
-                                      },
-                                      style: const TextStyle(fontSize: 13),
-                                      decoration: const InputDecoration(
-                                        isDense: true,
-                                        labelText: 'Observed',
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        border: OutlineInputBorder(),
-                                        counterText: '',
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    flex: 1,
-                                    child: TextFormField(
-                                      initialValue: field['unit'],
-                                      onChanged: (v) => field['unit'] = v,
-                                      maxLength: 20,
-                                      style: const TextStyle(fontSize: 12),
-                                      decoration: const InputDecoration(
-                                        isDense: true,
-                                        labelText: 'Unit',
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        border: OutlineInputBorder(),
-                                        counterText: '',
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    flex: 2,
-                                    child: TextFormField(
-                                      initialValue: field['reference_range'],
-                                      onChanged: (v) => field['reference_range'] = v,
-                                      maxLength: 50,
-                                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-                                      decoration: const InputDecoration(
-                                        isDense: true,
-                                        labelText: 'Normal Range',
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        border: OutlineInputBorder(),
-                                        counterText: '',
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                    onPressed: () {
-                                      initialFields.removeAt(fIdx);
-                                      setDialogState(() {});
-                                    },
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            initialFields.add({'parameter': 'New Parameter', 'value': '', 'unit': '', 'reference_range': ''});
-                            setDialogState(() {});
-                          },
-                          icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Add Test Parameter Row'),
-                        ),
-                        const SizedBox(height: 24),
-                        const Text('REMARKS & FILE REFERENCE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                        const SizedBox(height: 12),
-                         TextFormField(
-                          controller: remarksController,
-                          maxLines: 2,
-                          maxLength: 250,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            labelText: 'Observation Remarks',
-                            filled: true,
-                            fillColor: AppTheme.backgroundColor,
-                            border: const OutlineInputBorder(borderSide: BorderSide.none),
-                            counterText: '',
+                      try {
+                        await _labController.updateLabRequest(
+                          id: req['id'],
+                          status: 'Completed',
+                          resultDetails: initialFields,
+                          remarks: remarksController.text.trim(),
+                          attachmentUrl: attachmentController.text.trim(),
+                          processedBy: user?.id,
+                        );
+                        navigator.pop();
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Lab results saved and completed successfully',
+                            ),
+                            backgroundColor: Colors.green,
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: attachmentController,
-                          maxLength: 100,
-                          decoration: InputDecoration(
-                            isDense: true,
-                            labelText: 'Attach Report Document (File Name)',
-                            filled: true,
-                            fillColor: AppTheme.backgroundColor,
-                            border: const OutlineInputBorder(borderSide: BorderSide.none),
-                            prefixIcon: const Icon(Icons.attach_file, size: 16),
-                            counterText: '',
+                        );
+                        _fetchData();
+                      } catch (e) {
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('Error saving results: $e'),
+                            backgroundColor: Colors.red,
                           ),
-                        ),
-                      ],
+                        );
+                      }
+                    },
+                    child: const Text(
+                      'Submit Lab Report',
+                      style: TextStyle(color: Colors.white),
                     ),
                   ),
-                ),
+                ],
               ),
-              actions: [
-                OutlinedButton(
-                  onPressed: () => DiscardDialogHelper.handleCancelOrDismiss(ctx, isDirty: isDirty()),
-                  style: AppTheme.cancelButton,
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.logoRed,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    textStyle: const TextStyle(
-                      fontFamily: AppTheme.fontFamily,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  onPressed: () async {
-                    if (!formKey.currentState!.validate()) return;
-                    final navigator = Navigator.of(ctx);
-                    final messenger = ScaffoldMessenger.of(context);
-                    final user = Provider.of<AuthProvider>(context, listen: false).user;
-                    
-                    try {
-                      await _labController.updateLabRequest(
-                        id: req['id'],
-                        status: 'Completed',
-                        resultDetails: initialFields,
-                        remarks: remarksController.text.trim(),
-                        attachmentUrl: attachmentController.text.trim(),
-                        processedBy: user?.id,
-                      );
-                      navigator.pop();
-                      messenger.showSnackBar(
-                        const SnackBar(content: Text('Lab results saved and completed successfully'), backgroundColor: Colors.green),
-                      );
-                      _fetchData();
-                    } catch (e) {
-                      messenger.showSnackBar(
-                        SnackBar(content: Text('Error saving results: $e'), backgroundColor: Colors.red),
-                      );
-                    }
-                  },
-                  child: const Text('Submit Lab Report', style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
+            );
+          },
+        );
+      },
+    );
   }
 
   bool _isNumericField(String parameterName) {
     final name = parameterName.toLowerCase().trim();
     if (name.isEmpty) return true;
     const textParams = [
-      'color', 
-      'appearance', 
-      'protein', 
-      'glucose', 
-      'finding', 
-      'impression', 
-      'remark', 
-      'result', 
+      'color',
+      'appearance',
+      'protein',
+      'glucose',
+      'finding',
+      'impression',
+      'remark',
+      'result',
       'status',
       'culture',
       'organism',
       'growth',
       'epithelial',
       'pus cells',
-      'rbcs'
+      'rbcs',
     ];
     for (var param in textParams) {
       if (name.contains(param)) {
@@ -3450,11 +4680,20 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
     final lower = testName.toLowerCase();
     if (lower.contains('complete blood count') || lower.contains('cbc')) {
       return 'Mindray BC-5000 Hematology';
-    } else if (lower.contains('lipid') || lower.contains('thyroid') || lower.contains('tsh') || lower.contains('metabolic')) {
+    } else if (lower.contains('lipid') ||
+        lower.contains('thyroid') ||
+        lower.contains('tsh') ||
+        lower.contains('metabolic')) {
       return 'Cobas c311 Biochemistry';
     } else if (lower.contains('urinalysis') || lower.contains('urine')) {
       return 'Sysmex UC-3500 Urine';
-    } else if (lower.contains('x-ray') || lower.contains('xray') || lower.contains('ultrasound') || lower.contains('mri') || lower.contains('scan') || lower.contains('image') || lower.contains('usg')) {
+    } else if (lower.contains('x-ray') ||
+        lower.contains('xray') ||
+        lower.contains('ultrasound') ||
+        lower.contains('mri') ||
+        lower.contains('scan') ||
+        lower.contains('image') ||
+        lower.contains('usg')) {
       return 'GE PACS DICOM Imaging';
     }
     return 'Lab Analyzer';
@@ -3500,7 +4739,8 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       } else if (param.contains('glucose')) {
         field['value'] = 'Negative';
       } else if (param.contains('finding')) {
-        field['value'] = 'Lungs clear. No focal consolidation, effusion or pneumothorax.';
+        field['value'] =
+            'Lungs clear. No focal consolidation, effusion or pneumothorax.';
       } else if (param.contains('impression')) {
         field['value'] = 'No active cardiopulmonary disease.';
       } else if (param.contains('observation')) {
@@ -3513,18 +4753,26 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
 
   Widget _buildResourcesView(bool isMobile) {
     if (_isLoadingResources) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.primaryColor));
+      return const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+      );
     }
     return SingleChildScrollView(
       padding: EdgeInsets.all(isMobile ? 16 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Lab Resources Management', style: Theme.of(context).textTheme.displayLarge),
+          Text(
+            'Lab Resources Management',
+            style: Theme.of(context).textTheme.displayLarge,
+          ),
           const SizedBox(height: 4),
-          const Text('Manage shifts, test assignments, technician leaves, and machine operating status.', style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13)),
+          const Text(
+            'Manage shifts, test assignments, technician leaves, and machine operating status.',
+            style: TextStyle(color: AppTheme.textSecondaryColor, fontSize: 13),
+          ),
           const SizedBox(height: 24),
-          
+
           if (!isMobile)
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3559,10 +4807,17 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           const Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.people_outline, color: AppTheme.primaryColor, size: 20),
+              Icon(
+                Icons.people_outline,
+                color: AppTheme.primaryColor,
+                size: 20,
+              ),
               SizedBox(width: 8),
               Expanded(
-                child: Text('Technicians Shift Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                child: Text(
+                  'Technicians Shift Status',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
               ),
             ],
           ),
@@ -3574,11 +4829,12 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _technicians.length,
-              separatorBuilder: (ctx, idx) => const Divider(height: 20, color: AppTheme.borderColor),
+              separatorBuilder: (ctx, idx) =>
+                  const Divider(height: 20, color: AppTheme.borderColor),
               itemBuilder: (ctx, idx) {
                 final tech = _technicians[idx];
-                final List testTypes = tech['assigned_test_types'] is String 
-                    ? json.decode(tech['assigned_test_types']) 
+                final List testTypes = tech['assigned_test_types'] is String
+                    ? json.decode(tech['assigned_test_types'])
                     : (tech['assigned_test_types'] ?? []);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3590,8 +4846,20 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(tech['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                              Text('ID: ${tech['employee_id']} • Shift: ${tech['shift_start']}-${tech['shift_end']}', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                              Text(
+                                tech['name'] ?? '',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                'ID: ${tech['employee_id']} • Shift: ${tech['shift_start']}-${tech['shift_end']}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -3601,35 +4869,68 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                             height: 32,
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             decoration: BoxDecoration(
-                              color: _getTechStatusColor(tech['status']).withOpacity(0.08),
+                              color: _getTechStatusColor(
+                                tech['status'],
+                              ).withOpacity(0.08),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: _getTechStatusColor(tech['status']).withOpacity(0.3), width: 0.5),
+                              border: Border.all(
+                                color: _getTechStatusColor(
+                                  tech['status'],
+                                ).withOpacity(0.3),
+                                width: 0.5,
+                              ),
                             ),
                             child: DropdownButton<String>(
                               value: tech['status'] ?? 'Available',
-                              icon: Icon(Icons.arrow_drop_down, size: 16, color: _getTechStatusColor(tech['status'])),
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _getTechStatusColor(tech['status'])),
+                              icon: Icon(
+                                Icons.arrow_drop_down,
+                                size: 16,
+                                color: _getTechStatusColor(tech['status']),
+                              ),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: _getTechStatusColor(tech['status']),
+                              ),
                               onChanged: (newStatus) async {
                                 if (newStatus != null) {
                                   try {
-                                    await _labController.updateTechnicianStatus(id: tech['id'], status: newStatus);
+                                    await _labController.updateTechnicianStatus(
+                                      id: tech['id'],
+                                      status: newStatus,
+                                    );
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('${tech['name']} status updated to $newStatus'), backgroundColor: Colors.green),
+                                      SnackBar(
+                                        content: Text(
+                                          '${tech['name']} status updated to $newStatus',
+                                        ),
+                                        backgroundColor: Colors.green,
+                                      ),
                                     );
                                     _fetchData();
                                   } catch (e) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                      SnackBar(
+                                        content: Text('Error: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
                                     );
                                   }
                                 }
                               },
-                              items: ['Available', 'Busy', 'On Leave', 'Sick Leave', 'Training'].map((st) {
-                                return DropdownMenuItem<String>(
-                                  value: st,
-                                  child: Text(st),
-                                );
-                              }).toList(),
+                              items:
+                                  [
+                                    'Available',
+                                    'Busy',
+                                    'On Leave',
+                                    'Sick Leave',
+                                    'Training',
+                                  ].map((st) {
+                                    return DropdownMenuItem<String>(
+                                      value: st,
+                                      child: Text(st),
+                                    );
+                                  }).toList(),
                             ),
                           ),
                         ),
@@ -3641,13 +4942,22 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                       runSpacing: 4,
                       children: testTypes.map<Widget>((tt) {
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: Colors.grey.shade200),
                           ),
-                          child: Text(tt.toString(), style: const TextStyle(fontSize: 10, color: AppTheme.textPrimaryColor)),
+                          child: Text(
+                            tt.toString(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.textPrimaryColor,
+                            ),
+                          ),
                         );
                       }).toList(),
                     ),
@@ -3691,10 +5001,17 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
           const Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.settings_outlined, color: AppTheme.primaryColor, size: 20),
+              Icon(
+                Icons.settings_outlined,
+                color: AppTheme.primaryColor,
+                size: 20,
+              ),
               SizedBox(width: 8),
               Expanded(
-                child: Text('Analyzer Equipment Operating Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                child: Text(
+                  'Analyzer Equipment Operating Status',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
               ),
             ],
           ),
@@ -3706,11 +5023,12 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _machines.length,
-              separatorBuilder: (ctx, idx) => const Divider(height: 20, color: AppTheme.borderColor),
+              separatorBuilder: (ctx, idx) =>
+                  const Divider(height: 20, color: AppTheme.borderColor),
               itemBuilder: (ctx, idx) {
                 final mach = _machines[idx];
-                final List supported = mach['supported_test_types'] is String 
-                    ? json.decode(mach['supported_test_types']) 
+                final List supported = mach['supported_test_types'] is String
+                    ? json.decode(mach['supported_test_types'])
                     : (mach['supported_test_types'] ?? []);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3722,8 +5040,20 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(mach['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                              Text('Type: ${mach['machine_type']} • Capacity: ${mach['daily_capacity'] ?? 'Unlimited'}/day', style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryColor)),
+                              Text(
+                                mach['name'] ?? '',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              Text(
+                                'Type: ${mach['machine_type']} • Capacity: ${mach['daily_capacity'] ?? 'Unlimited'}/day',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondaryColor,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -3733,35 +5063,68 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                             height: 32,
                             padding: const EdgeInsets.symmetric(horizontal: 10),
                             decoration: BoxDecoration(
-                              color: _getMachineStatusColor(mach['status']).withOpacity(0.08),
+                              color: _getMachineStatusColor(
+                                mach['status'],
+                              ).withOpacity(0.08),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: _getMachineStatusColor(mach['status']).withOpacity(0.3), width: 0.5),
+                              border: Border.all(
+                                color: _getMachineStatusColor(
+                                  mach['status'],
+                                ).withOpacity(0.3),
+                                width: 0.5,
+                              ),
                             ),
                             child: DropdownButton<String>(
                               value: mach['status'] ?? 'Active',
-                              icon: Icon(Icons.arrow_drop_down, size: 16, color: _getMachineStatusColor(mach['status'])),
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _getMachineStatusColor(mach['status'])),
+                              icon: Icon(
+                                Icons.arrow_drop_down,
+                                size: 16,
+                                color: _getMachineStatusColor(mach['status']),
+                              ),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: _getMachineStatusColor(mach['status']),
+                              ),
                               onChanged: (newStatus) async {
                                 if (newStatus != null) {
                                   try {
-                                    await _labController.updateMachineStatus(id: mach['id'], status: newStatus);
+                                    await _labController.updateMachineStatus(
+                                      id: mach['id'],
+                                      status: newStatus,
+                                    );
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('${mach['name']} status updated to $newStatus'), backgroundColor: Colors.green),
+                                      SnackBar(
+                                        content: Text(
+                                          '${mach['name']} status updated to $newStatus',
+                                        ),
+                                        backgroundColor: Colors.green,
+                                      ),
                                     );
                                     _fetchData();
                                   } catch (e) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                                      SnackBar(
+                                        content: Text('Error: $e'),
+                                        backgroundColor: Colors.red,
+                                      ),
                                     );
                                   }
                                 }
                               },
-                              items: ['Active', 'Busy', 'Maintenance', 'Breakdown', 'Calibration'].map((st) {
-                                return DropdownMenuItem<String>(
-                                  value: st,
-                                  child: Text(st),
-                                );
-                              }).toList(),
+                              items:
+                                  [
+                                    'Active',
+                                    'Busy',
+                                    'Maintenance',
+                                    'Breakdown',
+                                    'Calibration',
+                                  ].map((st) {
+                                    return DropdownMenuItem<String>(
+                                      value: st,
+                                      child: Text(st),
+                                    );
+                                  }).toList(),
                             ),
                           ),
                         ),
@@ -3773,13 +5136,22 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
                       runSpacing: 4,
                       children: supported.map<Widget>((tt) {
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(4),
                             border: Border.all(color: Colors.grey.shade200),
                           ),
-                          child: Text(tt.toString(), style: const TextStyle(fontSize: 10, color: AppTheme.textPrimaryColor)),
+                          child: Text(
+                            tt.toString(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.textPrimaryColor,
+                            ),
+                          ),
                         );
                       }).toList(),
                     ),
@@ -3807,5 +5179,96 @@ class _LabDashboardScreenState extends State<LabDashboardScreen> {
       default:
         return Colors.grey;
     }
+  }
+
+  void _showNotificationsDialog() {
+    NotificationsDialog.show(
+      context: context,
+      initialNotifications: _notifications,
+      subtitle: 'Lab test alerts, resource status & notices',
+      emptySubtitle:
+          'You\'re all caught up! Lab requests, technician alerts, and machine notices will appear here.',
+      onRefresh: () async {
+        await _fetchNotifications();
+        return _notifications;
+      },
+      onNotificationTap: _handleLabNotificationTap,
+    );
+  }
+
+  Future<void> _handleLabNotificationTap(Map<String, dynamic> n) async {
+    if (!mounted) return;
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final type = (n['type'] ?? '').toString();
+    final title = (n['title'] ?? '').toString().toLowerCase();
+    final message = (n['message'] ?? '').toString().toLowerCase();
+    final metadata = NotificationsDialog.parseMetadata(n['metadata']);
+    final alertType = (metadata['alert_type'] ?? '').toString().toLowerCase();
+    final combined = '$type $title $message $alertType'.toLowerCase();
+
+    final canProcessLab = user?.hasPermission('lab_test_processing') ?? false;
+    final canLabBilling = user?.hasPermission('lab_billing') ?? false;
+
+    int targetIndex = 0;
+    if (type == 'LabResourceAlert' ||
+        combined.contains('technician') ||
+        combined.contains('machine') ||
+        combined.contains('analyzer') ||
+        combined.contains('resource') ||
+        combined.contains('capacity') ||
+        combined.contains('maintenance') ||
+        combined.contains('breakdown') ||
+        combined.contains('calibration') ||
+        combined.contains('offline')) {
+      if (canProcessLab) targetIndex = 4;
+    } else if (type == 'HomeVisitBilling' ||
+        combined.contains('invoice') ||
+        combined.contains('billing') ||
+        combined.contains('payment') ||
+        combined.contains('bill')) {
+      if (canLabBilling) targetIndex = 5;
+    } else if (type == 'LabCompleted' ||
+        combined.contains('completed') ||
+        combined.contains('report ready')) {
+      if (canProcessLab) targetIndex = 2;
+    } else if (type == 'LabNewRequest' ||
+        type == 'LabDelayed' ||
+        type == 'LabScheduleChange' ||
+        combined.contains('new lab request') ||
+        combined.contains('requested') ||
+        combined.contains('pending') ||
+        combined.contains('delayed') ||
+        combined.contains('schedule') ||
+        combined.contains('sample') ||
+        combined.contains('lab test') ||
+        metadata.containsKey('lab_request_id')) {
+      if (canProcessLab) targetIndex = 1;
+    } else if (combined.contains('profile')) {
+      targetIndex = 3;
+    } else if (canProcessLab) {
+      targetIndex = 1;
+    } else if (canLabBilling) {
+      targetIndex = 5;
+    }
+
+    if ((targetIndex == 1 || targetIndex == 2) && canProcessLab) {
+      final searchTerm =
+          (metadata['patient_display_id'] ??
+                  metadata['patient_name'] ??
+                  metadata['test_name'] ??
+                  '')
+              .toString()
+              .trim();
+      setState(() {
+        _statusFilter = 'All';
+        if (searchTerm.isNotEmpty) {
+          _searchController.text = searchTerm;
+          _searchQuery = searchTerm.toLowerCase();
+        }
+      });
+      _fetchRequests();
+    }
+
+    _changePage(targetIndex);
   }
 }

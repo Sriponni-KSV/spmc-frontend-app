@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -26,6 +27,7 @@ import '../utils/logout_helper.dart';
 import '../models/user_model.dart';
 import '../controllers/nurse_shift_controller.dart';
 import '../controllers/notification_controller.dart';
+import '../widgets/notifications_dialog.dart';
 import '../widgets/user_profile_dialog.dart';
 import '../utils/modal_history_helper.dart';
 import '../config/nurse_nav_config.dart';
@@ -94,6 +96,16 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
   List<Map<String, dynamic>> _handovers = [];
   List<Map<String, dynamic>> _liveNotifications = [];
   List<Map<String, dynamic>> _activeIcuAlerts = [];
+  bool _isLoadingNotifications = false;
+  Timer? _notificationsTimer;
+
+  int _notificationTargetVersion = 0;
+  int? _targetIpdAdmissionId;
+  String? _targetIpdSearchQuery;
+  int? _targetIpdTabIndex;
+  int? _targetIpdDetailTabIndex;
+  int? _targetOpdTabIndex;
+  String? _targetOpdSearchQuery;
   final LanguageProvider _englishOnlyProvider = LanguageProvider();
 
   @override
@@ -107,6 +119,9 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     _viewPatient = widget.viewPatient;
     _forceBookingForm = widget.forceBooking;
     _fetchData();
+    _notificationsTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      _fetchNotifications();
+    });
   }
 
   @override
@@ -157,16 +172,24 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     }
   }
 
-  Future<void> _fetchNotifications() async {
+  Future<void> _fetchNotifications({VoidCallback? onCompleted}) async {
+    if (_isLoadingNotifications) return;
+    _isLoadingNotifications = true;
     try {
       final list = await _notificationCtrl.fetchNotifications();
       if (mounted) {
         setState(() {
           _liveNotifications = list;
+          _isLoadingNotifications = false;
         });
+        onCompleted?.call();
       }
     } catch (e) {
       debugPrint('Error fetching notifications: $e');
+      if (mounted) {
+        setState(() => _isLoadingNotifications = false);
+        onCompleted?.call();
+      }
     }
   }
 
@@ -321,6 +344,7 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
 
   @override
   void dispose() {
+    _notificationsTimer?.cancel();
     _englishOnlyProvider.dispose();
     _mainFocusNode.dispose();
     super.dispose();
@@ -467,8 +491,17 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
     bool isRegistering = false,
     bool forceBooking = false,
     PatientModel? prefilledPatient,
+    bool fromNotification = false,
   }) async {
     if (!mounted) return;
+    if (!fromNotification) {
+      _targetIpdAdmissionId = null;
+      _targetIpdSearchQuery = null;
+      _targetIpdTabIndex = null;
+      _targetIpdDetailTabIndex = null;
+      _targetOpdTabIndex = null;
+      _targetOpdSearchQuery = null;
+    }
     if (_selectedHomeVisitId != null && !_isReadOnlyHomeVisit) {
       final shouldLeave = await _confirmLeaveActiveVisit();
       if (!shouldLeave || !mounted) return;
@@ -811,13 +844,26 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         return NurseProfileView(isEditing: widget.isEditingProfile);
       case 5:
         if (user?.hasPermission('opd_assistance') ?? false) {
-          return OPDManagementScreen(isMobile: isMobile, title: 'OPD Assistance');
+          return OPDManagementScreen(
+            isMobile: isMobile,
+            title: 'OPD Assistance',
+            initialTabIndex: _targetOpdTabIndex,
+            initialSearchQuery: _targetOpdSearchQuery,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       case 6:
         if ((user?.hasPermission('ipd_nursing_care') ?? false) ||
             (user?.hasPermission('ipd_admission_counter') ?? false)) {
-          return IPDManagementScreen(isMobile: isMobile);
+          return IPDManagementScreen(
+            isMobile: isMobile,
+            initialAdmissionId: _targetIpdAdmissionId,
+            initialSearchQuery: _targetIpdSearchQuery,
+            initialTabIndex: _targetIpdTabIndex,
+            initialDetailTabIndex: _targetIpdDetailTabIndex,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       case 7:
@@ -1382,6 +1428,11 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
           ),
         ),
 
+        const SizedBox(width: 8),
+        NotificationBellButton(
+          unreadCount: NotificationsDialog.countUnread(_liveNotifications),
+          onPressed: _showNotificationsDialog,
+        ),
         const SizedBox(width: 8),
         AppTopBarActions(
           showClock: !isMobile,
@@ -3144,6 +3195,220 @@ class _NurseDashboardScreenState extends State<NurseDashboardScreen> {
         },
       );
     }).toList();
+  }
+
+  void _showNotificationsDialog() {
+    NotificationsDialog.show(
+      context: context,
+      initialNotifications: _liveNotifications,
+      subtitle:
+          'Patient assignments, medications, vitals, lab & emergency alerts',
+      emptySubtitle:
+          'You\'re all caught up! Patient care tasks, clinical orders, and shift alerts will appear here.',
+      onRefresh: () async {
+        await _fetchNotifications();
+        return _liveNotifications;
+      },
+      onNotificationTap: _handleNurseNotificationTap,
+    );
+  }
+
+  int? _parseInt(dynamic val) {
+    if (val is int) return val;
+    if (val == null) return null;
+    return int.tryParse(val.toString());
+  }
+
+  Future<void> _handleNurseNotificationTap(Map<String, dynamic> n) async {
+    if (!mounted) return;
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final canIpd = (user?.hasPermission('ipd_nursing_care') ?? false) ||
+        (user?.hasPermission('ipd_admission_counter') ?? false);
+    final canOpd = user?.hasPermission('opd_assistance') ?? false;
+    final canPatients = user?.hasPermission('view_patients') ?? false;
+    final canHomeVisit = user?.hasPermission('home_visit_care') ?? false;
+    final canOt = (user?.hasPermission('ot_nursing_consumables') ?? false) ||
+        (user?.hasPermission('ot_who_checklist') ?? false) ||
+        (user?.hasPermission('ot_surgeries') ?? false);
+
+    final type = (n['type'] ?? '').toString();
+    final title = (n['title'] ?? '').toString().toLowerCase();
+    final message = (n['message'] ?? '').toString().toLowerCase();
+    final metadata = NotificationsDialog.parseMetadata(n['metadata']);
+    final combined = '$type $title $message'.toLowerCase();
+
+    final int? admissionId = _parseInt(metadata['admission_id']);
+    final int? patientId = _parseInt(metadata['patient_id']);
+    final int? homeVisitId =
+        _parseInt(metadata['home_visit_id'] ?? metadata['visit_id']);
+    final int? consultationId = _parseInt(metadata['consultation_id']);
+    final int? explicitIpdTab = _parseInt(metadata['ipd_tab']);
+    final int? explicitDetailTab = _parseInt(metadata['nurse_tab']);
+    final int? explicitOpdTab = _parseInt(metadata['opd_tab']);
+    final String patientDisplayId =
+        (metadata['patient_display_id'] ?? '').toString().trim();
+    final String patientName =
+        (metadata['patient_name'] ?? '').toString().trim();
+    final String patientSearch =
+        patientDisplayId.isNotEmpty ? patientDisplayId : patientName;
+
+    // 1. Direct Home Visit assignment / task navigation
+    if (homeVisitId != null || combined.contains('home visit')) {
+      if (canHomeVisit) {
+        if (homeVisitId != null) {
+          setState(() {
+            _selectedIndex = 9;
+            _selectedHomeVisitId = homeVisitId;
+            _isReadOnlyHomeVisit = false;
+          });
+          context.go('/nurse/home-visits/execute/$homeVisitId');
+        } else {
+          _changePage(9);
+        }
+        return;
+      }
+    }
+
+    // 2. Shift allocations & ward-level shift handovers -> IPD Shift Handovers tab (3)
+    if (type == 'NurseShiftAllocation' ||
+        ((type == 'NurseHandover' ||
+                combined.contains('handover') ||
+                combined.contains('shift allocation')) &&
+            admissionId == null)) {
+      if (canIpd) {
+        setState(() {
+          _notificationTargetVersion++;
+          _targetIpdAdmissionId = null;
+          _targetIpdSearchQuery = patientSearch.isNotEmpty ? patientSearch : null;
+          _targetIpdTabIndex = explicitIpdTab ?? 3;
+          _targetIpdDetailTabIndex = null;
+        });
+        _changePage(6, fromNotification: true);
+        return;
+      }
+    }
+
+    // 3. Discharge requests / completions -> IPD Discharge Summary tab (2)
+    if (type == 'NurseDischargeRequest' || combined.contains('discharge')) {
+      if (canIpd) {
+        setState(() {
+          _notificationTargetVersion++;
+          _targetIpdAdmissionId = null;
+          _targetIpdSearchQuery = patientSearch.isNotEmpty ? patientSearch : null;
+          _targetIpdTabIndex = explicitIpdTab ?? 2;
+          _targetIpdDetailTabIndex = null;
+        });
+        _changePage(6, fromNotification: true);
+        return;
+      }
+    }
+
+    // 4. OT notifications
+    if (combined.contains('surgery') ||
+        combined.contains('operation theatre') ||
+        combined.contains('ot ')) {
+      if (canOt) {
+        _changePage(7);
+        return;
+      }
+    }
+
+    // 5. IPD record-level notifications -> exact admission & clinical sub-tab
+    if (admissionId != null ||
+        type == 'ICUAlert' ||
+        type == 'NurseEmergencyAlert' ||
+        type == 'NurseAdmission' ||
+        type == 'NurseDoctorInstruction' ||
+        type == 'NurseMedicationOrder' ||
+        type == 'NurseMedicationReminder' ||
+        type == 'NurseVitalsReminder' ||
+        type == 'NurseTask' ||
+        type == 'NurseHandover') {
+      if (canIpd) {
+        int? detailTab = explicitDetailTab;
+        if (detailTab == null) {
+          if (type == 'ICUAlert' ||
+              type == 'NurseEmergencyAlert' ||
+              combined.contains('icu') ||
+              combined.contains('critical') ||
+              combined.contains('emergency')) {
+            detailTab = 5; // ICU Alerts
+          } else if (type == 'NurseLabRequest' ||
+              type == 'NurseLabResult' ||
+              combined.contains('lab')) {
+            detailTab = 4; // Lab Coordination
+          } else if (type == 'NurseDoctorInstruction' ||
+              type == 'NurseTask' ||
+              combined.contains('instruction') ||
+              combined.contains('note') ||
+              combined.contains('task')) {
+            detailTab = 3; // Nursing Notes
+          } else if (type == 'NurseMedicationOrder' ||
+              type == 'NurseMedicationReminder' ||
+              combined.contains('medication') ||
+              combined.contains('prescription')) {
+            detailTab = 2; // Medication Admin
+          } else if (type == 'NurseVitalsReminder' ||
+              type == 'NurseAdmission' ||
+              combined.contains('vital') ||
+              combined.contains('admission') ||
+              combined.contains('bed')) {
+            detailTab = 0; // Vitals Entry / Overview
+          }
+        }
+
+        setState(() {
+          _notificationTargetVersion++;
+          _targetIpdAdmissionId = admissionId;
+          _targetIpdSearchQuery = patientSearch.isNotEmpty ? patientSearch : null;
+          _targetIpdTabIndex = explicitIpdTab ?? 0;
+          _targetIpdDetailTabIndex = detailTab;
+        });
+        _changePage(6, fromNotification: true);
+        return;
+      }
+    }
+
+    // 6. OPD Lab Requests / Results / Consultations -> OPD Assistance exact tab & search
+    if (type == 'NurseLabRequest' ||
+        type == 'NurseLabResult' ||
+        consultationId != null ||
+        explicitOpdTab != null ||
+        combined.contains('lab') ||
+        combined.contains('opd')) {
+      if (canOpd) {
+        setState(() {
+          _notificationTargetVersion++;
+          _targetOpdTabIndex = explicitOpdTab ??
+              ((combined.contains('prescription') || combined.contains('med'))
+                  ? 5
+                  : 6);
+          _targetOpdSearchQuery = patientSearch.isNotEmpty ? patientSearch : null;
+        });
+        _changePage(5, fromNotification: true);
+        return;
+      }
+    }
+
+    // 7. Fallback to exact patient record in Patients Directory if patientId matches
+    if (patientId != null && canPatients) {
+      PatientModel? matchedPatient;
+      for (final p in _dbPatients) {
+        if (p.id == patientId) {
+          matchedPatient = p;
+          break;
+        }
+      }
+      if (matchedPatient != null) {
+        setState(() => _viewPatient = matchedPatient);
+        context.go(AppRoutes.nurseViewPatient, extra: matchedPatient);
+        return;
+      }
+      _changePage(1);
+      return;
+    }
+
+    _changePage(canIpd ? 6 : 0);
   }
 }
 

@@ -9,7 +9,21 @@ import '../utils/app_localizations.dart';
 
 class PharmacyManagementView extends StatefulWidget {
   final bool isMobile;
-  const PharmacyManagementView({super.key, this.isMobile = false});
+  final int? initialTabIndex;
+  final int? initialPrescriptionId;
+  final int? initialConsultationId;
+  final String? initialSearchQuery;
+  final int targetVersion;
+
+  const PharmacyManagementView({
+    super.key,
+    this.isMobile = false,
+    this.initialTabIndex,
+    this.initialPrescriptionId,
+    this.initialConsultationId,
+    this.initialSearchQuery,
+    this.targetVersion = 0,
+  });
 
   @override
   State<PharmacyManagementView> createState() => _PharmacyManagementViewState();
@@ -47,8 +61,90 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
   @override
   void initState() {
     super.initState();
-    _tabController ??= TabController(length: 4, vsync: this);
+    final int startTab = (widget.initialTabIndex != null &&
+            widget.initialTabIndex! >= 0 &&
+            widget.initialTabIndex! < 4)
+        ? widget.initialTabIndex!
+        : 0;
+    _tabController ??= TabController(length: 4, vsync: this, initialIndex: startTab);
+    if (widget.initialSearchQuery != null &&
+        widget.initialSearchQuery!.isNotEmpty) {
+      if (startTab == 2) {
+        _ctrlSearchController.text = widget.initialSearchQuery!;
+        _ctrlSearchQuery = widget.initialSearchQuery!;
+      } else {
+        _searchController.text = widget.initialSearchQuery!;
+        _searchQuery = widget.initialSearchQuery!;
+      }
+    }
     _loadAll();
+  }
+
+  @override
+  void didUpdateWidget(covariant PharmacyManagementView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.targetVersion != oldWidget.targetVersion ||
+        widget.initialTabIndex != oldWidget.initialTabIndex ||
+        widget.initialPrescriptionId != oldWidget.initialPrescriptionId ||
+        widget.initialConsultationId != oldWidget.initialConsultationId ||
+        widget.initialSearchQuery != oldWidget.initialSearchQuery) {
+      final int? targetTab = widget.initialTabIndex;
+      if (targetTab != null &&
+          targetTab >= 0 &&
+          targetTab < 4 &&
+          _tabController != null) {
+        _tabController!.animateTo(targetTab);
+      }
+      if (widget.initialSearchQuery != null) {
+        if (targetTab == 2) {
+          _ctrlSearchController.text = widget.initialSearchQuery!;
+          _ctrlSearchQuery = widget.initialSearchQuery!;
+        } else {
+          _searchController.text = widget.initialSearchQuery!;
+          _searchQuery = widget.initialSearchQuery!;
+        }
+      }
+      _applyTargetedPrescriptionSelection();
+    }
+  }
+
+  void _applyTargetedPrescriptionSelection() {
+    if (_prescriptions.isEmpty) return;
+    Map<String, dynamic>? matched = _findTargetedPrescription(_prescriptions);
+    if (matched != null) {
+      setState(() {
+        _selectedPrescription = matched;
+      });
+      _initQtyControllers(matched);
+    }
+  }
+
+  Map<String, dynamic>? _findTargetedPrescription(List<dynamic> list) {
+    for (final item in list) {
+      if (item is! Map) continue;
+      final map = Map<String, dynamic>.from(item);
+      if (widget.initialConsultationId != null &&
+          (map['consultation_id']?.toString() ==
+                  widget.initialConsultationId.toString() ||
+              map['id']?.toString() ==
+                  widget.initialConsultationId.toString())) {
+        return map;
+      }
+      if (widget.initialPrescriptionId != null &&
+          map['id']?.toString() == widget.initialPrescriptionId.toString()) {
+        return map;
+      }
+      if (widget.initialSearchQuery != null &&
+          widget.initialSearchQuery!.isNotEmpty) {
+        final q = widget.initialSearchQuery!.toLowerCase();
+        final pName = (map['patient_name'] ?? '').toString().toLowerCase();
+        final pId = (map['patient_display_id'] ?? '').toString().toLowerCase();
+        if (pName.contains(q) || pId.contains(q)) {
+          return map;
+        }
+      }
+    }
+    return null;
   }
 
   @override
@@ -94,9 +190,9 @@ class _PharmacyManagementViewState extends State<PharmacyManagementView>
             return bTime.compareTo(aTime);
           });
 
-        // Auto-select the most recently prescribed or dispensed prescription
-        Map<String, dynamic>? sel;
-        if (sorted.isNotEmpty) {
+        // Auto-select targeted prescription if provided, else most recent
+        Map<String, dynamic>? sel = _findTargetedPrescription(sorted);
+        if (sel == null && sorted.isNotEmpty) {
           sel = sorted.first as Map<String, dynamic>;
         }
 

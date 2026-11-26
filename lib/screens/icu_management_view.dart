@@ -6,7 +6,16 @@ import '../config/api_config.dart';
 
 class ICUManagementView extends StatefulWidget {
   final bool isMobile;
-  const ICUManagementView({super.key, this.isMobile = false});
+  final int? initialAdmissionId;
+  final int? initialAlertId;
+  final int targetVersion;
+  const ICUManagementView({
+    super.key,
+    this.isMobile = false,
+    this.initialAdmissionId,
+    this.initialAlertId,
+    this.targetVersion = 0,
+  });
 
   @override
   State<ICUManagementView> createState() => _ICUManagementViewState();
@@ -18,6 +27,7 @@ class _ICUManagementViewState extends State<ICUManagementView> {
   List<dynamic> _alertHistory = [];
   bool _isLoading = true;
   String? _error;
+  int _openedTargetVersion = -1;
 
   String get baseUrl => ApiEndpoints.baseUrl;
 
@@ -25,6 +35,20 @@ class _ICUManagementViewState extends State<ICUManagementView> {
   void initState() {
     super.initState();
     _fetchIcuDashboard();
+  }
+
+  @override
+  void didUpdateWidget(covariant ICUManagementView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.targetVersion != oldWidget.targetVersion ||
+        widget.initialAdmissionId != oldWidget.initialAdmissionId ||
+        widget.initialAlertId != oldWidget.initialAlertId) {
+      if (!_isLoading) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _openTargetedAlertIfNeeded();
+        });
+      }
+    }
   }
 
   Future<void> _fetchIcuDashboard() async {
@@ -56,6 +80,9 @@ class _ICUManagementViewState extends State<ICUManagementView> {
             _beds = allBeds.where((b) => b['ward_type'] == 'ICU').toList();
             _alertHistory = historyBody['data'] ?? [];
             _isLoading = false;
+          });
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _openTargetedAlertIfNeeded();
           });
         }
       } else {
@@ -536,14 +563,30 @@ class _ICUManagementViewState extends State<ICUManagementView> {
         final double? spo2Val = double.tryParse(alert['spo2']?.toString() ?? '');
         final double? tempVal = double.tryParse(alert['temperature']?.toString() ?? '');
         final double? pulseVal = double.tryParse(alert['pulse']?.toString() ?? '');
+        final List rawAlertIds = alert['alert_ids'] is List ? alert['alert_ids'] : const [];
+        final bool isTargeted =
+            (widget.initialAdmissionId != null &&
+                alert['admission_id']?.toString() ==
+                    widget.initialAdmissionId.toString()) ||
+            (widget.initialAlertId != null &&
+                rawAlertIds.any(
+                  (id) => id?.toString() == widget.initialAlertId.toString(),
+                ));
 
         return Card(
-          color: Colors.white,
+          color: isTargeted
+              ? severityColor.withValues(alpha: 0.04)
+              : Colors.white,
           surfaceTintColor: Colors.transparent,
-          elevation: 0,
+          elevation: isTargeted ? 2 : 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: severityColor.withValues(alpha: 0.3), width: 1.5),
+            side: BorderSide(
+              color: isTargeted
+                  ? severityColor
+                  : severityColor.withValues(alpha: 0.3),
+              width: isTargeted ? 2.2 : 1.5,
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.all(20.0),
@@ -1282,6 +1325,196 @@ class _ICUManagementViewState extends State<ICUManagementView> {
           ),
         ),
       ],
+    );
+  }
+
+  void _openTargetedAlertIfNeeded() {
+    if (!mounted) return;
+    if (widget.initialAdmissionId == null && widget.initialAlertId == null) {
+      return;
+    }
+    if (_openedTargetVersion == widget.targetVersion) return;
+
+    final grouped = _groupAlertsList(_alerts);
+    Map<String, dynamic>? matched;
+    bool isResolved = false;
+
+    for (final g in grouped) {
+      final List ids = g['alert_ids'] is List ? g['alert_ids'] : const [];
+      final matchByAlert = widget.initialAlertId != null &&
+          ids.any((id) => id?.toString() == widget.initialAlertId.toString());
+      final matchByAdmission = widget.initialAdmissionId != null &&
+          g['admission_id']?.toString() == widget.initialAdmissionId.toString();
+      if (matchByAlert || matchByAdmission) {
+        matched = g;
+        break;
+      }
+    }
+
+    if (matched == null) {
+      for (final h in _alertHistory) {
+        final matchByAlert = widget.initialAlertId != null &&
+            h['id']?.toString() == widget.initialAlertId.toString();
+        final matchByAdmission = widget.initialAdmissionId != null &&
+            h['admission_id']?.toString() ==
+                widget.initialAdmissionId.toString();
+        if (matchByAlert || matchByAdmission) {
+          matched = Map<String, dynamic>.from(h as Map);
+          matched['alert_ids'] = [h['id']];
+          matched['alert_messages'] = [h['alert_message'] ?? 'Alert'];
+          isResolved = (h['status']?.toString().toLowerCase() == 'resolved');
+          break;
+        }
+      }
+    }
+
+    if (matched == null) return;
+    _openedTargetVersion = widget.targetVersion;
+    _showTargetedAlertDialog(matched, isResolved: isResolved);
+  }
+
+  void _showTargetedAlertDialog(
+    Map<String, dynamic> alert, {
+    bool isResolved = false,
+  }) {
+    final severity = (alert['severity'] ?? 'Warning').toString();
+    final severityColor = _getSeverityColor(severity);
+    final escalationLevel = (alert['escalation_level'] ?? 'Nurse').toString();
+    final messages = alert['alert_messages'] is List
+        ? List<String>.from(
+            (alert['alert_messages'] as List).map((e) => e.toString()),
+          )
+        : <String>[
+            if (alert['alert_message'] != null)
+              alert['alert_message'].toString(),
+          ];
+    final alertIds =
+        alert['alert_ids'] is List ? alert['alert_ids'] as List : <dynamic>[];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.monitor_heart_outlined, color: severityColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                alert['patient_name']?.toString() ?? 'ICU Alert Record',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: severityColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                isResolved ? 'RESOLVED' : severity.toUpperCase(),
+                style: TextStyle(
+                  color: isResolved ? Colors.green : severityColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 480,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Bed ${alert['bed_number'] ?? '--'} • ${alert['ward_type'] ?? 'ICU'} • Escalation: $escalationLevel',
+                style: const TextStyle(
+                  color: AppTheme.textSecondaryColor,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 14),
+              if (alert['spo2'] != null ||
+                  alert['temperature'] != null ||
+                  alert['pulse'] != null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.borderColor),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildVitalMiniRow(
+                        'SPO2',
+                        '${alert['spo2'] ?? '--'}%',
+                        false,
+                      ),
+                      _buildVitalMiniRow(
+                        'Temp',
+                        '${alert['temperature'] ?? '--'}°F',
+                        false,
+                      ),
+                      _buildVitalMiniRow(
+                        'Pulse',
+                        '${alert['pulse'] ?? '--'} bpm',
+                        false,
+                      ),
+                    ],
+                  ),
+                ),
+              if (messages.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                const Text(
+                  'Alert Details',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                ...messages.map(
+                  (m) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('• $m', style: const TextStyle(fontSize: 13)),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: AppTheme.cancelButton,
+            child: const Text('Close'),
+          ),
+          if (!isResolved && alertIds.isNotEmpty) ...[
+            OutlinedButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                _resolveGroupedAlerts(alertIds);
+              },
+              child: const Text('Resolve'),
+            ),
+            if (escalationLevel != 'Consultant')
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.dangerColor,
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _escalateGroupedAlerts(alertIds);
+                },
+                child: const Text(
+                  'Escalate Tier',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+          ],
+        ],
+      ),
     );
   }
 }

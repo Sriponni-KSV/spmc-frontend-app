@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -31,6 +32,8 @@ import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
 import '../utils/tamil_transliteration_helper.dart';
 import '../providers/language_provider.dart';
+import '../controllers/notification_controller.dart';
+import '../widgets/notifications_dialog.dart';
 
 class FrontDeskDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -66,9 +69,16 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
   String? _patientError;
   final PatientController _patientController = PatientController();
   final AppointmentController _appointmentController = AppointmentController();
+  final NotificationController _notificationController = NotificationController();
   bool _isLoadingPatients = false;
   List<AppointmentModel> _dbAppointments = [];
   bool _isLoadingAppointments = false;
+  List<Map<String, dynamic>> _notifications = [];
+  bool _isLoadingNotifications = false;
+  Timer? _notificationsTimer;
+  int _notificationTargetVersion = 0;
+  int? _targetAdmissionAppointmentId;
+  String? _targetAdmissionSearchQuery;
 
   @override
   void initState() {
@@ -79,6 +89,9 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     _viewPatient = widget.viewPatient;
     _forceBookingForm = widget.forceBooking;
     _fetchData();
+    _notificationsTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      _fetchNotifications();
+    });
   }
 
   @override
@@ -100,7 +113,32 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
   }
 
   Future<void> _fetchData() async {
-    await Future.wait([_fetchPatients(), _fetchAppointments()]);
+    await Future.wait([
+      _fetchPatients(),
+      _fetchAppointments(),
+      _fetchNotifications(),
+    ]);
+  }
+
+  Future<void> _fetchNotifications({VoidCallback? onCompleted}) async {
+    if (_isLoadingNotifications) return;
+    _isLoadingNotifications = true;
+    try {
+      final list = await _notificationController.fetchNotifications();
+      if (mounted) {
+        setState(() {
+          _notifications = list;
+          _isLoadingNotifications = false;
+        });
+        onCompleted?.call();
+      }
+    } catch (e) {
+      debugPrint('Error fetching notifications: $e');
+      if (mounted) {
+        setState(() => _isLoadingNotifications = false);
+        onCompleted?.call();
+      }
+    }
   }
 
   Future<void> _fetchAppointments() async {
@@ -133,6 +171,7 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
 
   @override
   void dispose() {
+    _notificationsTimer?.cancel();
     _mainFocusNode.dispose();
     super.dispose();
   }
@@ -156,8 +195,13 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
     bool isRegistering = false,
     bool forceBooking = false,
     PatientModel? prefilledPatient,
+    bool fromNotification = false,
   }) async {
     if (!mounted) return;
+    if (!fromNotification) {
+      _targetAdmissionAppointmentId = null;
+      _targetAdmissionSearchQuery = null;
+    }
     if (UnsavedChangesHelper.hasUnsavedChanges) {
       if (index == 1 && isRegistering) {
         return;
@@ -420,7 +464,11 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         );
       case 4:
         if (user?.hasPermission('ipd_admission_counter') ?? false) {
-          return const FrontDeskAdmissionCounterView();
+          return FrontDeskAdmissionCounterView(
+            initialAppointmentId: _targetAdmissionAppointmentId,
+            initialSearchQuery: _targetAdmissionSearchQuery,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       case 5:
@@ -990,40 +1038,10 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
           ),
         ),
 
-        const SizedBox(width: 16),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Icon(
-              Icons.notifications_none_outlined,
-              color: AppTheme.getTextPrimaryColor(context),
-              size: 22,
-            ),
-            Positioned(
-              right: -2,
-              top: -2,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE53E3E),
-                  shape: BoxShape.circle,
-                ),
-                constraints: const BoxConstraints(
-                  minWidth: 14,
-                  minHeight: 14,
-                ),
-                child: const Text(
-                  '3',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
+        const SizedBox(width: 8),
+        NotificationBellButton(
+          unreadCount: NotificationsDialog.countUnread(_notifications),
+          onPressed: _showNotificationsDialog,
         ),
 
         const SizedBox(width: 16),
@@ -1535,6 +1553,93 @@ class _FrontDeskDashboardScreenState extends State<FrontDeskDashboardScreen> {
         ],
       ),
     );
+  }
+
+  void _showNotificationsDialog() {
+    NotificationsDialog.show(
+      context: context,
+      initialNotifications: _notifications,
+      subtitle: 'Front desk updates, billing alerts & notices',
+      emptySubtitle:
+          'You\'re all caught up! Billing updates,\nappointment alerts, and system notices will appear here.',
+      onRefresh: () async {
+        await _fetchNotifications();
+        return _notifications;
+      },
+      onNotificationTap: _handleFrontDeskNotificationTap,
+    );
+  }
+
+  Future<void> _handleFrontDeskNotificationTap(Map<String, dynamic> n) async {
+    if (!mounted) return;
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final type = (n['type'] ?? '').toString();
+    final title = (n['title'] ?? '').toString().toLowerCase();
+    final message = (n['message'] ?? '').toString().toLowerCase();
+    final metadata = NotificationsDialog.parseMetadata(n['metadata']);
+    final combined = '$type $title $message'.toLowerCase();
+
+    final dynamic rawApptId = metadata['appointment_id'];
+    final int? appointmentId = rawApptId is int
+        ? rawApptId
+        : int.tryParse((rawApptId ?? '').toString());
+    final String patientDisplayId =
+        (metadata['patient_display_id'] ?? '').toString().trim();
+    final String patientName =
+        (metadata['patient_name'] ?? '').toString().trim();
+    final String admissionSearch =
+        patientDisplayId.isNotEmpty ? patientDisplayId : patientName;
+
+    int targetIndex = 0;
+    if (type == 'HomeVisitBilling' ||
+        combined.contains('invoice') ||
+        combined.contains('billing') ||
+        combined.contains('payment') ||
+        combined.contains('bill') ||
+        metadata.containsKey('invoice_id')) {
+      if (user?.hasPermission('op_billing') ?? false) {
+        targetIndex = 6;
+      }
+    } else if (type == 'AdmissionRequest' ||
+        combined.contains('admission') ||
+        combined.contains('ipd') ||
+        combined.contains('bed') ||
+        combined.contains('ward') ||
+        combined.contains('icu') ||
+        metadata.containsKey('admission_id')) {
+      if (user?.hasPermission('ipd_admission_counter') ?? false) {
+        targetIndex = 4;
+        setState(() {
+          _notificationTargetVersion++;
+          _targetAdmissionAppointmentId = appointmentId;
+          _targetAdmissionSearchQuery =
+              admissionSearch.isNotEmpty ? admissionSearch : null;
+        });
+      }
+    } else if (combined.contains('appointment') ||
+        combined.contains('queue') ||
+        combined.contains('booking') ||
+        combined.contains('slot') ||
+        combined.contains('schedule')) {
+      if (user?.hasPermission('book_appointment') ?? false) {
+        targetIndex = 2;
+      }
+    } else if (combined.contains('doctor')) {
+      if ((user?.hasPermission('view_patients') ?? false) ||
+          (user?.hasPermission('book_appointment') ?? false)) {
+        targetIndex = 3;
+      }
+    } else if (combined.contains('patient') ||
+        combined.contains('register') ||
+        metadata.containsKey('patient_id')) {
+      if (user?.hasPermission('view_patients') ?? false) {
+        targetIndex = 1;
+      }
+    } else if (combined.contains('profile')) {
+      targetIndex = 5;
+    }
+
+    _changePage(targetIndex, fromNotification: true);
   }
 }
 

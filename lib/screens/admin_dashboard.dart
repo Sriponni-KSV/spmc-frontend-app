@@ -53,6 +53,7 @@ import '../widgets/app_top_bar_actions.dart';
 import '../providers/language_provider.dart';
 import '../utils/tamil_transliteration_helper.dart';
 import '../controllers/notification_controller.dart';
+import '../widgets/notifications_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../widgets/admin_global_search_overlay.dart';
 import '../utils/unsaved_changes_helper.dart';
@@ -98,6 +99,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool _isLoadingDashboardStats = false;
   List<Map<String, dynamic>> _adminNotifications = [];
   bool _isLoadingNotifications = false;
+  Timer? _notificationsTimer;
 
   Future<List<UserModel>>? _staffFuture;
   Future<Map<String, dynamic>>? _rbacFuture;
@@ -113,6 +115,95 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   PatientModel? _viewPatient;
   UserModel? _viewingStaffProfile;
   int? _selectedHomeVisitId;
+  int _notificationTargetVersion = 0;
+  int? _targetBillingTabIndex;
+  int? _targetBillingInvoiceId;
+  String? _targetBillingSearchQuery;
+  int? _targetIcuAdmissionId;
+  int? _targetIcuAlertId;
+  int? _targetIpdAdmissionId;
+  String? _targetIpdSearchQuery;
+  int? _targetAppointmentId;
+  String? _targetAppointmentSearchQuery;
+  int? _targetOtCaseId;
+  String? _targetInventorySearchQuery;
+  String? _targetLabMasterSearchQuery;
+  int? _targetOpdTabIndex;
+  String? _targetOpdSearchQuery;
+
+  static Map<String, dynamic>? _pendingNotificationTargets;
+
+  void _clearNotificationTargets() {
+    _pendingNotificationTargets = null;
+    _targetBillingTabIndex = null;
+    _targetBillingInvoiceId = null;
+    _targetBillingSearchQuery = null;
+    _targetIcuAdmissionId = null;
+    _targetIcuAlertId = null;
+    _targetIpdAdmissionId = null;
+    _targetIpdSearchQuery = null;
+    _targetAppointmentId = null;
+    _targetAppointmentSearchQuery = null;
+    _targetOtCaseId = null;
+    _targetInventorySearchQuery = null;
+    _targetLabMasterSearchQuery = null;
+    _targetOpdTabIndex = null;
+    _targetOpdSearchQuery = null;
+  }
+
+  void _applyPendingNotificationTargetsIfAny() {
+    final pending = _pendingNotificationTargets;
+    if (pending == null) return;
+    _pendingNotificationTargets = null;
+    _notificationTargetVersion = (pending['version'] as int?) ?? (_notificationTargetVersion + 1);
+    _targetBillingTabIndex = pending['billingTab'] as int?;
+    _targetBillingInvoiceId = pending['billingInvoiceId'] as int?;
+    _targetBillingSearchQuery = pending['billingSearch'] as String?;
+    _targetIcuAdmissionId = pending['icuAdmissionId'] as int?;
+    _targetIcuAlertId = pending['icuAlertId'] as int?;
+    _targetIpdAdmissionId = pending['ipdAdmissionId'] as int?;
+    _targetIpdSearchQuery = pending['ipdSearch'] as String?;
+    _targetAppointmentId = pending['appointmentId'] as int?;
+    _targetAppointmentSearchQuery = pending['appointmentSearch'] as String?;
+    _targetOtCaseId = pending['otCaseId'] as int?;
+    _targetInventorySearchQuery = pending['inventorySearch'] as String?;
+    _targetLabMasterSearchQuery = pending['labMasterSearch'] as String?;
+    _targetOpdTabIndex = pending['opdTab'] as int?;
+    _targetOpdSearchQuery = pending['opdSearch'] as String?;
+  }
+
+  int _routeToIndex(String route) {
+    if (route == AppRoutes.adminUsers || route == AppRoutes.adminViewStaff) return 1;
+    if (route == AppRoutes.adminPatients || route == AppRoutes.adminNewPatient || route == AppRoutes.adminEditPatient || route == AppRoutes.adminViewPatient) return 2;
+    if (route == AppRoutes.adminSettings) return 3;
+    if (route == AppRoutes.adminAppointments) return 4;
+    if (route == AppRoutes.adminOpd) return 5;
+    if (route == AppRoutes.adminIpd) return 6;
+    if (route == AppRoutes.adminOt) return 7;
+    if (route == AppRoutes.adminShifts) return 8;
+    if (route == AppRoutes.adminIcu) return 9;
+    if (route == AppRoutes.adminBilling) return 10;
+    if (route == AppRoutes.adminInventory) return 11;
+    if (route == AppRoutes.adminHomeVisits || route.startsWith('/admin/home-visits')) return 12;
+    if (route == AppRoutes.adminMedicationCatalog) return 13;
+    if (route == AppRoutes.adminHomeVisitConsumables) return 14;
+    if (route == AppRoutes.adminCarriedKitItems) return 15;
+    if (route == AppRoutes.adminIpdBeds) return 16;
+    if (route == AppRoutes.adminBillingServices) return 17;
+    if (route == AppRoutes.adminLabTestsMaster) return 18;
+    if (route == AppRoutes.adminSpecializations) return 19;
+    if (route == AppRoutes.adminDbInitialization) return 20;
+    if (route == AppRoutes.adminDepartments) return 21;
+    if (route == AppRoutes.adminOperationTheatres) return 22;
+    if (route == AppRoutes.adminNurseShifts) return 23;
+    if (route == AppRoutes.adminRegionalAddress) return 24;
+    return 0;
+  }
+
+  void _openModuleRoute(String route) {
+    setState(_clearNotificationTargets);
+    context.go(route);
+  }
   String _staffSearchQuery = '';
   int _staffCurrentPage = 0;
   final int _itemsPerPage = 10;
@@ -438,6 +529,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   void dispose() {
+    _notificationsTimer?.cancel();
     _verticalScrollController.dispose();
     _horizontalScrollController.dispose();
     _shiftAllocHorizontalScrollController.dispose();
@@ -453,10 +545,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    _selectedHomeVisitId = widget.selectedHomeVisitId;
     _isRegisteringPatient = widget.isRegisteringPatient;
     _patientToComplete = widget.existingPatient;
     _viewPatient = widget.viewPatient;
     _viewingStaffProfile = widget.viewingStaffProfile;
+    _applyPendingNotificationTargetsIfAny();
     _isCatalogMenuExpanded = widget.initialIndex == 11 ||
         widget.initialIndex == 13 ||
         widget.initialIndex == 14 ||
@@ -466,6 +560,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _loadRbacData();
     _fetchPatients();
     _fetchAdminNotifications();
+    _notificationsTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      _fetchAdminNotifications();
+    });
     if (_selectedIndex == 8) {
       _loadShiftData();
     }
@@ -1025,20 +1122,34 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return const AccessDeniedWidget();
       case 4:
         if (user?.hasPermission('book_appointment') ?? false) {
-          return const AdminAppointmentManagement();
+          return AdminAppointmentManagement(
+            initialAppointmentId: _targetAppointmentId,
+            initialSearchQuery: _targetAppointmentSearchQuery,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       case 5:
         if ((user?.hasPermission('opd_assistance') ?? false) ||
             (user?.hasPermission('conduct_consultations') ?? false)) {
-          return OPDManagementScreen(isMobile: isMobile);
+          return OPDManagementScreen(
+            isMobile: isMobile,
+            initialTabIndex: _targetOpdTabIndex,
+            initialSearchQuery: _targetOpdSearchQuery,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       case 6:
         if ((user?.hasPermission('ipd_doctor_rounds') ?? false) ||
             (user?.hasPermission('ipd_nursing_care') ?? false) ||
             (user?.hasPermission('ipd_admission_counter') ?? false)) {
-          return IPDManagementScreen(isMobile: isMobile);
+          return IPDManagementScreen(
+            isMobile: isMobile,
+            initialAdmissionId: _targetIpdAdmissionId,
+            initialSearchQuery: _targetIpdSearchQuery,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       case 7:
@@ -1046,7 +1157,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
             (user?.hasPermission('ot_who_checklist') ?? false) ||
             (user?.hasPermission('ot_nursing_consumables') ?? false)) {
-          return OTManagementScreen(isMobile: isMobile);
+          return OTManagementScreen(
+            isMobile: isMobile,
+            initialCaseId: _targetOtCaseId,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       case 8:
@@ -1056,7 +1171,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return const AccessDeniedWidget();
       case 9:
         if (user?.role == 'Admin' || user?.role == 'Super Admin') {
-          return ICUManagementView(isMobile: isMobile);
+          return ICUManagementView(
+            isMobile: isMobile,
+            initialAdmissionId: _targetIcuAdmissionId,
+            initialAlertId: _targetIcuAlertId,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       case 10:
@@ -1065,7 +1185,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           return Localizations.override(
             context: context,
             locale: const Locale('en'),
-            child: const BillingManagementView(),
+            child: BillingManagementView(
+              initialTabIndex: _targetBillingTabIndex,
+              initialInvoiceId: _targetBillingInvoiceId,
+              initialSearchQuery: _targetBillingSearchQuery,
+              targetVersion: _notificationTargetVersion,
+            ),
           );
         }
         return const AccessDeniedWidget();
@@ -1074,6 +1199,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           return InventoryManagementView(
             isMobile: isMobile,
             isFoodStockOnly: true,
+            initialSearchQuery: _targetInventorySearchQuery,
+            targetVersion: _notificationTargetVersion,
           );
         }
         return const AccessDeniedWidget();
@@ -1109,7 +1236,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return const AccessDeniedWidget();
       case 18:
         if (user?.hasPermission('manage_catalogs') ?? false) {
-          return AdminLabTestsCatalogView(isMobile: isMobile);
+          return AdminLabTestsCatalogView(
+            isMobile: isMobile,
+            initialSearchQuery: _targetLabMasterSearchQuery,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       case 19:
@@ -2992,6 +3123,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             });
           }
           if (!mounted) return;
+          setState(_clearNotificationTargets);
           switch (index) {
             case 0:
               context.go(AppRoutes.adminDashboard);
@@ -3199,48 +3331,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Notification icon button with badge
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _adminNotifications.any((n) => n['is_read'] == false)
-                          ? Icons.notifications_active_outlined
-                          : Icons.notifications_none_outlined,
-                      color: _adminNotifications.any((n) => n['is_read'] == false)
-                          ? AppTheme.dangerColor
-                          : AppTheme.getTextPrimaryColor(context),
-                      size: 22,
-                    ),
-                    tooltip: context.tr('notifications', fallback: 'Notifications'),
-                    onPressed: _showAdminNotificationsDialog,
-                  ),
-                  if (_adminNotifications.any((n) => n['is_read'] == false))
-                    Positioned(
-                      right: 6,
-                      top: 6,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: AppTheme.dangerColor,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: Text(
-                          '${_adminNotifications.where((n) => n['is_read'] == false).length}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
+              NotificationBellButton(
+                unreadCount: NotificationsDialog.countUnread(_adminNotifications),
+                onPressed: _showAdminNotificationsDialog,
               ),
               const SizedBox(width: 8),
               // Help / Question Mark icon button
@@ -3284,19 +3377,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ],
         if (isMobile) ...[
           const SizedBox(width: 8),
-          IconButton(
-            icon: Icon(
-              _adminNotifications.any((n) => n['is_read'] == false)
-                  ? Icons.notifications_active_outlined
-                  : Icons.notifications_none_outlined,
-              color: _adminNotifications.any((n) => n['is_read'] == false)
-                  ? AppTheme.dangerColor
-                  : AppTheme.getTextPrimaryColor(context),
-              size: 20,
-            ),
+          NotificationBellButton(
+            unreadCount: NotificationsDialog.countUnread(_adminNotifications),
+            iconSize: 20,
+            badgeSize: 14,
+            badgeFontSize: 8,
+            badgeRight: 2,
+            badgeTop: 2,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-            tooltip: 'Notifications',
             onPressed: _showAdminNotificationsDialog,
           ),
           const SizedBox(width: 4),
@@ -3382,247 +3471,355 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   void _showAdminNotificationsDialog() {
-    _fetchAdminNotifications();
-    showDialog(
+    NotificationsDialog.show(
       context: context,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (modalCtx, setDialogState) {
-            final unread = _adminNotifications.where((n) => n['is_read'] == false).toList();
-            final read = _adminNotifications.where((n) => n['is_read'] == true).toList();
-
-            return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Container(
-                width: 520,
-                height: 520,
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.notifications_active_outlined, color: AppTheme.primaryColor, size: 22),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Notifications & Alerts',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textPrimaryColor),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'Hospital updates, catalog alerts & system logs',
-                                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (unread.isNotEmpty)
-                          TextButton(
-                            onPressed: () async {
-                              for (final n in unread) {
-                                final id = n['id'];
-                                if (id is int) {
-                                  await NotificationController().markAsRead(id);
-                                }
-                              }
-                              await _fetchAdminNotifications();
-                              setDialogState(() {});
-                              setState(() {});
-                            },
-                            child: const Text('Mark all as read', style: TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
-                          ),
-                        IconButton(
-                          icon: const Icon(Icons.close, size: 20),
-                          onPressed: () => Navigator.of(dialogCtx).pop(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    const Divider(height: 1),
-                    const SizedBox(height: 10),
-
-                    // Notification list / Empty state
-                    Expanded(
-                      child: _adminNotifications.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.notifications_off_outlined, size: 54, color: Colors.grey.shade400),
-                                  const SizedBox(height: 14),
-                                  const Text(
-                                    'No Notifications Right Now',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.textPrimaryColor),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  const Text(
-                                    'You\'re all caught up! New operational updates,\nbed alerts, and system notices will appear here.',
-                                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
-                            )
-                          : ListView(
-                              children: [
-                                if (unread.isNotEmpty) ...[
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 6.0),
-                                    child: Row(
-                                      children: [
-                                        const Text('NEW ALERTS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.dangerColor)),
-                                        const SizedBox(width: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                          decoration: BoxDecoration(color: AppTheme.dangerBg, borderRadius: BorderRadius.circular(10)),
-                                          child: Text('${unread.length}', style: const TextStyle(color: AppTheme.dangerColor, fontSize: 10, fontWeight: FontWeight.bold)),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  ...unread.map((n) => _buildAdminNotificationTile(n, setDialogState)),
-                                ],
-                                if (read.isNotEmpty) ...[
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 6.0),
-                                    child: Text('EARLIER', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondaryColor)),
-                                  ),
-                                  ...read.map((n) => _buildAdminNotificationTile(n, setDialogState)),
-                                ],
-                              ],
-                            ),
-                    ),
-
-                    const Divider(height: 1),
-                    const SizedBox(height: 10),
-
-                    // Bottom Bar
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () async {
-                            await _fetchAdminNotifications();
-                            setDialogState(() {});
-                            setState(() {});
-                          },
-                          icon: const Icon(Icons.refresh, size: 16),
-                          label: const Text('Refresh', style: TextStyle(fontSize: 12)),
-                        ),
-                        OutlinedButton(
-                          onPressed: () => Navigator.of(dialogCtx).pop(),
-                          style: AppTheme.cancelButton,
-                          child: const Text('Close'),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
+      initialNotifications: _adminNotifications,
+      subtitle: 'Hospital updates, catalog alerts & system logs',
+      emptySubtitle:
+          'You\'re all caught up! New operational updates,\nbed alerts, and system notices will appear here.',
+      onRefresh: () async {
+        await _fetchAdminNotifications();
+        return _adminNotifications;
       },
+      onNotificationTap: _handleAdminNotificationTap,
     );
   }
 
-  Widget _buildAdminNotificationTile(Map<String, dynamic> n, StateSetter setDialogState) {
-    final bool isUnread = n['is_read'] == false;
-    final title = n['title']?.toString() ?? 'Hospital Notification';
-    final message = n['message']?.toString() ?? '';
-    final createdAt = n['created_at']?.toString();
-    String formattedDate = '-';
-    if (createdAt != null && createdAt.isNotEmpty) {
-      try {
-        final dt = DateTime.parse(createdAt).toLocal();
-        formattedDate = DateFormat('dd MMM yyyy, hh:mm a').format(dt);
-      } catch (_) {
-        formattedDate = createdAt;
+  int? _parseInt(dynamic val) {
+    if (val is int) return val;
+    if (val == null) return null;
+    return int.tryParse(val.toString());
+  }
+
+  Future<void> _handleAdminNotificationTap(Map<String, dynamic> n) async {
+    if (!mounted) return;
+    if (UnsavedChangesHelper.hasUnsavedChanges) {
+      final shouldLeave = await _confirmLeaveRegistration();
+      if (!shouldLeave || !mounted) return;
+      UnsavedChangesHelper.clear();
+      setState(() {
+        _isRegisteringPatient = false;
+        _patientToComplete = null;
+        _viewingStaffProfile = null;
+      });
+    } else if (_isRegisteringPatient || _viewingStaffProfile != null) {
+      setState(() {
+        _isRegisteringPatient = false;
+        _patientToComplete = null;
+        _viewingStaffProfile = null;
+      });
+    }
+
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final isAdmin = user?.role == 'Admin' || user?.role == 'Super Admin';
+    final type = (n['type'] ?? '').toString();
+    final title = (n['title'] ?? '').toString().toLowerCase();
+    final rawMessage = (n['message'] ?? '').toString();
+    final message = rawMessage.toLowerCase();
+    final metadata = NotificationsDialog.parseMetadata(n['metadata']);
+    final combined = '$type $title $message'.toLowerCase();
+
+    final int? admissionId = _parseInt(metadata['admission_id']);
+    final int? alertId = _parseInt(metadata['alert_id']);
+    final int? invoiceId = _parseInt(metadata['invoice_id']);
+    final int? visitId = _parseInt(metadata['visit_id']);
+    final int? patientId = _parseInt(metadata['patient_id']);
+    final int? appointmentId = _parseInt(metadata['appointment_id']);
+    final int? otCaseId =
+        _parseInt(metadata['ot_case_id'] ?? metadata['case_id']);
+    final int? staffId =
+        _parseInt(metadata['staff_id'] ?? metadata['user_id']);
+    final String patientDisplayId =
+        (metadata['patient_display_id'] ?? '').toString().trim();
+    final String patientName =
+        (metadata['patient_name'] ?? '').toString().trim();
+    final String testName = (metadata['test_name'] ?? '').toString().trim();
+    final String itemName =
+        (metadata['item_name'] ?? metadata['product_name'] ?? '')
+            .toString()
+            .trim();
+
+    String targetRoute = AppRoutes.adminDashboard;
+    Object? targetExtra;
+
+    int? nextBillingTab;
+    int? nextBillingInvoiceId;
+    String? nextBillingSearch;
+    int? nextIcuAdmissionId;
+    int? nextIcuAlertId;
+    int? nextIpdAdmissionId;
+    String? nextIpdSearch;
+    int? nextAppointmentId;
+    String? nextAppointmentSearch;
+    int? nextOtCaseId;
+    String? nextInventorySearch;
+    String? nextLabMasterSearch;
+    int? nextOpdTab;
+    String? nextOpdSearch;
+    final int? consultationId = _parseInt(metadata['consultation_id']);
+
+    if (type == 'ICUAlert' ||
+        type == 'NurseEmergencyAlert' ||
+        combined.contains('icu') ||
+        combined.contains('critical alert')) {
+      if (isAdmin) {
+        targetRoute = AppRoutes.adminIcu;
+        nextIcuAdmissionId = admissionId;
+        nextIcuAlertId = alertId;
+      } else if (user?.hasPermission('ipd_doctor_rounds') ?? false) {
+        targetRoute = AppRoutes.adminIpd;
+        nextIpdAdmissionId = admissionId;
+        nextIpdSearch =
+            patientName.isNotEmpty ? patientName : patientDisplayId;
+      }
+    } else if (type == 'HomeVisitBilling' ||
+        type == 'PharmacyNewPrescription' ||
+        combined.contains('invoice') ||
+        combined.contains('billing') ||
+        combined.contains('payment')) {
+      if (user?.hasPermission('op_billing') ?? false) {
+        targetRoute = AppRoutes.adminBilling;
+        nextBillingInvoiceId = invoiceId;
+        if (type == 'HomeVisitBilling' ||
+            combined.contains('home visit') ||
+            visitId != null) {
+          nextBillingTab = 5; // Home Care tab
+        } else if (combined.contains('lab')) {
+          nextBillingTab = 2;
+        } else if (type == 'PharmacyNewPrescription' ||
+            combined.contains('pharmacy') ||
+            combined.contains('prescription')) {
+          nextBillingTab = 1;
+        } else if (combined.contains('ip') || combined.contains('admission')) {
+          nextBillingTab = 3;
+        } else if (combined.contains('ot') || combined.contains('surgery')) {
+          nextBillingTab = 4;
+        } else {
+          nextBillingTab = 0;
+        }
+        final invMatch = RegExp(r'(INV-[A-Za-z0-9-]+)').firstMatch(rawMessage);
+        if (invMatch != null) {
+          nextBillingSearch = invMatch.group(1);
+        } else if (patientDisplayId.isNotEmpty) {
+          nextBillingSearch = patientDisplayId;
+        } else if (patientName.isNotEmpty) {
+          nextBillingSearch = patientName;
+        }
+      } else if (user?.hasPermission('opd_assistance') ?? false) {
+        targetRoute = AppRoutes.adminOpd;
+        nextOpdTab = 5;
+        nextOpdSearch =
+            patientDisplayId.isNotEmpty ? patientDisplayId : patientName;
+      } else if (user?.hasPermission('home_visit_care') ?? false) {
+        targetRoute = visitId != null
+            ? '/admin/home-visits/summary/$visitId'
+            : AppRoutes.adminHomeVisits;
+      }
+    } else if (combined.contains('home visit') ||
+        combined.contains('home care') ||
+        visitId != null) {
+      if (user?.hasPermission('home_visit_care') ?? false) {
+        targetRoute = visitId != null
+            ? '/admin/home-visits/summary/$visitId'
+            : AppRoutes.adminHomeVisits;
+      }
+    } else if (type == 'LabNewRequest' ||
+        type == 'LabCompleted' ||
+        type == 'LabDelayed' ||
+        type == 'LabScheduleChange' ||
+        type == 'LabResourceAlert' ||
+        combined.contains('lab')) {
+      if (admissionId != null &&
+          ((user?.hasPermission('ipd_doctor_rounds') ?? false) ||
+              (user?.hasPermission('ipd_nursing_care') ?? false) ||
+              isAdmin)) {
+        targetRoute = AppRoutes.adminIpd;
+        nextIpdAdmissionId = admissionId;
+        nextIpdSearch =
+            patientName.isNotEmpty ? patientName : patientDisplayId;
+      } else if (consultationId != null &&
+          ((user?.hasPermission('opd_assistance') ?? false) ||
+              (user?.hasPermission('conduct_consultations') ?? false))) {
+        targetRoute = AppRoutes.adminOpd;
+        nextOpdTab = 6; // Lab Tests tab
+        nextOpdSearch =
+            patientDisplayId.isNotEmpty ? patientDisplayId : patientName;
+      } else if (user?.hasPermission('manage_catalogs') ?? false) {
+        targetRoute = AppRoutes.adminLabTestsMaster;
+        if (testName.isNotEmpty) {
+          nextLabMasterSearch = testName;
+        }
+      } else if (user?.hasPermission('opd_assistance') ?? false) {
+        targetRoute = AppRoutes.adminOpd;
+      }
+    } else if (type == 'AdmissionRequest' ||
+        type == 'NurseAdmission' ||
+        type == 'NurseDischargeRequest' ||
+        type == 'NurseDoctorInstruction' ||
+        type == 'NurseMedicationOrder' ||
+        type == 'NurseMedicationReminder' ||
+        type == 'NurseVitalsReminder' ||
+        combined.contains('ipd') ||
+        combined.contains('bed') ||
+        combined.contains('ward') ||
+        combined.contains('admission') ||
+        combined.contains('discharge') ||
+        combined.contains('vitals') ||
+        admissionId != null) {
+      if (admissionId != null &&
+          ((user?.hasPermission('ipd_doctor_rounds') ?? false) ||
+              (user?.hasPermission('ipd_nursing_care') ?? false) ||
+              (user?.hasPermission('ipd_admission_counter') ?? false) ||
+              isAdmin)) {
+        targetRoute = AppRoutes.adminIpd;
+        nextIpdAdmissionId = admissionId;
+        nextIpdSearch =
+            patientName.isNotEmpty ? patientName : patientDisplayId;
+      } else if (appointmentId != null &&
+          (user?.hasPermission('book_appointment') ?? false)) {
+        targetRoute = AppRoutes.adminAppointments;
+        nextAppointmentId = appointmentId;
+        nextAppointmentSearch =
+            patientDisplayId.isNotEmpty ? patientDisplayId : patientName;
+      } else if ((user?.hasPermission('ipd_doctor_rounds') ?? false) ||
+          isAdmin) {
+        targetRoute = AppRoutes.adminIpd;
+        nextIpdSearch =
+            patientName.isNotEmpty ? patientName : patientDisplayId;
+      }
+    } else if (combined.contains('surgery') ||
+        combined.contains('operation theatre') ||
+        combined.contains(' ot ') ||
+        otCaseId != null) {
+      if (user?.hasPermission('ot_surgeries') ?? false) {
+        targetRoute = AppRoutes.adminOt;
+        nextOtCaseId = otCaseId;
+      }
+    } else if (combined.contains('appointment') ||
+        combined.contains('queue') ||
+        appointmentId != null) {
+      if (user?.hasPermission('book_appointment') ?? false) {
+        targetRoute = AppRoutes.adminAppointments;
+        nextAppointmentId = appointmentId;
+        nextAppointmentSearch =
+            patientDisplayId.isNotEmpty ? patientDisplayId : patientName;
+      }
+    } else if (combined.contains('medicine') ||
+        combined.contains('medication')) {
+      if (user?.hasPermission('manage_catalogs') ?? false) {
+        targetRoute = AppRoutes.adminMedicationCatalog;
+      }
+    } else if (combined.contains('inventory') ||
+        combined.contains('stock') ||
+        combined.contains('food')) {
+      if (user?.hasPermission('manage_catalogs') ?? false) {
+        targetRoute = AppRoutes.adminInventory;
+        if (itemName.isNotEmpty) {
+          nextInventorySearch = itemName;
+        }
+      }
+    } else if (combined.contains('shift')) {
+      if (user?.hasPermission('manage_shifts') ?? false) {
+        targetRoute = AppRoutes.adminShifts;
+      }
+    } else if (combined.contains('staff') ||
+        combined.contains('user') ||
+        combined.contains('nurse') ||
+        combined.contains('doctor')) {
+      if (user?.hasPermission('manage_users') ?? false) {
+        if (staffId != null) {
+          UserModel? matchedStaff;
+          for (final s in _allStaffList) {
+            if (s.id == staffId) {
+              matchedStaff = s;
+              break;
+            }
+          }
+          if (matchedStaff != null) {
+            targetRoute = AppRoutes.adminViewStaff;
+            targetExtra = matchedStaff;
+          } else {
+            targetRoute = AppRoutes.adminUsers;
+          }
+        } else {
+          targetRoute = AppRoutes.adminUsers;
+        }
+      }
+    } else if (combined.contains('patient') || patientId != null) {
+      if (user?.hasPermission('view_patients') ?? false) {
+        if (_dbPatients.isEmpty) {
+          await _fetchPatients();
+          if (!mounted) return;
+        }
+        PatientModel? matchedPatient;
+        for (final p in _dbPatients) {
+          if ((patientId != null && p.id == patientId) ||
+              (patientDisplayId.isNotEmpty &&
+                  p.patientId?.toLowerCase() ==
+                      patientDisplayId.toLowerCase()) ||
+              (patientName.isNotEmpty &&
+                  p.name.toLowerCase() == patientName.toLowerCase())) {
+            matchedPatient = p;
+            break;
+          }
+        }
+        if (matchedPatient != null) {
+          targetRoute = AppRoutes.adminViewPatient;
+          targetExtra = matchedPatient;
+        } else {
+          targetRoute = AppRoutes.adminPatients;
+        }
       }
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isUnread ? AppTheme.primaryColor.withValues(alpha: 0.05) : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isUnread ? AppTheme.primaryColor.withValues(alpha: 0.25) : Colors.grey.shade200,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: isUnread ? AppTheme.dangerBg : Colors.grey.shade200,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isUnread ? Icons.notifications_active : Icons.notifications_none,
-              color: isUnread ? AppTheme.dangerColor : AppTheme.textSecondaryColor,
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
-                    fontSize: 13,
-                    color: AppTheme.textPrimaryColor,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  message,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  formattedDate,
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-                ),
-              ],
-            ),
-          ),
-          if (isUnread) ...[
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.check_circle_outline, size: 18, color: AppTheme.primaryColor),
-              tooltip: 'Mark as read',
-              onPressed: () async {
-                final id = n['id'];
-                if (id is int) {
-                  await NotificationController().markAsRead(id);
-                  await _fetchAdminNotifications();
-                  setDialogState(() {});
-                  setState(() {});
-                }
-              },
-            ),
-          ],
-        ],
-      ),
-    );
+    final int nextVersion = _notificationTargetVersion + 1;
+    _pendingNotificationTargets = {
+      'version': nextVersion,
+      'billingTab': nextBillingTab,
+      'billingInvoiceId': nextBillingInvoiceId,
+      'billingSearch': nextBillingSearch,
+      'icuAdmissionId': nextIcuAdmissionId,
+      'icuAlertId': nextIcuAlertId,
+      'ipdAdmissionId': nextIpdAdmissionId,
+      'ipdSearch': nextIpdSearch,
+      'appointmentId': nextAppointmentId,
+      'appointmentSearch': nextAppointmentSearch,
+      'otCaseId': nextOtCaseId,
+      'inventorySearch': nextInventorySearch,
+      'labMasterSearch': nextLabMasterSearch,
+      'opdTab': nextOpdTab,
+      'opdSearch': nextOpdSearch,
+    };
+
+    setState(() {
+      _notificationTargetVersion = nextVersion;
+      _viewingStaffProfile = targetExtra is UserModel ? targetExtra : null;
+      _viewPatient = targetExtra is PatientModel ? targetExtra : null;
+      _isRegisteringPatient = false;
+      _patientToComplete = null;
+      _selectedHomeVisitId = null;
+      _selectedIndex = _routeToIndex(targetRoute);
+      _targetBillingTabIndex = nextBillingTab;
+      _targetBillingInvoiceId = nextBillingInvoiceId;
+      _targetBillingSearchQuery = nextBillingSearch;
+      _targetIcuAdmissionId = nextIcuAdmissionId;
+      _targetIcuAlertId = nextIcuAlertId;
+      _targetIpdAdmissionId = nextIpdAdmissionId;
+      _targetIpdSearchQuery = nextIpdSearch;
+      _targetAppointmentId = nextAppointmentId;
+      _targetAppointmentSearchQuery = nextAppointmentSearch;
+      _targetOtCaseId = nextOtCaseId;
+      _targetInventorySearchQuery = nextInventorySearch;
+      _targetLabMasterSearchQuery = nextLabMasterSearch;
+      _targetOpdTabIndex = nextOpdTab;
+      _targetOpdSearchQuery = nextOpdSearch;
+    });
+
+    if (targetExtra != null) {
+      context.go(targetRoute, extra: targetExtra);
+    } else {
+      context.go(targetRoute);
+    }
   }
 
   void _showAdminHelpDialog() {
@@ -4316,7 +4513,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
               const SizedBox(width: 8),
               InkWell(
-                onTap: () {},
+                onTap: _showAdminNotificationsDialog,
                 child: Text(
                   context.tr('view_all_alerts', fallback: 'View all alerts'),
                   style: const TextStyle(
@@ -4328,60 +4525,101 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          _buildAlertItem(
-            Colors.orange.shade50,
-            Colors.orange.shade900,
-            'Database backup planned for tonight at 02:00 AM',
-            'System',
-          ),
+          const SizedBox(height: 16),
+          if (_adminNotifications.isEmpty)
+            _buildAlertItem(
+              Colors.orange.shade50,
+              Colors.orange.shade900,
+              'Database backup planned for tonight at 02:00 AM',
+              'System',
+              onTap: _showAdminNotificationsDialog,
+            )
+          else
+            ..._adminNotifications.take(4).map((n) {
+              final bool isUnread = n['is_read'] != true;
+              final title = (n['title'] ?? 'Notification').toString();
+              final message = (n['message'] ?? '').toString();
+              final display = message.isNotEmpty ? '$title — $message' : title;
+              final rawType = (n['type'] ?? 'Update').toString();
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildAlertItem(
+                  isUnread ? Colors.red.shade50 : Colors.blue.shade50,
+                  isUnread ? AppTheme.dangerColor : AppTheme.primaryColor,
+                  display,
+                  rawType,
+                  onTap: () async {
+                    final id = n['id'];
+                    if (isUnread && id is int) {
+                      try {
+                        await NotificationController().markAsRead(id);
+                        _fetchAdminNotifications();
+                      } catch (_) {}
+                    }
+                    _handleAdminNotificationTap(n);
+                  },
+                ),
+              );
+            }),
         ],
       ),
     );
   }
 
-  Widget _buildAlertItem(Color bg, Color textColor, String text, String type) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: textColor.withOpacity(0.1), width: 1),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: textColor,
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                type,
+  Widget _buildAlertItem(
+    Color bg,
+    Color textColor,
+    String text,
+    String type, {
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: textColor.withOpacity(0.15), width: 1),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                text,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: textColor.withOpacity(0.7),
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
                 ),
               ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.more_vert,
-                color: textColor.withOpacity(0.7),
-                size: 18,
-              ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(width: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  type,
+                  style: TextStyle(
+                    color: textColor.withOpacity(0.75),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: textColor.withOpacity(0.75),
+                  size: 14,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -4445,13 +4683,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     _buildActionGridItem(
                       Icons.receipt_long_outlined,
                       'Billing &\nInvoices',
-                      () => context.go(AppRoutes.adminBilling),
+                      () => _openModuleRoute(AppRoutes.adminBilling),
                     ),
                     const SizedBox(width: 12),
                     _buildActionGridItem(
                       Icons.inventory_2_outlined,
                       context.tr('inventory', fallback: 'Inventory\nManagement'),
-                      () => context.go(AppRoutes.adminInventory),
+                      () => _openModuleRoute(AppRoutes.adminInventory),
                     ),
                   ],
                 ),
@@ -4469,19 +4707,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 _buildActionGridItem(
                   Icons.person_add_alt_1_outlined,
                   context.tr('register_new_patient', fallback: 'Register\nNew Patient'),
-                  () => context.go(AppRoutes.adminNewPatient),
+                  () => _openModuleRoute(AppRoutes.adminNewPatient),
                 ),
                 const SizedBox(width: 12),
                 _buildActionGridItem(
                   Icons.receipt_long_outlined,
                   'Billing &\nInvoices',
-                  () => context.go(AppRoutes.adminBilling),
+                  () => _openModuleRoute(AppRoutes.adminBilling),
                 ),
                 const SizedBox(width: 12),
                 _buildActionGridItem(
                   Icons.inventory_2_outlined,
                   context.tr('inventory', fallback: 'Inventory\nManagement'),
-                  () => context.go(AppRoutes.adminInventory),
+                  () => _openModuleRoute(AppRoutes.adminInventory),
                 ),
               ],
             ),

@@ -11,10 +11,14 @@ import '../providers/auth_provider.dart';
 class InventoryManagementView extends StatefulWidget {
   final bool isMobile;
   final bool isFoodStockOnly;
+  final String? initialSearchQuery;
+  final int targetVersion;
   const InventoryManagementView({
     super.key,
     this.isMobile = false,
     this.isFoodStockOnly = false,
+    this.initialSearchQuery,
+    this.targetVersion = 0,
   });
 
   @override
@@ -118,7 +122,23 @@ class _InventoryManagementViewState extends State<InventoryManagementView> {
       _selectedCategory = 'Food Stock';
       _foodStockFilter = 'All';
     }
+    if (widget.initialSearchQuery != null &&
+        widget.initialSearchQuery!.isNotEmpty) {
+      _searchController.text = widget.initialSearchQuery!;
+      _searchQuery = widget.initialSearchQuery!;
+    }
     _loadInventoryData();
+  }
+
+  @override
+  void didUpdateWidget(covariant InventoryManagementView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.targetVersion != oldWidget.targetVersion ||
+        widget.initialSearchQuery != oldWidget.initialSearchQuery) {
+      if (widget.initialSearchQuery != null) {
+        _applySearch(widget.initialSearchQuery!);
+      }
+    }
   }
 
   @override

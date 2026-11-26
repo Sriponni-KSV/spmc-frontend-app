@@ -7,7 +7,16 @@ import '../controllers/ipd_controller.dart';
 import '../widgets/custom_dropdown_search.dart';
 
 class FrontDeskAdmissionCounterView extends StatefulWidget {
-  const FrontDeskAdmissionCounterView({Key? key}) : super(key: key);
+  final int? initialAppointmentId;
+  final String? initialSearchQuery;
+  final int targetVersion;
+
+  const FrontDeskAdmissionCounterView({
+    Key? key,
+    this.initialAppointmentId,
+    this.initialSearchQuery,
+    this.targetVersion = 0,
+  }) : super(key: key);
 
   @override
   State<FrontDeskAdmissionCounterView> createState() =>
@@ -27,6 +36,16 @@ class _FrontDeskAdmissionCounterViewState
   void initState() {
     super.initState();
     _fetchRequests();
+  }
+
+  @override
+  void didUpdateWidget(covariant FrontDeskAdmissionCounterView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.targetVersion != oldWidget.targetVersion ||
+        widget.initialAppointmentId != oldWidget.initialAppointmentId ||
+        widget.initialSearchQuery != oldWidget.initialSearchQuery) {
+      _fetchRequests();
+    }
   }
 
   Future<void> _fetchRequests() async {
@@ -474,15 +493,28 @@ class _FrontDeskAdmissionCounterViewState
         (req['bed_type_requirement'] ?? '').toString().toUpperCase() == 'ICU';
 
     final String requiredWard = (req['bed_type_requirement'] ?? '').toString().trim();
+    final int? reqApptId = req['appointment_id'] is int
+        ? req['appointment_id']
+        : int.tryParse((req['appointment_id'] ?? '').toString());
+    final String searchTarget = (widget.initialSearchQuery ?? '').trim().toLowerCase();
+    final bool isHighlighted =
+        (widget.initialAppointmentId != null && reqApptId == widget.initialAppointmentId) ||
+        (searchTarget.isNotEmpty &&
+            ((req['patient_display_id'] ?? '').toString().toLowerCase() == searchTarget ||
+                (req['patient_name'] ?? '').toString().toLowerCase().contains(searchTarget)));
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: isEmergency ? const Color(0xFFFFF7F7) : const Color(0xFFF8FAFC),
+        color: isEmergency
+            ? const Color(0xFFFFF7F7)
+            : (isHighlighted ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC)),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: isEmergency ? const Color(0xFFF87171) : const Color(0xFFE2E8F0),
-          width: isEmergency ? 1.5 : 1,
+          color: isEmergency
+              ? const Color(0xFFF87171)
+              : (isHighlighted ? AppTheme.primaryColor : const Color(0xFFE2E8F0)),
+          width: (isEmergency || isHighlighted) ? 1.8 : 1,
         ),
       ),
       child: Padding(

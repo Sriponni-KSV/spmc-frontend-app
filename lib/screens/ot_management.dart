@@ -198,8 +198,17 @@ class OtCase {
 class OTManagementScreen extends StatefulWidget {
   final bool isMobile;
   final OtCase? initialSelectedCase;
+  final int? initialCaseId;
   final int? initialTab;
-  const OTManagementScreen({Key? key, required this.isMobile, this.initialSelectedCase, this.initialTab}) : super(key: key);
+  final int targetVersion;
+  const OTManagementScreen({
+    Key? key,
+    required this.isMobile,
+    this.initialSelectedCase,
+    this.initialCaseId,
+    this.initialTab,
+    this.targetVersion = 0,
+  }) : super(key: key);
 
   @override
   State<OTManagementScreen> createState() => _OTManagementScreenState();
@@ -514,6 +523,20 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
         _selectOtCase(match);
         _activeTab = widget.initialTab ?? 1;
       }
+    } else if (widget.initialCaseId != null &&
+        (widget.initialCaseId != oldWidget.initialCaseId ||
+            widget.targetVersion != oldWidget.targetVersion)) {
+      OtCase? match;
+      for (final c in _otCases) {
+        if (c.dbId == widget.initialCaseId) {
+          match = c;
+          break;
+        }
+      }
+      if (match != null) {
+        _selectOtCase(match);
+        _activeTab = widget.initialTab ?? 1;
+      }
     }
   }
 
@@ -600,6 +623,19 @@ class _OTManagementScreenState extends State<OTManagementScreen> {
                 orElse: () => null as dynamic,
               ),
             );
+            if (match != null) {
+              _selectedCase = match;
+              _populateControllersForCase(match);
+              _activeTab = widget.initialTab ?? 1;
+            }
+          } else if (widget.initialCaseId != null) {
+            OtCase? match;
+            for (final c in fetchedCases) {
+              if (c.dbId == widget.initialCaseId) {
+                match = c;
+                break;
+              }
+            }
             if (match != null) {
               _selectedCase = match;
               _populateControllersForCase(match);

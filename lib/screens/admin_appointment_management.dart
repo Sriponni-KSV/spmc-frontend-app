@@ -15,7 +15,16 @@ import '../utils/app_localizations.dart';
 import '../utils/discard_dialog_helper.dart';
 
 class AdminAppointmentManagement extends StatefulWidget {
-  const AdminAppointmentManagement({Key? key}) : super(key: key);
+  final int? initialAppointmentId;
+  final String? initialSearchQuery;
+  final int targetVersion;
+
+  const AdminAppointmentManagement({
+    Key? key,
+    this.initialAppointmentId,
+    this.initialSearchQuery,
+    this.targetVersion = 0,
+  }) : super(key: key);
 
   @override
   State<AdminAppointmentManagement> createState() =>
@@ -275,10 +284,53 @@ class _AdminAppointmentManagementState
     }).toList();
   }
 
+  int _openedTargetVersion = -1;
+
   @override
   void initState() {
     super.initState();
+    if (widget.initialSearchQuery != null &&
+        widget.initialSearchQuery!.isNotEmpty) {
+      _searchController.text = widget.initialSearchQuery!;
+      _searchQuery = widget.initialSearchQuery!;
+    }
     _loadData();
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminAppointmentManagement oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.targetVersion != oldWidget.targetVersion ||
+        widget.initialAppointmentId != oldWidget.initialAppointmentId ||
+        widget.initialSearchQuery != oldWidget.initialSearchQuery) {
+      if (widget.initialSearchQuery != null) {
+        _searchController.text = widget.initialSearchQuery!;
+        setState(() {
+          _searchQuery = widget.initialSearchQuery!;
+          _currentPage = 0;
+        });
+      }
+      if (!_isLoading) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _openTargetedAppointmentIfNeeded();
+        });
+      }
+    }
+  }
+
+  void _openTargetedAppointmentIfNeeded() {
+    if (!mounted || widget.initialAppointmentId == null) return;
+    if (_openedTargetVersion == widget.targetVersion) return;
+    AppointmentModel? match;
+    for (final a in _appointments) {
+      if (a.id == widget.initialAppointmentId) {
+        match = a;
+        break;
+      }
+    }
+    if (match == null) return;
+    _openedTargetVersion = widget.targetVersion;
+    _showOverrideDialog(match, mode: 'view');
   }
 
   @override
@@ -320,6 +372,9 @@ class _AdminAppointmentManagementState
         _departments = specs.map((e) => e['name'].toString()).toList();
         _departments.sort(); // Also sort departments alphabetically
         _isLoading = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openTargetedAppointmentIfNeeded();
       });
     } catch (e) {
       if (!mounted) return;

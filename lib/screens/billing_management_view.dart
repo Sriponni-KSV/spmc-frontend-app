@@ -22,7 +22,18 @@ import '../utils/app_notification.dart';
 import '../utils/discard_dialog_helper.dart';
 
 class BillingManagementView extends StatefulWidget {
-  const BillingManagementView({Key? key}) : super(key: key);
+  final int? initialTabIndex;
+  final int? initialInvoiceId;
+  final String? initialSearchQuery;
+  final int targetVersion;
+
+  const BillingManagementView({
+    Key? key,
+    this.initialTabIndex,
+    this.initialInvoiceId,
+    this.initialSearchQuery,
+    this.targetVersion = 0,
+  }) : super(key: key);
 
   @override
   State<BillingManagementView> createState() => _BillingManagementViewState();
@@ -95,6 +106,7 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
   }
 
   String? _currentRole;
+  int _openedInvoiceTargetVersion = -1;
 
   @override
   void didChangeDependencies() {
@@ -109,16 +121,70 @@ class _BillingManagementViewState extends State<BillingManagementView> with Tick
       } else if (role == 'Lab') {
         tabLength = 2;
       }
-      
+
+      final int startTab = (widget.initialTabIndex != null &&
+              widget.initialTabIndex! >= 0 &&
+              widget.initialTabIndex! < tabLength)
+          ? widget.initialTabIndex!
+          : 0;
+      if (widget.initialSearchQuery != null &&
+          widget.initialSearchQuery!.isNotEmpty) {
+        _invoiceSearch = widget.initialSearchQuery!;
+      }
+
       _tabController?.dispose();
-      _tabController = TabController(length: tabLength, vsync: this);
+      _tabController = TabController(
+        length: tabLength,
+        vsync: this,
+        initialIndex: startTab,
+      );
       _tabController!.addListener(() {
         if (!_tabController!.indexIsChanging) {
           _refreshDataForTab(_tabController!.index);
         }
       });
-      _refreshDataForTab(0);
+      _refreshDataForTab(startTab);
+      _scheduleTargetedInvoiceOpen();
     }
+  }
+
+  @override
+  void didUpdateWidget(covariant BillingManagementView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.targetVersion != oldWidget.targetVersion ||
+        widget.initialInvoiceId != oldWidget.initialInvoiceId ||
+        widget.initialTabIndex != oldWidget.initialTabIndex ||
+        widget.initialSearchQuery != oldWidget.initialSearchQuery) {
+      if (widget.initialTabIndex != null &&
+          _tabController != null &&
+          widget.initialTabIndex! >= 0 &&
+          widget.initialTabIndex! < _tabController!.length) {
+        _tabController!.animateTo(widget.initialTabIndex!);
+      }
+      if (widget.initialSearchQuery != null) {
+        setState(() {
+          _invoiceSearch = widget.initialSearchQuery!;
+        });
+      }
+      _scheduleTargetedInvoiceOpen();
+    }
+  }
+
+  void _scheduleTargetedInvoiceOpen() {
+    if (widget.initialInvoiceId == null ||
+        _openedInvoiceTargetVersion == widget.targetVersion) {
+      return;
+    }
+    _openedInvoiceTargetVersion = widget.targetVersion;
+    final targetId = widget.initialInvoiceId!;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      BillingReceiptDialog.show(
+        context,
+        invoiceId: targetId,
+        onPaymentSuccess: _loadInvoices,
+      );
+    });
   }
 
   @override

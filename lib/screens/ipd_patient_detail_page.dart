@@ -29,9 +29,13 @@ import '../widgets/user_profile_dialog.dart';
 
 class IPDPatientDetailPage extends StatefulWidget {
   final Map<String, dynamic> admission;
+  final int? initialTabIndex;
 
-  const IPDPatientDetailPage({Key? key, required this.admission})
-    : super(key: key);
+  const IPDPatientDetailPage({
+    Key? key,
+    required this.admission,
+    this.initialTabIndex,
+  }) : super(key: key);
 
   @override
   State<IPDPatientDetailPage> createState() => _IPDPatientDetailPageState();
@@ -112,11 +116,21 @@ class _IPDPatientDetailPageState extends State<IPDPatientDetailPage>
 
     final isDoctorView = _userRole == 'Doctor' || _userRole == 'Admin' || _userRole == 'Super Admin';
     final tabCount = isDoctorView ? 9 : 6;
-    final initTab = (isDoctorView && _activeDoctorTabIndex >= 0 && _activeDoctorTabIndex < tabCount)
-        ? _activeDoctorTabIndex
-        : (_activeNurseTabIndex >= 0 && _activeNurseTabIndex < tabCount)
-            ? _activeNurseTabIndex
-            : 0;
+    final int? requestedTab = widget.initialTabIndex;
+    final int initTab = (requestedTab != null && requestedTab >= 0 && requestedTab < tabCount)
+        ? requestedTab
+        : (isDoctorView && _activeDoctorTabIndex >= 0 && _activeDoctorTabIndex < tabCount)
+            ? _activeDoctorTabIndex
+            : (_activeNurseTabIndex >= 0 && _activeNurseTabIndex < tabCount)
+                ? _activeNurseTabIndex
+                : 0;
+    if (requestedTab != null && requestedTab >= 0 && requestedTab < tabCount) {
+      if (isDoctorView) {
+        _activeDoctorTabIndex = requestedTab;
+      } else {
+        _activeNurseTabIndex = requestedTab;
+      }
+    }
     _tabController = TabController(length: tabCount, vsync: this, initialIndex: initTab);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {

@@ -9,8 +9,15 @@ import '../services/token_service.dart';
 
 class AdminLabTestsCatalogView extends StatefulWidget {
   final bool isMobile;
+  final String? initialSearchQuery;
+  final int targetVersion;
 
-  const AdminLabTestsCatalogView({super.key, this.isMobile = false});
+  const AdminLabTestsCatalogView({
+    super.key,
+    this.isMobile = false,
+    this.initialSearchQuery,
+    this.targetVersion = 0,
+  });
 
   @override
   State<AdminLabTestsCatalogView> createState() => _AdminLabTestsCatalogViewState();
@@ -21,13 +28,39 @@ class _AdminLabTestsCatalogViewState extends State<AdminLabTestsCatalogView> {
   String? _errorMessage;
   List<Map<String, dynamic>> _tests = [];
   String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
   int _currentPage = 0;
   final int _itemsPerPage = 12;
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialSearchQuery != null &&
+        widget.initialSearchQuery!.isNotEmpty) {
+      _searchController.text = widget.initialSearchQuery!;
+      _searchQuery = widget.initialSearchQuery!;
+    }
     _fetchTests();
+  }
+
+  @override
+  void didUpdateWidget(covariant AdminLabTestsCatalogView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.targetVersion != oldWidget.targetVersion ||
+        widget.initialSearchQuery != oldWidget.initialSearchQuery) {
+      final q = widget.initialSearchQuery ?? '';
+      _searchController.text = q;
+      setState(() {
+        _searchQuery = q;
+        _currentPage = 0;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchTests() async {
@@ -416,6 +449,7 @@ class _AdminLabTestsCatalogViewState extends State<AdminLabTestsCatalogView> {
                         border: Border.all(color: AppTheme.borderColor),
                       ),
                       child: TextField(
+                        controller: _searchController,
                         onChanged: (val) => setState(() {
                           _searchQuery = val;
                           _currentPage = 0;

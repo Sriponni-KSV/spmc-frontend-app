@@ -24,10 +24,17 @@ import '../widgets/billing_receipt_dialog.dart';
 class OPDManagementScreen extends StatefulWidget {
   final bool isMobile;
   final String title;
+  final int? initialTabIndex;
+  final String? initialSearchQuery;
+  final int targetVersion;
+
   const OPDManagementScreen({
     Key? key,
     required this.isMobile,
     this.title = 'OPD Management',
+    this.initialTabIndex,
+    this.initialSearchQuery,
+    this.targetVersion = 0,
   }) : super(key: key);
 
   @override
@@ -65,12 +72,40 @@ class _OPDManagementScreenState extends State<OPDManagementScreen>
   void initState() {
     super.initState();
     UnsavedChangesHelper.clear();
-    _tabController = TabController(length: 8, vsync: this);
+    final int safeTab = (widget.initialTabIndex != null &&
+            widget.initialTabIndex! >= 0 &&
+            widget.initialTabIndex! < 8)
+        ? widget.initialTabIndex!
+        : 0;
+    if (widget.initialSearchQuery != null && widget.initialSearchQuery!.isNotEmpty) {
+      _searchCtrl.text = widget.initialSearchQuery!;
+      _searchQuery = widget.initialSearchQuery!;
+    }
+    _tabController = TabController(length: 8, vsync: this, initialIndex: safeTab);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
     _loadData();
     _loadDoctors();
+  }
+
+  @override
+  void didUpdateWidget(covariant OPDManagementScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.targetVersion != oldWidget.targetVersion ||
+        widget.initialTabIndex != oldWidget.initialTabIndex ||
+        widget.initialSearchQuery != oldWidget.initialSearchQuery) {
+      if (widget.initialSearchQuery != null) {
+        _searchCtrl.text = widget.initialSearchQuery!;
+        setState(() => _searchQuery = widget.initialSearchQuery!);
+      }
+      if (widget.initialTabIndex != null &&
+          widget.initialTabIndex! >= 0 &&
+          widget.initialTabIndex! < _tabController.length) {
+        _tabController.animateTo(widget.initialTabIndex!);
+      }
+      _loadData(showLoading: false);
+    }
   }
 
   @override

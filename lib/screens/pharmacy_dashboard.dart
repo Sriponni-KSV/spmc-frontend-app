@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
@@ -14,6 +15,8 @@ import 'billing_management_view.dart';
 import '../widgets/access_denied_widget.dart';
 import '../utils/app_localizations.dart';
 import '../widgets/app_top_bar_actions.dart';
+import '../controllers/notification_controller.dart';
+import '../widgets/notifications_dialog.dart';
 
 class PharmacyDashboardScreen extends StatefulWidget {
   final int initialIndex;
@@ -25,11 +28,54 @@ class PharmacyDashboardScreen extends StatefulWidget {
 
 class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
   int _selectedIndex = 0;
+  final NotificationController _notificationController = NotificationController();
+  List<Map<String, dynamic>> _notifications = [];
+  bool _isLoadingNotifications = false;
+  Timer? _notificationsTimer;
+
+  int _notificationTargetVersion = 0;
+  int? _targetPharmacyTabIndex;
+  int? _targetPrescriptionId;
+  int? _targetConsultationId;
+  String? _targetPharmacySearchQuery;
+  String? _targetInventorySearchQuery;
+  int? _targetBillingTabIndex;
+  int? _targetBillingInvoiceId;
+  String? _targetBillingSearchQuery;
 
   @override
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    _fetchNotifications();
+    _notificationsTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      _fetchNotifications();
+    });
+  }
+
+  @override
+  void dispose() {
+    _notificationsTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchNotifications() async {
+    if (_isLoadingNotifications) return;
+    _isLoadingNotifications = true;
+    try {
+      final list = await _notificationController.fetchNotifications();
+      if (mounted) {
+        setState(() {
+          _notifications = list;
+          _isLoadingNotifications = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching pharmacy notifications: $e');
+      if (mounted) {
+        setState(() => _isLoadingNotifications = false);
+      }
+    }
   }
 
   @override
@@ -42,8 +88,20 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
     }
   }
 
-  void _changePage(int index) {
+  void _changePage(int index, {bool fromNotification = false}) {
     if (!mounted) return;
+    if (!fromNotification) {
+      setState(() {
+        _targetPharmacyTabIndex = null;
+        _targetPrescriptionId = null;
+        _targetConsultationId = null;
+        _targetPharmacySearchQuery = null;
+        _targetInventorySearchQuery = null;
+        _targetBillingTabIndex = null;
+        _targetBillingInvoiceId = null;
+        _targetBillingSearchQuery = null;
+      });
+    }
     switch (index) {
       case 0:
         context.go(AppRoutes.pharmacyDashboard);
@@ -501,40 +559,10 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
           ),
         ),
 
-        const SizedBox(width: 16),
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Icon(
-              Icons.notifications_none_outlined,
-              color: AppTheme.getTextPrimaryColor(context),
-              size: 22,
-            ),
-            Positioned(
-              right: -2,
-              top: -2,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE53E3E),
-                  shape: BoxShape.circle,
-                ),
-                constraints: const BoxConstraints(
-                  minWidth: 14,
-                  minHeight: 14,
-                ),
-                child: const Text(
-                  '3',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
+        const SizedBox(width: 8),
+        NotificationBellButton(
+          unreadCount: NotificationsDialog.countUnread(_notifications),
+          onPressed: _showNotificationsDialog,
         ),
 
         const SizedBox(width: 16),
@@ -551,23 +579,46 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
     switch (_selectedIndex) {
       case 0:
         if (user?.hasPermission('pharmacy_dispensing') ?? false) {
-          return PharmacyManagementView(isMobile: isMobile);
+          return PharmacyManagementView(
+            isMobile: isMobile,
+            initialTabIndex: _targetPharmacyTabIndex,
+            initialPrescriptionId: _targetPrescriptionId,
+            initialConsultationId: _targetConsultationId,
+            initialSearchQuery: _targetPharmacySearchQuery,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       case 1:
         if (user?.hasPermission('pharmacy_inventory') ?? false) {
-          return InventoryManagementView(isMobile: isMobile);
+          return InventoryManagementView(
+            isMobile: isMobile,
+            initialSearchQuery: _targetInventorySearchQuery,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       case 2:
         return _buildProfileView(isMobile);
       case 3:
         if (user?.hasPermission('pharmacy_billing') ?? false) {
-          return const BillingManagementView();
+          return BillingManagementView(
+            initialTabIndex: _targetBillingTabIndex,
+            initialInvoiceId: _targetBillingInvoiceId,
+            initialSearchQuery: _targetBillingSearchQuery,
+            targetVersion: _notificationTargetVersion,
+          );
         }
         return const AccessDeniedWidget();
       default:
-        return PharmacyManagementView(isMobile: isMobile);
+        return PharmacyManagementView(
+          isMobile: isMobile,
+          initialTabIndex: _targetPharmacyTabIndex,
+          initialPrescriptionId: _targetPrescriptionId,
+          initialConsultationId: _targetConsultationId,
+          initialSearchQuery: _targetPharmacySearchQuery,
+          targetVersion: _notificationTargetVersion,
+        );
     }
   }
 
@@ -649,5 +700,151 @@ class _PharmacyDashboardScreenState extends State<PharmacyDashboardScreen> {
         ],
       ),
     );
+  }
+
+  void _showNotificationsDialog() {
+    NotificationsDialog.show(
+      context: context,
+      initialNotifications: _notifications,
+      subtitle: 'Prescriptions, stock alerts, billing & notices',
+      emptySubtitle:
+          'You\'re all caught up! New prescriptions, stock alerts, and billing notices will appear here.',
+      onRefresh: () async {
+        await _fetchNotifications();
+        return _notifications;
+      },
+      onNotificationTap: _handlePharmacyNotificationTap,
+    );
+  }
+
+  int? _parseInt(dynamic val) {
+    if (val is int) return val;
+    if (val == null) return null;
+    return int.tryParse(val.toString());
+  }
+
+  Future<void> _handlePharmacyNotificationTap(Map<String, dynamic> n) async {
+    if (!mounted) return;
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+    final canDispense = user?.hasPermission('pharmacy_dispensing') ?? false;
+    final canInventory = user?.hasPermission('pharmacy_inventory') ?? false;
+    final canBilling = user?.hasPermission('pharmacy_billing') ?? false;
+
+    final type = (n['type'] ?? '').toString();
+    final title = (n['title'] ?? '').toString().toLowerCase();
+    final rawMessage = (n['message'] ?? '').toString();
+    final message = rawMessage.toLowerCase();
+    final metadata = NotificationsDialog.parseMetadata(n['metadata']);
+    final combined = '$type $title $message'.toLowerCase();
+
+    final int? invoiceId = _parseInt(metadata['invoice_id']);
+    final int? prescriptionId = _parseInt(metadata['prescription_id']);
+    final int? consultationId = _parseInt(metadata['consultation_id']);
+    final String patientDisplayId =
+        (metadata['patient_display_id'] ?? '').toString().trim();
+    final String patientName =
+        (metadata['patient_name'] ?? '').toString().trim();
+    final String itemName = (metadata['item_name'] ??
+            metadata['medicine_name'] ??
+            metadata['product_name'] ??
+            '')
+        .toString()
+        .trim();
+
+    int targetPageIndex = 0;
+    int? nextPharmacyTab;
+    int? nextPrescriptionId;
+    int? nextConsultationId;
+    String? nextPharmacySearch;
+    String? nextInventorySearch;
+    int? nextBillingTab;
+    int? nextBillingInvoiceId;
+    String? nextBillingSearch;
+
+    if (type == 'PharmacyNewPrescription') {
+      if (canDispense) {
+        targetPageIndex = 0;
+        nextPharmacyTab = 1; // Prescriptions Queue tab
+        nextPrescriptionId = prescriptionId;
+        nextConsultationId = consultationId;
+        nextPharmacySearch = patientDisplayId.isNotEmpty
+            ? patientDisplayId
+            : (patientName.isNotEmpty ? patientName : itemName);
+      }
+    } else if (type == 'HomeVisitBilling' ||
+        combined.contains('invoice') ||
+        combined.contains('billing') ||
+        combined.contains('payment') ||
+        invoiceId != null) {
+      if (canBilling) {
+        targetPageIndex = 3;
+        nextBillingTab = 0;
+        nextBillingInvoiceId = invoiceId;
+        final invMatch = RegExp(r'(INV-[A-Za-z0-9-]+)').firstMatch(rawMessage);
+        if (invMatch != null) {
+          nextBillingSearch = invMatch.group(1);
+        } else if (patientDisplayId.isNotEmpty) {
+          nextBillingSearch = patientDisplayId;
+        } else if (patientName.isNotEmpty) {
+          nextBillingSearch = patientName;
+        }
+      }
+    } else if (combined.contains('expir') ||
+        combined.contains('low stock') ||
+        combined.contains('stock alert')) {
+      if (canDispense) {
+        targetPageIndex = 0;
+        nextPharmacyTab = 3; // Expiry & Low Stock Alerts tab
+      } else if (canInventory) {
+        targetPageIndex = 1;
+        if (itemName.isNotEmpty) nextInventorySearch = itemName;
+      }
+    } else if (combined.contains('inventory') ||
+        combined.contains('purchase') ||
+        combined.contains('restock') ||
+        combined.contains('stock')) {
+      if (canInventory) {
+        targetPageIndex = 1;
+        if (itemName.isNotEmpty) nextInventorySearch = itemName;
+      }
+    } else if (combined.contains('controlled') ||
+        combined.contains('narcotic')) {
+      if (canDispense) {
+        targetPageIndex = 0;
+        nextPharmacyTab = 2; // Controlled Drugs tab
+        if (itemName.isNotEmpty) nextPharmacySearch = itemName;
+      }
+    } else if (combined.contains('profile')) {
+      targetPageIndex = 2;
+    } else if (canDispense) {
+      targetPageIndex = 0;
+      nextPharmacyTab = 1; // Prescriptions Queue tab
+      nextPrescriptionId = prescriptionId;
+      nextConsultationId = consultationId;
+      nextPharmacySearch = patientDisplayId.isNotEmpty
+          ? patientDisplayId
+          : (patientName.isNotEmpty ? patientName : itemName);
+    } else if (canInventory) {
+      targetPageIndex = 1;
+      if (itemName.isNotEmpty) nextInventorySearch = itemName;
+    } else if (canBilling) {
+      targetPageIndex = 3;
+    } else {
+      targetPageIndex = 2;
+    }
+
+    setState(() {
+      _notificationTargetVersion++;
+      _targetPharmacyTabIndex = nextPharmacyTab;
+      _targetPrescriptionId = nextPrescriptionId;
+      _targetConsultationId = nextConsultationId;
+      _targetPharmacySearchQuery = nextPharmacySearch;
+      _targetInventorySearchQuery = nextInventorySearch;
+      _targetBillingTabIndex = nextBillingTab;
+      _targetBillingInvoiceId = nextBillingInvoiceId;
+      _targetBillingSearchQuery = nextBillingSearch;
+    });
+
+    _changePage(targetPageIndex, fromNotification: true);
   }
 }

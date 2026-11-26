@@ -22,9 +22,21 @@ import '../utils/discard_dialog_helper.dart';
 
 class IPDManagementScreen extends StatefulWidget {
   final bool isMobile;
+  final int? initialAdmissionId;
+  final String? initialSearchQuery;
+  final int? initialTabIndex;
+  final int? initialDetailTabIndex;
+  final int targetVersion;
 
-  const IPDManagementScreen({Key? key, required this.isMobile})
-    : super(key: key);
+  const IPDManagementScreen({
+    Key? key,
+    required this.isMobile,
+    this.initialAdmissionId,
+    this.initialSearchQuery,
+    this.initialTabIndex,
+    this.initialDetailTabIndex,
+    this.targetVersion = 0,
+  }) : super(key: key);
 
   @override
   State<IPDManagementScreen> createState() => _IPDManagementScreenState();
@@ -55,11 +67,86 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
   List<Map<String, dynamic>> _activeIcuAlerts = [];
   final TextEditingController _admissionsSearchController = TextEditingController();
   String _admissionsSearchQuery = '';
+  int _openedTargetVersion = -1;
 
   @override
   void initState() {
     super.initState();
+    if (widget.initialSearchQuery != null &&
+        widget.initialSearchQuery!.isNotEmpty) {
+      _admissionsSearchController.text = widget.initialSearchQuery!;
+      _admissionsSearchQuery = widget.initialSearchQuery!;
+    }
     _loadData();
+  }
+
+  @override
+  void didUpdateWidget(covariant IPDManagementScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.targetVersion != oldWidget.targetVersion ||
+        widget.initialAdmissionId != oldWidget.initialAdmissionId ||
+        widget.initialSearchQuery != oldWidget.initialSearchQuery ||
+        widget.initialTabIndex != oldWidget.initialTabIndex ||
+        widget.initialDetailTabIndex != oldWidget.initialDetailTabIndex) {
+      if (widget.initialSearchQuery != null) {
+        _admissionsSearchController.text = widget.initialSearchQuery!;
+        setState(() => _admissionsSearchQuery = widget.initialSearchQuery!);
+      }
+      if (widget.initialTabIndex != null &&
+          _tabControllerReady &&
+          widget.initialTabIndex! >= 0 &&
+          widget.initialTabIndex! < _tabController.length) {
+        _tabController.animateTo(widget.initialTabIndex!);
+      }
+      if (!_isLoading) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _openTargetedAdmissionIfNeeded();
+        });
+      }
+    }
+  }
+
+  void _openTargetedAdmissionIfNeeded() {
+    if (!mounted || widget.initialAdmissionId == null) return;
+    if (_openedTargetVersion == widget.targetVersion) return;
+
+    final targetIdStr = widget.initialAdmissionId.toString();
+    Map<String, dynamic>? matchedAdmission;
+    for (final a in _admissions) {
+      if (a['id']?.toString() == targetIdStr) {
+        matchedAdmission = a;
+        break;
+      }
+    }
+    if (matchedAdmission == null) {
+      for (final bed in _beds) {
+        if (bed['admission_id']?.toString() == targetIdStr) {
+          matchedAdmission = {
+            'id': bed['admission_id'],
+            'patient_id': bed['patient_id'],
+            'patient_name': bed['patient_name'],
+            'doctor_name': bed['doctor_name'],
+            'bed_number': bed['bed_number'],
+            'ward_type': bed['ward_type'],
+            'status': 'Admitted',
+            'admission_date': bed['admission_date'],
+          };
+          break;
+        }
+      }
+    }
+    if (matchedAdmission == null) return;
+    _openedTargetVersion = widget.targetVersion;
+    final admToOpen = matchedAdmission;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => IPDPatientDetailPage(
+          admission: admToOpen,
+          initialTabIndex: widget.initialDetailTabIndex,
+        ),
+      ),
+    ).then((_) => _loadData());
   }
 
   /// didChangeDependencies is the first place Provider.of(context) is safe.
@@ -78,12 +165,15 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
       length = 5;
     }
 
+    final int? reqTab = widget.initialTabIndex;
+    final int safeInitTab = (reqTab != null && reqTab >= 0 && reqTab < length) ? reqTab : 0;
+
     if (!_tabControllerReady) {
-      _tabController = TabController(length: length, vsync: this);
+      _tabController = TabController(length: length, vsync: this, initialIndex: safeInitTab);
       _tabControllerReady = true;
     } else if (_tabController.length != length) {
       _tabController.dispose();
-      _tabController = TabController(length: length, vsync: this);
+      _tabController = TabController(length: length, vsync: this, initialIndex: safeInitTab);
     }
   }
 
@@ -189,6 +279,9 @@ class _IPDManagementScreenState extends State<IPDManagementScreen>
         _assignedWards = assignedWardsList;
         _activeIcuAlerts = activeAlerts;
         _isLoading = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openTargetedAdmissionIfNeeded();
       });
       if (errorMsg != null) {
         ScaffoldMessenger.of(context).showSnackBar(

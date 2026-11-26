@@ -27,6 +27,7 @@ import 'ot_dictation_dashboard.dart';
 import '../controllers/ot_controller.dart';
 import '../controllers/lab_controller.dart';
 import '../controllers/notification_controller.dart';
+import '../widgets/notifications_dialog.dart';
 import '../config/doctor_nav_config.dart';
 import '../utils/sidebar_state.dart';
 import '../utils/app_localizations.dart';
@@ -424,160 +425,393 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
-  String _formatNotificationDate(String? dbDateStr) {
-    if (dbDateStr == null || dbDateStr.isEmpty) return '-';
-    try {
-      final dt = DateTime.parse(dbDateStr).toLocal();
-      return DateFormat('dd-MMM-yyyy hh:mm a').format(dt);
-    } catch (_) {
-      return dbDateStr;
-    }
+  void _showNotificationsOverlay() {
+    NotificationsDialog.show(
+      context: context,
+      initialNotifications: _notifications,
+      subtitle: 'Lab reports, ICU alerts & clinical notices',
+      emptySubtitle:
+          'You\'re all caught up! Lab updates, ICU alerts, and clinical notices will appear here.',
+      onRefresh: () async {
+        await _fetchNotifications();
+        return _notifications;
+      },
+      onNotificationTap: _handleDoctorNotificationTap,
+    );
   }
 
-  void _showNotificationsOverlay() {
+  void _showDoctorHelpDialog() {
     showDialog(
       context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setOverlayState) {
-             final unread = (_notifications ?? []).where((n) => n['is_read'] == false).toList();
-            final read = (_notifications ?? []).where((n) => n['is_read'] == true).toList();
-
-            return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Notifications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryColor)),
-                  if (unread.isNotEmpty)
-                    TextButton(
-                      onPressed: () async {
-                        for (final n in unread) {
-                          await NotificationController().markAsRead(n['id']);
-                        }
-                        await _fetchNotifications();
-                        setOverlayState(() {});
-                        setState(() {});
-                      },
-                      child: const Text('Mark all as read', style: TextStyle(fontSize: 12, color: AppTheme.logoRed)),
-                    )
-                ],
-              ),
-              content: SizedBox(
-                width: 450,
-                height: 380,
-                child: (_notifications ?? []).isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No notifications yet',
-                          style: TextStyle(color: AppTheme.textSecondaryColor),
-                        ),
-                      )
-                    : ListView(
-                        shrinkWrap: true,
+      builder: (dialogCtx) {
+        final isDark = AppTheme.isDark(dialogCtx);
+        return Dialog(
+          backgroundColor: AppTheme.getCardColor(dialogCtx),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: 580,
+            constraints: const BoxConstraints(maxHeight: 620),
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.help_outline,
+                        color: AppTheme.primaryColor,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (unread.isNotEmpty) ...[
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.0),
-                              child: Text('New Alerts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.logoRed)),
+                          Text(
+                            'Doctor Help & Clinical Guide',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.getTextPrimaryColor(dialogCtx),
                             ),
-                            ...unread.map((n) => _buildNotificationTile(n, setOverlayState)),
-                          ],
-                          if (read.isNotEmpty) ...[
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.0),
-                              child: Text('Earlier', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textSecondaryColor)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Quick guidance for Consultations, Lab Reports, IPD & Alerts',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.getTextSecondaryColor(dialogCtx),
                             ),
-                            ...read.map((n) => _buildNotificationTile(n, setOverlayState)),
-                          ],
+                          ),
                         ],
                       ),
-              ),
-              actions: [
-                OutlinedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: AppTheme.cancelButton,
-                  child: const Text('Close'),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close,
+                        size: 20,
+                        color: AppTheme.getTextSecondaryColor(dialogCtx),
+                      ),
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Divider(height: 1, color: AppTheme.getBorderColor(dialogCtx)),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildDoctorHelpSection(
+                          dialogCtx,
+                          isDark: isDark,
+                          icon: Icons.medical_services_outlined,
+                          title: 'OPD Consultations & Prescriptions',
+                          content:
+                              '• Start Consultation: Open an appointment from Today\'s Queue or My Consultations.\n'
+                              '• Prescriptions: Add medications with dosage, frequency, and duration; submitting automatically notifies Pharmacy.\n'
+                              '• Lab Orders: Select diagnostic tests in the consultation form to dispatch orders to the Lab queue.',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildDoctorHelpSection(
+                          dialogCtx,
+                          isDark: isDark,
+                          icon: Icons.biotech_outlined,
+                          title: 'Laboratory Requests & Reports',
+                          content:
+                              '• Real-Time Updates: Notifications alert you when lab samples are collected, delayed, or completed.\n'
+                              '• View Reports: Click any lab report notification or open Lab Reports to inspect test values and attachments.',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildDoctorHelpSection(
+                          dialogCtx,
+                          isDark: isDark,
+                          icon: Icons.local_hospital_outlined,
+                          title: 'IPD Admissions, Rounds & ICU Alerts',
+                          content:
+                              '• Admission Requests: Recommend inpatient admission (Normal or Emergency/ICU) directly from a consultation or patient profile.\n'
+                              '• Inpatient Care: Add SOAP daily progress notes, inpatient prescriptions, lab orders, and discharge summaries in IPD Management.\n'
+                              '• Critical Alerts: Abnormal vitals trigger instant ICU alerts in both the bell menu and ICU Monitoring.',
+                        ),
+                        const SizedBox(height: 14),
+                        _buildDoctorHelpSection(
+                          dialogCtx,
+                          isDark: isDark,
+                          icon: Icons.support_agent_outlined,
+                          title: 'Hospital IT Helpdesk & Support',
+                          content:
+                              '• Support Email: support@sriponnimedicalcentre.com\n'
+                              '• Helpdesk Hotline: +91 431 2345678 (Ext: 1001)\n'
+                              '• Emergency HIS Support: 24/7 Clinical Systems Desk',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Divider(height: 1, color: AppTheme.getBorderColor(dialogCtx)),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(dialogCtx).pop(),
+                      style: AppTheme.primaryButton,
+                      child: const Text('Got It'),
+                    ),
+                  ],
                 ),
               ],
-            );
-          },
+            ),
+          ),
         );
       },
     );
   }
 
-  Widget _buildNotificationTile(Map<String, dynamic> n, StateSetter setOverlayState) {
-    final bool isUnread = n['is_read'] == false;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 0,
-      color: isUnread ? AppTheme.primaryColor.withOpacity(0.05) : Colors.grey.shade50,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: isUnread ? AppTheme.primaryColor.withOpacity(0.2) : Colors.grey.shade200),
+  Widget _buildDoctorHelpSection(
+    BuildContext ctx, {
+    required bool isDark,
+    required IconData icon,
+    required String title,
+    required String content,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurfaceColor : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.getBorderColor(ctx)),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: isUnread ? AppTheme.logoRed.withOpacity(0.1) : Colors.grey.shade200,
-            shape: BoxShape.circle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppTheme.primaryColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: AppTheme.getTextPrimaryColor(ctx),
+                  ),
+                ),
+              ),
+            ],
           ),
-          child: Icon(
-            isUnread ? Icons.notifications_active : Icons.notifications_none,
-            color: isUnread ? AppTheme.logoRed : AppTheme.textSecondaryColor,
-            size: 20,
-          ),
-        ),
-        title: Text(
-          n['title'] ?? 'Notification',
-          style: TextStyle(
-            fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
-            fontSize: 13,
-            color: AppTheme.primaryColor,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              n['message'] ?? '',
-              style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryColor),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: TextStyle(
+              fontSize: 12,
+              color: AppTheme.getTextSecondaryColor(ctx),
+              height: 1.45,
             ),
-            const SizedBox(height: 6),
-            Text(
-              _formatNotificationDate(n['created_at']),
-              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
-            ),
-          ],
-        ),
-        trailing: isUnread
-            ? IconButton(
-                icon: const Icon(Icons.check_circle_outline, size: 18, color: AppTheme.primaryColor),
-                onPressed: () async {
-                  await NotificationController().markAsRead(n['id']);
-                  await _fetchNotifications();
-                  setOverlayState(() {});
-                  setState(() {});
-                },
-              )
-            : null,
-        onTap: () {
-          Navigator.pop(context); // Close dialog
-          if (isUnread) {
-            NotificationController().markAsRead(n['id']).then((_) => _fetchNotifications());
-          }
-          setState(() {
-            _selectedIndex = 6; // Redirect to Lab Reports tab
-          });
-        },
+          ),
+        ],
       ),
     );
+  }
+
+  Future<void> _handleDoctorNotificationTap(Map<String, dynamic> n) async {
+    if (!mounted) return;
+    final user = Provider.of<AuthProvider>(context, listen: false).user;
+
+    if (_activeAppointment != null) {
+      final canLeave = await _confirmLeaveConsultation();
+      if (!canLeave || !mounted) return;
+    }
+
+    final type = (n['type'] ?? '').toString();
+    final title = (n['title'] ?? '').toString().toLowerCase();
+    final message = (n['message'] ?? '').toString().toLowerCase();
+    final metadata = NotificationsDialog.parseMetadata(n['metadata']);
+    final combined = '$type $title $message'.toLowerCase();
+
+    final isLabNotification = type == 'LabCompleted' ||
+        type == 'LabDelayed' ||
+        type == 'LabScheduleChange' ||
+        combined.contains('lab') ||
+        metadata.containsKey('lab_request_id');
+
+    if (isLabNotification && (user?.hasPermission('view_lab_reports') ?? false)) {
+      await _openLabReportFromNotification(n, metadata);
+      return;
+    }
+
+    String targetRoute = AppRoutes.doctorDashboard;
+    if (type == 'ICUAlert' ||
+        combined.contains('icu') ||
+        combined.contains('ipd') ||
+        combined.contains('ward') ||
+        combined.contains('bed') ||
+        combined.contains('vitals') ||
+        combined.contains('admission') ||
+        metadata.containsKey('admission_id')) {
+      if (user?.hasPermission('ipd_doctor_rounds') ?? false) {
+        targetRoute = AppRoutes.doctorIpd;
+      }
+    } else if (combined.contains('surgery') ||
+        combined.contains('operation theatre') ||
+        combined.contains('anaesthesia') ||
+        combined.contains('anesthesia') ||
+        combined.contains('pac') ||
+        combined.contains('checklist') ||
+        combined.contains(' ot ')) {
+      if ((user?.hasPermission('ot_surgeries') ?? false) ||
+          (user?.hasPermission('ot_anaesthesia_pac') ?? false) ||
+          (user?.hasPermission('ot_who_checklist') ?? false)) {
+        targetRoute = AppRoutes.doctorOt;
+      }
+    } else if (combined.contains('appointment') ||
+        combined.contains('booking') ||
+        combined.contains('slot')) {
+      if (user?.hasPermission('book_appointment') ?? false) {
+        targetRoute = AppRoutes.doctorAppointments;
+      }
+    } else if (combined.contains('consultation') || combined.contains('opd')) {
+      if (user?.hasPermission('conduct_consultations') ?? false) {
+        targetRoute = AppRoutes.doctorPatients;
+      }
+    } else if (combined.contains('patient')) {
+      if (user?.hasPermission('view_patients') ?? false) {
+        targetRoute = AppRoutes.doctorPatientRegistry;
+      }
+    } else if (user?.hasPermission('view_lab_reports') ?? false) {
+      await _openLabReportFromNotification(n, metadata);
+      return;
+    }
+
+    _isEditingProfile = false;
+    context.go(targetRoute);
+  }
+
+  Future<void> _openLabReportFromNotification(
+    Map<String, dynamic> n,
+    Map<String, dynamic> metadata,
+  ) async {
+    if (!mounted) return;
+    setState(() {
+      _selectedIndex = 6;
+      _isEditingProfile = false;
+      _labStatusFilter = 'All';
+      _showOverduePanel = false;
+    });
+    context.go(AppRoutes.doctorLabReports);
+
+    await _fetchLabReports();
+    if (!mounted) return;
+
+    final consultationId = metadata['consultation_id']?.toString();
+    final labRequestId =
+        int.tryParse(metadata['lab_request_id']?.toString() ?? '');
+    String patientDisplayId =
+        (metadata['patient_display_id'] ?? '').toString().trim();
+    final patientName = (metadata['patient_name'] ?? '').toString().trim();
+    if (patientDisplayId.isEmpty) {
+      final msg = (n['message'] ?? '').toString();
+      final match = RegExp(r'\((SPMC-[A-Za-z0-9-]+)\)').firstMatch(msg);
+      if (match != null) {
+        patientDisplayId = match.group(1) ?? '';
+      }
+    }
+
+    List<Map<String, dynamic>> matchingReqs = [];
+    if (labRequestId != null) {
+      matchingReqs = _labReports.where((r) {
+        final id = r['id'] is int
+            ? r['id'] as int
+            : int.tryParse(r['id']?.toString() ?? '');
+        return id == labRequestId;
+      }).toList();
+    }
+    if (matchingReqs.isEmpty &&
+        consultationId != null &&
+        consultationId.isNotEmpty) {
+      matchingReqs = _labReports
+          .where((r) => r['consultation_id']?.toString() == consultationId)
+          .toList();
+    }
+    if (matchingReqs.isEmpty && patientDisplayId.isNotEmpty) {
+      final targetId = patientDisplayId.toLowerCase();
+      matchingReqs = _labReports.where((r) {
+        final pid = (r['patient_display_id'] ?? r['patient_id'] ?? '')
+            .toString()
+            .toLowerCase();
+        return pid == targetId;
+      }).toList();
+    }
+    if (matchingReqs.isEmpty && patientName.isNotEmpty) {
+      final targetName = patientName.toLowerCase();
+      matchingReqs = _labReports.where((r) {
+        final name = (r['patient_name'] ?? '').toString().toLowerCase();
+        return name == targetName || name.contains(targetName);
+      }).toList();
+    }
+
+    final searchTerm = patientDisplayId.isNotEmpty
+        ? patientDisplayId
+        : (patientName.isNotEmpty ? patientName : '');
+
+    setState(() {
+      if (matchingReqs.isNotEmpty) {
+        for (final req in matchingReqs) {
+          final groupKey =
+              req['consultation_id']?.toString() ?? 'single_${req['id']}';
+          _expandedLabGroupKeys.add(groupKey);
+          final testId = req['id'] is int
+              ? req['id'] as int
+              : int.tryParse(req['id']?.toString() ?? '');
+          if (testId != null && (req['status'] ?? '') == 'Completed') {
+            _expandedTestIds.add(testId);
+          }
+        }
+        // Also expand any other completed tests in the same consultation group.
+        final groupKeys = matchingReqs
+            .map((r) => r['consultation_id']?.toString() ?? 'single_${r['id']}')
+            .toSet();
+        for (final req in _labReports) {
+          final gKey =
+              req['consultation_id']?.toString() ?? 'single_${req['id']}';
+          if (groupKeys.contains(gKey) &&
+              (req['status'] ?? '') == 'Completed') {
+            final testId = req['id'] is int
+                ? req['id'] as int
+                : int.tryParse(req['id']?.toString() ?? '');
+            if (testId != null) {
+              _expandedTestIds.add(testId);
+            }
+          }
+        }
+      }
+
+      if (searchTerm.isNotEmpty) {
+        final lowerSearch = searchTerm.toLowerCase();
+        final searchMatches = _labReports.any((req) {
+          final pName = (req['patient_name'] ?? '').toString().toLowerCase();
+          final pId = (req['patient_display_id'] ?? req['patient_id'] ?? '')
+              .toString()
+              .toLowerCase();
+          return pName.contains(lowerSearch) || pId.contains(lowerSearch);
+        });
+        if (searchMatches) {
+          _labSearchController.text = searchTerm;
+          _labSearchQuery = searchTerm;
+        }
+      }
+    });
   }
 
   void _showSearchOverlay() {
@@ -5496,48 +5730,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // Notification Bell (rendered when space allows)
             if (width >= 320)
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  IconButton(
-                    icon: Icon(
-                      _notifications.any((n) => n['is_read'] == false)
-                          ? Icons.notifications_active_outlined
-                          : Icons.notifications_none_outlined,
-                      color: _notifications.any((n) => n['is_read'] == false)
-                          ? AppTheme.logoRed
-                          : AppTheme.textSecondaryColor,
-                    ),
-                    onPressed: _showNotificationsOverlay,
-                    tooltip: 'Notifications',
-                  ),
-                  if (_notifications.any((n) => n['is_read'] == false))
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 10,
-                          minHeight: 10,
-                        ),
-                      ),
-                    ),
-                ],
+              NotificationBellButton(
+                unreadCount: NotificationsDialog.countUnread(_notifications),
+                inactiveColor: AppTheme.textSecondaryColor,
+                activeColor: AppTheme.logoRed,
+                onPressed: _showNotificationsOverlay,
               ),
 
-            // Help & Share on larger screens
-            if (!isMedium && !isMobile) ...[
-              const SizedBox(width: 8),
+            // Help button (accessible on desktop, medium, and normal mobile widths)
+            if (width >= 380) ...[
+              const SizedBox(width: 4),
               IconButton(
-                icon: const Icon(Icons.help_outline, color: AppTheme.textSecondaryColor),
-                onPressed: () {},
+                icon: Icon(
+                  Icons.help_outline,
+                  color: AppTheme.getTextSecondaryColor(context),
+                ),
+                onPressed: _showDoctorHelpDialog,
                 tooltip: context.tr('help', fallback: 'Help'),
               ),
+            ],
+
+            // Share on larger screens
+            if (!isMedium && !isMobile) ...[
               const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: () {},
